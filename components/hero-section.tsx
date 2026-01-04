@@ -54,7 +54,7 @@ export function HeroSection({ media }: HeroSectionProps) {
 
       {/* Content */}
       <div className="relative z-10 flex min-h-screen items-end pb-24 pt-32">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[1800px] px-4 sm:px-8 lg:px-12">
           <div className="max-w-2xl animate-fade-in-up">
             {/* Logo or Title */}
             {media.logoUrl ? (
@@ -99,10 +99,9 @@ export function HeroSection({ media }: HeroSectionProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Watch Trailer Button - Primary */}
               <Button
                 size="lg"
-                className="group rounded-full bg-linear-to-r from-pink-500 to-rose-600 px-6 font-semibold text-white shadow-lg shadow-pink-500/30 transition-all hover:from-pink-600 hover:to-rose-700 hover:shadow-pink-500/50"
+                className="group rounded-full bg-[#E50914] px-6 font-semibold text-white shadow-lg shadow-[#E50914]/30 transition-all hover:bg-[#B20710] hover:shadow-[#E50914]/50"
               >
                 <HugeiconsIcon
                   icon={PlayIcon}

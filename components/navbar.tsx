@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,13 +37,31 @@ const navItems: NavItem[] = [
  * Navbar Component
  * Sticky navigation bar with logo, nav links, search, and sign-in button
  * Responsive with mobile hamburger menu
+ * Animates from transparent to solid black on scroll
  */
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50)
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <nav
+      className={cn(
+        "fixed left-0 right-0 top-0 z-50 transition-all duration-300",
+        isScrolled
+          ? "border-b border-white/10 bg-black/95 backdrop-blur-md"
+          : "border-b border-transparent bg-black/20 backdrop-blur-sm",
+      )}
+    >
+      <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
         <div className="flex h-16 items-center justify-between">
           {/* Left Section - Logo */}
           <div className="flex items-center gap-8">
@@ -52,7 +70,7 @@ export function Navbar() {
               className="flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               {/* Logo Icon */}
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br from-pink-500 to-rose-600">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E50914]">
                 <HugeiconsIcon
                   icon={Film01Icon}
                   className="size-5 text-white"
@@ -70,7 +88,7 @@ export function Navbar() {
                   className={cn(
                     "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     item.label === "Home"
-                      ? "text-pink-400"
+                      ? "text-[#E50914]"
                       : "text-gray-300 hover:bg-white/5 hover:text-white",
                   )}
                 >
@@ -91,7 +109,7 @@ export function Navbar() {
               <Input
                 type="text"
                 placeholder="Search..."
-                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 lg:w-64"
+                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-[#E50914]/50 focus:ring-[#E50914]/20 lg:w-64"
               />
             </div>
 
@@ -105,7 +123,7 @@ export function Navbar() {
             </Button>
 
             {/* Sign In Button */}
-            <Button className="rounded-full bg-linear-to-r from-pink-500 to-rose-600 px-4 font-semibold text-white shadow-lg shadow-pink-500/25 transition-all hover:from-pink-600 hover:to-rose-700 hover:shadow-pink-500/40">
+            <Button className="rounded-full bg-[#E50914] px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
               Sign In
             </Button>
 
@@ -140,7 +158,7 @@ export function Navbar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   item.label === "Home"
-                    ? "bg-pink-500/10 text-pink-400"
+                    ? "bg-[#E50914]/10 text-[#E50914]"
                     : "text-gray-300 hover:bg-white/5 hover:text-white",
                 )}
               >
