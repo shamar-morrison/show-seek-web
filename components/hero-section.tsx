@@ -163,13 +163,13 @@ export function HeroSection({
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 size="lg"
-                className="group bg-primary px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-[#B20710] hover:shadow-primary/50"
+                className="group bg-primary px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 hover:shadow-primary/50"
                 onClick={() => {
                   if (currentMedia.trailerKey && onWatchTrailer) {
                     onWatchTrailer(currentMedia)
                   }
                 }}
-                disabled={!currentMedia.trailerKey}
+                disabled={!currentMedia.trailerKey || !onWatchTrailer}
               >
                 <HugeiconsIcon
                   icon={PlayIcon}

@@ -12,6 +12,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
+import Link from "next/link"
 import { useState } from "react"
 
 interface MediaDetailHeroProps {
@@ -24,21 +25,29 @@ interface MediaDetailHeroProps {
 }
 
 /**
+ * Helper to get creators/directors with IDs
+ */
+interface Creator {
+  id: number
+  name: string
+}
+
+/**
  * Extracts director from movie credits
  */
-function getDirector(media: TMDBMovieDetails): string | null {
+function getDirector(media: TMDBMovieDetails): Creator[] {
   const director = media.credits?.crew.find((c) => c.job === "Director")
-  return director?.name || null
+  return director ? [{ id: director.id, name: director.name }] : []
 }
 
 /**
  * Extracts creator(s) from TV show details
  */
-function getCreator(media: TMDBTVDetails): string | null {
+function getCreator(media: TMDBTVDetails): Creator[] {
   if (media.created_by && media.created_by.length > 0) {
-    return media.created_by.map((c) => c.name).join(", ")
+    return media.created_by.map((c) => ({ id: c.id, name: c.name }))
   }
-  return null
+  return []
 }
 
 /**
@@ -106,14 +115,13 @@ export function MediaDetailHero({
     mediaType === "movie"
       ? (media as TMDBMovieDetails).release_date
       : (media as TMDBTVDetails).first_air_date
-  const releaseYear = releaseDate ? releaseDate.split("-")[0] : null
 
   const runtime =
     mediaType === "movie"
       ? formatRuntime((media as TMDBMovieDetails).runtime)
       : getTVRuntime((media as TMDBTVDetails).episode_run_time)
 
-  const creator =
+  const creators =
     mediaType === "movie"
       ? getDirector(media as TMDBMovieDetails)
       : getCreator(media as TMDBTVDetails)
@@ -212,13 +220,23 @@ export function MediaDetailHero({
                 </div>
 
                 {/* Director/Creator */}
-                {creator && (
-                  <p className="text-sm text-gray-400">
+                {creators.length > 0 && (
+                  <div className="text-sm text-gray-400">
                     <span className="font-medium text-gray-300">
-                      {creatorLabel}:
-                    </span>{" "}
-                    {creator}
-                  </p>
+                      {creatorLabel}:{" "}
+                    </span>
+                    {creators.map((c, i) => (
+                      <span key={c.id}>
+                        {i > 0 && ", "}
+                        <Link
+                          href={`/person/${c.id}`}
+                          className="hover:text-primary transition-colors"
+                        >
+                          {c.name}
+                        </Link>
+                      </span>
+                    ))}
+                  </div>
                 )}
 
                 {/* Overview */}
@@ -239,7 +257,7 @@ export function MediaDetailHero({
                       icon={PlayIcon}
                       className="size-5 transition-transform group-hover:scale-110"
                     />
-                    Watch Trailer
+                    Trailer
                   </Button>
 
                   {/* Mark as Watched - Secondary */}

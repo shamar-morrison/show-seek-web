@@ -1,8 +1,6 @@
-"use client"
-
+import { getSearchResultInfo } from "@/lib/media-info"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBSearchResult } from "@/types/tmdb"
-import { Film01Icon, Tv01Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 
@@ -16,39 +14,10 @@ interface SearchResultItemProps {
  * Displays a single search result with image, title, media type, year, and rating
  */
 export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
-  const isMovie = result.media_type === "movie"
-  const isTV = result.media_type === "tv"
-  const isPerson = result.media_type === "person"
+  const { title, imagePath, year, rating, mediaTypeLabel, MediaTypeIcon } =
+    getSearchResultInfo(result)
 
-  // Get display title
-  const title = result.title || result.name || "Unknown"
-
-  // Get image URL - use poster for movies/TV, profile for people
-  const imagePath = isPerson ? result.profile_path : result.poster_path
   const imageUrl = buildImageUrl(imagePath ?? null, "w92")
-
-  // Get release year
-  const dateStr = isMovie ? result.release_date : result.first_air_date
-  const year = dateStr ? dateStr.split("-")[0] : null
-
-  // Get rating (not applicable for people)
-  const rating =
-    result.vote_average && !isPerson
-      ? Math.round(result.vote_average * 10) / 10
-      : null
-
-  // Get media type label and icon
-  const getMediaTypeInfo = () => {
-    if (isMovie) {
-      return { label: "Movie", icon: Film01Icon }
-    }
-    if (isTV) {
-      return { label: "TV", icon: Tv01Icon }
-    }
-    return { label: result.known_for_department || "Person", icon: UserIcon }
-  }
-
-  const mediaTypeInfo = getMediaTypeInfo()
 
   return (
     <button
@@ -69,7 +38,7 @@ export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <HugeiconsIcon
-              icon={mediaTypeInfo.icon}
+              icon={MediaTypeIcon}
               className="size-5 text-gray-500"
             />
           </div>
@@ -87,8 +56,8 @@ export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
         <div className="flex items-center gap-2 text-xs text-gray-400">
           {/* Media type badge */}
           <span className="flex items-center gap-1">
-            <HugeiconsIcon icon={mediaTypeInfo.icon} className="size-3" />
-            {mediaTypeInfo.label}
+            <HugeiconsIcon icon={MediaTypeIcon} className="size-3" />
+            {mediaTypeLabel}
           </span>
 
           {/* Year */}

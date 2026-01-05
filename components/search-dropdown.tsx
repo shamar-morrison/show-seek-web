@@ -4,13 +4,20 @@ import { searchMedia } from "@/app/actions"
 import { SearchResultItem } from "@/components/search-result-item"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { debounce } from "@/lib/debounce"
+import { debounceWithCancel } from "@/lib/debounce"
 import { cn } from "@/lib/utils"
 import type { TMDBSearchResult } from "@/types/tmdb"
 import { Loading03Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 
 const DEBOUNCE_DELAY = 300
 const MAX_RESULTS = 6
@@ -50,12 +57,20 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
   }, [])
 
   // Debounced search
-  const debouncedSearch = useCallback(
-    debounce((searchQuery: string) => {
-      performSearch(searchQuery)
-    }, DEBOUNCE_DELAY),
+  const debouncedSearch = useMemo(
+    () =>
+      debounceWithCancel((searchQuery: string) => {
+        performSearch(searchQuery)
+      }, DEBOUNCE_DELAY),
     [performSearch],
   )
+
+  // Clean up pending search on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel()
+    }
+  }, [debouncedSearch])
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

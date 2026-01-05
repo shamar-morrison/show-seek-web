@@ -5,6 +5,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { debounceWithCancel } from "@/lib/debounce"
+import { getSearchResultInfo } from "@/lib/media-info"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
 import type {
@@ -300,6 +301,10 @@ export function SearchResultsClient({
   )
 }
 
+// ... imports remain ...
+
+// ... SearchResultsClient component remains ...
+
 /**
  * Search Result Card Component
  * Displays a single search result in a card format
@@ -313,35 +318,18 @@ function SearchResultCard({
   onWatchTrailer: (result: TMDBSearchResult) => void
   isLoading: boolean
 }) {
-  const isMovie = result.media_type === "movie"
-  const isTV = result.media_type === "tv"
-  const isPerson = result.media_type === "person"
+  const {
+    isPerson,
+    title,
+    imagePath,
+    year,
+    rating,
+    mediaTypeLabel,
+    MediaTypeIcon,
+    href,
+  } = getSearchResultInfo(result)
 
-  const title = result.title || result.name || "Unknown"
-  const imagePath = isPerson ? result.profile_path : result.poster_path
   const imageUrl = buildImageUrl(imagePath ?? null, "w342")
-
-  const dateStr = isMovie ? result.release_date : result.first_air_date
-  const year = dateStr ? dateStr.split("-")[0] : null
-
-  const rating =
-    result.vote_average && !isPerson
-      ? Math.round(result.vote_average * 10) / 10
-      : null
-
-  const href = isMovie
-    ? `/movie/${result.id}`
-    : isTV
-      ? `/tv/${result.id}`
-      : `/person/${result.id}`
-
-  const getMediaTypeInfo = () => {
-    if (isMovie) return { label: "Movie", icon: Film01Icon }
-    if (isTV) return { label: "TV Show", icon: Tv01Icon }
-    return { label: result.known_for_department || "Person", icon: UserIcon }
-  }
-
-  const mediaTypeInfo = getMediaTypeInfo()
 
   return (
     <Link href={href} className="group block">
@@ -359,7 +347,7 @@ function SearchResultCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <HugeiconsIcon
-                icon={mediaTypeInfo.icon}
+                icon={MediaTypeIcon}
                 className="size-12 text-gray-600"
               />
             </div>
@@ -373,8 +361,8 @@ function SearchResultCard({
           </h3>
           <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
             <span className="flex items-center gap-1">
-              <HugeiconsIcon icon={mediaTypeInfo.icon} className="size-3" />
-              {mediaTypeInfo.label}
+              <HugeiconsIcon icon={MediaTypeIcon} className="size-3" />
+              {mediaTypeLabel}
             </span>
             {year && (
               <>

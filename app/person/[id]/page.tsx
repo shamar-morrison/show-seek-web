@@ -58,7 +58,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
     <main className="min-h-screen bg-black text-white pt-28">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8 md:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-8 lg:px-12">
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Left Sidebar (Profile Info) */}
           <div className="w-full md:w-1/4 lg:w-1/5">
@@ -84,7 +84,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
               {/* Add to Favorite Button */}
               <Button
                 size="lg"
-                className="group w-full justify-start gap-2 bg-primary px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-[#B20710] hover:shadow-primary/50"
+                className="group w-full justify-center gap-2 bg-primary px-6 font-semibold text-white transition-all hover:shadow-primary/50"
               >
                 <HugeiconsIcon
                   icon={FavouriteIcon}
