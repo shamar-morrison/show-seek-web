@@ -1,41 +1,14 @@
+import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
-import { getMediaVideos, getTVDetails } from "@/lib/tmdb"
+import { getBestTrailer, getMediaVideos, getTVDetails } from "@/lib/tmdb"
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 interface TVPageProps {
   params: Promise<{
     id: string
   }>
-}
-
-/**
- * Get best trailer key from videos response
- */
-function getBestTrailerKey(
-  videos: {
-    results: Array<{
-      site: string
-      key: string
-      type: string
-      official: boolean
-    }>
-  } | null,
-): string | null {
-  if (!videos || !videos.results) return null
-
-  const youtubeVideos = videos.results.filter(
-    (v) => v.site === "YouTube" && v.key,
-  )
-  if (youtubeVideos.length === 0) return null
-
-  const trailer =
-    youtubeVideos.find((v) => v.type === "Trailer" && v.official) ||
-    youtubeVideos.find((v) => v.type === "Trailer") ||
-    youtubeVideos.find((v) => v.type === "Teaser") ||
-    youtubeVideos[0]
-
-  return trailer?.key || null
 }
 
 /**
@@ -60,12 +33,19 @@ export default async function TVPage({ params }: TVPageProps) {
     notFound()
   }
 
-  const trailerKey = getBestTrailerKey(videos)
+  const trailerKey = getBestTrailer(videos)
+  const cast = tvShow.credits?.cast || []
 
   return (
     <main className="min-h-screen bg-black">
       <Navbar />
       <MediaDetailHero media={tvShow} mediaType="tv" trailerKey={trailerKey} />
+      <CastRow
+        title="Cast"
+        cast={cast}
+        href={`/tv/${tvId}/credits`}
+        limit={15}
+      />
     </main>
   )
 }
@@ -73,7 +53,9 @@ export default async function TVPage({ params }: TVPageProps) {
 /**
  * Generate metadata for SEO
  */
-export async function generateMetadata({ params }: TVPageProps) {
+export async function generateMetadata({
+  params,
+}: TVPageProps): Promise<Metadata> {
   const { id } = await params
   const tvId = parseInt(id, 10)
 

@@ -4,14 +4,14 @@
  */
 
 import type {
-  TMDBConfiguration,
-  TMDBMedia,
-  TMDBTrendingResponse,
-  TMDBImagesResponse,
-  TMDBVideosResponse,
-  TMDBMovieDetails,
-  TMDBTVDetails,
   HeroMedia,
+  TMDBConfiguration,
+  TMDBImagesResponse,
+  TMDBMedia,
+  TMDBMovieDetails,
+  TMDBTrendingResponse,
+  TMDBTVDetails,
+  TMDBVideosResponse,
 } from "@/types/tmdb"
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY
@@ -274,7 +274,9 @@ export async function getMediaVideos(
  * @param videos - Videos response from TMDB
  * @returns YouTube video key or null
  */
-function getBestTrailer(videos: TMDBVideosResponse | null): string | null {
+export function getBestTrailer(
+  videos: TMDBVideosResponse | null,
+): string | null {
   if (!videos || !videos.results || videos.results.length === 0) {
     return null
   }
