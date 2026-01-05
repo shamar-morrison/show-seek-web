@@ -3,7 +3,11 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { HeroMedia } from "@/types/tmdb"
-import { InformationCircleIcon, PlayIcon } from "@hugeicons/core-free-icons"
+import {
+  InformationCircleIcon,
+  PlayIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -148,7 +152,10 @@ export function HeroSection({
               </span>
               {currentMedia.voteAverage > 0 && (
                 <span className="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2.5 py-1 text-sm font-medium text-yellow-400 backdrop-blur-sm">
-                  <span className="text-yellow-500">★</span>
+                  <HugeiconsIcon
+                    icon={StarIcon}
+                    className="size-3 fill-yellow-500"
+                  />
                   {currentMedia.voteAverage}
                 </span>
               )}

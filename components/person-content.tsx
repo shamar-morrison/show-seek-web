@@ -19,7 +19,28 @@ export function PersonContent({ person }: PersonContentProps) {
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
 
-  const credits = person.combined_credits?.cast || []
+  const knownFor = person.known_for_department
+  const isDirecting = knownFor === "Directing"
+  const isWriting = knownFor === "Writing"
+
+  let credits: any[] = []
+  let creditLabel = "Acting"
+
+  if (isDirecting) {
+    credits =
+      person.combined_credits?.crew.filter(
+        (c) => c.department === "Directing",
+      ) || []
+    creditLabel = "Directing"
+  } else if (isWriting) {
+    credits =
+      person.combined_credits?.crew.filter((c) => c.department === "Writing") ||
+      []
+    creditLabel = "Writing"
+  } else {
+    credits = person.combined_credits?.cast || []
+    creditLabel = "Acting"
+  }
 
   // Split credits
   const movieCredits = credits
@@ -115,7 +136,7 @@ export function PersonContent({ person }: PersonContentProps) {
 
       {/* Header for list */}
       <h2 className="mb-6 text-xl font-bold text-white">
-        {activeTab === "movie" ? "Movie" : "TV Show"} Appearances (Acting)
+        {activeTab === "movie" ? "Movie" : "TV Show"} Credits ({creditLabel})
       </h2>
 
       {/* Grid */}
@@ -127,6 +148,7 @@ export function PersonContent({ person }: PersonContentProps) {
             buttonText="Trailer"
             onWatchTrailer={handleWatchTrailer}
             isLoading={loadingMediaId === media.id}
+            showRating={true}
           />
         ))}
 

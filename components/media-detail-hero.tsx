@@ -198,9 +198,12 @@ export function MediaDetailHero({
                 <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-300 lg:justify-start">
                   {/* Rating */}
                   {rating > 0 && (
-                    <span className="flex items-center gap-1 font-medium">
-                      <span className="text-yellow-500">★</span>
-                      {rating} / 10
+                    <span className="flex items-center gap-1 font-medium text-yellow-500">
+                      <HugeiconsIcon
+                        icon={StarIcon}
+                        className="size-3 fill-yellow-500"
+                      />
+                      <span className="text-gray-300">{rating} / 10</span>
                     </span>
                   )}
                   {/* Release Date */}
