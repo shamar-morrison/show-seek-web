@@ -7,9 +7,12 @@ import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
+  CalendarIcon,
   CheckmarkCircle02Icon,
+  InformationCircleIcon,
   Note01Icon,
   StarIcon,
+  Tv01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
@@ -205,7 +208,10 @@ export function MediaDetailHero({
                   {/* Release Date */}
                   {releaseDate && (
                     <span className="flex items-center gap-1">
-                      <span className="text-gray-500">📅</span>
+                      <HugeiconsIcon
+                        icon={CalendarIcon}
+                        className="size-4 text-gray-500"
+                      />
                       {formatDate(releaseDate)}
                     </span>
                   )}
@@ -216,6 +222,29 @@ export function MediaDetailHero({
                       {runtime}
                     </span>
                   )}
+                  {/* Episode Count (TV only) */}
+                  {mediaType === "tv" &&
+                    (media as TMDBTVDetails).number_of_episodes > 0 && (
+                      <span className="flex items-center gap-1">
+                        <HugeiconsIcon
+                          icon={Tv01FreeIcons}
+                          className="size-4 text-gray-500"
+                        />
+                        {(media as TMDBTVDetails).number_of_episodes} Eps
+                      </span>
+                    )}
+                  {/* Status (TV only - when Ended or Canceled) */}
+                  {mediaType === "tv" &&
+                    ((media as TMDBTVDetails).status === "Ended" ||
+                      (media as TMDBTVDetails).status === "Canceled") && (
+                      <span className="flex items-center gap-1">
+                        <HugeiconsIcon
+                          icon={InformationCircleIcon}
+                          className="size-4 text-gray-500"
+                        />
+                        {(media as TMDBTVDetails).status}
+                      </span>
+                    )}
                 </div>
 
                 {/* Director/Creator */}
