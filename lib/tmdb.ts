@@ -457,7 +457,7 @@ export async function getMovieDetails(
 
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits`,
+      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits,release_dates`,
       { next: { revalidate: 3600 } }, // Cache for 1 hour
     )
 
@@ -487,7 +487,7 @@ export async function getTVDetails(
 
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}&append_to_response=credits`,
+      `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}&append_to_response=credits,content_ratings`,
       { next: { revalidate: 3600 } }, // Cache for 1 hour
     )
 

@@ -1,5 +1,6 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
+import { MediaDetails } from "@/components/media-details"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
@@ -74,6 +75,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
       <VideosSection mediaId={movieId} mediaType="movie" />
       <RecommendationsSection mediaId={movieId} mediaType="movie" />
       <ReviewsSection mediaId={movieId} mediaType="movie" />
+      <MediaDetails media={movie} mediaType="movie" />
     </main>
   )
 }

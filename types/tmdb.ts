@@ -139,11 +139,66 @@ export interface TMDBCredits {
   crew: CrewMember[]
 }
 
+/** Production company */
+export interface ProductionCompany {
+  id: number
+  name: string
+  logo_path: string | null
+  origin_country: string
+}
+
+/** Production country */
+export interface ProductionCountry {
+  iso_3166_1: string
+  name: string
+}
+
+/** Spoken language */
+export interface SpokenLanguage {
+  iso_639_1: string
+  name: string
+  english_name: string
+}
+
+/** Movie release date with certification */
+export interface TMDBMovieReleaseDate {
+  certification: string
+  iso_639_1: string
+  release_date: string
+  type: number
+}
+
+/** Movie release dates for a country */
+export interface TMDBMovieReleaseDateCountry {
+  iso_3166_1: string
+  release_dates: TMDBMovieReleaseDate[]
+}
+
+/** Movie release dates response */
+export interface TMDBMovieReleaseDatesResponse {
+  id: number
+  results: TMDBMovieReleaseDateCountry[]
+}
+
+/** TV content rating for a country */
+export interface TMDBTVContentRating {
+  descriptors: string[]
+  iso_3166_1: string
+  rating: string
+}
+
+/** TV content ratings response */
+export interface TMDBTVContentRatingsResponse {
+  id: number
+  results: TMDBTVContentRating[]
+}
+
 /** Full movie details response */
 export interface TMDBMovieDetails {
   id: number
   title: string
   original_title: string
+  original_language: string
   overview: string
   poster_path: string | null
   backdrop_path: string | null
@@ -154,7 +209,11 @@ export interface TMDBMovieDetails {
   genres: Genre[]
   status: string
   tagline: string | null
+  production_companies: ProductionCompany[]
+  production_countries: ProductionCountry[]
+  spoken_languages: SpokenLanguage[]
   credits?: TMDBCredits
+  release_dates?: TMDBMovieReleaseDatesResponse
 }
 
 /** Created by person for TV shows */
@@ -169,6 +228,7 @@ export interface TMDBTVDetails {
   id: number
   name: string
   original_name: string
+  original_language: string
   overview: string
   poster_path: string | null
   backdrop_path: string | null
@@ -184,7 +244,11 @@ export interface TMDBTVDetails {
   number_of_episodes: number
   seasons: TMDBSeason[]
   created_by: CreatedBy[]
+  production_companies: ProductionCompany[]
+  production_countries: ProductionCountry[]
+  spoken_languages: SpokenLanguage[]
   credits?: TMDBCredits
+  content_ratings?: TMDBTVContentRatingsResponse
 }
 
 export interface TMDBSeason {
