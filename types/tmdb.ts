@@ -107,3 +107,81 @@ export interface TMDBError {
   status_message: string
   success: boolean
 }
+
+/** Genre object */
+export interface Genre {
+  id: number
+  name: string
+}
+
+/** Crew member from credits */
+export interface CrewMember {
+  id: number
+  name: string
+  job: string
+  department: string
+  profile_path: string | null
+}
+
+/** Cast member from credits */
+export interface CastMember {
+  id: number
+  name: string
+  character: string
+  profile_path: string | null
+  order: number
+}
+
+/** Credits response */
+export interface TMDBCredits {
+  id: number
+  cast: CastMember[]
+  crew: CrewMember[]
+}
+
+/** Full movie details response */
+export interface TMDBMovieDetails {
+  id: number
+  title: string
+  original_title: string
+  overview: string
+  poster_path: string | null
+  backdrop_path: string | null
+  release_date: string
+  runtime: number | null
+  vote_average: number
+  vote_count: number
+  genres: Genre[]
+  status: string
+  tagline: string | null
+  credits?: TMDBCredits
+}
+
+/** Created by person for TV shows */
+export interface CreatedBy {
+  id: number
+  name: string
+  profile_path: string | null
+}
+
+/** Full TV show details response */
+export interface TMDBTVDetails {
+  id: number
+  name: string
+  original_name: string
+  overview: string
+  poster_path: string | null
+  backdrop_path: string | null
+  first_air_date: string
+  last_air_date: string | null
+  episode_run_time: number[]
+  vote_average: number
+  vote_count: number
+  genres: Genre[]
+  status: string
+  tagline: string | null
+  number_of_seasons: number
+  number_of_episodes: number
+  created_by: CreatedBy[]
+  credits?: TMDBCredits
+}

@@ -9,6 +9,8 @@ import type {
   TMDBTrendingResponse,
   TMDBImagesResponse,
   TMDBVideosResponse,
+  TMDBMovieDetails,
+  TMDBTVDetails,
   HeroMedia,
 } from "@/types/tmdb"
 
@@ -430,5 +432,65 @@ export async function getHeroMediaList(
   } catch (error) {
     console.error("Failed to get hero media list:", error)
     return []
+  }
+}
+
+/**
+ * Fetch full movie details including credits
+ * @param movieId - TMDB movie ID
+ * @returns Movie details with credits or null
+ */
+export async function getMovieDetails(
+  movieId: number,
+): Promise<TMDBMovieDetails | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch movie details:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch full TV show details including credits
+ * @param tvId - TMDB TV show ID
+ * @returns TV show details with credits or null
+ */
+export async function getTVDetails(
+  tvId: number,
+): Promise<TMDBTVDetails | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}&append_to_response=credits`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch TV details:", error)
+    return null
   }
 }

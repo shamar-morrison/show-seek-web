@@ -1,5 +1,3 @@
-"use client"
-
 import Link from "next/link"
 import { Film01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
