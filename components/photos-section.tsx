@@ -2,10 +2,11 @@
 
 import { fetchMediaImages } from "@/app/actions"
 import { PhotoLightbox } from "@/components/photo-lightbox"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBLogo } from "@/types/tmdb"
 import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 
 interface PhotosSectionProps {
   /** TMDB media ID */
@@ -26,33 +27,8 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
   const [hasLoaded, setHasLoaded] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const sectionRef = useRef<HTMLElement>(null)
 
-  // Lazy load images when section comes into view
-  useEffect(() => {
-    if (hasLoaded) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !hasLoaded && !isLoading) {
-          loadImages()
-        }
-      },
-      {
-        rootMargin: "200px", // Start loading 200px before visible
-        threshold: 0,
-      },
-    )
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current)
-    }
-
-    return () => observer.disconnect()
-  }, [hasLoaded, isLoading, mediaId, mediaType])
-
-  const loadImages = async () => {
+  const loadImages = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await fetchMediaImages(mediaId, mediaType)
@@ -67,7 +43,10 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
       setIsLoading(false)
       setHasLoaded(true)
     }
-  }
+  }, [mediaId, mediaType])
+
+  // Lazy load images when section comes into view
+  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(loadImages)
 
   // Determine which images to display
   const displayImages = showAll ? images : images.slice(0, INITIAL_LIMIT)
@@ -77,7 +56,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
   if (hasLoaded && images.length === 0) return null
 
   return (
-    <section ref={sectionRef} className="py-8">
+    <section ref={sectionRef as React.RefObject<HTMLElement>} className="py-8">
       {/* Header */}
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Photos</h2>

@@ -1,11 +1,9 @@
 "use client"
 
-import { fetchTrailerKey } from "@/app/actions"
 import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
+import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
-import { useState } from "react"
-import { toast } from "sonner"
 
 interface SimilarMediaProps {
   /** Title for the section (e.g., "Similar Movies" or "Similar Shows") */
@@ -22,37 +20,11 @@ interface SimilarMediaProps {
  * Used on detail pages to show similar movies/shows with working trailer buttons
  */
 export function SimilarMedia({ title, items, mediaType }: SimilarMediaProps) {
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
-  const [activeTrailer, setActiveTrailer] = useState<{
-    key: string
-    title: string
-  } | null>(null)
-  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+  const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
+    useTrailer()
 
-  // Handle opening trailer (fetch on demand)
-  const handleWatchTrailer = async (media: TMDBMedia) => {
-    const mediaTitle = media.title || media.name || "Trailer"
-
-    setLoadingMediaId(media.id)
-
-    try {
-      const key = await fetchTrailerKey(media.id, mediaType)
-
-      if (key) {
-        setActiveTrailer({
-          key,
-          title: mediaTitle,
-        })
-        setIsTrailerOpen(true)
-      } else {
-        toast.error(`No trailer available for ${mediaTitle}`)
-      }
-    } catch (error) {
-      console.error("Error fetching trailer:", error)
-      toast.error("Failed to load trailer")
-    } finally {
-      setLoadingMediaId(null)
-    }
+  const handleWatchTrailer = (media: TMDBMedia) => {
+    watchTrailer(media.id, mediaType, media.title || media.name || "Trailer")
   }
 
   if (!items || items.length === 0) return null
@@ -69,11 +41,8 @@ export function SimilarMedia({ title, items, mediaType }: SimilarMediaProps) {
 
       <TrailerModal
         videoKey={activeTrailer?.key || null}
-        isOpen={isTrailerOpen}
-        onClose={() => {
-          setIsTrailerOpen(false)
-          setActiveTrailer(null)
-        }}
+        isOpen={isOpen}
+        onClose={closeTrailer}
         title={activeTrailer?.title || "Trailer"}
       />
     </>

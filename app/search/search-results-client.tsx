@@ -1,9 +1,10 @@
 "use client"
 
-import { fetchTrailerKey, searchMedia } from "@/app/actions"
+import { searchMedia } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useTrailer } from "@/hooks/use-trailer"
 import { debounceWithCancel } from "@/lib/debounce"
 import { getSearchResultInfo } from "@/lib/media-info"
 import { buildImageUrl } from "@/lib/tmdb"
@@ -33,7 +34,6 @@ import {
   useState,
   useTransition,
 } from "react"
-import { toast } from "sonner"
 
 const DEBOUNCE_DELAY = 300
 
@@ -71,38 +71,19 @@ export function SearchResultsClient({
   const [results, setResults] = useState(initialResults)
   const [activeTab, setActiveTab] = useState<TabType>("all")
   const [isPending, startTransition] = useTransition()
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
-  const [activeTrailer, setActiveTrailer] = useState<{
-    key: string
-    title: string
-  } | null>(null)
-  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+
+  // Trailer hook for modal state
+  const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
+    useTrailer()
 
   // Handle watch trailer
-  const handleWatchTrailer = async (result: TMDBSearchResult) => {
+  const handleWatchTrailer = (result: TMDBSearchResult) => {
     if (result.media_type === "person") return
-
-    const title = result.title || result.name || "Trailer"
-    setLoadingMediaId(result.id)
-
-    try {
-      const key = await fetchTrailerKey(result.id, result.media_type)
-
-      if (key) {
-        setActiveTrailer({
-          key,
-          title,
-        })
-        setIsTrailerOpen(true)
-      } else {
-        toast.error(`No trailer available for ${title}`)
-      }
-    } catch (error) {
-      console.error("Error fetching trailer:", error)
-      toast.error("Failed to fetch trailer")
-    } finally {
-      setLoadingMediaId(null)
-    }
+    watchTrailer(
+      result.id,
+      result.media_type,
+      result.title || result.name || "Trailer",
+    )
   }
 
   // Perform search
@@ -297,11 +278,8 @@ export function SearchResultsClient({
       )}
       <TrailerModal
         videoKey={activeTrailer?.key || null}
-        isOpen={isTrailerOpen}
-        onClose={() => {
-          setIsTrailerOpen(false)
-          setActiveTrailer(null)
-        }}
+        isOpen={isOpen}
+        onClose={closeTrailer}
         title={activeTrailer?.title || "Trailer"}
       />
     </div>

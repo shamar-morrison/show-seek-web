@@ -1,11 +1,12 @@
 "use client"
 
-import { fetchRecommendations, fetchTrailerKey } from "@/app/actions"
+import { fetchRecommendations } from "@/app/actions"
 import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
-import { useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { useCallback, useState } from "react"
 
 interface RecommendationsSectionProps {
   /** TMDB media ID */
@@ -25,39 +26,12 @@ export function RecommendationsSection({
   const [recommendations, setRecommendations] = useState<TMDBMedia[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasLoaded, setHasLoaded] = useState(false)
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
-  const [activeTrailer, setActiveTrailer] = useState<{
-    key: string
-    title: string
-  } | null>(null)
-  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
 
-  // Lazy load recommendations when section comes into view
-  useEffect(() => {
-    if (hasLoaded) return
+  // Trailer hook for modal state
+  const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
+    useTrailer()
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !hasLoaded && !isLoading) {
-          loadRecommendations()
-        }
-      },
-      {
-        rootMargin: "200px",
-        threshold: 0,
-      },
-    )
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current)
-    }
-
-    return () => observer.disconnect()
-  }, [hasLoaded, isLoading, mediaId, mediaType])
-
-  const loadRecommendations = async () => {
+  const loadRecommendations = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await fetchRecommendations(mediaId, mediaType)
@@ -68,34 +42,22 @@ export function RecommendationsSection({
       setIsLoading(false)
       setHasLoaded(true)
     }
-  }
+  }, [mediaId, mediaType])
+
+  // Lazy load when section comes into view
+  const { ref: sectionRef } =
+    useIntersectionObserver<HTMLDivElement>(loadRecommendations)
 
   // Handle trailer playback
-  const handleWatchTrailer = async (media: TMDBMedia) => {
-    const mediaTitle = media.title || media.name || "Trailer"
-    setLoadingMediaId(media.id)
-
-    try {
-      const key = await fetchTrailerKey(media.id, mediaType)
-      if (key) {
-        setActiveTrailer({ key, title: mediaTitle })
-        setIsTrailerOpen(true)
-      } else {
-        toast.error(`No trailer available for ${mediaTitle}`)
-      }
-    } catch (error) {
-      console.error("Error fetching trailer:", error)
-      toast.error("Failed to load trailer")
-    } finally {
-      setLoadingMediaId(null)
-    }
+  const handleWatchTrailer = (media: TMDBMedia) => {
+    watchTrailer(media.id, mediaType, media.title || media.name || "Trailer")
   }
 
   // Don't render section if loaded and no recommendations
   if (hasLoaded && recommendations.length === 0) return null
 
   return (
-    <div ref={sectionRef}>
+    <div ref={sectionRef as React.RefObject<HTMLDivElement>}>
       {isLoading || !hasLoaded ? (
         /* Loading Skeleton */
         <section className="py-8">
@@ -125,11 +87,8 @@ export function RecommendationsSection({
 
       <TrailerModal
         videoKey={activeTrailer?.key || null}
-        isOpen={isTrailerOpen}
-        onClose={() => {
-          setIsTrailerOpen(false)
-          setActiveTrailer(null)
-        }}
+        isOpen={isOpen}
+        onClose={closeTrailer}
         title={activeTrailer?.title || "Trailer"}
       />
     </div>

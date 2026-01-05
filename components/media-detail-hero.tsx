@@ -1,6 +1,7 @@
 "use client"
 
 import { TrailerModal } from "@/components/trailer-modal"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { buildImageUrl } from "@/lib/tmdb"
@@ -185,12 +186,7 @@ export function MediaDetailHero({
                 <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                   {/* Genres */}
                   {genres.slice(0, 3).map((genre: Genre) => (
-                    <span
-                      key={genre.id}
-                      className="rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium text-gray-300 backdrop-blur-sm"
-                    >
-                      {genre.name}
-                    </span>
+                    <Badge key={genre.id}>{genre.name}</Badge>
                   ))}
                 </div>
 

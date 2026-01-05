@@ -1,9 +1,10 @@
 "use client"
 
+import { Badge } from "@/components/ui/badge"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { cn } from "@/lib/utils"
 import type { HeroMedia } from "@/types/tmdb"
-import { InformationCircleIcon, StarIcon } from "@hugeicons/core-free-icons"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -139,21 +140,13 @@ export function HeroSection({
             {/* Metadata Badges */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
               {currentMedia.releaseYear && (
-                <span className="rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium text-gray-300 backdrop-blur-sm">
-                  {currentMedia.releaseYear}
-                </span>
+                <Badge>{currentMedia.releaseYear}</Badge>
               )}
-              <span className="rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium uppercase text-gray-300 backdrop-blur-sm">
+              <Badge className="uppercase">
                 {currentMedia.mediaType === "movie" ? "Movie" : "TV Series"}
-              </span>
+              </Badge>
               {currentMedia.voteAverage > 0 && (
-                <span className="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2.5 py-1 text-sm font-medium text-yellow-400 backdrop-blur-sm">
-                  <HugeiconsIcon
-                    icon={StarIcon}
-                    className="size-3 fill-yellow-500"
-                  />
-                  {currentMedia.voteAverage}
-                </span>
+                <Badge variant="rating">{currentMedia.voteAverage}</Badge>
               )}
             </div>
 

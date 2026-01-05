@@ -2,10 +2,11 @@
 
 import { fetchMediaVideos } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import type { TMDBVideo } from "@/types/tmdb"
 import { PlayIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 
 interface VideosSectionProps {
   /** TMDB media ID */
@@ -33,33 +34,8 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
   const [hasLoaded, setHasLoaded] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [activeVideo, setActiveVideo] = useState<TMDBVideo | null>(null)
-  const sectionRef = useRef<HTMLElement>(null)
 
-  // Lazy load videos when section comes into view
-  useEffect(() => {
-    if (hasLoaded) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !hasLoaded && !isLoading) {
-          loadVideos()
-        }
-      },
-      {
-        rootMargin: "200px",
-        threshold: 0,
-      },
-    )
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current)
-    }
-
-    return () => observer.disconnect()
-  }, [hasLoaded, isLoading, mediaId, mediaType])
-
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await fetchMediaVideos(mediaId, mediaType)
@@ -76,7 +52,10 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
       setIsLoading(false)
       setHasLoaded(true)
     }
-  }
+  }, [mediaId, mediaType])
+
+  // Lazy load videos when section comes into view
+  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(loadVideos)
 
   // Determine which videos to display
   const displayVideos = showAll ? videos : videos.slice(0, INITIAL_LIMIT)
@@ -86,7 +65,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
   if (hasLoaded && videos.length === 0) return null
 
   return (
-    <section ref={sectionRef} className="py-8">
+    <section ref={sectionRef as React.RefObject<HTMLElement>} className="py-8">
       {/* Header */}
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Videos</h2>
