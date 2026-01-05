@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/navbar"
+import { PageContainer } from "@/components/page-container"
 import { PersonContent } from "@/components/person-content"
 import { Button } from "@/components/ui/button"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
@@ -58,7 +59,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
     <main className="min-h-screen bg-black text-white pt-28">
       <Navbar />
 
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-8 lg:px-12">
+      <PageContainer className="py-8">
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Left Sidebar (Profile Info) */}
           <div className="w-full md:w-1/4 lg:w-1/5">
@@ -153,7 +154,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
             <PersonContent person={person} />
           </div>
         </div>
-      </div>
+      </PageContainer>
     </main>
   )
 }

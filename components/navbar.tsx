@@ -80,13 +80,13 @@ export function Navbar() {
             </Link>
 
             {/* Center Section - Navigation (Desktop) */}
-            <div className="hidden items-center gap-1 md:flex">
+            <div className="hidden items-center gap-1 lg:flex">
               {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
                     item.label === "Home"
                       ? "text-primary"
                       : "text-gray-300 hover:bg-white/5 hover:text-white",
@@ -121,7 +121,7 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-gray-300 hover:bg-white/5 hover:text-white md:hidden"
+              className="text-gray-300 hover:bg-white/5 hover:text-white lg:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <HugeiconsIcon
@@ -135,7 +135,7 @@ export function Navbar() {
         {/* Mobile Navigation Menu */}
         <div
           className={cn(
-            "overflow-hidden transition-all duration-300 ease-in-out md:hidden",
+            "overflow-hidden transition-all duration-300 ease-in-out lg:hidden",
             isMobileMenuOpen ? "max-h-96 pb-4" : "max-h-0",
           )}
         >
