@@ -3,6 +3,7 @@ import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { SimilarMedia } from "@/components/similar-media"
+import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
 import {
   getBestTrailer,
@@ -68,6 +69,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
         mediaType="movie"
       />
       <PhotosSection mediaId={movieId} mediaType="movie" />
+      <VideosSection mediaId={movieId} mediaType="movie" />
     </main>
   )
 }

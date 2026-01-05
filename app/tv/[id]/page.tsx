@@ -3,6 +3,7 @@ import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { SimilarMedia } from "@/components/similar-media"
+import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
 import {
   getBestTrailer,
@@ -60,6 +61,7 @@ export default async function TVPage({ params }: TVPageProps) {
       <WatchProviders providers={watchProviders} />
       <SimilarMedia title="Similar Shows" items={similarShows} mediaType="tv" />
       <PhotosSection mediaId={tvId} mediaType="tv" />
+      <VideosSection mediaId={tvId} mediaType="tv" />
     </main>
   )
 }

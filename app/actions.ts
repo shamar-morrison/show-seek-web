@@ -52,3 +52,19 @@ export async function fetchMediaImages(
     return null
   }
 }
+
+/**
+ * Server action to fetch media videos.
+ * Used for lazy-loading the videos section.
+ */
+export async function fetchMediaVideos(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+) {
+  try {
+    return await getMediaVideos(mediaId, mediaType)
+  } catch (error) {
+    console.error("Server Action: Failed to fetch media videos", error)
+    return null
+  }
+}
