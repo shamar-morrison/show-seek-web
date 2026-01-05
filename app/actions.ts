@@ -1,6 +1,6 @@
 "use server"
 
-import { getMediaVideos, multiSearch } from "@/lib/tmdb"
+import { getBestTrailer, getMediaVideos, multiSearch } from "@/lib/tmdb"
 
 /**
  * Server action to search for media.
@@ -17,7 +17,7 @@ export async function searchMedia(query: string) {
 
 /**
  * Server action to fetch a trailer for a specific media item.
- * This wraps the server-only getMediaVideos function.
+ * This wraps the server-only getMediaVideos function and uses getBestTrailer.
  */
 export async function fetchTrailerKey(
   mediaId: number,
@@ -25,21 +25,7 @@ export async function fetchTrailerKey(
 ) {
   try {
     const videos = await getMediaVideos(mediaId, mediaType)
-
-    if (!videos || !videos.results) return null
-
-    // Logic to find the best trailer (matches lib/tmdb.ts logic)
-    const youtubeVideos = videos.results.filter(
-      (v) => v.site === "YouTube" && v.key,
-    )
-
-    const trailer =
-      youtubeVideos.find((v) => v.type === "Trailer" && v.official) ||
-      youtubeVideos.find((v) => v.type === "Trailer") ||
-      youtubeVideos.find((v) => v.type === "Teaser") ||
-      youtubeVideos[0]
-
-    return trailer?.key || null
+    return getBestTrailer(videos)
   } catch (error) {
     console.error("Server Action: Failed to fetch trailer", error)
     return null

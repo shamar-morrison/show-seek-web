@@ -2,12 +2,7 @@
 
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBSearchResult } from "@/types/tmdb"
-import {
-  Film01Icon,
-  StarIcon,
-  Tv01Icon,
-  UserIcon,
-} from "@hugeicons/core-free-icons"
+import { Film01Icon, Tv01Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 
@@ -109,7 +104,7 @@ export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
             <>
               <span className="text-gray-600">•</span>
               <span className="flex items-center gap-0.5 text-yellow-500">
-                <HugeiconsIcon icon={StarIcon} className="size-3" />
+                <span className="text-xs text-yellow-500">★</span>
                 {rating}
               </span>
             </>

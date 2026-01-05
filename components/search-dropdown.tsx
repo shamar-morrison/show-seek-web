@@ -202,7 +202,7 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
           )}
 
           {/* View All Results Button */}
-          {(hasResults || showNoResults) && query.trim() && (
+          {hasResults && query.trim() && (
             <div className="border-t border-white/10 p-2">
               <Button
                 variant="ghost"

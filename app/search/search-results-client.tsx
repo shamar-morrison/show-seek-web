@@ -1,9 +1,10 @@
 "use client"
 
-import { searchMedia } from "@/app/actions"
+import { fetchTrailerKey, searchMedia } from "@/app/actions"
+import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { debounce } from "@/lib/debounce"
+import { debounceWithCancel } from "@/lib/debounce"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
 import type {
@@ -14,8 +15,8 @@ import type {
 import {
   Film01Icon,
   Loading03Icon,
+  PlayIcon,
   Search01Icon,
-  StarIcon,
   Tv01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -23,7 +24,15 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
+import { toast } from "sonner"
 
 const DEBOUNCE_DELAY = 300
 
@@ -61,6 +70,39 @@ export function SearchResultsClient({
   const [results, setResults] = useState(initialResults)
   const [activeTab, setActiveTab] = useState<TabType>("all")
   const [isPending, startTransition] = useTransition()
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
+  const [activeTrailer, setActiveTrailer] = useState<{
+    key: string
+    title: string
+  } | null>(null)
+  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+
+  // Handle watch trailer
+  const handleWatchTrailer = async (result: TMDBSearchResult) => {
+    if (result.media_type === "person") return
+
+    const title = result.title || result.name || "Trailer"
+    setLoadingMediaId(result.id)
+
+    try {
+      const key = await fetchTrailerKey(result.id, result.media_type)
+
+      if (key) {
+        setActiveTrailer({
+          key,
+          title,
+        })
+        setIsTrailerOpen(true)
+      } else {
+        toast.error(`No trailer available for ${title}`)
+      }
+    } catch (error) {
+      console.error("Error fetching trailer:", error)
+      toast.error("Failed to fetch trailer")
+    } finally {
+      setLoadingMediaId(null)
+    }
+  }
 
   // Perform search
   const performSearch = useCallback(async (searchQuery: string) => {
@@ -76,16 +118,22 @@ export function SearchResultsClient({
   }, [])
 
   // Debounced search
-  const debouncedSearch = useCallback(
-    debounce((searchQuery: string) => {
+  const debouncedSearch = useMemo(() => {
+    return debounceWithCancel((searchQuery: string) => {
       // Update URL
       router.replace(`/search?q=${encodeURIComponent(searchQuery)}`, {
         scroll: false,
       })
       performSearch(searchQuery)
-    }, DEBOUNCE_DELAY),
-    [performSearch, router],
-  )
+    }, DEBOUNCE_DELAY)
+  }, [performSearch, router])
+
+  // Cleanup debounce timer on unmount or change
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel()
+    }
+  }, [debouncedSearch])
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,15 +154,22 @@ export function SearchResultsClient({
   }
 
   // Sync with URL params
+  // Track current query ref to avoid dependency cycles in effect
+  const queryRef = useRef(query)
+  useEffect(() => {
+    queryRef.current = query
+  }, [query])
+
+  // Sync with URL params (e.g. back/forward navigation)
   useEffect(() => {
     const urlQuery = searchParams.get("q") || ""
-    if (urlQuery !== query) {
+    if (urlQuery !== queryRef.current) {
       setQuery(urlQuery)
       if (urlQuery) {
         performSearch(urlQuery)
       }
     }
-  }, [searchParams, performSearch, query])
+  }, [searchParams, performSearch])
 
   // Filter results based on active tab
   const filteredResults =
@@ -123,7 +178,7 @@ export function SearchResultsClient({
       : results.results.filter((r) => r.media_type === activeTab)
 
   // Get count for each tab
-  const getCounts = () => {
+  const counts = useMemo(() => {
     const counts: Record<TabType, number> = {
       all: results.results.length,
       movie: 0,
@@ -138,9 +193,7 @@ export function SearchResultsClient({
     })
 
     return counts
-  }
-
-  const counts = getCounts()
+  }, [results.results])
 
   return (
     <div className="space-y-8 pb-12">
@@ -209,6 +262,8 @@ export function SearchResultsClient({
             <SearchResultCard
               key={`${result.media_type}-${result.id}`}
               result={result}
+              onWatchTrailer={handleWatchTrailer}
+              isLoading={loadingMediaId === result.id}
             />
           ))}
         </div>
@@ -232,6 +287,15 @@ export function SearchResultsClient({
           </p>
         </div>
       )}
+      <TrailerModal
+        videoKey={activeTrailer?.key || null}
+        isOpen={isTrailerOpen}
+        onClose={() => {
+          setIsTrailerOpen(false)
+          setActiveTrailer(null)
+        }}
+        title={activeTrailer?.title || "Trailer"}
+      />
     </div>
   )
 }
@@ -240,7 +304,15 @@ export function SearchResultsClient({
  * Search Result Card Component
  * Displays a single search result in a card format
  */
-function SearchResultCard({ result }: { result: TMDBSearchResult }) {
+function SearchResultCard({
+  result,
+  onWatchTrailer,
+  isLoading,
+}: {
+  result: TMDBSearchResult
+  onWatchTrailer: (result: TMDBSearchResult) => void
+  isLoading: boolean
+}) {
   const isMovie = result.media_type === "movie"
   const isTV = result.media_type === "tv"
   const isPerson = result.media_type === "person"
@@ -292,14 +364,6 @@ function SearchResultCard({ result }: { result: TMDBSearchResult }) {
               />
             </div>
           )}
-
-          {/* Rating Badge */}
-          {rating !== null && rating > 0 && (
-            <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/80 px-2 py-1 text-xs font-medium text-yellow-500">
-              <HugeiconsIcon icon={StarIcon} className="size-3" />
-              {rating}
-            </div>
-          )}
         </div>
 
         {/* Content */}
@@ -318,7 +382,44 @@ function SearchResultCard({ result }: { result: TMDBSearchResult }) {
                 <span>{year}</span>
               </>
             )}
+            {rating !== null && rating > 0 && (
+              <>
+                <span className="text-gray-600">•</span>
+                <span className="flex items-center gap-1 text-yellow-500">
+                  <span className="text-xs text-yellow-500">★</span>
+                  {rating}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* Watch Trailer Button */}
+          {!isPerson && (
+            <Button
+              size="sm"
+              className="mt-3 w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
+              onClick={(e) => {
+                e.preventDefault()
+                onWatchTrailer(result)
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="size-4 animate-spin"
+                  />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
+                  Trailer
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </Link>

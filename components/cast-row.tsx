@@ -28,16 +28,18 @@ export function CastRow({ title, cast, href, limit = 15 }: CastRowProps) {
       {/* Header */}
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">{title}</h2>
-        <Link
-          href={href}
-          className="group flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors hover:text-white"
-        >
-          View all
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            className="size-4 transition-transform group-hover:translate-x-1"
-          />
-        </Link>
+        {cast.length > limit && (
+          <Link
+            href={href}
+            className="group flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors hover:text-white"
+          >
+            View all
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="size-4 transition-transform group-hover:translate-x-1"
+            />
+          </Link>
+        )}
       </div>
 
       {/* Horizontal Scroll Container */}

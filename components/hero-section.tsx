@@ -225,8 +225,6 @@ export function HeroSection({
           )}
         </div>
       </div>
-
-      {/* Trailer Modal */}
     </section>
   )
 }

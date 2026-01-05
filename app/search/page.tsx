@@ -1,5 +1,4 @@
 import { SearchResultsClient } from "@/app/search/search-results-client"
-import { Footer } from "@/components/footer"
 import { Navbar } from "@/components/navbar"
 import { multiSearch } from "@/lib/tmdb"
 import { Metadata } from "next"
@@ -24,13 +23,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <main className="min-h-screen bg-black">
       <Navbar />
-      <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-[1800px] px-4 pt-24 sm:px-8 lg:px-12">
         <SearchResultsClient
           initialQuery={searchQuery}
           initialResults={results}
         />
       </div>
-      <Footer />
     </main>
   )
 }
