@@ -2,6 +2,7 @@ import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
+import { RecommendationsSection } from "@/components/recommendations-section"
 import { SimilarMedia } from "@/components/similar-media"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
@@ -62,6 +63,7 @@ export default async function TVPage({ params }: TVPageProps) {
       <SimilarMedia title="Similar Shows" items={similarShows} mediaType="tv" />
       <PhotosSection mediaId={tvId} mediaType="tv" />
       <VideosSection mediaId={tvId} mediaType="tv" />
+      <RecommendationsSection mediaId={tvId} mediaType="tv" />
     </main>
   )
 }

@@ -632,3 +632,37 @@ export async function getSimilarMedia(
     return []
   }
 }
+
+/**
+ * Fetch recommended movies or TV shows
+ * @param mediaId - TMDB media ID
+ * @param mediaType - "movie" or "tv"
+ * @returns Array of recommended media items
+ */
+export async function getRecommendations(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+): Promise<TMDBMedia[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/recommendations?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBTrendingResponse = await response.json()
+    // Inject media_type since recommendations endpoint doesn't return it
+    return data.results.map((item) => ({ ...item, media_type: mediaType }))
+  } catch (error) {
+    console.error("Failed to fetch recommendations:", error)
+    return []
+  }
+}
