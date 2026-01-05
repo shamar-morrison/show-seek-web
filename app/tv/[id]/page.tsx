@@ -1,7 +1,13 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
-import { getBestTrailer, getMediaVideos, getTVDetails } from "@/lib/tmdb"
+import { WatchProviders } from "@/components/watch-providers"
+import {
+  getBestTrailer,
+  getMediaVideos,
+  getTVDetails,
+  getWatchProviders,
+} from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -23,10 +29,11 @@ export default async function TVPage({ params }: TVPageProps) {
     notFound()
   }
 
-  // Fetch TV show details and videos in parallel
-  const [tvShow, videos] = await Promise.all([
+  // Fetch TV show details, videos, and watch providers in parallel
+  const [tvShow, videos, watchProviders] = await Promise.all([
     getTVDetails(tvId),
     getMediaVideos(tvId, "tv"),
+    getWatchProviders(tvId, "tv"),
   ])
 
   if (!tvShow) {
@@ -46,6 +53,7 @@ export default async function TVPage({ params }: TVPageProps) {
         href={`/tv/${tvId}/credits`}
         limit={15}
       />
+      <WatchProviders providers={watchProviders} />
     </main>
   )
 }

@@ -278,3 +278,25 @@ export interface TMDBPersonDetails {
   profile_path: string | null
   combined_credits?: TMDBPersonCombinedCredits
 }
+
+/** Individual watch provider */
+export interface WatchProvider {
+  logo_path: string
+  provider_id: number
+  provider_name: string
+  display_priority: number
+}
+
+/** Watch providers grouped by type for a specific region */
+export interface WatchProviders {
+  link: string // JustWatch attribution URL
+  flatrate?: WatchProvider[] // Streaming
+  rent?: WatchProvider[]
+  buy?: WatchProvider[]
+}
+
+/** Response from watch providers endpoint */
+export interface WatchProvidersResponse {
+  id: number
+  results: Record<string, WatchProviders> // Keyed by country code (e.g., "US")
+}

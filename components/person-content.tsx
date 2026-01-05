@@ -46,14 +46,12 @@ export function PersonContent({ person }: PersonContentProps) {
   const movieCredits = credits
     .filter((c) => c.media_type === "movie" && c.poster_path)
     .filter((c, index, self) => index === self.findIndex((t) => t.id === c.id))
-    .sort((a, b) => (b.release_date || "").localeCompare(a.release_date || ""))
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
 
   const tvCredits = credits
     .filter((c) => c.media_type === "tv" && c.poster_path)
     .filter((c, index, self) => index === self.findIndex((t) => t.id === c.id))
-    .sort((a, b) =>
-      (b.first_air_date || "").localeCompare(a.first_air_date || ""),
-    )
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
 
   const currentCredits = activeTab === "movie" ? movieCredits : tvCredits
 

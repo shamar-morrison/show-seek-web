@@ -14,6 +14,8 @@ import type {
   TMDBTrendingResponse,
   TMDBTVDetails,
   TMDBVideosResponse,
+  WatchProviders,
+  WatchProvidersResponse,
 } from "@/types/tmdb"
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY
@@ -556,6 +558,43 @@ export async function getPersonDetails(
     return response.json()
   } catch (error) {
     console.error("Failed to fetch person details:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch watch providers for a movie or TV show
+ * @param mediaId - TMDB media ID
+ * @param mediaType - "movie" or "tv"
+ * @param region - Country code for providers (default: "US")
+ * @returns Watch providers for the specified region or null if unavailable
+ */
+export async function getWatchProviders(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+  region: string = "US",
+): Promise<WatchProviders | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/watch/providers?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 86400 } }, // Cache for 24 hours
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: WatchProvidersResponse = await response.json()
+
+    // Return providers for the specified region, or null if not available
+    return data.results[region] || null
+  } catch (error) {
+    console.error("Failed to fetch watch providers:", error)
     return null
   }
 }

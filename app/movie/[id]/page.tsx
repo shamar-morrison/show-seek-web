@@ -1,7 +1,13 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
-import { getBestTrailer, getMediaVideos, getMovieDetails } from "@/lib/tmdb"
+import { WatchProviders } from "@/components/watch-providers"
+import {
+  getBestTrailer,
+  getMediaVideos,
+  getMovieDetails,
+  getWatchProviders,
+} from "@/lib/tmdb"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -23,10 +29,11 @@ export default async function MoviePage({ params }: MoviePageProps) {
     notFound()
   }
 
-  // Fetch movie details and videos in parallel
-  const [movie, videos] = await Promise.all([
+  // Fetch movie details, videos, and watch providers in parallel
+  const [movie, videos, watchProviders] = await Promise.all([
     getMovieDetails(movieId),
     getMediaVideos(movieId, "movie"),
+    getWatchProviders(movieId, "movie"),
   ])
 
   if (!movie) {
@@ -50,6 +57,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
         href={`/movie/${movieId}/credits`}
         limit={15}
       />
+      <WatchProviders providers={watchProviders} />
     </main>
   )
 }
