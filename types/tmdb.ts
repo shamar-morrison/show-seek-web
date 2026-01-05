@@ -214,6 +214,7 @@ export interface TMDBMovieDetails {
   spoken_languages: SpokenLanguage[]
   credits?: TMDBCredits
   release_dates?: TMDBMovieReleaseDatesResponse
+  belongs_to_collection: TMDBCollectionInfo | null
 }
 
 /** Created by person for TV shows */
@@ -260,6 +261,24 @@ export interface TMDBSeason {
   poster_path: string | null
   season_number: number
   vote_average: number
+}
+
+/** Collection info embedded in movie details */
+export interface TMDBCollectionInfo {
+  id: number
+  name: string
+  poster_path: string | null
+  backdrop_path: string | null
+}
+
+/** Full Collection details from collection endpoint */
+export interface TMDBCollectionDetails {
+  id: number
+  name: string
+  overview: string
+  poster_path: string | null
+  backdrop_path: string | null
+  parts: TMDBMedia[]
 }
 
 /** Search result from multi-search endpoint */

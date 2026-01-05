@@ -5,6 +5,7 @@
 
 import type {
   HeroMedia,
+  TMDBCollectionDetails,
   TMDBConfiguration,
   TMDBImagesResponse,
   TMDBMedia,
@@ -516,6 +517,41 @@ export async function getTVDetails(
     return response.json()
   } catch (error) {
     console.error("Failed to fetch TV details:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch full collection details
+ * @param collectionId - TMDB collection ID
+ * @returns Collection details with parts or null
+ */
+export async function getCollectionDetails(
+  collectionId: number,
+): Promise<TMDBCollectionDetails | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/collection/${collectionId}?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBCollectionDetails = await response.json()
+    // Inject media_type="movie" for parts since collections only contain movies
+    if (data.parts) {
+      data.parts = data.parts.map((part) => ({ ...part, media_type: "movie" }))
+    }
+    return data
+  } catch (error) {
+    console.error("Failed to fetch collection details:", error)
     return null
   }
 }

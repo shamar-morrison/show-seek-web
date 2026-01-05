@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBMedia } from "@/types/tmdb"

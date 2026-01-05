@@ -2,6 +2,7 @@
 
 import {
   getBestTrailer,
+  getCollectionDetails,
   getMediaImages,
   getMediaVideos,
   getRecommendations,
@@ -98,4 +99,11 @@ export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
     console.error("Server Action: Failed to fetch reviews", error)
     return null
   }
+}
+
+/**
+ * Fetch collection details
+ */
+export async function fetchCollection(collectionId: number) {
+  return await getCollectionDetails(collectionId)
 }

@@ -1,4 +1,5 @@
 import { CastRow } from "@/components/cast-row"
+import { CollectionSection } from "@/components/collection-section"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { MediaDetails } from "@/components/media-details"
 import { Navbar } from "@/components/navbar"
@@ -75,6 +76,11 @@ export default async function MoviePage({ params }: MoviePageProps) {
       <PhotosSection mediaId={movieId} mediaType="movie" />
       <VideosSection mediaId={movieId} mediaType="movie" />
       <RecommendationsSection mediaId={movieId} mediaType="movie" />
+
+      {movie.belongs_to_collection && (
+        <CollectionSection collectionId={movie.belongs_to_collection.id} />
+      )}
+
       <ReviewsSection mediaId={movieId} mediaType="movie" />
       <MediaDetails media={movie} mediaType="movie" />
     </main>
