@@ -157,12 +157,19 @@ export function SearchResultsClient({
   // Sync with URL params
   // Track current query ref to avoid dependency cycles in effect
   const queryRef = useRef(query)
+  const isInitialMount = useRef(true)
   useEffect(() => {
     queryRef.current = query
   }, [query])
 
   // Sync with URL params (e.g. back/forward navigation)
   useEffect(() => {
+    // Skip on initial mount since initialResults is already provided
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+
     const urlQuery = searchParams.get("q") || ""
     if (urlQuery !== queryRef.current) {
       setQuery(urlQuery)
@@ -180,7 +187,7 @@ export function SearchResultsClient({
 
   // Get count for each tab
   const counts = useMemo(() => {
-    const counts: Record<TabType, number> = {
+    const tabCounts: Record<TabType, number> = {
       all: results.results.length,
       movie: 0,
       tv: 0,
@@ -188,12 +195,12 @@ export function SearchResultsClient({
     }
 
     results.results.forEach((r) => {
-      if (r.media_type in counts) {
-        counts[r.media_type as MediaType]++
+      if (r.media_type in tabCounts) {
+        tabCounts[r.media_type as MediaType]++
       }
     })
 
-    return counts
+    return tabCounts
   }, [results.results])
 
   return (

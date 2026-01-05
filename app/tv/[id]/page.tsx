@@ -83,8 +83,33 @@ export async function generateMetadata({
     return { title: "TV Show Not Found | ShowSeek" }
   }
 
+  const backdropUrl = tvShow.backdrop_path
+    ? `https://image.tmdb.org/t/p/w1280${tvShow.backdrop_path}`
+    : undefined
+
   return {
     title: `${tvShow.name} | ShowSeek`,
     description: tvShow.overview,
+    openGraph: {
+      title: tvShow.name,
+      description: tvShow.overview || undefined,
+      type: "video.tv_show",
+      ...(backdropUrl && {
+        images: [
+          {
+            url: backdropUrl,
+            width: 1280,
+            height: 720,
+            alt: tvShow.name,
+          },
+        ],
+      }),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: tvShow.name,
+      description: tvShow.overview || undefined,
+      ...(backdropUrl && { images: [backdropUrl] }),
+    },
   }
 }

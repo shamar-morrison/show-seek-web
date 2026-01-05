@@ -3,7 +3,12 @@
 import { fetchTrailerKey } from "@/app/actions"
 import { MediaCard } from "@/components/media-card"
 import { TrailerModal } from "@/components/trailer-modal"
-import { TMDBMedia, TMDBPersonDetails } from "@/types/tmdb"
+import {
+  PersonCastMember,
+  PersonCrewMember,
+  TMDBMedia,
+  TMDBPersonDetails,
+} from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useState } from "react"
@@ -23,7 +28,7 @@ export function PersonContent({ person }: PersonContentProps) {
   const isDirecting = knownFor === "Directing"
   const isWriting = knownFor === "Writing"
 
-  let credits: any[] = []
+  let credits: (PersonCastMember | PersonCrewMember)[] = []
   let creditLabel = "Acting"
 
   if (isDirecting) {
@@ -42,16 +47,24 @@ export function PersonContent({ person }: PersonContentProps) {
     creditLabel = "Acting"
   }
 
-  // Split credits
-  const movieCredits = credits
-    .filter((c) => c.media_type === "movie" && c.poster_path)
-    .filter((c, index, self) => index === self.findIndex((t) => t.id === c.id))
-    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+  // Helper to deduplicate credits by id using Set (O(n) instead of O(n²))
+  const deduplicateById = <T extends { id: number }>(items: T[]): T[] => {
+    const seen = new Set<number>()
+    return items.filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    })
+  }
 
-  const tvCredits = credits
-    .filter((c) => c.media_type === "tv" && c.poster_path)
-    .filter((c, index, self) => index === self.findIndex((t) => t.id === c.id))
-    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+  // Split credits by media type, deduplicate, and sort by popularity
+  const movieCredits = deduplicateById(
+    credits.filter((c) => c.media_type === "movie" && c.poster_path),
+  ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+
+  const tvCredits = deduplicateById(
+    credits.filter((c) => c.media_type === "tv" && c.poster_path),
+  ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
 
   const currentCredits = activeTab === "movie" ? movieCredits : tvCredits
 

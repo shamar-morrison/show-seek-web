@@ -60,7 +60,10 @@ export function MediaRow({
           /* Horizontal Scroll Layout */
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
             {displayItems.map((item) => (
-              <div key={item.id} className="w-[140px] shrink-0 sm:w-[160px]">
+              <div
+                key={`${item.media_type}-${item.id}`}
+                className="w-[140px] shrink-0 sm:w-[160px]"
+              >
                 <MediaCard
                   media={item}
                   onWatchTrailer={onWatchTrailer}
@@ -74,7 +77,7 @@ export function MediaRow({
           <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
             {displayItems.map((item) => (
               <MediaCard
-                key={item.id}
+                key={`${item.media_type}-${item.id}`}
                 media={item}
                 onWatchTrailer={onWatchTrailer}
                 isLoading={loadingMediaId === item.id}
