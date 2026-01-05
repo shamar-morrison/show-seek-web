@@ -139,7 +139,7 @@ export function MediaDetailHero({
 
         {/* Gradient Overlays */}
         <div className="absolute inset-x-0 top-0 z-10 h-32 bg-linear-to-b from-black/70 to-transparent" />
-        <div className="absolute inset-0 z-10 bg-linear-to-t from-black via-black/6lay0 to-transparent" />
+        <div className="absolute inset-0 z-10 bg-linear-to-t from-black via-black/60 to-transparent" />
         <div className="absolute inset-0 z-10 bg-linear-to-r from-black/80 via-black/30 to-transparent" />
 
         {/* Content */}

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import type { HeroMedia } from "@/types/tmdb"
-import { PlayIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
+import type { HeroMedia } from "@/types/tmdb"
+import { InformationCircleIcon, PlayIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import Image from "next/image"
+import Link from "next/link"
+import { useCallback, useEffect, useState } from "react"
 
 /** Duration each slide is shown (in milliseconds) */
 const SLIDE_DURATION = 5000
@@ -177,15 +178,20 @@ export function HeroSection({
                 Watch Trailer
               </Button>
 
-              {/* Add to List Button - Secondary/Outline */}
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-              >
-                <HugeiconsIcon icon={PlusSignIcon} className="size-5" />
-                Add to List
-              </Button>
+              {/* More Info Button - Secondary/Outline */}
+              <Link href={`/${currentMedia.mediaType}/${currentMedia.id}`}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                >
+                  <HugeiconsIcon
+                    icon={InformationCircleIcon}
+                    className="size-5"
+                  />
+                  More Info
+                </Button>
+              </Link>
             </div>
           </div>
 
