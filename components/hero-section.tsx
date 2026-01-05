@@ -179,18 +179,15 @@ export function HeroSection({
               </Button>
 
               {/* More Info Button - Secondary/Outline */}
-              <Link href={`/${currentMedia.mediaType}/${currentMedia.id}`}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                >
-                  <HugeiconsIcon
-                    icon={InformationCircleIcon}
-                    className="size-5"
-                  />
-                  More Info
-                </Button>
+              <Link
+                href={`/${currentMedia.mediaType}/${currentMedia.id}`}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+              >
+                <HugeiconsIcon
+                  icon={InformationCircleIcon}
+                  className="size-5"
+                />
+                More Info
               </Link>
             </div>
           </div>
