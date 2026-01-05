@@ -1,19 +1,19 @@
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/hero-section"
-import { getHeroMedia } from "@/lib/tmdb"
+import { getHeroMediaList } from "@/lib/tmdb"
 
 /**
  * Home Page
  * Server component that fetches trending media and composes the home screen
  */
 export default async function HomePage() {
-  // Fetch trending media for the hero section
-  const heroMedia = await getHeroMedia()
+  // Fetch top 5 trending media for the hero carousel
+  const heroMediaList = await getHeroMediaList(5)
 
   return (
     <main className="min-h-screen bg-black">
       <Navbar />
-      <HeroSection media={heroMedia} />
+      <HeroSection mediaList={heroMediaList} />
     </main>
   )
 }

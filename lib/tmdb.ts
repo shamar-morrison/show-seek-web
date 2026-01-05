@@ -212,3 +212,59 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
     return null
   }
 }
+
+/**
+ * Get multiple hero media items for carousel/slideshow
+ * Fetches top trending media items with logos in parallel
+ * @param count - Number of items to return (default: 5)
+ * @returns Array of HeroMedia objects ready for UI consumption
+ */
+export async function getHeroMediaList(
+  count: number = 5,
+): Promise<HeroMedia[]> {
+  try {
+    // Fetch trending media
+    const trendingMedia = await getTrendingMedia("day")
+
+    if (trendingMedia.length === 0) {
+      console.error("No trending media found")
+      return []
+    }
+
+    // Filter items with backdrops and take top N
+    const mediaWithBackdrops = trendingMedia
+      .filter((media) => media.backdrop_path)
+      .slice(0, count)
+
+    if (mediaWithBackdrops.length === 0) {
+      console.error("No media with backdrop found")
+      return []
+    }
+
+    // Fetch logos for all items in parallel
+    const heroMediaPromises = mediaWithBackdrops.map(async (media) => {
+      const mediaType = media.media_type as "movie" | "tv"
+      const images = await getMediaImages(media.id, mediaType)
+      const logoUrl = getBestLogo(images)
+
+      const heroMedia: HeroMedia = {
+        id: media.id,
+        title: media.title || media.name || "Unknown Title",
+        overview: media.overview || "No description available.",
+        backdropUrl: buildImageUrl(media.backdrop_path, "original") || "",
+        logoUrl,
+        mediaType,
+        releaseYear: extractYear(media.release_date || media.first_air_date),
+        voteAverage: Math.round(media.vote_average * 10) / 10,
+      }
+
+      return heroMedia
+    })
+
+    const heroMediaList = await Promise.all(heroMediaPromises)
+    return heroMediaList
+  } catch (error) {
+    console.error("Failed to get hero media list:", error)
+    return []
+  }
+}

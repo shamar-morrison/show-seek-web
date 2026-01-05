@@ -123,7 +123,7 @@ export function Navbar() {
             </Button>
 
             {/* Sign In Button */}
-            <Button className="rounded-full bg-[#E50914] px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
+            <Button className="bg-[#E50914] px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
               Sign In
             </Button>
 
