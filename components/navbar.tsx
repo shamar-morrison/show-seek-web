@@ -70,7 +70,7 @@ export function Navbar() {
               className="flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               {/* Logo Icon */}
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E50914]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
                 <HugeiconsIcon
                   icon={Film01Icon}
                   className="size-5 text-white"
@@ -88,7 +88,7 @@ export function Navbar() {
                   className={cn(
                     "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     item.label === "Home"
-                      ? "text-[#E50914]"
+                      ? "text-primary"
                       : "text-gray-300 hover:bg-white/5 hover:text-white",
                   )}
                 >
@@ -109,7 +109,7 @@ export function Navbar() {
               <Input
                 type="text"
                 placeholder="Search..."
-                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-[#E50914]/50 focus:ring-[#E50914]/20 lg:w-64"
+                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 lg:w-64"
               />
             </div>
 
@@ -123,7 +123,7 @@ export function Navbar() {
             </Button>
 
             {/* Sign In Button */}
-            <Button className="bg-[#E50914] px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
+            <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
               Sign In
             </Button>
 
@@ -158,7 +158,7 @@ export function Navbar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   item.label === "Home"
-                    ? "bg-[#E50914]/10 text-[#E50914]"
+                    ? "bg-primary/10 text-primary"
                     : "text-gray-300 hover:bg-white/5 hover:text-white",
                 )}
               >

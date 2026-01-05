@@ -76,6 +76,75 @@ export async function getTrendingMedia(
     return []
   }
 }
+/**
+ * Fetch popular movies
+ * @returns Array of popular movies
+ */
+export async function getPopularMovies(): Promise<TMDBMedia[]> {
+  if (!TMDB_API_KEY) return []
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    // Inject media_type since it's not returned by specific endpoints
+    return data.results.map((item) => ({ ...item, media_type: "movie" }))
+  } catch (error) {
+    console.error("Failed to fetch popular movies:", error)
+    return []
+  }
+}
+
+/**
+ * Fetch top rated TV shows
+ * @returns Array of top rated TV shows
+ */
+export async function getTopRatedTV(): Promise<TMDBMedia[]> {
+  if (!TMDB_API_KEY) return []
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/tv/top_rated?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    return data.results.map((item) => ({ ...item, media_type: "tv" }))
+  } catch (error) {
+    console.error("Failed to fetch top rated TV:", error)
+    return []
+  }
+}
+
+/**
+ * Fetch upcoming movies
+ * @returns Array of upcoming movies
+ */
+export async function getUpcomingMovies(): Promise<TMDBMedia[]> {
+  if (!TMDB_API_KEY) return []
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/upcoming?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    return data.results.map((item) => ({ ...item, media_type: "movie" }))
+  } catch (error) {
+    console.error("Failed to fetch upcoming movies:", error)
+    return []
+  }
+}
 
 /**
  * Fetch images (including logos) for a specific media item
