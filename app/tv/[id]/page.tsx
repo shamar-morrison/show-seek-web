@@ -3,6 +3,7 @@ import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
+import { SeasonsRow } from "@/components/seasons-row"
 import { SimilarMedia } from "@/components/similar-media"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
@@ -48,11 +49,13 @@ export default async function TVPage({ params }: TVPageProps) {
 
   const trailerKey = getBestTrailer(videos)
   const cast = tvShow.credits?.cast || []
+  const seasons = tvShow.seasons || []
 
   return (
     <main className="min-h-screen bg-black">
       <Navbar />
       <MediaDetailHero media={tvShow} mediaType="tv" trailerKey={trailerKey} />
+      <SeasonsRow title="Seasons" seasons={seasons} />
       <CastRow
         title="Cast"
         cast={cast}

@@ -44,7 +44,9 @@ export function CastCard({ cast, priority = false }: CastCardProps) {
           <h3 className="line-clamp-1 text-sm font-bold text-white">
             {cast.name}
           </h3>
-          <p className="line-clamp-1 text-xs text-gray-400">{cast.character}</p>
+          <p className="line-clamp-1 text-xs text-gray-400 font-medium">
+            {cast.character}
+          </p>
         </div>
       </div>
     </Link>
