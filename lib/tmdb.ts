@@ -8,6 +8,7 @@ import type {
   TMDBMedia,
   TMDBTrendingResponse,
   TMDBImagesResponse,
+  TMDBVideosResponse,
   HeroMedia,
 } from "@/types/tmdb"
 
@@ -94,7 +95,7 @@ export async function getMediaImages(
   try {
     const response = await fetch(
       `${TMDB_BASE_URL}/${mediaType}/${mediaId}/images?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 86400 } }, // Cache for 24 hours
+      { next: { revalidate: 2592000 } }, // Cache for 30 days
     )
 
     if (!response.ok) {
@@ -165,6 +166,90 @@ function extractYear(dateString?: string): string | null {
 }
 
 /**
+ * Fetch videos/trailers for a specific media item
+ * @param mediaId - TMDB media ID
+ * @param mediaType - "movie" or "tv"
+ * @returns Videos response with trailers, teasers, etc.
+ */
+export async function getMediaVideos(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+): Promise<TMDBVideosResponse | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/videos?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 86400 } }, // Cache for 24 hours
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch media videos:", error)
+    return null
+  }
+}
+
+/**
+ * Get the best available trailer for a media item
+ * Prioritizes official trailers from YouTube
+ * @param videos - Videos response from TMDB
+ * @returns YouTube video key or null
+ */
+function getBestTrailer(videos: TMDBVideosResponse | null): string | null {
+  if (!videos || !videos.results || videos.results.length === 0) {
+    return null
+  }
+
+  // Filter for YouTube videos only
+  const youtubeVideos = videos.results.filter(
+    (video) => video.site === "YouTube" && video.key,
+  )
+
+  if (youtubeVideos.length === 0) {
+    return null
+  }
+
+  // Priority 1: Official trailer
+  const officialTrailer = youtubeVideos.find(
+    (video) => video.type === "Trailer" && video.official === true,
+  )
+  if (officialTrailer) {
+    return officialTrailer.key
+  }
+
+  // Priority 2: Any trailer (official or not)
+  const anyTrailer = youtubeVideos.find((video) => video.type === "Trailer")
+  if (anyTrailer) {
+    return anyTrailer.key
+  }
+
+  // Priority 3: Official teaser
+  const officialTeaser = youtubeVideos.find(
+    (video) => video.type === "Teaser" && video.official === true,
+  )
+  if (officialTeaser) {
+    return officialTeaser.key
+  }
+
+  // Priority 4: Any teaser
+  const anyTeaser = youtubeVideos.find((video) => video.type === "Teaser")
+  if (anyTeaser) {
+    return anyTeaser.key
+  }
+
+  // Fallback: first YouTube video
+  return youtubeVideos[0]?.key || null
+}
+
+/**
  * Get processed hero media data for the home page
  * Fetches trending media and enriches with logo if available
  * @returns HeroMedia object ready for UI consumption
@@ -187,10 +272,14 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
       return null
     }
 
-    // Fetch logo images for the featured media
+    // Fetch logo images and videos for the featured media in parallel
     const mediaType = featuredMedia.media_type as "movie" | "tv"
-    const images = await getMediaImages(featuredMedia.id, mediaType)
+    const [images, videos] = await Promise.all([
+      getMediaImages(featuredMedia.id, mediaType),
+      getMediaVideos(featuredMedia.id, mediaType),
+    ])
     const logoUrl = getBestLogo(images)
+    const trailerKey = getBestTrailer(videos)
 
     // Build the hero media object
     const heroMedia: HeroMedia = {
@@ -204,6 +293,7 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
         featuredMedia.release_date || featuredMedia.first_air_date,
       ),
       voteAverage: Math.round(featuredMedia.vote_average * 10) / 10,
+      trailerKey,
     }
 
     return heroMedia
@@ -241,11 +331,15 @@ export async function getHeroMediaList(
       return []
     }
 
-    // Fetch logos for all items in parallel
+    // Fetch logos and trailers for all items in parallel
     const heroMediaPromises = mediaWithBackdrops.map(async (media) => {
       const mediaType = media.media_type as "movie" | "tv"
-      const images = await getMediaImages(media.id, mediaType)
+      const [images, videos] = await Promise.all([
+        getMediaImages(media.id, mediaType),
+        getMediaVideos(media.id, mediaType),
+      ])
       const logoUrl = getBestLogo(images)
+      const trailerKey = getBestTrailer(videos)
 
       const heroMedia: HeroMedia = {
         id: media.id,
@@ -256,6 +350,7 @@ export async function getHeroMediaList(
         mediaType,
         releaseYear: extractYear(media.release_date || media.first_air_date),
         voteAverage: Math.round(media.vote_average * 10) / 10,
+        trailerKey,
       }
 
       return heroMedia

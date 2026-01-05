@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { TrailerModal } from "@/components/trailer-modal"
 import type { HeroMedia } from "@/types/tmdb"
 import { PlayIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -28,6 +29,11 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
   const [isAnimating, setIsAnimating] = useState(false)
   const [displayIndex, setDisplayIndex] = useState(0)
   const [resetKey, setResetKey] = useState(0) // Used to reset the auto-advance timer
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
+  const [activeTrailer, setActiveTrailer] = useState<{
+    key: string
+    title: string
+  } | null>(null)
 
   // Handle slide transition
   const goToNextSlide = useCallback(() => {
@@ -43,13 +49,14 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
     }, ANIMATION_DURATION / 2)
   }, [mediaList.length])
 
-  // Auto-advance slides - resetKey dependency allows resetting the timer
+  // Auto-advance slides - pauses when trailer modal is open
   useEffect(() => {
     if (mediaList.length <= 1) return
+    if (isTrailerOpen) return // Pause when trailer is playing
 
     const interval = setInterval(goToNextSlide, SLIDE_DURATION)
     return () => clearInterval(interval)
-  }, [goToNextSlide, mediaList.length, resetKey])
+  }, [goToNextSlide, mediaList.length, resetKey, isTrailerOpen])
 
   // Fallback content if no media is available
   if (!mediaList || mediaList.length === 0) {
@@ -156,6 +163,16 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
               <Button
                 size="lg"
                 className="group bg-[#E50914] px-6 font-semibold text-white shadow-lg shadow-[#E50914]/30 transition-all hover:bg-[#B20710] hover:shadow-[#E50914]/50"
+                onClick={() => {
+                  if (currentMedia.trailerKey) {
+                    setActiveTrailer({
+                      key: currentMedia.trailerKey,
+                      title: currentMedia.title,
+                    })
+                    setIsTrailerOpen(true)
+                  }
+                }}
+                disabled={!currentMedia.trailerKey}
               >
                 <HugeiconsIcon
                   icon={PlayIcon}
@@ -209,6 +226,19 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
           )}
         </div>
       </div>
+
+      {/* Trailer Modal */}
+      <TrailerModal
+        videoKey={activeTrailer?.key || null}
+        isOpen={isTrailerOpen}
+        onClose={() => {
+          setIsTrailerOpen(false)
+          setActiveTrailer(null)
+          // Reset the timer when closing so user gets full duration on current slide
+          setResetKey((prev) => prev + 1)
+        }}
+        title={activeTrailer?.title || "Trailer"}
+      />
     </section>
   )
 }

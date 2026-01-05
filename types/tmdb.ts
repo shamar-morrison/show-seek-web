@@ -68,6 +68,26 @@ export interface TMDBImagesResponse {
   posters: TMDBLogo[]
 }
 
+/** Individual video from videos endpoint */
+export interface TMDBVideo {
+  id: string
+  iso_639_1: string
+  iso_3166_1: string
+  key: string
+  name: string
+  site: string
+  size: number
+  type: string
+  official: boolean
+  published_at: string
+}
+
+/** Response from videos endpoint */
+export interface TMDBVideosResponse {
+  id: number
+  results: TMDBVideo[]
+}
+
 /** Processed hero media data ready for UI consumption */
 export interface HeroMedia {
   id: number
@@ -78,6 +98,7 @@ export interface HeroMedia {
   mediaType: MediaType
   releaseYear: string | null
   voteAverage: number
+  trailerKey: string | null
 }
 
 /** Error response structure */
