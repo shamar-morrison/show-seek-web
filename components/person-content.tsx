@@ -3,6 +3,7 @@
 import { fetchTrailerKey } from "@/app/actions"
 import { MediaCard } from "@/components/media-card"
 import { TrailerModal } from "@/components/trailer-modal"
+import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import {
   PersonCastMember,
   PersonCrewMember,
@@ -10,7 +11,6 @@ import {
   TMDBPersonDetails,
 } from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -100,49 +100,20 @@ export function PersonContent({ person }: PersonContentProps) {
     <div className="mt-8">
       {/* Tabs */}
       <div className="mb-8 flex flex-wrap gap-2 border-b border-white/10 pb-4">
-        {/* Movie Tab */}
-        <button
+        <FilterTabButton
+          label="Movies"
+          count={movieCredits.length}
+          isActive={activeTab === "movie"}
+          icon={Film01Icon}
           onClick={() => setActiveTab("movie")}
-          className={`group flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === "movie"
-              ? "bg-primary text-white hover:bg-primary/90"
-              : "text-gray-400 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          <HugeiconsIcon icon={Film01Icon} className="size-4" />
-          <span>Movies</span>
-          <span
-            className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
-              activeTab === "movie"
-                ? "bg-white/20 text-white"
-                : "bg-white/10 text-gray-500"
-            }`}
-          >
-            {movieCredits.length}
-          </span>
-        </button>
-
-        {/* TV Tab */}
-        <button
+        />
+        <FilterTabButton
+          label="TV Shows"
+          count={tvCredits.length}
+          isActive={activeTab === "tv"}
+          icon={Tv01Icon}
           onClick={() => setActiveTab("tv")}
-          className={`group flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === "tv"
-              ? "bg-primary text-white hover:bg-primary/90"
-              : "text-gray-400 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          <HugeiconsIcon icon={Tv01Icon} className="size-4" />
-          <span>TV Shows</span>
-          <span
-            className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
-              activeTab === "tv"
-                ? "bg-white/20 text-white"
-                : "bg-white/10 text-gray-500"
-            }`}
-          >
-            {tvCredits.length}
-          </span>
-        </button>
+        />
       </div>
 
       {/* Header for list */}

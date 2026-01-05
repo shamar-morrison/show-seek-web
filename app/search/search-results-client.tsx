@@ -3,6 +3,7 @@
 import { searchMedia } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
+import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
 import { useTrailer } from "@/hooks/use-trailer"
 import { debounceWithCancel } from "@/lib/debounce"
@@ -211,30 +212,14 @@ export function SearchResultsClient({
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           {tabs.map((tab) => (
-            <Button
+            <FilterTabButton
               key={tab.id}
-              variant={activeTab === tab.id ? "default" : "ghost"}
+              label={tab.label}
+              count={counts[tab.id]}
+              isActive={activeTab === tab.id}
+              icon={tab.icon}
               onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "shrink-0 gap-2",
-                activeTab === tab.id
-                  ? "bg-primary text-white hover:bg-primary/90"
-                  : "text-gray-400 hover:bg-white/10 hover:text-white",
-              )}
-            >
-              <HugeiconsIcon icon={tab.icon} className="size-4" />
-              {tab.label}
-              <span
-                className={cn(
-                  "ml-1 rounded-full px-2 py-0.5 text-xs",
-                  activeTab === tab.id
-                    ? "bg-white/20"
-                    : "bg-white/10 text-gray-500",
-                )}
-              >
-                {counts[tab.id]}
-              </span>
-            </Button>
+            />
           ))}
         </div>
       </div>
