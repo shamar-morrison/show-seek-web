@@ -1,5 +1,3 @@
-"use client"
-
 import {
   Dialog,
   DialogContent,
@@ -47,7 +45,7 @@ export function ReviewModal({ review, isOpen, onClose }: ReviewModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] flex flex-col gap-0 p-0 sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] flex flex-col gap-0 p-0 sm:max-w-lg overflow-hidden">
         {/* Sticky Header */}
         <DialogHeader className="sticky top-0 z-10 bg-background px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-3">
