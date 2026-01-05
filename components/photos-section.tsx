@@ -2,6 +2,7 @@
 
 import { fetchMediaImages } from "@/app/actions"
 import { PhotoLightbox } from "@/components/photo-lightbox"
+import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBLogo } from "@/types/tmdb"
@@ -73,15 +74,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
       {/* Content */}
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
         {isLoading || !hasLoaded ? (
-          /* Loading Skeleton */
-          <div className="flex gap-4 overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[150px] w-[100px] shrink-0 animate-pulse rounded-lg bg-gray-800 sm:h-[180px] sm:w-[120px]"
-              />
-            ))}
-          </div>
+          <SectionSkeleton count={8} cardWidth={100} cardHeight={150} />
         ) : (
           /* Photo Grid */
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">

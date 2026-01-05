@@ -2,6 +2,7 @@
 
 import { fetchMediaVideos } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
+import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import type { TMDBVideo } from "@/types/tmdb"
 import { PlayIcon } from "@hugeicons/core-free-icons"
@@ -82,15 +83,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
       {/* Content */}
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
         {isLoading || !hasLoaded ? (
-          /* Loading Skeleton */
-          <div className="flex gap-4 overflow-hidden">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[120px] w-[200px] shrink-0 animate-pulse rounded-lg bg-gray-800 sm:h-[140px] sm:w-[240px]"
-              />
-            ))}
-          </div>
+          <SectionSkeleton count={6} cardWidth={200} cardHeight={120} />
         ) : (
           /* Video Grid */
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">

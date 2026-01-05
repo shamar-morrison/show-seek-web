@@ -9,6 +9,7 @@ import { SimilarMedia } from "@/components/similar-media"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
 import {
+  buildImageUrl,
   getBestTrailer,
   getMediaVideos,
   getMovieDetails,
@@ -99,9 +100,7 @@ export async function generateMetadata({
     return { title: "Movie Not Found | ShowSeek" }
   }
 
-  const backdropUrl = movie.backdrop_path
-    ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
-    : undefined
+  const backdropUrl = buildImageUrl(movie.backdrop_path, "w1280")
 
   return {
     title: `${movie.title} | ShowSeek`,

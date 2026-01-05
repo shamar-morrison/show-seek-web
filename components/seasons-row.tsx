@@ -47,7 +47,8 @@ export function SeasonsRow({ title, seasons, limit }: SeasonsRowProps) {
                   {season.name}
                 </h3>
                 <p className="text-xs font-medium text-gray-400">
-                  {season.episode_count} Episodes
+                  {season.episode_count}{" "}
+                  {season.episode_count === 1 ? "Episode" : "Episodes"}
                 </p>
               </div>
             </div>

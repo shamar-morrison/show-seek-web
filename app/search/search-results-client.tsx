@@ -36,6 +36,8 @@ import {
 } from "react"
 
 const DEBOUNCE_DELAY = 300
+/** TMDB image size for search result cards */
+const SEARCH_CARD_IMAGE_SIZE = "w342"
 
 type TabType = "all" | "movie" | "tv" | "person"
 
@@ -310,7 +312,7 @@ function SearchResultCard({
     href,
   } = getSearchResultInfo(result)
 
-  const imageUrl = buildImageUrl(imagePath ?? null, "w342")
+  const imageUrl = buildImageUrl(imagePath ?? null, SEARCH_CARD_IMAGE_SIZE)
 
   return (
     <Link href={href} className="group block">

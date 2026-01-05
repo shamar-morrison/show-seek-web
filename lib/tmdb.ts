@@ -200,6 +200,24 @@ export function buildImageUrl(
 }
 
 /**
+ * Build avatar URL for TMDB review authors
+ * Handles both full URLs (starting with /http) and TMDB paths
+ * @param avatarPath - Avatar path from TMDB review author_details
+ * @returns Avatar URL or null
+ */
+export function buildAvatarUrl(avatarPath: string | null): string | null {
+  if (!avatarPath) return null
+
+  // If it starts with /http, it's a full URL (remove leading slash)
+  if (avatarPath.startsWith("/http")) {
+    return avatarPath.substring(1)
+  }
+
+  // Otherwise, build TMDB image URL
+  return buildImageUrl(avatarPath, "w185")
+}
+
+/**
  * Get the best available logo for a media item
  * Prioritizes English logos, then falls back to others
  * @param images - Images response from TMDB

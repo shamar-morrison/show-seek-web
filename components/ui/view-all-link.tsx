@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
@@ -23,23 +24,25 @@ export function ViewAllLink({
   disabled = false,
   className = "",
 }: ViewAllLinkProps) {
-  const baseClasses =
-    "group flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors hover:text-white"
+  const isDisabled = disabled || !href
+  const baseClasses = cn(
+    "group flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors",
+    !isDisabled && "hover:text-white",
+    isDisabled && "cursor-not-allowed opacity-60",
+    className,
+  )
 
-  if (disabled || !href) {
+  if (isDisabled) {
     return (
-      <button className={`${baseClasses} ${className}`} disabled>
+      <button className={baseClasses} disabled>
         {label}
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          className="size-4 transition-transform group-hover:translate-x-1"
-        />
+        <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
       </button>
     )
   }
 
   return (
-    <Link href={href} className={`${baseClasses} ${className}`}>
+    <Link href={href!} className={baseClasses}>
       {label}
       <HugeiconsIcon
         icon={ArrowRight01Icon}

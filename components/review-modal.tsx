@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { buildImageUrl } from "@/lib/tmdb"
+import { buildAvatarUrl } from "@/lib/tmdb"
 import type { TMDBReview } from "@/types/tmdb"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -26,21 +26,7 @@ interface ReviewModalProps {
 export function ReviewModal({ review, isOpen, onClose }: ReviewModalProps) {
   if (!review) return null
 
-  // Build avatar URL - TMDB avatar_path can be a full URL or a path
-  const getAvatarUrl = () => {
-    const avatarPath = review.author_details.avatar_path
-    if (!avatarPath) return null
-
-    // If it starts with /http, it's a full URL (remove leading slash)
-    if (avatarPath.startsWith("/http")) {
-      return avatarPath.substring(1)
-    }
-
-    // Otherwise, build TMDB image URL
-    return buildImageUrl(avatarPath, "w185")
-  }
-
-  const avatarUrl = getAvatarUrl()
+  const avatarUrl = buildAvatarUrl(review.author_details.avatar_path)
   const hasRating = review.author_details.rating !== null
 
   return (
@@ -77,7 +63,7 @@ export function ReviewModal({ review, isOpen, onClose }: ReviewModalProps) {
                     icon={StarIcon}
                     className="size-3 fill-yellow-500"
                   />
-                  <span className="relative top-[0.9]">
+                  <span className="relative top-[0.9px]">
                     {review.author_details.rating}/10
                   </span>
                 </span>

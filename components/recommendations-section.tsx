@@ -3,6 +3,7 @@
 import { fetchRecommendations } from "@/app/actions"
 import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
+import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -59,22 +60,12 @@ export function RecommendationsSection({
   return (
     <div ref={sectionRef as React.RefObject<HTMLDivElement>}>
       {isLoading || !hasLoaded ? (
-        /* Loading Skeleton */
-        <section className="py-8">
-          <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
-            <div className="h-7 w-48 animate-pulse rounded bg-gray-800" />
-          </div>
-          <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-            <div className="flex gap-4 overflow-hidden">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-[280px] w-[160px] shrink-0 animate-pulse rounded-lg bg-gray-800"
-                />
-              ))}
-            </div>
-          </div>
-        </section>
+        <SectionSkeleton
+          count={7}
+          cardWidth={160}
+          cardHeight={280}
+          withSectionWrapper
+        />
       ) : (
         <MediaRow
           title="You may also like"
