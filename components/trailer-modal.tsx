@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect } from "react"
-import { cn } from "@/lib/utils"
 import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useCallback, useEffect } from "react"
 
 interface TrailerModalProps {
   /** YouTube video key */
@@ -92,11 +91,6 @@ export function TrailerModal({
             className="absolute inset-0 h-full w-full"
           />
         </div>
-
-        {/* Title */}
-        {title && (
-          <p className="mt-4 text-center text-sm text-white/60">{title}</p>
-        )}
       </div>
     </div>
   )
