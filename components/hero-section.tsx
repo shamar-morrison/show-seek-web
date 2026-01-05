@@ -1,13 +1,9 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { cn } from "@/lib/utils"
 import type { HeroMedia } from "@/types/tmdb"
-import {
-  InformationCircleIcon,
-  PlayIcon,
-  StarIcon,
-} from "@hugeicons/core-free-icons"
+import { InformationCircleIcon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -54,7 +50,7 @@ export function HeroSection({
     }, ANIMATION_DURATION / 2)
   }, [mediaList.length])
 
-  // Auto-advance slides - pauses when trailer modal is open (isPaused prop)
+  // Auto-advance slides - pauses when isPaused prop is true (e.g., when parent opens trailer modal via onWatchTrailer callback)
   useEffect(() => {
     if (mediaList.length <= 1) return
     if (isPaused) return // Pause when trailer is playing
@@ -168,22 +164,10 @@ export function HeroSection({
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                className="group bg-primary px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 hover:shadow-primary/50"
-                onClick={() => {
-                  if (currentMedia.trailerKey && onWatchTrailer) {
-                    onWatchTrailer(currentMedia)
-                  }
-                }}
-                disabled={!currentMedia.trailerKey || !onWatchTrailer}
-              >
-                <HugeiconsIcon
-                  icon={PlayIcon}
-                  className="size-5 transition-transform group-hover:scale-110"
-                />
-                Watch Trailer
-              </Button>
+              <WatchTrailerButton
+                hasTrailer={!!currentMedia.trailerKey && !!onWatchTrailer}
+                onClick={() => onWatchTrailer?.(currentMedia)}
+              />
 
               {/* More Info Button - Secondary/Outline */}
               <Link

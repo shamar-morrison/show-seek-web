@@ -2,12 +2,12 @@
 
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
+import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
   Note01Icon,
-  PlayIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -250,18 +250,11 @@ export function MediaDetailHero({
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-4 lg:justify-start">
                   {/* Watch Trailer - Primary */}
-                  <Button
-                    size="lg"
-                    className="group bg-primary px-6 font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-[#B20710] hover:shadow-primary/50"
+                  <WatchTrailerButton
+                    hasTrailer={!!trailerKey}
                     onClick={() => setIsTrailerOpen(true)}
-                    disabled={!trailerKey}
-                  >
-                    <HugeiconsIcon
-                      icon={PlayIcon}
-                      className="size-5 transition-transform group-hover:scale-110"
-                    />
-                    Trailer
-                  </Button>
+                    label="Trailer"
+                  />
 
                   {/* Mark as Watched - Secondary */}
                   <Button
