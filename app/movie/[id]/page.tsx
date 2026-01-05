@@ -1,6 +1,7 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
+import { PhotosSection } from "@/components/photos-section"
 import { SimilarMedia } from "@/components/similar-media"
 import { WatchProviders } from "@/components/watch-providers"
 import {
@@ -66,6 +67,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
         items={similarMovies}
         mediaType="movie"
       />
+      <PhotosSection mediaId={movieId} mediaType="movie" />
     </main>
   )
 }

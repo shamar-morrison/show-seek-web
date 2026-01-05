@@ -1,6 +1,11 @@
 "use server"
 
-import { getBestTrailer, getMediaVideos, multiSearch } from "@/lib/tmdb"
+import {
+  getBestTrailer,
+  getMediaImages,
+  getMediaVideos,
+  multiSearch,
+} from "@/lib/tmdb"
 
 /**
  * Server action to search for media.
@@ -28,6 +33,22 @@ export async function fetchTrailerKey(
     return getBestTrailer(videos)
   } catch (error) {
     console.error("Server Action: Failed to fetch trailer", error)
+    return null
+  }
+}
+
+/**
+ * Server action to fetch media images (posters and backdrops).
+ * Used for lazy-loading the photos section.
+ */
+export async function fetchMediaImages(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+) {
+  try {
+    return await getMediaImages(mediaId, mediaType)
+  } catch (error) {
+    console.error("Server Action: Failed to fetch media images", error)
     return null
   }
 }
