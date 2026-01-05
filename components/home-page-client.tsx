@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
@@ -56,7 +57,7 @@ export function HomePageClient({
         })
         setIsTrailerOpen(true)
       } else {
-        // Could show a toast "No trailer available"
+        toast.error(`No trailer available for ${title}`)
         console.warn("No trailer found for", title)
       }
     } catch (error) {
