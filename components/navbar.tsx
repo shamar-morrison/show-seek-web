@@ -1,21 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
+import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import {
-  Search01Icon,
-  Menu01Icon,
   Cancel01Icon,
-  Home01Icon,
-  Film01Icon,
-  Tv01Icon,
   Compass01Icon,
+  Film01Icon,
+  Home01Icon,
   LibraryIcon,
+  Menu01Icon,
+  Search01Icon,
+  Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 
 /** Navigation menu item type */
 interface NavItem {
@@ -101,17 +101,7 @@ export function Navbar() {
           {/* Right Section - Search & Auth */}
           <div className="flex items-center gap-3">
             {/* Search Bar (Desktop) */}
-            <div className="relative hidden sm:block">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
-              />
-              <Input
-                type="text"
-                placeholder="Search..."
-                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 lg:w-64"
-              />
-            </div>
+            <SearchDropdown className="hidden sm:block" />
 
             {/* Search Icon (Mobile) */}
             <Button

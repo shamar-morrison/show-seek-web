@@ -9,6 +9,7 @@ import type {
   TMDBImagesResponse,
   TMDBMedia,
   TMDBMovieDetails,
+  TMDBSearchResponse,
   TMDBTrendingResponse,
   TMDBTVDetails,
   TMDBVideosResponse,
@@ -494,5 +495,36 @@ export async function getTVDetails(
   } catch (error) {
     console.error("Failed to fetch TV details:", error)
     return null
+  }
+}
+
+/**
+ * Multi-search across movies, TV shows, and people
+ * @param query - Search query string
+ * @param page - Page number (default: 1)
+ * @returns Search response with results
+ */
+export async function multiSearch(
+  query: string,
+  page: number = 1,
+): Promise<TMDBSearchResponse> {
+  if (!TMDB_API_KEY || !query.trim()) {
+    return { page: 1, results: [], total_pages: 0, total_results: 0 }
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=${page}&include_adult=false`,
+      { next: { revalidate: 300 } }, // Cache for 5 minutes
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to perform multi-search:", error)
+    return { page: 1, results: [], total_pages: 0, total_results: 0 }
   }
 }

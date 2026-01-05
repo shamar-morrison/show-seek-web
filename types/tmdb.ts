@@ -185,3 +185,33 @@ export interface TMDBTVDetails {
   created_by: CreatedBy[]
   credits?: TMDBCredits
 }
+
+/** Search result from multi-search endpoint */
+export interface TMDBSearchResult {
+  id: number
+  media_type: MediaType
+  // Movie fields
+  title?: string
+  release_date?: string
+  // TV fields
+  name?: string
+  first_air_date?: string
+  // Person fields
+  known_for_department?: string
+  profile_path?: string | null
+  // Common fields
+  poster_path?: string | null
+  backdrop_path?: string | null
+  vote_average?: number
+  popularity?: number
+  overview?: string
+  adult?: boolean
+}
+
+/** Response from multi-search endpoint */
+export interface TMDBSearchResponse {
+  page: number
+  results: TMDBSearchResult[]
+  total_pages: number
+  total_results: number
+}
