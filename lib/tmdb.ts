@@ -10,6 +10,7 @@ import type {
   TMDBMedia,
   TMDBMovieDetails,
   TMDBPersonDetails,
+  TMDBReviewsResponse,
   TMDBSearchResponse,
   TMDBTrendingResponse,
   TMDBTVDetails,
@@ -664,5 +665,37 @@ export async function getRecommendations(
   } catch (error) {
     console.error("Failed to fetch recommendations:", error)
     return []
+  }
+}
+
+/**
+ * Fetch reviews for a movie or TV show
+ * @param mediaId - TMDB media ID
+ * @param mediaType - "movie" or "tv"
+ * @returns Reviews response or null
+ */
+export async function getReviews(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+): Promise<TMDBReviewsResponse | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/reviews?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch reviews:", error)
+    return null
   }
 }

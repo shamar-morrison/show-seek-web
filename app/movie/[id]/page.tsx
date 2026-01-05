@@ -3,6 +3,7 @@ import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
+import { ReviewsSection } from "@/components/reviews-section"
 import { SimilarMedia } from "@/components/similar-media"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
@@ -72,6 +73,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
       <PhotosSection mediaId={movieId} mediaType="movie" />
       <VideosSection mediaId={movieId} mediaType="movie" />
       <RecommendationsSection mediaId={movieId} mediaType="movie" />
+      <ReviewsSection mediaId={movieId} mediaType="movie" />
     </main>
   )
 }

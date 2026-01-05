@@ -312,3 +312,31 @@ export interface WatchProvidersResponse {
   id: number
   results: Record<string, WatchProviders> // Keyed by country code (e.g., "US")
 }
+
+/** Author details for a review */
+export interface TMDBReviewAuthor {
+  name: string
+  username: string
+  avatar_path: string | null
+  rating: number | null
+}
+
+/** Individual review from reviews endpoint */
+export interface TMDBReview {
+  id: string
+  author: string
+  author_details: TMDBReviewAuthor
+  content: string
+  created_at: string
+  updated_at: string
+  url: string
+}
+
+/** Response from reviews endpoint */
+export interface TMDBReviewsResponse {
+  id: number
+  page: number
+  results: TMDBReview[]
+  total_pages: number
+  total_results: number
+}

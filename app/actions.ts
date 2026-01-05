@@ -5,6 +5,7 @@ import {
   getMediaImages,
   getMediaVideos,
   getRecommendations,
+  getReviews,
   multiSearch,
 } from "@/lib/tmdb"
 
@@ -83,5 +84,18 @@ export async function fetchRecommendations(
   } catch (error) {
     console.error("Server Action: Failed to fetch recommendations", error)
     return []
+  }
+}
+
+/**
+ * Server action to fetch reviews.
+ * Used for lazy-loading the reviews section.
+ */
+export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
+  try {
+    return await getReviews(mediaId, mediaType)
+  } catch (error) {
+    console.error("Server Action: Failed to fetch reviews", error)
+    return null
   }
 }

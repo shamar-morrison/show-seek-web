@@ -3,6 +3,7 @@ import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
+import { ReviewsSection } from "@/components/reviews-section"
 import { SeasonsRow } from "@/components/seasons-row"
 import { SimilarMedia } from "@/components/similar-media"
 import { VideosSection } from "@/components/videos-section"
@@ -67,6 +68,7 @@ export default async function TVPage({ params }: TVPageProps) {
       <PhotosSection mediaId={tvId} mediaType="tv" />
       <VideosSection mediaId={tvId} mediaType="tv" />
       <RecommendationsSection mediaId={tvId} mediaType="tv" />
+      <ReviewsSection mediaId={tvId} mediaType="tv" />
     </main>
   )
 }
