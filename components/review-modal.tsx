@@ -76,14 +76,17 @@ export function ReviewModal({ review, isOpen, onClose }: ReviewModalProps) {
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="prose prose-invert prose-sm max-w-none">
             {/* Preserve paragraph breaks from the review content */}
-            {review.content.split("\n\n").map((paragraph, index) => (
-              <p
-                key={index}
-                className="text-gray-300 leading-relaxed mb-4 last:mb-0"
-              >
-                {paragraph}
-              </p>
-            ))}
+            {review.content
+              .split("\n\n")
+              .filter((p) => p.trim())
+              .map((paragraph, index) => (
+                <p
+                  key={index}
+                  className="text-gray-300 leading-relaxed mb-4 last:mb-0"
+                >
+                  {paragraph}
+                </p>
+              ))}
           </div>
         </div>
       </DialogContent>

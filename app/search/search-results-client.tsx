@@ -5,6 +5,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
+import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
 import { debounceWithCancel } from "@/lib/debounce"
 import { getSearchResultInfo } from "@/lib/media-info"
@@ -26,15 +27,8 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react"
+import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 const DEBOUNCE_DELAY = 300
 /** TMDB image size for search result cards */
@@ -69,7 +63,7 @@ export function SearchResultsClient({
   initialResults,
 }: SearchResultsClientProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
+
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(initialResults)
   const [activeTab, setActiveTab] = useState<TabType>("all")
@@ -139,29 +133,7 @@ export function SearchResultsClient({
   }
 
   // Sync with URL params
-  // Track current query ref to avoid dependency cycles in effect
-  const queryRef = useRef(query)
-  const isInitialMount = useRef(true)
-  useEffect(() => {
-    queryRef.current = query
-  }, [query])
-
-  // Sync with URL params (e.g. back/forward navigation)
-  useEffect(() => {
-    // Skip on initial mount since initialResults is already provided
-    if (isInitialMount.current) {
-      isInitialMount.current = false
-      return
-    }
-
-    const urlQuery = searchParams.get("q") || ""
-    if (urlQuery !== queryRef.current) {
-      setQuery(urlQuery)
-      if (urlQuery) {
-        performSearch(urlQuery)
-      }
-    }
-  }, [searchParams, performSearch])
+  useSearchUrlSync({ query, setQuery, performSearch })
 
   // Filter results based on active tab
   const filteredResults =

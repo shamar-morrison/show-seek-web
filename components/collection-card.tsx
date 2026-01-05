@@ -1,6 +1,7 @@
 "use client"
 
 import { Section } from "@/components/ui/section"
+import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBCollectionDetails, TMDBCollectionInfo } from "@/types/tmdb"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -25,7 +26,7 @@ export function CollectionCard({ collection }: CollectionCardProps) {
         {/* Backdrop Image */}
         {collection.backdrop_path ? (
           <img
-            src={`https://image.tmdb.org/t/p/w780${collection.backdrop_path}`}
+            src={buildImageUrl(collection.backdrop_path, "w780") || ""}
             alt={collection.name}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

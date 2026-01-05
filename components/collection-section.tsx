@@ -6,6 +6,7 @@ import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import type { TMDBCollectionDetails, TMDBCollectionInfo } from "@/types/tmdb"
 import { useCallback, useState } from "react"
+import { toast } from "sonner"
 
 interface CollectionSectionProps {
   collectionId: number
@@ -28,6 +29,7 @@ export function CollectionSection({ collectionId }: CollectionSectionProps) {
       setCollection(data)
     } catch (error) {
       console.error("Failed to load collection:", error)
+      toast.error("Failed to load collection")
     } finally {
       setIsLoading(false)
       setHasLoaded(true)

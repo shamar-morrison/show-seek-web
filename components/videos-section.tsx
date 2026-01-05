@@ -8,6 +8,7 @@ import type { TMDBVideo } from "@/types/tmdb"
 import { PlayIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useState } from "react"
+import { toast } from "sonner"
 
 interface VideosSectionProps {
   /** TMDB media ID */
@@ -49,6 +50,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
       }
     } catch (error) {
       console.error("Failed to load videos:", error)
+      toast.error("Failed to load videos")
     } finally {
       setIsLoading(false)
       setHasLoaded(true)
