@@ -9,6 +9,7 @@ import type {
   TMDBImagesResponse,
   TMDBMedia,
   TMDBMovieDetails,
+  TMDBPersonDetails,
   TMDBSearchResponse,
   TMDBTrendingResponse,
   TMDBTVDetails,
@@ -526,5 +527,35 @@ export async function multiSearch(
   } catch (error) {
     console.error("Failed to perform multi-search:", error)
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
+  }
+}
+
+/**
+ * Fetch full person details including combined credits
+ * @param personId - TMDB person ID
+ * @returns Person details with combined credits or null
+ */
+export async function getPersonDetails(
+  personId: number,
+): Promise<TMDBPersonDetails | null> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/person/${personId}?api_key=${TMDB_API_KEY}&append_to_response=combined_credits`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch person details:", error)
+    return null
   }
 }

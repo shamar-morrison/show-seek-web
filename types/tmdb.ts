@@ -215,3 +215,66 @@ export interface TMDBSearchResponse {
   total_pages: number
   total_results: number
 }
+
+/** Person cast member from combined credits */
+export interface PersonCastMember {
+  id: number
+  media_type: "movie" | "tv"
+  title?: string // For movies
+  name?: string // For TV shows
+  poster_path: string | null
+  backdrop_path: string | null
+  release_date?: string // For movies
+  first_air_date?: string // For TV shows
+  character: string
+  vote_average: number
+  vote_count: number
+  overview: string
+  adult: boolean
+  genre_ids: number[]
+  popularity: number
+}
+
+/** Person crew member from combined credits */
+export interface PersonCrewMember {
+  id: number
+  media_type: "movie" | "tv"
+  title?: string // For movies
+  name?: string // For TV shows
+  poster_path: string | null
+  backdrop_path: string | null
+  release_date?: string // For movies
+  first_air_date?: string // For TV shows
+  department: string
+  job: string
+  vote_average: number
+  vote_count: number
+  overview: string
+  adult: boolean
+  genre_ids: number[]
+  popularity: number
+}
+
+/** Person combined credits response */
+export interface TMDBPersonCombinedCredits {
+  cast: PersonCastMember[]
+  crew: PersonCrewMember[]
+}
+
+/** Full person details response */
+export interface TMDBPersonDetails {
+  id: number
+  name: string
+  also_known_as: string[]
+  biography: string
+  birthday: string | null
+  deathday: string | null
+  gender: number
+  homepage: string | null
+  imdb_id: string | null
+  known_for_department: string
+  place_of_birth: string | null
+  popularity: number
+  profile_path: string | null
+  combined_credits?: TMDBPersonCombinedCredits
+}

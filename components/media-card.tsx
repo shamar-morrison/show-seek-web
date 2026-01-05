@@ -14,6 +14,7 @@ interface MediaCardProps {
   onAddToList?: (media: TMDBMedia) => void
   priority?: boolean
   isLoading?: boolean
+  buttonText?: string
 }
 
 export function MediaCard({
@@ -21,6 +22,7 @@ export function MediaCard({
   onWatchTrailer,
   priority = false,
   isLoading = false,
+  buttonText = "Trailer",
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -69,8 +71,10 @@ export function MediaCard({
             size="sm"
             className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
             onClick={(e) => {
-              e.preventDefault() // Prevent navigation when clicking the button
-              onWatchTrailer?.(media)
+              if (onWatchTrailer) {
+                e.preventDefault() // Prevent navigation when clicking the button
+                onWatchTrailer(media)
+              }
             }}
             disabled={isLoading}
           >
@@ -85,7 +89,7 @@ export function MediaCard({
             ) : (
               <>
                 <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                Trailer
+                {buttonText}
               </>
             )}
           </Button>
