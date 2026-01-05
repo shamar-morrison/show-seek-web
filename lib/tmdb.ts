@@ -84,28 +84,46 @@ export async function getTrendingMedia(
     return []
   }
 }
+
 /**
- * Fetch popular movies
- * @returns Array of popular movies
+ * Helper function to fetch a list of media items from a specific endpoint
+ * @param endpoint - API endpoint path (e.g., "/movie/popular")
+ * @param mediaType - "movie" or "tv" to inject into results
+ * @param errorMessage - Error message to log on failure
+ * @returns Array of media items with injected media_type
  */
-export async function getPopularMovies(): Promise<TMDBMedia[]> {
+async function fetchMediaList(
+  endpoint: string,
+  mediaType: "movie" | "tv",
+  errorMessage: string,
+): Promise<TMDBMedia[]> {
   if (!TMDB_API_KEY) return []
 
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}`,
+      `${TMDB_BASE_URL}${endpoint}?api_key=${TMDB_API_KEY}`,
       { next: { revalidate: 3600 } },
     )
 
     if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
 
     const data: TMDBTrendingResponse = await response.json()
-    // Inject media_type since it's not returned by specific endpoints
-    return data.results.map((item) => ({ ...item, media_type: "movie" }))
+    return data.results.map((item) => ({ ...item, media_type: mediaType }))
   } catch (error) {
-    console.error("Failed to fetch popular movies:", error)
+    console.error(errorMessage, error)
     return []
   }
+}
+/**
+ * Fetch popular movies
+ * @returns Array of popular movies
+ */
+export async function getPopularMovies(): Promise<TMDBMedia[]> {
+  return fetchMediaList(
+    "/movie/popular",
+    "movie",
+    "Failed to fetch popular movies:",
+  )
 }
 
 /**
@@ -113,22 +131,7 @@ export async function getPopularMovies(): Promise<TMDBMedia[]> {
  * @returns Array of top rated TV shows
  */
 export async function getTopRatedTV(): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) return []
-
-  try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/tv/top_rated?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } },
-    )
-
-    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
-
-    const data: TMDBTrendingResponse = await response.json()
-    return data.results.map((item) => ({ ...item, media_type: "tv" }))
-  } catch (error) {
-    console.error("Failed to fetch top rated TV:", error)
-    return []
-  }
+  return fetchMediaList("/tv/top_rated", "tv", "Failed to fetch top rated TV:")
 }
 
 /**
@@ -136,22 +139,11 @@ export async function getTopRatedTV(): Promise<TMDBMedia[]> {
  * @returns Array of upcoming movies
  */
 export async function getUpcomingMovies(): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) return []
-
-  try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/movie/upcoming?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } },
-    )
-
-    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
-
-    const data: TMDBTrendingResponse = await response.json()
-    return data.results.map((item) => ({ ...item, media_type: "movie" }))
-  } catch (error) {
-    console.error("Failed to fetch upcoming movies:", error)
-    return []
-  }
+  return fetchMediaList(
+    "/movie/upcoming",
+    "movie",
+    "Failed to fetch upcoming movies:",
+  )
 }
 
 /**
@@ -537,7 +529,7 @@ export async function getCollectionDetails(
   try {
     const response = await fetch(
       `${TMDB_BASE_URL}/collection/${collectionId}?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { next: { revalidate: 604800 } }, // Cache for 1 week
     )
 
     if (!response.ok) {
@@ -603,7 +595,7 @@ export async function getPersonDetails(
   try {
     const response = await fetch(
       `${TMDB_BASE_URL}/person/${personId}?api_key=${TMDB_API_KEY}&append_to_response=combined_credits`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { next: { revalidate: 604800 } }, // Cache for 1 week
     )
 
     if (!response.ok) {
@@ -637,7 +629,7 @@ export async function getWatchProviders(
   try {
     const response = await fetch(
       `${TMDB_BASE_URL}/${mediaType}/${mediaId}/watch/providers?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 86400 } }, // Cache for 24 hours
+      { next: { revalidate: 2592000 } }, // Cache for 30 days
     )
 
     if (!response.ok) {
@@ -664,28 +656,11 @@ export async function getSimilarMedia(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
-    return []
-  }
-
-  try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/similar?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
-
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`)
-    }
-
-    const data: TMDBTrendingResponse = await response.json()
-    // Inject media_type since similar endpoint doesn't return it
-    return data.results.map((item) => ({ ...item, media_type: mediaType }))
-  } catch (error) {
-    console.error("Failed to fetch similar media:", error)
-    return []
-  }
+  return fetchMediaList(
+    `/${mediaType}/${mediaId}/similar`,
+    mediaType,
+    "Failed to fetch similar media:",
+  )
 }
 
 /**
@@ -698,28 +673,11 @@ export async function getRecommendations(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
-    return []
-  }
-
-  try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/recommendations?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
-
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`)
-    }
-
-    const data: TMDBTrendingResponse = await response.json()
-    // Inject media_type since recommendations endpoint doesn't return it
-    return data.results.map((item) => ({ ...item, media_type: mediaType }))
-  } catch (error) {
-    console.error("Failed to fetch recommendations:", error)
-    return []
-  }
+  return fetchMediaList(
+    `/${mediaType}/${mediaId}/recommendations`,
+    mediaType,
+    "Failed to fetch recommendations:",
+  )
 }
 
 /**
@@ -740,7 +698,7 @@ export async function getReviews(
   try {
     const response = await fetch(
       `${TMDB_BASE_URL}/${mediaType}/${mediaId}/reviews?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { next: { revalidate: 172800 } }, // Cache for 2 days
     )
 
     if (!response.ok) {

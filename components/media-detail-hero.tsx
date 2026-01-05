@@ -9,6 +9,7 @@ import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
   CheckmarkCircle02Icon,
+  Clock,
   InformationCircleIcon,
   Note01Icon,
   StarIcon,
@@ -218,7 +219,10 @@ export function MediaDetailHero({
                   {/* Runtime */}
                   {runtime && (
                     <span className="flex items-center gap-1">
-                      <span className="text-gray-500">⏱</span>
+                      <HugeiconsIcon
+                        icon={Clock}
+                        className="size-4 text-gray-500"
+                      />
                       {runtime}
                     </span>
                   )}
