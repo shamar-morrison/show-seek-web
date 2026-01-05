@@ -1,11 +1,13 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { Navbar } from "@/components/navbar"
+import { SimilarMedia } from "@/components/similar-media"
 import { WatchProviders } from "@/components/watch-providers"
 import {
   getBestTrailer,
   getMediaVideos,
   getMovieDetails,
+  getSimilarMedia,
   getWatchProviders,
 } from "@/lib/tmdb"
 import { Metadata } from "next"
@@ -29,11 +31,12 @@ export default async function MoviePage({ params }: MoviePageProps) {
     notFound()
   }
 
-  // Fetch movie details, videos, and watch providers in parallel
-  const [movie, videos, watchProviders] = await Promise.all([
+  // Fetch movie details, videos, watch providers, and similar movies in parallel
+  const [movie, videos, watchProviders, similarMovies] = await Promise.all([
     getMovieDetails(movieId),
     getMediaVideos(movieId, "movie"),
     getWatchProviders(movieId, "movie"),
+    getSimilarMedia(movieId, "movie"),
   ])
 
   if (!movie) {
@@ -58,6 +61,11 @@ export default async function MoviePage({ params }: MoviePageProps) {
         limit={15}
       />
       <WatchProviders providers={watchProviders} />
+      <SimilarMedia
+        title="Similar Movies"
+        items={similarMovies}
+        mediaType="movie"
+      />
     </main>
   )
 }

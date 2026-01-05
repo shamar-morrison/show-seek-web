@@ -598,3 +598,37 @@ export async function getWatchProviders(
     return null
   }
 }
+
+/**
+ * Fetch similar movies or TV shows
+ * @param mediaId - TMDB media ID
+ * @param mediaType - "movie" or "tv"
+ * @returns Array of similar media items
+ */
+export async function getSimilarMedia(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+): Promise<TMDBMedia[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/similar?api_key=${TMDB_API_KEY}`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBTrendingResponse = await response.json()
+    // Inject media_type since similar endpoint doesn't return it
+    return data.results.map((item) => ({ ...item, media_type: mediaType }))
+  } catch (error) {
+    console.error("Failed to fetch similar media:", error)
+    return []
+  }
+}
