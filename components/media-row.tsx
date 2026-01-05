@@ -12,6 +12,7 @@ interface MediaRowProps {
   href?: string
   onWatchTrailer?: (media: TMDBMedia) => void
   onAddToList?: (media: TMDBMedia) => void
+  loadingMediaId?: number | null
 }
 
 export function MediaRow({
@@ -20,6 +21,7 @@ export function MediaRow({
   href = "#",
   onWatchTrailer,
   onAddToList,
+  loadingMediaId,
 }: MediaRowProps) {
   if (!items || items.length === 0) return null
 
@@ -48,6 +50,7 @@ export function MediaRow({
               key={item.id}
               media={item}
               onWatchTrailer={onWatchTrailer}
+              isLoading={loadingMediaId === item.id}
             />
           ))}
         </div>

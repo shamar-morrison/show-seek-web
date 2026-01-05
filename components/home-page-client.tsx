@@ -29,6 +29,7 @@ export function HomePageClient({
     key: string
     title: string
   } | null>(null)
+  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
 
   // Handle opening trailer for Hero Section items (pre-fetched trailerKey)
   const handleHeroWatchTrailer = (media: HeroMedia) => {
@@ -46,6 +47,8 @@ export function HomePageClient({
     // For media cards, we might need to fetch the trailer key if not present
     const title = media.title || media.name || "Trailer"
 
+    setLoadingMediaId(media.id)
+
     try {
       const mediaType = media.media_type || (media.title ? "movie" : "tv")
       const key = await fetchTrailerKey(media.id, mediaType as "movie" | "tv")
@@ -62,6 +65,8 @@ export function HomePageClient({
       }
     } catch (error) {
       console.error("Error fetching trailer:", error)
+    } finally {
+      setLoadingMediaId(null)
     }
   }
 
@@ -80,21 +85,25 @@ export function HomePageClient({
           title="Trending Now"
           items={trendingList}
           onWatchTrailer={handleCardWatchTrailer}
+          loadingMediaId={loadingMediaId}
         />
         <MediaRow
           title="Popular Movies"
           items={popularMovies}
           onWatchTrailer={handleCardWatchTrailer}
+          loadingMediaId={loadingMediaId}
         />
         <MediaRow
           title="Top Rated TV Shows"
           items={topRatedTV}
           onWatchTrailer={handleCardWatchTrailer}
+          loadingMediaId={loadingMediaId}
         />
         <MediaRow
           title="Upcoming Movies"
           items={upcomingMovies}
           onWatchTrailer={handleCardWatchTrailer}
+          loadingMediaId={loadingMediaId}
         />
       </div>
 

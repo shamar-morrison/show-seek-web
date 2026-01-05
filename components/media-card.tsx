@@ -4,7 +4,11 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import type { TMDBMedia } from "@/types/tmdb"
 import { buildImageUrl } from "@/lib/tmdb"
-import { PlayIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import {
+  PlayIcon,
+  PlusSignIcon,
+  Loading03Icon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 
@@ -13,12 +17,14 @@ interface MediaCardProps {
   onWatchTrailer?: (media: TMDBMedia) => void
   onAddToList?: (media: TMDBMedia) => void
   priority?: boolean
+  isLoading?: boolean
 }
 
 export function MediaCard({
   media,
   onWatchTrailer,
   priority = false,
+  isLoading = false,
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -62,9 +68,22 @@ export function MediaCard({
           size="sm"
           className="w-full bg-[#2a2a2e] font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
           onClick={() => onWatchTrailer?.(media)}
+          disabled={isLoading}
         >
-          <HugeiconsIcon icon={PlayIcon} className="size-4" />
-          Trailer
+          {isLoading ? (
+            <>
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-4 animate-spin"
+              />
+              Loading...
+            </>
+          ) : (
+            <>
+              <HugeiconsIcon icon={PlayIcon} className="size-4" />
+              Trailer
+            </>
+          )}
         </Button>
       </div>
     </div>
