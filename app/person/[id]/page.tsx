@@ -15,10 +15,14 @@ interface PersonPageProps {
   }>
 }
 
-function calculateAge(birthday: string | null): string | null {
+function calculateAge(
+  birthday: string | null,
+  deathday: string | null = null,
+): string | null {
   if (!birthday) return null
-  const birthIconDate = new Date(birthday)
-  const ageDifMs = Date.now() - birthIconDate.getTime()
+  const birthDate = new Date(birthday)
+  const compareDate = deathday ? new Date(deathday) : new Date()
+  const ageDifMs = compareDate.getTime() - birthDate.getTime()
   const ageDate = new Date(ageDifMs)
   return Math.abs(ageDate.getUTCFullYear() - 1970).toString()
 }
@@ -47,7 +51,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
   }
 
   const profileUrl = buildImageUrl(person.profile_path, "original")
-  const age = calculateAge(person.birthday)
+  const age = calculateAge(person.birthday, person.deathday)
   const formattedBirthday = formatDate(person.birthday)
 
   // Format birthday string like: "August 26, 1997 (29 years old)"

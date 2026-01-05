@@ -28,12 +28,29 @@ export function MediaCard({
   const date = media.release_date || media.first_air_date
   const year = date ? date.split("-")[0] : null
   const posterUrl = buildImageUrl(media.poster_path, "w500")
-  const mediaType = media.media_type === "movie" ? "Movie" : "TV Show"
+  const mediaType =
+    media.media_type === "movie"
+      ? "Movie"
+      : media.media_type === "tv"
+        ? "TV Show"
+        : "Person"
   const hasRating = (media.vote_average || 0) > 0
 
   // Determine the detail page URL based on media type
-  const detailUrl =
-    media.media_type === "movie" ? `/movie/${media.id}` : `/tv/${media.id}`
+  const getDetailUrl = (type: string, id: number) => {
+    switch (type) {
+      case "movie":
+        return `/movie/${id}`
+      case "tv":
+        return `/tv/${id}`
+      case "person":
+        return `/person/${id}`
+      default:
+        return "/"
+    }
+  }
+
+  const detailUrl = getDetailUrl(media.media_type, media.id)
 
   return (
     <Link href={detailUrl} className="block">

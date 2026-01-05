@@ -301,10 +301,6 @@ export function SearchResultsClient({
   )
 }
 
-// ... imports remain ...
-
-// ... SearchResultsClient component remains ...
-
 /**
  * Search Result Card Component
  * Displays a single search result in a card format
