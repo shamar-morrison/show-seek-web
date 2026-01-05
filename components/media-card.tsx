@@ -33,7 +33,7 @@ export function MediaCard({
   const mediaType = media.media_type === "movie" ? "Movie" : "TV Show"
 
   return (
-    <div className="group relative w-full overflow-hidden rounded-xl bg-[#18181b] p-0 shadow-md transition-all duration-300 hover:bg-[#27272a] cursor-pointer">
+    <div className="group relative w-full overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300 cursor-pointer">
       {/* Poster Image */}
       <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
         {posterUrl ? (
@@ -66,7 +66,7 @@ export function MediaCard({
         {/* Watch Now Button */}
         <Button
           size="sm"
-          className="w-full bg-[#2a2a2e] font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
+          className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
           onClick={() => onWatchTrailer?.(media)}
           disabled={isLoading}
         >
