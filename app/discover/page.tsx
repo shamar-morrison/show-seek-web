@@ -5,6 +5,7 @@ import {
   getTVGenres,
   getWatchProviderList,
 } from "@/lib/tmdb"
+import { safeParseInt } from "@/lib/utils"
 import { DiscoverClient } from "./discover-client"
 
 /**
@@ -21,7 +22,7 @@ export default async function DiscoverPage({
 
   // Parse initial filter state from URL
   const mediaType = (params.type as "movie" | "tv") || "movie"
-  const page = parseInt(params.page as string) || 1
+  const page = safeParseInt(params.page as string) || 1
 
   // Fetch static data in parallel - these are cached indefinitely
   const [movieGenres, tvGenres, languages, providers, initialResults] =
@@ -33,14 +34,14 @@ export default async function DiscoverPage({
       discoverMedia({
         mediaType,
         page,
-        year: params.year ? parseInt(params.year as string) : undefined,
+        year: safeParseInt(params.year as string),
         sortBy:
           (params.sort as "popularity" | "top_rated" | "newest") || undefined,
-        rating: params.rating ? parseInt(params.rating as string) : undefined,
+        rating: safeParseInt(params.rating as string),
         language: (params.language as string) || undefined,
-        genre: params.genre ? parseInt(params.genre as string) : undefined,
-        providers: params.provider
-          ? [parseInt(params.provider as string)]
+        genre: safeParseInt(params.genre as string),
+        providers: safeParseInt(params.provider as string)
+          ? [safeParseInt(params.provider as string)!]
           : undefined,
       }),
     ])
@@ -55,14 +56,14 @@ export default async function DiscoverPage({
       initialFilters={{
         mediaType,
         page,
-        year: params.year ? parseInt(params.year as string) : null,
+        year: safeParseInt(params.year as string) ?? null,
         sortBy:
           (params.sort as "popularity" | "top_rated" | "newest") ||
           "popularity",
-        rating: params.rating ? parseInt(params.rating as string) : null,
+        rating: safeParseInt(params.rating as string) ?? null,
         language: (params.language as string) || null,
-        genre: params.genre ? parseInt(params.genre as string) : null,
-        provider: params.provider ? parseInt(params.provider as string) : null,
+        genre: safeParseInt(params.genre as string) ?? null,
+        provider: safeParseInt(params.provider as string) ?? null,
       }}
     />
   )

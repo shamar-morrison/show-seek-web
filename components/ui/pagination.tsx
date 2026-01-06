@@ -94,9 +94,10 @@ export function Pagination({
           <button
             key={page}
             onClick={() => onPageChange(page)}
+            disabled={page === currentPage}
             className={`flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors ${
               page === currentPage
-                ? "border-primary bg-primary text-white"
+                ? "cursor-default border-primary bg-primary text-white"
                 : "border-white/10 bg-transparent text-gray-400 hover:bg-white/5 hover:text-white"
             }`}
             aria-label={`Page ${page}`}

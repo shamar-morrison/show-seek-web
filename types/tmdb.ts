@@ -157,7 +157,7 @@ export interface ProductionCountry {
 export interface SpokenLanguage {
   iso_639_1: string
   name: string
-  english_name: string
+  english_name?: string
 }
 
 /** Movie release date with certification */
@@ -209,6 +209,12 @@ export interface TMDBMovieDetails {
   genres: Genre[]
   status: string
   tagline: string | null
+  adult: boolean
+  budget: number
+  homepage: string | null
+  imdb_id: string | null
+  revenue: number
+  video: boolean
   production_companies: ProductionCompany[]
   production_countries: ProductionCountry[]
   spoken_languages: SpokenLanguage[]
@@ -222,6 +228,29 @@ export interface CreatedBy {
   id: number
   name: string
   profile_path: string | null
+}
+
+export interface TMDBNetwork {
+  id: number
+  logo_path: string | null
+  name: string
+  origin_country: string
+}
+
+export interface TMDBEpisode {
+  id: number
+  name: string
+  overview: string
+  vote_average: number
+  vote_count: number
+  air_date: string
+  episode_number: number
+  episode_type: string
+  production_code: string
+  runtime: number | null
+  season_number: number
+  show_id: number
+  still_path: string | null
 }
 
 /** Full TV show details response */
@@ -243,6 +272,12 @@ export interface TMDBTVDetails {
   tagline: string | null
   number_of_seasons: number
   number_of_episodes: number
+  in_production: boolean
+  languages: string[]
+  origin_country: string[]
+  networks: TMDBNetwork[]
+  last_episode_to_air: TMDBEpisode | null
+  next_episode_to_air: TMDBEpisode | null
   seasons: TMDBSeason[]
   created_by: CreatedBy[]
   production_companies: ProductionCompany[]
@@ -371,6 +406,7 @@ export interface TMDBPersonDetails {
   place_of_birth: string | null
   popularity: number
   profile_path: string | null
+  adult: boolean
   combined_credits?: TMDBPersonCombinedCredits
 }
 
