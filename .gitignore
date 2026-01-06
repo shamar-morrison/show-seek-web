@@ -11,6 +11,11 @@
 !.yarn/versions
 prompt.md
 
+# firebase
+firebase.json
+firestore.indexes.json
+firestore.rules
+
 # testing
 /coverage
 

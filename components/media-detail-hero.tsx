@@ -1,5 +1,6 @@
 "use client"
 
+import { AddToListModal } from "@/components/add-to-list-modal"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import {
   Clock,
   InformationCircleIcon,
   Note01Icon,
+  PlusSignIcon,
   StarIcon,
   Tv01FreeIcons,
 } from "@hugeicons/core-free-icons"
@@ -103,6 +105,7 @@ export function MediaDetailHero({
   trailerKey,
 }: MediaDetailHeroProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
+  const [isAddToListOpen, setIsAddToListOpen] = useState(false)
 
   // Extract common properties
   const title =
@@ -285,6 +288,17 @@ export function MediaDetailHero({
                     label="Trailer"
                   />
 
+                  {/* Add to List */}
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                    onClick={() => setIsAddToListOpen(true)}
+                  >
+                    <HugeiconsIcon icon={PlusSignIcon} className="size-5" />
+                    Add
+                  </Button>
+
                   {/* Mark as Watched - Secondary */}
                   <Button
                     size="lg"
@@ -330,6 +344,14 @@ export function MediaDetailHero({
         isOpen={isTrailerOpen}
         onClose={() => setIsTrailerOpen(false)}
         title={`${title} - Trailer`}
+      />
+
+      {/* Add to List Modal */}
+      <AddToListModal
+        isOpen={isAddToListOpen}
+        onClose={() => setIsAddToListOpen(false)}
+        media={media}
+        mediaType={mediaType}
       />
     </>
   )

@@ -4,7 +4,12 @@
  */
 
 import { db } from "@/lib/firebase/config"
-import { DEFAULT_LIST_IDS, ListMediaItem, UserList } from "@/types/list"
+import {
+  DEFAULT_LIST_IDS,
+  DEFAULT_LISTS,
+  ListMediaItem,
+  UserList,
+} from "@/types/list"
 import {
   collection,
   deleteDoc,
@@ -60,24 +65,27 @@ export async function addToList(
   mediaItem: Omit<ListMediaItem, "addedAt">,
 ): Promise<void> {
   const listRef = getListRef(userId, listId)
-  const itemKey = `${mediaItem.media_type}-${mediaItem.id}`
+  // Use numeric ID as key to match mobile app format
+  const itemKey = String(mediaItem.id)
 
   const sanitizedItem = sanitizeForFirestore({
     ...mediaItem,
     addedAt: Date.now(),
   })
 
+  // Get the list name - for default lists, use the name from DEFAULT_LISTS
+  const defaultList = DEFAULT_LISTS.find((l) => l.id === listId)
+  const listName = defaultList?.name || listId
+
   await setDoc(
     listRef,
     {
-      id: listId,
-      name: DEFAULT_LIST_IDS.has(listId) ? undefined : undefined,
+      name: listName,
       items: {
         [itemKey]: sanitizedItem,
       },
       updatedAt: Date.now(),
       createdAt: Date.now(),
-      isCustom: !DEFAULT_LIST_IDS.has(listId),
     },
     { merge: true },
   )
@@ -90,10 +98,10 @@ export async function removeFromList(
   userId: string,
   listId: string,
   mediaId: string,
-  mediaType: "movie" | "tv",
 ): Promise<void> {
   const listRef = getListRef(userId, listId)
-  const itemKey = `${mediaType}-${mediaId}`
+  // Use numeric ID as key to match mobile app format
+  const itemKey = mediaId
 
   await updateDoc(listRef, {
     [`items.${itemKey}`]: deleteField(),
