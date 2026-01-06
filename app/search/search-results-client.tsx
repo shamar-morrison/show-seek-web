@@ -1,8 +1,8 @@
 "use client"
 
 import { searchMedia } from "@/app/actions"
+import { MediaCard } from "@/components/media-card"
 import { TrailerModal } from "@/components/trailer-modal"
-import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyDescription,
@@ -15,31 +15,25 @@ import { Input } from "@/components/ui/input"
 import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
 import { debounceWithCancel } from "@/lib/debounce"
-import { getSearchResultInfo } from "@/lib/media-info"
-import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
 import type {
   MediaType,
+  TMDBMedia,
   TMDBSearchResponse,
   TMDBSearchResult,
 } from "@/types/tmdb"
 import {
   Film01Icon,
   Loading03Icon,
-  PlayIcon,
   Search01Icon,
   Tv01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 const DEBOUNCE_DELAY = 300
-/** TMDB image size for search result cards */
-const SEARCH_CARD_IMAGE_SIZE = "w342"
 
 type TabType = "all" | "movie" | "tv" | "person"
 
@@ -73,6 +67,7 @@ export function SearchResultsClient({
 
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(initialResults)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>("all")
   const [isPending, startTransition] = useTransition()
 
@@ -80,30 +75,63 @@ export function SearchResultsClient({
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
-  // Handle watch trailer
-  const handleWatchTrailer = useCallback(
-    (result: TMDBSearchResult) => {
-      if (result.media_type === "person") return
+  // Handle watch trailer for MediaCard
+  const handleWatchTrailerMedia = useCallback(
+    (media: TMDBMedia) => {
+      if (media.media_type === "person") return
       watchTrailer(
-        result.id,
-        result.media_type,
-        result.title || result.name || "Trailer",
+        media.id,
+        media.media_type,
+        media.title || media.name || "Trailer",
       )
     },
     [watchTrailer],
   )
 
+  // Convert TMDBSearchResult to TMDBMedia for MediaCard
+  const searchResultToMedia = useCallback(
+    (result: TMDBSearchResult): TMDBMedia => ({
+      id: result.id,
+      media_type: result.media_type,
+      adult: result.adult ?? false,
+      backdrop_path: result.backdrop_path ?? null,
+      poster_path: result.poster_path ?? result.profile_path ?? null,
+      title: result.title,
+      name: result.name,
+      original_title: result.title,
+      original_name: result.name,
+      overview: result.overview ?? "",
+      genre_ids: [],
+      popularity: result.popularity ?? 0,
+      release_date: result.release_date,
+      first_air_date: result.first_air_date,
+      vote_average: result.vote_average ?? 0,
+      vote_count: 0,
+      original_language: "",
+    }),
+    [],
+  )
+
   // Perform search
   const performSearch = useCallback(async (searchQuery: string) => {
+    setError(null)
     if (!searchQuery.trim()) {
       setResults({ page: 1, results: [], total_pages: 0, total_results: 0 })
       return
     }
 
-    startTransition(async () => {
+    try {
       const response = await searchMedia(searchQuery)
-      setResults(response)
-    })
+      startTransition(() => {
+        setResults(response)
+      })
+    } catch (err) {
+      console.error("Search error:", err)
+      startTransition(() => {
+        setResults({ page: 1, results: [], total_pages: 0, total_results: 0 })
+        setError("An error occurred while searching. Please try again.")
+      })
+    }
   }, [])
 
   // Debounced search
@@ -188,7 +216,7 @@ export function SearchResultsClient({
             placeholder="Search movies, TV shows, and people..."
             value={query}
             onChange={handleInputChange}
-            className="h-14 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
+            className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
           />
         </form>
 
@@ -205,6 +233,13 @@ export function SearchResultsClient({
             />
           ))}
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-center text-sm text-red-500">
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Results */}
@@ -216,12 +251,12 @@ export function SearchResultsClient({
           />
         </div>
       ) : filteredResults.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {filteredResults.map((result) => (
-            <SearchResultCard
+            <MediaCard
               key={`${result.media_type}-${result.id}`}
-              result={result}
-              onWatchTrailer={handleWatchTrailer}
+              media={searchResultToMedia(result)}
+              onWatchTrailer={handleWatchTrailerMedia}
               isLoading={loadingMediaId === result.id}
             />
           ))}
@@ -258,114 +293,5 @@ export function SearchResultsClient({
         title={activeTrailer?.title || "Trailer"}
       />
     </div>
-  )
-}
-
-/**
- * Search Result Card Component
- * Displays a single search result in a card format
- */
-function SearchResultCard({
-  result,
-  onWatchTrailer,
-  isLoading,
-}: {
-  result: TMDBSearchResult
-  onWatchTrailer: (result: TMDBSearchResult) => void
-  isLoading: boolean
-}) {
-  const {
-    isPerson,
-    title,
-    imagePath,
-    year,
-    rating,
-    mediaTypeLabel,
-    MediaTypeIcon,
-    href,
-  } = getSearchResultInfo(result)
-
-  const imageUrl = buildImageUrl(imagePath ?? null, SEARCH_CARD_IMAGE_SIZE)
-
-  return (
-    <Link href={href} className="group block">
-      <div className="overflow-hidden rounded-xl bg-white/5 transition-all duration-300 hover:bg-white/10">
-        {/* Image */}
-        <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <HugeiconsIcon
-                icon={MediaTypeIcon}
-                className="size-12 text-gray-600"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="p-3">
-          <h3 className="line-clamp-1 text-sm font-semibold text-white">
-            {title}
-          </h3>
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-            <span className="flex items-center gap-1">
-              <HugeiconsIcon icon={MediaTypeIcon} className="size-3" />
-              {mediaTypeLabel}
-            </span>
-            {year && (
-              <>
-                <span className="text-gray-600">•</span>
-                <span>{year}</span>
-              </>
-            )}
-            {rating !== null && rating > 0 && (
-              <>
-                <span className="text-gray-600">•</span>
-                <span className="flex items-center gap-1 text-yellow-500">
-                  <span className="text-xs text-yellow-500">★</span>
-                  {rating}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Watch Trailer Button */}
-          {!isPerson && (
-            <Button
-              size="sm"
-              className="mt-3 w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
-              onClick={(e) => {
-                e.preventDefault()
-                onWatchTrailer(result)
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="size-4 animate-spin"
-                  />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                  Trailer
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
-    </Link>
   )
 }
