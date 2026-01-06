@@ -141,23 +141,38 @@
   animation: fade-in-up 0.8s ease-out forwards;
 }
 
-/* Custom Scrollbar for Dark Theme */
+/* Hide scrollbar by default */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+  opacity: 0;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: transparent;
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+/* Show scrollbar when scrolling */
+.is-scrolling ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.is-scrolling ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.is-scrolling {
+  scrollbar-width: auto;
 }
 
 /* Hide scrollbar utility */

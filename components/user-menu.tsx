@@ -60,7 +60,7 @@ export function UserMenu() {
             <Menu.Item
               onClick={signOut}
               className={cn(
-                "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-300 outline-none transition-colors",
+                "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm outline-none transition-colors text-primary",
                 "hover:bg-white/8 hover:text-white",
                 "focus-visible:bg-white/8 focus-visible:text-white",
               )}

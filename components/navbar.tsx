@@ -3,6 +3,7 @@
 import { AuthModal } from "@/components/auth-modal"
 import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/context/AuthContext"
 import { SHOWSEEK_ICON } from "@/lib/constants"
@@ -177,7 +178,7 @@ function MobileAccordionItem({
  * Animates from transparent to solid black on scroll
  */
 export function Navbar() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -274,7 +275,13 @@ export function Navbar() {
             </Button>
 
             {/* Auth Section - Sign In or User Menu */}
-            {user ? <UserMenu /> : <AuthModal />}
+            {loading ? (
+              <Skeleton className="h-9 w-[100px] rounded-lg" />
+            ) : user ? (
+              <UserMenu />
+            ) : (
+              <AuthModal />
+            )}
 
             {/* Mobile Menu Toggle */}
             <Button
