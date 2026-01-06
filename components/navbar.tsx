@@ -103,17 +103,21 @@ function NavLink(props: NavigationMenu.Link.Props) {
 function DropdownMenuItem({ item }: { item: NavItemWithSubmenu }) {
   return (
     <NavigationMenu.Item>
-      <NavigationMenu.Trigger className="nav-menu-trigger">
+      <NavigationMenu.Trigger className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white data-popup-open:text-white">
         {item.label}
-        <NavigationMenu.Icon className="nav-menu-icon">
+        <NavigationMenu.Icon className="flex transition-transform duration-200 data-popup-open:rotate-180">
           <ChevronDownIcon />
         </NavigationMenu.Icon>
       </NavigationMenu.Trigger>
-      <NavigationMenu.Content className="nav-menu-content">
-        <ul className="nav-menu-link-list">
+      <NavigationMenu.Content className="p-2">
+        <ul className="flex flex-col gap-0.5 list-none m-0 p-0 min-w-[180px]">
           {item.links.map((link) => (
             <li key={link.href}>
-              <NavLink href={link.href} className="nav-menu-link" closeOnClick>
+              <NavLink
+                href={link.href}
+                className="block px-3.5 py-2.5 text-sm font-medium text-gray-300 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/8 hover:text-white data-active:text-primary"
+                closeOnClick
+              >
                 {link.label}
               </NavLink>
             </li>
@@ -136,20 +140,23 @@ function MobileAccordionItem({
 
   return (
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Collapsible.Trigger className="mobile-nav-accordion-trigger">
+      <Collapsible.Trigger className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-300 bg-transparent border-none rounded-lg cursor-pointer transition-[background-color,color] duration-150 text-left hover:bg-white/5 hover:text-white">
         <ChevronDownIcon
-          className={cn("mobile-nav-accordion-icon", isOpen && "rotate-180")}
+          className={cn(
+            "transition-transform duration-200 ease-out",
+            isOpen && "rotate-180",
+          )}
         />
         {item.label}
       </Collapsible.Trigger>
-      <Collapsible.Panel className="mobile-nav-accordion-panel">
-        <div className="mobile-nav-accordion-content">
+      <Collapsible.Panel className="overflow-hidden transition-[height] duration-300 ease-out data-starting-style:h-0 data-ending-style:h-0 data-open:h-(--panel-height)">
+        <div className="flex flex-col gap-0.5 pl-7 py-1">
           {item.links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={onLinkClick}
-              className="mobile-nav-sublink"
+              className="block px-3 py-2 text-sm font-medium text-gray-400 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/5 hover:text-white"
             >
               {link.label}
             </Link>
@@ -210,12 +217,12 @@ export function Navbar() {
 
             {/* Center Section - Navigation (Desktop) */}
             <NavigationMenu.Root className="hidden lg:block">
-              <NavigationMenu.List className="nav-menu-list">
+              <NavigationMenu.List className="flex items-center gap-1 list-none m-0 p-0">
                 {/* Discover - Simple Link */}
                 <NavigationMenu.Item>
                   <NavLink
                     href={discoverLink.href}
-                    className="nav-menu-trigger"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
                   >
                     {discoverLink.label}
                   </NavLink>
@@ -233,15 +240,15 @@ export function Navbar() {
 
               <NavigationMenu.Portal>
                 <NavigationMenu.Positioner
-                  className="nav-menu-positioner"
+                  className="z-100 outline-none"
                   sideOffset={10}
                   collisionPadding={{ top: 5, bottom: 5, left: 20, right: 20 }}
                 >
-                  <NavigationMenu.Popup className="nav-menu-popup">
-                    <NavigationMenu.Arrow className="nav-menu-arrow">
+                  <NavigationMenu.Popup className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden origin-(--transform-origin) transition-[opacity,transform] duration-200 ease-out data-starting-style:opacity-0 data-starting-style:-translate-y-2 data-ending-style:opacity-0 data-ending-style:-translate-y-2 data-open:opacity-100 data-open:translate-y-0">
+                    <NavigationMenu.Arrow className="flex items-center justify-center absolute -top-2.5 left-1/2 -translate-x-1/2 z-1">
                       <ArrowSvg />
                     </NavigationMenu.Arrow>
-                    <NavigationMenu.Viewport className="nav-menu-viewport" />
+                    <NavigationMenu.Viewport className="relative" />
                   </NavigationMenu.Popup>
                 </NavigationMenu.Positioner>
               </NavigationMenu.Portal>
