@@ -102,7 +102,6 @@ export function DiscoverClient({
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
-  // Filter state
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
   // Results come from server via initialResults and update on navigation
   const results = initialResults
@@ -116,7 +115,6 @@ export function DiscoverClient({
     [watchTrailer],
   )
 
-  // Memoized options
   const yearOptions: ComboboxOption[] = useMemo(() => generateYearOptions(), [])
 
   const genreOptions: ComboboxOption[] = useMemo(() => {
@@ -165,7 +163,6 @@ export function DiscoverClient({
     )
   }, [filters])
 
-  // Update URL and fetch new results
   const updateFilters = useCallback(
     (newFilters: Partial<DiscoverFilters>) => {
       const updated = { ...filters, ...newFilters, page: 1 }
@@ -177,7 +174,6 @@ export function DiscoverClient({
 
       setFilters(updated)
 
-      // Build URL params
       const params = new URLSearchParams()
       if (updated.mediaType !== "movie") params.set("type", updated.mediaType)
       if (updated.year) params.set("year", updated.year.toString())
@@ -187,7 +183,6 @@ export function DiscoverClient({
       if (updated.genre) params.set("genre", updated.genre.toString())
       if (updated.provider) params.set("provider", updated.provider.toString())
 
-      // Update URL and refetch
       startTransition(() => {
         const url = params.toString() ? `/discover?${params}` : "/discover"
         router.push(url)
@@ -196,13 +191,11 @@ export function DiscoverClient({
     [filters, router],
   )
 
-  // Handle page change
   const handlePageChange = useCallback(
     (page: number) => {
       const updated = { ...filters, page }
       setFilters(updated)
 
-      // Build URL params
       const params = new URLSearchParams(searchParams.toString())
       if (page > 1) {
         params.set("page", page.toString())
@@ -218,7 +211,6 @@ export function DiscoverClient({
     [filters, router, searchParams],
   )
 
-  // Clear all filters
   const clearFilters = useCallback(() => {
     setFilters({ ...DEFAULT_FILTERS })
     startTransition(() => {
