@@ -35,10 +35,22 @@ function sanitizeForFirestore<T extends Record<string, unknown>>(
  * Generate a URL-friendly slug from a string
  */
 function generateSlug(name: string): string {
-  return name
+  const normalized = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
+
+  if (normalized) {
+    return normalized
+  }
+
+  // Fallback for non-ASCII names (e.g. "日本語")
+  // Use a simple DJB2 hash for a deterministic, Firestore-safe ID
+  let hash = 5381
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 33) ^ name.charCodeAt(i)
+  }
+  return `list-${(hash >>> 0).toString(16)}`
 }
 
 /**
@@ -103,10 +115,16 @@ export async function removeFromList(
   // Use numeric ID as key to match mobile app format
   const itemKey = mediaId
 
-  await updateDoc(listRef, {
-    [`items.${itemKey}`]: deleteField(),
-    updatedAt: Date.now(),
-  })
+  await setDoc(
+    listRef,
+    {
+      items: {
+        [itemKey]: deleteField(),
+      },
+      updatedAt: Date.now(),
+    },
+    { merge: true },
+  )
 }
 
 /**

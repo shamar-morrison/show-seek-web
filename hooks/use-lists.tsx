@@ -19,6 +19,9 @@ export function useLists() {
   useEffect(() => {
     // Early return for unauthenticated users - no subscription needed
     if (!user) {
+      setFirestoreLists([])
+      setSubscribed(false)
+      setError(null)
       return
     }
 

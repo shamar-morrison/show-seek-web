@@ -194,6 +194,9 @@ export function ListsPageClient({
     )
   }
 
+  const activeListIcon = activeList ? getListIcon(activeList) : defaultIcon
+  const activeListName = activeList?.name ?? "Untitled"
+
   return (
     <div className="space-y-8 pb-12">
       {/* Search and Tabs */}
@@ -248,7 +251,7 @@ export function ListsPageClient({
           <EmptyHeader>
             <EmptyTitle>No results found</EmptyTitle>
             <EmptyDescription>
-              No items in &quot;{activeList?.name}&quot; match &quot;
+              No items in &quot;{activeListName}&quot; match &quot;
               {searchQuery}&quot;
             </EmptyDescription>
           </EmptyHeader>
@@ -256,12 +259,12 @@ export function ListsPageClient({
       ) : (
         <Empty className="py-20">
           <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={getListIcon(activeList!)} className="size-6" />
+            <HugeiconsIcon icon={activeListIcon} className="size-6" />
           </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>No items yet</EmptyTitle>
             <EmptyDescription>
-              Add movies or TV shows to your &quot;{activeList?.name}&quot; list
+              Add movies or TV shows to your &quot;{activeListName}&quot; list
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

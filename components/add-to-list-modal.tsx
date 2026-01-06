@@ -26,6 +26,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 /** Map list IDs to icons for default lists */
 const LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
@@ -99,6 +100,7 @@ export function AddToListModal({
   // Reset state when modal closes
   const handleClose = useCallback(() => {
     setActiveTab("default")
+    setSelectedLists(new Set())
     onClose()
   }, [onClose])
 
@@ -192,9 +194,11 @@ export function AddToListModal({
       })
 
       await Promise.all(promises)
+      toast.success(`Updated lists for ${title}`)
       handleClose()
     } catch (error) {
       console.error("Error saving lists:", error)
+      toast.error("Failed to update lists. Please try again.")
     } finally {
       setIsSaving(false)
     }

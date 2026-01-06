@@ -127,9 +127,9 @@ export function SearchResultsClient({
       })
     } catch (err) {
       console.error("Search error:", err)
+      setError("An error occurred while searching. Please try again.")
       startTransition(() => {
         setResults({ page: 1, results: [], total_pages: 0, total_results: 0 })
-        setError("An error occurred while searching. Please try again.")
       })
     }
   }, [])
@@ -181,6 +181,16 @@ export function SearchResultsClient({
         ? results.results
         : results.results.filter((r) => r.media_type === activeTab),
     [results.results, activeTab],
+  )
+
+  // Memoize transformed media objects to prevent re-renders
+  const transformedMedia = useMemo(
+    () =>
+      filteredResults.map((result) => ({
+        result,
+        media: searchResultToMedia(result),
+      })),
+    [filteredResults, searchResultToMedia],
   )
 
   // Get count for each tab
@@ -253,12 +263,12 @@ export function SearchResultsClient({
             className="size-8 animate-spin text-primary"
           />
         </div>
-      ) : filteredResults.length > 0 ? (
+      ) : transformedMedia.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {filteredResults.map((result) => (
+          {transformedMedia.map(({ result, media }) => (
             <MediaCard
               key={`${result.media_type}-${result.id}`}
-              media={searchResultToMedia(result)}
+              media={media}
               onWatchTrailer={handleWatchTrailerMedia}
               isLoading={loadingMediaId === result.id}
             />
