@@ -175,10 +175,13 @@ export function SearchResultsClient({
   useSearchUrlSync({ query, setQuery, performSearch })
 
   // Filter results based on active tab
-  const filteredResults =
-    activeTab === "all"
-      ? results.results
-      : results.results.filter((r) => r.media_type === activeTab)
+  const filteredResults = useMemo(
+    () =>
+      activeTab === "all"
+        ? results.results
+        : results.results.filter((r) => r.media_type === activeTab),
+    [results.results, activeTab],
+  )
 
   // Get count for each tab
   const counts = useMemo(() => {

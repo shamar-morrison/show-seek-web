@@ -7,6 +7,7 @@ import { Menu } from "@base-ui/react/menu"
 import { Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 /**
@@ -23,6 +24,7 @@ function getFirstName(displayName: string | null): string {
  */
 export function UserMenu() {
   const { user, signOut } = useAuth()
+  const router = useRouter()
 
   if (!user) return null
 
@@ -62,6 +64,7 @@ export function UserMenu() {
               onClick={async () => {
                 try {
                   await signOut()
+                  router.push("/")
                 } catch {
                   toast.error("Failed to log out. Please try again.")
                 }
