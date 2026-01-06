@@ -3,6 +3,8 @@
 import { AuthModal } from "@/components/auth-modal"
 import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
+import { UserMenu } from "@/components/user-menu"
+import { useAuth } from "@/context/AuthContext"
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { Collapsible } from "@base-ui/react/collapsible"
@@ -175,6 +177,7 @@ function MobileAccordionItem({
  * Animates from transparent to solid black on scroll
  */
 export function Navbar() {
+  const { user } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -270,8 +273,8 @@ export function Navbar() {
               <HugeiconsIcon icon={Search01Icon} className="size-5" />
             </Button>
 
-            {/* Sign In Button */}
-            <AuthModal />
+            {/* Auth Section - Sign In or User Menu */}
+            {user ? <UserMenu /> : <AuthModal />}
 
             {/* Mobile Menu Toggle */}
             <Button

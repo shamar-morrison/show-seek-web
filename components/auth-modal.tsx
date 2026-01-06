@@ -11,9 +11,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { SHOWSEEK_ICON } from "@/lib/constants"
+import { getEmailAuthErrorMessage, signInWithGoogle } from "@/lib/firebase/auth"
+import { auth } from "@/lib/firebase/config"
+import { createUserDocument } from "@/lib/firebase/user"
 import { cn } from "@/lib/utils"
 import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { signInWithEmailAndPassword } from "firebase/auth"
 import { useState } from "react"
 import { z } from "zod"
 
@@ -54,6 +58,17 @@ function GoogleLogo({ className }: { className?: string }) {
 }
 
 /**
+ * Create a server-side session after successful sign-in
+ */
+async function createServerSession(idToken: string): Promise<void> {
+  await fetch("/api/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  })
+}
+
+/**
  * AuthModal Component
  * Sign-in/Sign-up modal with Google auth and email/password form
  * Supports switching between sign-in and sign-up views
@@ -67,11 +82,15 @@ export function AuthModal() {
     password: "",
   })
   const [errors, setErrors] = useState<Partial<SignInFormData>>({})
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   /** Reset form state when modal closes or view changes */
   const resetForm = () => {
     setFormData({ email: "", password: "" })
     setErrors({})
+    setAuthError(null)
     setShowPassword(false)
   }
 
@@ -97,10 +116,13 @@ export function AuthModal() {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }))
     }
+    if (authError) {
+      setAuthError(null)
+    }
   }
 
-  /** Handle sign-in form submission */
-  const handleSignIn = (e: React.FormEvent) => {
+  /** Handle email/password sign-in form submission */
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validate form data
@@ -115,21 +137,62 @@ export function AuthModal() {
       return
     }
 
-    // Form is valid - buttons are non-functional for now
-    console.log("Sign in with:", result.data)
+    setIsLoading(true)
+    setAuthError(null)
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        result.data.email,
+        result.data.password,
+      )
+
+      // Create server-side session
+      const idToken = await userCredential.user.getIdToken()
+      await createServerSession(idToken)
+
+      handleOpenChange(false)
+    } catch (error) {
+      const firebaseError = error as { code?: string; message?: string }
+      setAuthError(getEmailAuthErrorMessage(firebaseError))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   /** Handle Google sign-in/sign-up */
-  const handleGoogleAuth = () => {
-    // Non-functional for now
-    console.log(`Google ${view === "sign-in" ? "sign in" : "sign up"} clicked`)
+  const handleGoogleAuth = async () => {
+    setIsGoogleLoading(true)
+    setAuthError(null)
+
+    try {
+      const result = await signInWithGoogle()
+
+      if (result.success) {
+        // Create user document in Firestore
+        await createUserDocument(result.user)
+
+        // Get the ID token and create a server-side session
+        const idToken = await result.user.getIdToken()
+        await createServerSession(idToken)
+
+        handleOpenChange(false)
+      } else if (!result.cancelled && result.error) {
+        setAuthError(result.error)
+      }
+    } catch (error) {
+      console.error("Google auth error:", error)
+      setAuthError("An unexpected error occurred. Please try again.")
+    } finally {
+      setIsGoogleLoading(false)
+    }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-[#B20710]" />
+          <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-primary/80" />
         }
       >
         Sign In
@@ -153,13 +216,26 @@ export function AuthModal() {
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
+          {/* Auth Error Display */}
+          {authError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-center text-sm text-destructive">
+              {authError}
+            </div>
+          )}
+
           {/* Google Auth Button */}
           <Button
             type="button"
+            variant={"outline"}
             onClick={handleGoogleAuth}
-            className="w-full gap-3 bg-[#4285F4] text-white hover:bg-[#3367D6]"
+            disabled={isGoogleLoading || isLoading}
+            className="w-full gap-3 text-white"
           >
-            <GoogleLogo />
+            {isGoogleLoading ? (
+              <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <GoogleLogo />
+            )}
             {view === "sign-in" ? "Sign in with Google" : "Sign up with Google"}
           </Button>
 
@@ -184,6 +260,7 @@ export function AuthModal() {
                     placeholder="Email address"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
+                    disabled={isLoading || isGoogleLoading}
                     className={cn(
                       errors.email &&
                         "border-destructive focus-visible:ring-destructive",
@@ -208,6 +285,7 @@ export function AuthModal() {
                       onChange={(e) =>
                         handleInputChange("password", e.target.value)
                       }
+                      disabled={isLoading || isGoogleLoading}
                       className={cn(
                         "pr-10",
                         errors.password &&
@@ -240,8 +318,16 @@ export function AuthModal() {
                 </div>
 
                 {/* Sign In Button */}
-                <Button type="submit" className="w-full">
-                  Sign In
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || isGoogleLoading}
+                >
+                  {isLoading ? (
+                    <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
             </>
