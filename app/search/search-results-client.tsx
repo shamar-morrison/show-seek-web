@@ -134,6 +134,7 @@ export function SearchResultsClient({
   // Handle form submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    debouncedSearch.cancel()
     if (query.trim()) {
       router.replace(`/search?q=${encodeURIComponent(query)}`, {
         scroll: false,
