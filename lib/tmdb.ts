@@ -4,10 +4,15 @@
  */
 
 import type {
+  DiscoverParams,
+  Genre,
   HeroMedia,
   TMDBCollectionDetails,
   TMDBConfiguration,
+  TMDBDiscoverResponse,
+  TMDBGenreListResponse,
   TMDBImagesResponse,
+  TMDBLanguage,
   TMDBMedia,
   TMDBMovieDetails,
   TMDBPersonDetails,
@@ -16,6 +21,8 @@ import type {
   TMDBTrendingResponse,
   TMDBTVDetails,
   TMDBVideosResponse,
+  TMDBWatchProviderListResponse,
+  TMDBWatchProviderOption,
   WatchProviders,
   WatchProvidersResponse,
 } from "@/types/tmdb"
@@ -709,5 +716,257 @@ export async function getReviews(
   } catch (error) {
     console.error("Failed to fetch reviews:", error)
     return null
+  }
+}
+
+// ========================================
+// Discover Page API Functions
+// ========================================
+
+/**
+ * Fetch movie genres from TMDB
+ * Cached indefinitely since genres rarely change
+ * @returns Array of movie genres
+ */
+export async function getMovieGenres(): Promise<Genre[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    // cache: 'force-cache' ensures this is cached indefinitely
+    // Genres rarely change, so we don't need revalidation
+    const response = await fetch(
+      `${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}`,
+      { cache: "force-cache" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBGenreListResponse = await response.json()
+    return data.genres
+  } catch (error) {
+    console.error("Failed to fetch movie genres:", error)
+    return []
+  }
+}
+
+/**
+ * Fetch TV genres from TMDB
+ * Cached indefinitely since genres rarely change
+ * @returns Array of TV genres
+ */
+export async function getTVGenres(): Promise<Genre[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    // cache: 'force-cache' ensures this is cached indefinitely
+    // Genres rarely change, so we don't need revalidation
+    const response = await fetch(
+      `${TMDB_BASE_URL}/genre/tv/list?api_key=${TMDB_API_KEY}`,
+      { cache: "force-cache" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBGenreListResponse = await response.json()
+    return data.genres
+  } catch (error) {
+    console.error("Failed to fetch TV genres:", error)
+    return []
+  }
+}
+
+/**
+ * Fetch available languages from TMDB
+ * Cached indefinitely since language list rarely changes
+ * @returns Array of languages
+ */
+export async function getLanguages(): Promise<TMDBLanguage[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    // cache: 'force-cache' ensures this is cached indefinitely
+    // Language list rarely changes
+    const response = await fetch(
+      `${TMDB_BASE_URL}/configuration/languages?api_key=${TMDB_API_KEY}`,
+      { cache: "force-cache" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBLanguage[] = await response.json()
+    // Sort by English name for better UX
+    return data.sort((a, b) => a.english_name.localeCompare(b.english_name))
+  } catch (error) {
+    console.error("Failed to fetch languages:", error)
+    return []
+  }
+}
+
+/**
+ * Fetch available watch providers for a region
+ * Cached indefinitely since provider list rarely changes
+ * @param mediaType - "movie" or "tv"
+ * @param region - Region code (default: "US")
+ * @returns Array of watch provider options
+ */
+export async function getWatchProviderList(
+  mediaType: "movie" | "tv",
+  region: string = "US",
+): Promise<TMDBWatchProviderOption[]> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return []
+  }
+
+  try {
+    // cache: 'force-cache' ensures this is cached indefinitely
+    // Provider list doesn't change frequently
+    const response = await fetch(
+      `${TMDB_BASE_URL}/watch/providers/${mediaType}?api_key=${TMDB_API_KEY}&watch_region=${region}`,
+      { cache: "force-cache" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBWatchProviderListResponse = await response.json()
+    // Sort by display priority for the region
+    return data.results.sort((a, b) => {
+      const priorityA = a.display_priorities?.[region] ?? 999
+      const priorityB = b.display_priorities?.[region] ?? 999
+      return priorityA - priorityB
+    })
+  } catch (error) {
+    console.error("Failed to fetch watch providers:", error)
+    return []
+  }
+}
+
+/** Default watch region for discover filters */
+export const DEFAULT_WATCH_REGION = "US"
+
+/**
+ * Discover movies or TV shows with filters
+ * @param params - Filter parameters
+ * @returns Discover response with results
+ */
+export async function discoverMedia(
+  params: DiscoverParams,
+): Promise<TMDBDiscoverResponse> {
+  if (!TMDB_API_KEY) {
+    console.error("TMDB_API_KEY is not set")
+    return { page: 1, results: [], total_pages: 0, total_results: 0 }
+  }
+
+  const {
+    mediaType,
+    page = 1,
+    year,
+    sortBy,
+    rating,
+    language,
+    genre,
+    providers,
+    region = DEFAULT_WATCH_REGION,
+  } = params
+
+  // Build query parameters
+  const queryParams = new URLSearchParams({
+    api_key: TMDB_API_KEY,
+    page: page.toString(),
+    include_adult: "false",
+  })
+
+  // Sort by mapping
+  if (sortBy) {
+    switch (sortBy) {
+      case "popularity":
+        queryParams.set("sort_by", "popularity.desc")
+        break
+      case "top_rated":
+        queryParams.set("sort_by", "vote_average.desc")
+        // Add vote count filter to avoid low-vote items dominating
+        queryParams.set("vote_count.gte", "200")
+        break
+      case "newest":
+        queryParams.set(
+          "sort_by",
+          mediaType === "movie"
+            ? "primary_release_date.desc"
+            : "first_air_date.desc",
+        )
+        break
+    }
+  } else {
+    // Default sort
+    queryParams.set("sort_by", "popularity.desc")
+  }
+
+  // Year filter
+  if (year) {
+    if (mediaType === "movie") {
+      queryParams.set("primary_release_year", year.toString())
+    } else {
+      queryParams.set("first_air_date_year", year.toString())
+    }
+  }
+
+  // Rating filter
+  if (rating) {
+    queryParams.set("vote_average.gte", rating.toString())
+  }
+
+  // Language filter
+  if (language) {
+    queryParams.set("with_original_language", language)
+  }
+
+  // Genre filter
+  if (genre) {
+    queryParams.set("with_genres", genre.toString())
+  }
+
+  // Providers filter
+  if (providers && providers.length > 0) {
+    queryParams.set("with_watch_providers", providers.join("|"))
+    queryParams.set("watch_region", region)
+  }
+
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/discover/${mediaType}?${queryParams.toString()}`,
+      { next: { revalidate: 300 } }, // Cache for 5 minutes
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBDiscoverResponse = await response.json()
+    // Inject media_type into results
+    data.results = data.results.map((item) => ({
+      ...item,
+      media_type: mediaType,
+    }))
+    return data
+  } catch (error) {
+    console.error("Failed to discover media:", error)
+    return { page: 1, results: [], total_pages: 0, total_results: 0 }
   }
 }

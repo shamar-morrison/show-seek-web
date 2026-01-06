@@ -423,3 +423,49 @@ export interface TMDBReviewsResponse {
   total_pages: number
   total_results: number
 }
+
+/** Response from genre list endpoints */
+export interface TMDBGenreListResponse {
+  genres: Genre[]
+}
+
+/** Language from configuration/languages endpoint */
+export interface TMDBLanguage {
+  iso_639_1: string
+  english_name: string
+  name: string
+}
+
+/** Watch provider option from watch/providers endpoint */
+export interface TMDBWatchProviderOption {
+  provider_id: number
+  provider_name: string
+  logo_path: string
+  display_priorities: Record<string, number>
+}
+
+/** Response from watch/providers list endpoint */
+export interface TMDBWatchProviderListResponse {
+  results: TMDBWatchProviderOption[]
+}
+
+/** Parameters for discover endpoint */
+export interface DiscoverParams {
+  mediaType: "movie" | "tv"
+  page?: number
+  year?: number
+  sortBy?: "popularity" | "top_rated" | "newest"
+  rating?: number // vote_average.gte
+  language?: string // with_original_language
+  genre?: number // with_genres
+  providers?: number[] // with_watch_providers
+  region?: string // watch_region
+}
+
+/** Response from discover endpoint */
+export interface TMDBDiscoverResponse {
+  page: number
+  results: TMDBMedia[]
+  total_pages: number
+  total_results: number
+}
