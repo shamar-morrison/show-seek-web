@@ -2,6 +2,7 @@
 
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
+import { NotesModal } from "@/components/notes-modal"
 import { RatingModal } from "@/components/rating-modal"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
+import { useNotes } from "@/hooks/use-notes"
 import { useRatings } from "@/hooks/use-ratings"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
@@ -18,6 +20,7 @@ import {
   Clock,
   InformationCircleIcon,
   Note01Icon,
+  NoteDoneIcon,
   PlusSignIcon,
   StarIcon,
   Tick02Icon,
@@ -113,14 +116,21 @@ export function MediaDetailHero({
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const { lists } = useLists()
   const { getRating } = useRatings()
+  const { getNote } = useNotes()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
   // Get user's rating for this media
   const userRating = useMemo(() => {
     return getRating(mediaType, media.id)
   }, [getRating, mediaType, media.id])
+
+  // Get user's note for this media
+  const userNote = useMemo(() => {
+    return getNote(mediaType, media.id)
+  }, [getNote, mediaType, media.id])
 
   // Check if media is in any list
   const isInAnyList = useMemo(() => {
@@ -360,9 +370,18 @@ export function MediaDetailHero({
                     size="lg"
                     variant="outline"
                     className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                    onClick={() =>
+                      requireAuth(
+                        () => setIsNotesModalOpen(true),
+                        "Sign in to add personal notes",
+                      )
+                    }
                   >
-                    <HugeiconsIcon icon={Note01Icon} className="size-5" />
-                    Notes
+                    <HugeiconsIcon
+                      icon={userNote ? NoteDoneIcon : Note01Icon}
+                      className={`size-5 ${userNote ? "text-primary" : ""}`}
+                    />
+                    {userNote ? "View Note" : "Notes"}
                   </Button>
                 </div>
               </div>
@@ -391,6 +410,14 @@ export function MediaDetailHero({
       <RatingModal
         isOpen={isRatingModalOpen}
         onClose={() => setIsRatingModalOpen(false)}
+        media={media}
+        mediaType={mediaType}
+      />
+
+      {/* Notes Modal */}
+      <NotesModal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
         media={media}
         mediaType={mediaType}
       />
