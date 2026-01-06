@@ -209,7 +209,7 @@ export function VirtualizedFilterCombobox({
             ) : (
               <div
                 ref={scrollContainerRef}
-                style={{ height: listHeight, maxHeight: 300 }}
+                style={{ height: listHeight }}
                 className="overflow-y-auto overflow-x-hidden p-2"
               >
                 <div
