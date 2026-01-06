@@ -5,12 +5,10 @@ import { Navbar } from "@/components/navbar"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
-import {
-  FilterCombobox,
-  type ComboboxOption,
-} from "@/components/ui/filter-combobox"
+import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
+import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
 import { useTrailer } from "@/hooks/use-trailer"
 import type {
   Genre,
@@ -256,7 +254,7 @@ export function DiscoverClient({
             />
 
             {/* Year */}
-            <FilterCombobox
+            <VirtualizedFilterCombobox
               label="Year"
               value={filters.year?.toString() || null}
               options={yearOptions}
@@ -291,7 +289,7 @@ export function DiscoverClient({
             />
 
             {/* Language */}
-            <FilterCombobox
+            <VirtualizedFilterCombobox
               label="Language"
               value={filters.language}
               options={languageOptions}
@@ -300,7 +298,7 @@ export function DiscoverClient({
             />
 
             {/* Genre */}
-            <FilterCombobox
+            <VirtualizedFilterCombobox
               label="Genre"
               value={filters.genre?.toString() || null}
               options={genreOptions}
@@ -311,7 +309,7 @@ export function DiscoverClient({
             />
 
             {/* Streaming Provider */}
-            <FilterCombobox
+            <VirtualizedFilterCombobox
               label="Streaming"
               value={filters.provider?.toString() || null}
               options={providerOptions}
@@ -319,6 +317,7 @@ export function DiscoverClient({
                 updateFilters({ provider: val ? parseInt(val) : null })
               }
               placeholder="Any Provider"
+              popoverClassName="w-[380px]"
             />
 
             {/* Clear All Button */}
