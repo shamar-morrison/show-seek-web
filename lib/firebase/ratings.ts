@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  serverTimestamp,
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore"
@@ -44,28 +45,24 @@ function getRatingRef(
 
 /**
  * Set or update a rating for a media item
- * Idempotent - safe to call multiple times for the same item
+ * Uses merge:true to preserve createdAt on updates
+ * Atomic single-write operation with server timestamps
  */
 export async function setRating(
   userId: string,
   input: RatingInput,
 ): Promise<void> {
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
-  const now = Date.now()
 
-  // Check if rating already exists for createdAt handling
-  const existingDoc = await getDoc(ratingRef)
-  const createdAt = existingDoc.exists()
-    ? (existingDoc.data() as Rating).createdAt
-    : now
-
-  const rating: Rating = {
-    ...input,
-    createdAt,
-    updatedAt: now,
-  }
-
-  await setDoc(ratingRef, rating)
+  await setDoc(
+    ratingRef,
+    {
+      ...input,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  )
 }
 
 /**

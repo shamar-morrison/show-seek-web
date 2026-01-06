@@ -11,11 +11,18 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
-import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
+
+/** Minimal media info needed for the notes modal */
+interface NotesMediaInfo {
+  id: number
+  poster_path?: string | null
+  title?: string
+  name?: string
+}
 
 interface NotesModalProps {
   /** Whether the modal is open */
@@ -23,7 +30,7 @@ interface NotesModalProps {
   /** Callback when modal should close */
   onClose: () => void
   /** The media item to add notes for */
-  media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
+  media: NotesMediaInfo
   /** Media type */
   mediaType: "movie" | "tv"
 }
@@ -44,15 +51,9 @@ export function NotesModal({
   const [hasExistingNote, setHasExistingNote] = useState(false)
   const [originalContent, setOriginalContent] = useState("")
 
-  const title: string =
-    "title" in media && media.title
-      ? media.title
-      : "name" in media && media.name
-        ? media.name
-        : "Unknown"
+  const title: string = media.title || media.name || "Unknown"
   const mediaId = media.id
-  const posterPath: string | null =
-    "poster_path" in media ? (media.poster_path ?? null) : null
+  const posterPath: string | null = media.poster_path ?? null
 
   // Load existing note when modal opens
   useEffect(() => {
