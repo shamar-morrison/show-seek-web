@@ -117,7 +117,7 @@ export function DiscoverClient({
   )
 
   // Memoized options
-  const yearOptions = useMemo(() => generateYearOptions(), [])
+  const yearOptions: ComboboxOption[] = useMemo(() => generateYearOptions(), [])
 
   const genreOptions: ComboboxOption[] = useMemo(() => {
     const genres = filters.mediaType === "movie" ? movieGenres : tvGenres
