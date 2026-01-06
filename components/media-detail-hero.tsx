@@ -1,11 +1,15 @@
 "use client"
 
 import { AddToListModal } from "@/components/add-to-list-modal"
+import { AuthModal } from "@/components/auth-modal"
+import { RatingModal } from "@/components/rating-modal"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
+import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
+import { useRatings } from "@/hooks/use-ratings"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -108,7 +112,15 @@ export function MediaDetailHero({
 }: MediaDetailHeroProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
   const { lists } = useLists()
+  const { getRating } = useRatings()
+  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+
+  // Get user's rating for this media
+  const userRating = useMemo(() => {
+    return getRating(mediaType, media.id)
+  }, [getRating, mediaType, media.id])
 
   // Check if media is in any list
   const isInAnyList = useMemo(() => {
@@ -329,9 +341,18 @@ export function MediaDetailHero({
                     size="lg"
                     variant="outline"
                     className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                    onClick={() =>
+                      requireAuth(
+                        () => setIsRatingModalOpen(true),
+                        "Sign in to rate movies and TV shows",
+                      )
+                    }
                   >
-                    <HugeiconsIcon icon={StarIcon} className="size-5" />
-                    Rate
+                    <HugeiconsIcon
+                      icon={StarIcon}
+                      className={`size-5 ${userRating ? "fill-yellow-500 text-yellow-500" : ""}`}
+                    />
+                    {userRating ? `${userRating.rating}/10` : "Rate"}
                   </Button>
 
                   {/* Notes - Secondary */}
@@ -364,6 +385,21 @@ export function MediaDetailHero({
         onClose={() => setIsAddToListOpen(false)}
         media={media}
         mediaType={mediaType}
+      />
+
+      {/* Rating Modal */}
+      <RatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        media={media}
+        mediaType={mediaType}
+      />
+
+      {/* Auth Modal for unauthenticated users */}
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        message={modalMessage}
       />
     </>
   )

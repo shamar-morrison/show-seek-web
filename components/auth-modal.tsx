@@ -89,10 +89,27 @@ async function createServerSession(idToken: string): Promise<void> {
  * AuthModal Component
  * Sign-in/Sign-up modal with Google auth and email/password form
  * Supports switching between sign-in and sign-up views
+ *
+ * Can be used in two modes:
+ * 1. Trigger mode (default): Renders a "Sign In" button that opens the modal
+ * 2. Controlled mode: Pass isOpen/onClose props to control the modal externally
  */
-export function AuthModal() {
+interface AuthModalProps {
+  /** Controlled mode: whether the modal is open */
+  isOpen?: boolean
+  /** Controlled mode: callback when modal should close */
+  onClose?: () => void
+  /** Optional message to display (e.g., "Sign in to rate movies") */
+  message?: string
+}
+
+export function AuthModal({
+  isOpen: controlledIsOpen,
+  onClose,
+  message,
+}: AuthModalProps = {}) {
   const [view, setView] = useState<"sign-in" | "sign-up">("sign-in")
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<SignInFormData>({
     email: "",
@@ -102,6 +119,10 @@ export function AuthModal() {
   const [authError, setAuthError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+
+  // Determine if we're in controlled mode
+  const isControlled = controlledIsOpen !== undefined
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen
 
   /** Reset form state when modal closes or view changes */
   const resetForm = () => {
@@ -113,7 +134,13 @@ export function AuthModal() {
 
   /** Handle modal open state change */
   const handleOpenChange = (open: boolean) => {
-    setIsOpen(open)
+    if (isControlled) {
+      if (!open && onClose) {
+        onClose()
+      }
+    } else {
+      setInternalIsOpen(open)
+    }
     if (!open) {
       resetForm()
       setView("sign-in")
@@ -213,13 +240,16 @@ export function AuthModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-primary/80" />
-        }
-      >
-        Sign In
-      </DialogTrigger>
+      {/* Only show trigger button in uncontrolled mode */}
+      {!isControlled && (
+        <DialogTrigger
+          render={
+            <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-primary/80" />
+          }
+        >
+          Sign In
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[400px]" showCloseButton>
         <DialogHeader className="items-center text-center">
           {/* Logo */}
@@ -230,11 +260,13 @@ export function AuthModal() {
           {/* App Name */}
           <DialogTitle className="text-2xl font-bold">ShowSeek</DialogTitle>
 
-          {/* Subtitle */}
+          {/* Subtitle - show custom message if provided */}
           <DialogDescription>
-            {view === "sign-in"
-              ? "Sign in to continue."
-              : "Create your account."}
+            {message
+              ? message
+              : view === "sign-in"
+                ? "Sign in to continue."
+                : "Create your account."}
           </DialogDescription>
         </DialogHeader>
 
