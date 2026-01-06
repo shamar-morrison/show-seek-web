@@ -15,7 +15,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
-  getDoc,
+  runTransaction,
   setDoc,
   updateDoc,
 } from "firebase/firestore"
@@ -136,34 +136,38 @@ export async function createList(
   listName: string,
 ): Promise<string> {
   const baseSlug = generateSlug(listName)
-  let listId = baseSlug
-  let suffix = 1
+  const MAX_ATTEMPTS = 100
 
-  // Handle collisions by appending a number
-  const listsRef = getListsCollectionRef(userId)
-  while (true) {
-    const listRef = doc(listsRef, listId)
-    const existing = await getDoc(listRef)
+  return await runTransaction(db, async (transaction) => {
+    let listId = baseSlug
+    let suffix = 1
+    let attempt = 0
 
-    if (!existing.exists()) {
-      break
+    while (attempt < MAX_ATTEMPTS) {
+      const listRef = doc(db, "users", userId, "lists", listId)
+      const existing = await transaction.get(listRef)
+
+      if (!existing.exists()) {
+        const newList: UserList = {
+          id: listId,
+          name: listName,
+          items: {},
+          createdAt: Date.now(),
+          isCustom: true,
+        }
+        transaction.set(listRef, newList)
+        return listId
+      }
+
+      listId = `${baseSlug}-${suffix}`
+      suffix++
+      attempt++
     }
 
-    listId = `${baseSlug}-${suffix}`
-    suffix++
-  }
-
-  const newList: UserList = {
-    id: listId,
-    name: listName,
-    items: {},
-    createdAt: Date.now(),
-    isCustom: true,
-  }
-
-  await setDoc(doc(listsRef, listId), newList)
-
-  return listId
+    throw new Error(
+      `Failed to create list: too many collisions for name "${listName}"`,
+    )
+  })
 }
 
 /**
