@@ -1,5 +1,6 @@
 "use client"
 
+import { AuthModal } from "@/components/auth-modal"
 import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
 import { SHOWSEEK_ICON } from "@/lib/constants"
@@ -270,9 +271,7 @@ export function Navbar() {
             </Button>
 
             {/* Sign In Button */}
-            <Button className="bg-primary px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
-              Sign In
-            </Button>
+            <AuthModal />
 
             {/* Mobile Menu Toggle */}
             <Button
