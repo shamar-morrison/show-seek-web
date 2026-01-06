@@ -1,0 +1,177 @@
+/**
+ * Firebase Firestore operations for user lists
+ * Path: users/{userId}/lists/{listId}
+ */
+
+import { db } from "@/lib/firebase/config"
+import { DEFAULT_LIST_IDS, ListMediaItem, UserList } from "@/types/list"
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore"
+
+/**
+ * Remove undefined values from an object to prevent Firestore errors
+ */
+function sanitizeForFirestore<T extends Record<string, unknown>>(
+  obj: T,
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined),
+  ) as Partial<T>
+}
+
+/**
+ * Generate a URL-friendly slug from a string
+ */
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+/**
+ * Get the Firestore reference for a user's list
+ */
+function getListRef(userId: string, listId: string) {
+  return doc(db, "users", userId, "lists", listId)
+}
+
+/**
+ * Get the Firestore reference for a user's lists collection
+ */
+function getListsCollectionRef(userId: string) {
+  return collection(db, "users", userId, "lists")
+}
+
+/**
+ * Add a media item to a list
+ * Idempotent - safe to call multiple times for the same item
+ */
+export async function addToList(
+  userId: string,
+  listId: string,
+  mediaItem: Omit<ListMediaItem, "addedAt">,
+): Promise<void> {
+  const listRef = getListRef(userId, listId)
+  const itemKey = `${mediaItem.media_type}-${mediaItem.id}`
+
+  const sanitizedItem = sanitizeForFirestore({
+    ...mediaItem,
+    addedAt: Date.now(),
+  })
+
+  await setDoc(
+    listRef,
+    {
+      id: listId,
+      name: DEFAULT_LIST_IDS.has(listId) ? undefined : undefined,
+      items: {
+        [itemKey]: sanitizedItem,
+      },
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+      isCustom: !DEFAULT_LIST_IDS.has(listId),
+    },
+    { merge: true },
+  )
+}
+
+/**
+ * Remove a media item from a list
+ */
+export async function removeFromList(
+  userId: string,
+  listId: string,
+  mediaId: string,
+  mediaType: "movie" | "tv",
+): Promise<void> {
+  const listRef = getListRef(userId, listId)
+  const itemKey = `${mediaType}-${mediaId}`
+
+  await updateDoc(listRef, {
+    [`items.${itemKey}`]: deleteField(),
+    updatedAt: Date.now(),
+  })
+}
+
+/**
+ * Create a new custom list
+ * Returns the generated list ID
+ */
+export async function createList(
+  userId: string,
+  listName: string,
+): Promise<string> {
+  const baseSlug = generateSlug(listName)
+  let listId = baseSlug
+  let suffix = 1
+
+  // Handle collisions by appending a number
+  const listsRef = getListsCollectionRef(userId)
+  while (true) {
+    const listRef = doc(listsRef, listId)
+    const existing = await getDoc(listRef)
+
+    if (!existing.exists()) {
+      break
+    }
+
+    listId = `${baseSlug}-${suffix}`
+    suffix++
+  }
+
+  const newList: UserList = {
+    id: listId,
+    name: listName,
+    items: {},
+    createdAt: Date.now(),
+    isCustom: true,
+  }
+
+  await setDoc(doc(listsRef, listId), newList)
+
+  return listId
+}
+
+/**
+ * Delete a custom list
+ * Throws an error if attempting to delete a default list
+ */
+export async function deleteList(
+  userId: string,
+  listId: string,
+): Promise<void> {
+  if (DEFAULT_LIST_IDS.has(listId)) {
+    throw new Error("Cannot delete default lists")
+  }
+
+  const listRef = getListRef(userId, listId)
+  await deleteDoc(listRef)
+}
+
+/**
+ * Rename a custom list
+ * Throws an error if attempting to rename a default list
+ */
+export async function renameList(
+  userId: string,
+  listId: string,
+  newName: string,
+): Promise<void> {
+  if (DEFAULT_LIST_IDS.has(listId)) {
+    throw new Error("Cannot rename default lists")
+  }
+
+  const listRef = getListRef(userId, listId)
+  await updateDoc(listRef, {
+    name: newName,
+    updatedAt: Date.now(),
+  })
+}
