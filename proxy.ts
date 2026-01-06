@@ -18,9 +18,14 @@ export async function proxy(request: NextRequest) {
   // Check if route is an auth route
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
 
-  // For protected routes, redirect to home if no session
+  // Validate session cookie signature and expiry via API
+  const isValidSession = sessionCookie
+    ? await validateSession(sessionCookie, request)
+    : false
+
+  // For protected routes, redirect to home if no valid session
   // We redirect to home instead of /login since auth is via modal
-  if (isProtectedRoute && !sessionCookie) {
+  if (isProtectedRoute && !isValidSession) {
     const homeUrl = new URL("/", request.url)
     homeUrl.searchParams.set("auth", "required")
     homeUrl.searchParams.set("redirect", pathname)
@@ -28,11 +33,43 @@ export async function proxy(request: NextRequest) {
   }
 
   // For auth routes, redirect to home if already logged in
-  if (isAuthRoute && sessionCookie) {
+  if (isAuthRoute && isValidSession) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
   return NextResponse.next()
+}
+
+/**
+ * Validates a session cookie by calling the server-side validation API.
+ * This is necessary because Firebase Admin SDK cannot run in Edge Runtime.
+ */
+async function validateSession(
+  sessionCookie: string,
+  request: NextRequest,
+): Promise<boolean> {
+  try {
+    // Build the absolute URL for the validation endpoint
+    const validateUrl = new URL("/api/auth/validate", request.url)
+
+    const response = await fetch(validateUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionCookie }),
+    })
+
+    if (!response.ok) {
+      return false
+    }
+
+    const data = await response.json()
+    return data.valid === true
+  } catch {
+    // If validation fails for any reason, treat as invalid
+    return false
+  }
 }
 
 export const config = {

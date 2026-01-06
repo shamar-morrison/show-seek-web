@@ -5,6 +5,14 @@ import { Navbar } from "@/components/navbar"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
@@ -17,7 +25,7 @@ import type {
   TMDBMedia,
   TMDBWatchProviderOption,
 } from "@/types/tmdb"
-import { Cancel01Icon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useMemo, useState, useTransition } from "react"
@@ -359,22 +367,29 @@ export function DiscoverClient({
 
           {/* Empty State */}
           {!isPending && results.results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-lg text-gray-400">No results found</p>
-              <p className="mt-2 text-sm text-gray-500">
-                Try adjusting your filters to see more results
-              </p>
+            <Empty className="py-20">
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={Search01Icon} className="size-6" />
+              </EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>No results found</EmptyTitle>
+                <EmptyDescription>
+                  Try adjusting your filters to see more results
+                </EmptyDescription>
+              </EmptyHeader>
               {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="mt-4"
-                >
-                  Clear all filters
-                </Button>
+                <EmptyContent>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="mt-4"
+                  >
+                    Clear all filters
+                  </Button>
+                </EmptyContent>
               )}
-            </div>
+            </Empty>
           )}
 
           {/* Pagination */}

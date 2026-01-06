@@ -38,7 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       // Clear server-side session first
-      await fetch("/api/auth/logout", { method: "POST" })
+      const response = await fetch("/api/auth/logout", { method: "POST" })
+
+      if (!response.ok) {
+        throw new Error("Failed to sign out from server")
+      }
 
       // Then sign out from Firebase client
       await firebaseSignOut(auth)

@@ -3,6 +3,13 @@
 import { searchMedia } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
 import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
@@ -216,24 +223,29 @@ export function SearchResultsClient({
           ))}
         </div>
       ) : query.trim() ? (
-        <div className="py-20 text-center">
-          <p className="text-lg text-gray-400">
-            No results found for &quot;{query}&quot;
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Try adjusting your search or browse different categories
-          </p>
-        </div>
+        <Empty className="py-20">
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={Search01Icon} className="size-6" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>No results found for &quot;{query}&quot;</EmptyTitle>
+            <EmptyDescription>
+              Try adjusting your search or browse different categories
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="py-20 text-center">
-          <HugeiconsIcon
-            icon={Search01Icon}
-            className="mx-auto size-16 text-gray-600"
-          />
-          <p className="mt-4 text-lg text-gray-400">
-            Start typing to search for movies, TV shows, and people
-          </p>
-        </div>
+        <Empty className="py-20">
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={Search01Icon} className="size-6" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>Start typing to search</EmptyTitle>
+            <EmptyDescription>
+              Search for movies, TV shows, and people
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <TrailerModal
         videoKey={activeTrailer?.key || null}

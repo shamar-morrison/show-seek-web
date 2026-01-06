@@ -26,7 +26,28 @@ export async function createUserDocument(user: User): Promise<void> {
 
     if (existingDoc.exists()) {
       // Update only fields that might have changed
-      const existingData = existingDoc.data() as UserDocument
+      const rawData = existingDoc.data()
+
+      // Runtime guard: validate data shape before accessing fields
+      const existingData =
+        rawData &&
+        (typeof rawData.photoURL === "string" ||
+          rawData.photoURL === null ||
+          rawData.photoURL === undefined) &&
+        (typeof rawData.displayName === "string" ||
+          rawData.displayName === null ||
+          rawData.displayName === undefined) &&
+        (typeof rawData.email === "string" ||
+          rawData.email === null ||
+          rawData.email === undefined)
+          ? (rawData as UserDocument)
+          : null
+
+      if (!existingData) {
+        console.warn("Invalid user document shape in Firestore")
+        return
+      }
+
       const updates: Partial<UserDocument> = {}
 
       if (user.photoURL && user.photoURL !== existingData.photoURL) {
@@ -35,6 +56,10 @@ export async function createUserDocument(user: User): Promise<void> {
 
       if (user.displayName && user.displayName !== existingData.displayName) {
         updates.displayName = user.displayName
+      }
+
+      if (user.email && user.email !== existingData.email) {
+        updates.email = user.email
       }
 
       if (Object.keys(updates).length > 0) {

@@ -7,9 +7,12 @@ const SESSION_EXPIRY_DAYS = 5
 /**
  * Create a session cookie from a Firebase ID token
  */
-export async function createSessionCookie(idToken: string): Promise<string> {
+export async function createSessionCookie(
+  idToken: string,
+): Promise<string | null> {
   if (!adminAuth) {
-    throw new Error("Firebase Admin SDK not initialized")
+    console.warn("Firebase Admin SDK not initialized in createSessionCookie")
+    return null
   }
 
   const expiresIn = SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000 // 5 days in ms

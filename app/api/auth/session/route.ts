@@ -15,6 +15,14 @@ export async function POST(request: NextRequest) {
     }
 
     const sessionCookie = await createSessionCookie(idToken)
+
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { error: "Failed to create session cookie" },
+        { status: 401 },
+      )
+    }
+
     const cookieStore = await cookies()
 
     cookieStore.set(SESSION_COOKIE_NAME, sessionCookie, {

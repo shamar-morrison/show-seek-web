@@ -1,7 +1,7 @@
 "use client"
 
 import { Avatar } from "@/components/ui/avatar"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 import { Menu } from "@base-ui/react/menu"
 import { Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"

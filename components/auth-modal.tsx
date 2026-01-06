@@ -61,11 +61,28 @@ function GoogleLogo({ className }: { className?: string }) {
  * Create a server-side session after successful sign-in
  */
 async function createServerSession(idToken: string): Promise<void> {
-  await fetch("/api/auth/session", {
+  const response = await fetch("/api/auth/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken }),
   })
+
+  if (!response.ok) {
+    let errorDetail = ""
+    try {
+      const data = await response.json()
+      errorDetail = data.error || data.message || JSON.stringify(data)
+    } catch {
+      try {
+        errorDetail = await response.text()
+      } catch {
+        errorDetail = "Unknown session creation error"
+      }
+    }
+    throw new Error(
+      `Session creation failed (Status ${response.status}): ${errorDetail}`,
+    )
+  }
 }
 
 /**
@@ -182,7 +199,10 @@ export function AuthModal() {
       }
     } catch (error) {
       console.error("Google auth error:", error)
-      setAuthError("An unexpected error occurred. Please try again.")
+      const errorMessage =
+        (error as Error)?.message ||
+        "An unexpected error occurred. Please try again."
+      setAuthError(errorMessage)
     } finally {
       setIsGoogleLoading(false)
     }

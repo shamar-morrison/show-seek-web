@@ -81,6 +81,6 @@ export function getEmailAuthErrorMessage(error: {
     case "auth/network-request-failed":
       return "Network error. Please check your internet connection."
     default:
-      return "Unable to sign in. Please try again."
+      return error?.message || "Unable to sign in. Please try again."
   }
 }

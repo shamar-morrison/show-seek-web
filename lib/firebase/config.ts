@@ -17,7 +17,9 @@ const db = getFirestore(app)
 
 // Set browser persistence for session management
 if (typeof window !== "undefined") {
-  setPersistence(auth, browserLocalPersistence)
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error("Firebase persistence error:", error)
+  })
 }
 
 export { auth, db }

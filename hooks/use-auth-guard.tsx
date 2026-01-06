@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/context/auth-context"
 import { useCallback, useState } from "react"
 
 export function useAuthGuard() {
@@ -19,7 +19,9 @@ export function useAuthGuard() {
   const requireAuth = useCallback(
     (action: () => void | Promise<void>, message?: string) => {
       if (isAuthenticated) {
-        action()
+        Promise.resolve(action()).catch((error) => {
+          console.error("requireAuth action failed:", error)
+        })
       } else {
         setModalMessage(message)
         setModalVisible(true)
