@@ -2,12 +2,12 @@
 
 import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
+import { SHOWSEEK_ICON } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { Collapsible } from "@base-ui/react/collapsible"
 import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import {
   Cancel01Icon,
-  Film01Icon,
   Menu01Icon,
   Search01Icon,
 } from "@hugeicons/core-free-icons"
@@ -201,7 +201,7 @@ export function Navbar() {
               {/* Logo Icon */}
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
                 <HugeiconsIcon
-                  icon={Film01Icon}
+                  icon={SHOWSEEK_ICON}
                   className="size-5 text-white"
                 />
               </div>

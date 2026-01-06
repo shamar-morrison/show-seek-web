@@ -1,6 +1,6 @@
-import Link from "next/link"
-import { Film01Icon } from "@hugeicons/core-free-icons"
+import { SHOWSEEK_ICON } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
+import Link from "next/link"
 
 export function Footer() {
   return (
@@ -10,7 +10,10 @@ export function Footer() {
         <div className="flex flex-col gap-4">
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <HugeiconsIcon icon={Film01Icon} className="size-5 text-white" />
+              <HugeiconsIcon
+                icon={SHOWSEEK_ICON}
+                className="size-5 text-white"
+              />
             </div>
             <span className="text-xl font-bold text-white">ShowSeek</span>
           </Link>
