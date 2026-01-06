@@ -88,20 +88,29 @@ export function VirtualizedFilterCombobox({
     return options.filter((opt) => opt.label.toLowerCase().includes(search))
   }, [options, debouncedSearch])
 
-  // Set up virtualizer - uses scrollContainer state so it re-initializes when container mounts
-  const virtualizer = useVirtualizer({
-    count: filteredOptions.length,
-    getScrollElement: () => scrollContainer,
-    estimateSize: () => itemHeight,
-    overscan: 5, // Render 5 extra items above/below for smooth scrolling
-  })
+  const estimateSize = React.useCallback(() => itemHeight, [itemHeight])
 
-  // Find selected option for display
+  const getScrollElement = React.useCallback(
+    () => scrollContainer,
+    [scrollContainer],
+  )
+
+  const virtualizerOptions = React.useMemo(
+    () => ({
+      count: filteredOptions.length,
+      getScrollElement,
+      estimateSize,
+      overscan: 5,
+    }),
+    [filteredOptions.length, getScrollElement, estimateSize],
+  )
+
+  const virtualizer = useVirtualizer(virtualizerOptions)
+
   const selectedOption = value
     ? options.find((opt) => opt.value === value)
     : null
 
-  // Handle option selection
   const handleSelect = React.useCallback(
     (option: ComboboxOption) => {
       onChange?.(option.value === value ? null : option.value)
@@ -120,7 +129,9 @@ export function VirtualizedFilterCombobox({
       // Force re-measure when popover opens and container is ready
       virtualizer.measure()
     }
-  }, [open, scrollContainer, virtualizer])
+    // Note: virtualizer.measure is stable, but we include virtualizerOptions
+    // to ensure measure is called when options change
+  }, [open, scrollContainer, virtualizerOptions, virtualizer])
 
   // Scroll to selected item when opening
   React.useEffect(() => {
@@ -133,7 +144,8 @@ export function VirtualizedFilterCombobox({
         }, 0)
       }
     }
-  }, [open, value, filteredOptions, virtualizer])
+    // Note: virtualizer.scrollToIndex is stable, using virtualizerOptions for stability
+  }, [open, value, filteredOptions, virtualizerOptions, virtualizer])
 
   // Calculate the list height - show up to 8 items, then scroll
   const maxVisibleItems = 8
