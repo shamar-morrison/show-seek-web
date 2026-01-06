@@ -324,11 +324,11 @@ export function DiscoverClient({
             {hasActiveFilters && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="lg"
                 onClick={clearFilters}
-                className="mb-0.5 text-gray-400 hover:text-white"
+                className="text-gray-400 hover:text-white rounded-md"
               >
-                <HugeiconsIcon icon={Cancel01Icon} className="mr-1.5 size-4" />
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                 Clear all
               </Button>
             )}
