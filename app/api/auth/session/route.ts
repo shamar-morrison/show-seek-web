@@ -35,7 +35,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Session creation failed:", error)
+    // Sanitize error logging in production to avoid leaking sensitive details
+    if (process.env.NODE_ENV === "production") {
+      const message = error instanceof Error ? error.message : "Unknown error"
+      console.error("Session creation failed:", message)
+    } else {
+      console.error("Session creation failed:", error)
+    }
+
     return NextResponse.json(
       { error: "Failed to create session" },
       { status: 401 },

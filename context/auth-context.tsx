@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseSignOut(auth)
     } catch (error) {
       console.error("Error signing out:", error)
+      throw error
     }
   }
 

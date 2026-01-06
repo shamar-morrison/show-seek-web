@@ -7,6 +7,7 @@ import { Menu } from "@base-ui/react/menu"
 import { Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 /**
  * Get first name from a display name
@@ -58,7 +59,13 @@ export function UserMenu() {
             <Menu.Separator className="my-1.5 h-px bg-white/10" />
 
             <Menu.Item
-              onClick={signOut}
+              onClick={async () => {
+                try {
+                  await signOut()
+                } catch {
+                  toast.error("Failed to log out. Please try again.")
+                }
+              }}
               className={cn(
                 "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm outline-none transition-colors text-primary",
                 "hover:bg-white/8 hover:text-white",

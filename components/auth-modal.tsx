@@ -164,6 +164,9 @@ export function AuthModal() {
         result.data.password,
       )
 
+      // Sync Firestore user document
+      await createUserDocument(userCredential.user)
+
       // Create server-side session
       const idToken = await userCredential.user.getIdToken()
       await createServerSession(idToken)

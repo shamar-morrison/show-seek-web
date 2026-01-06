@@ -23,7 +23,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <main className="min-h-screen bg-black">
       <Navbar />
-      <div className="mx-auto max-w-[1800px] px-4 pt-24 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-[1800px] px-4 pt-36 sm:px-8 lg:px-12">
         <SearchResultsClient
           initialQuery={searchQuery}
           initialResults={results}

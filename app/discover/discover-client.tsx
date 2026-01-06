@@ -147,16 +147,19 @@ export function DiscoverClient({
     // Deduplicate providers using Set based on provider_name (not ID)
     // since providers with same name but different IDs appear as duplicates
     const seen = new Set<string>()
-    return providers
-      .filter((p) => {
-        if (seen.has(p.provider_name)) return false
-        seen.add(p.provider_name)
-        return true
-      })
-      .map((p) => ({
-        label: p.provider_name,
-        value: p.provider_id.toString(),
-      }))
+    return [
+      { label: "All Providers", value: "" },
+      ...providers
+        .filter((p) => {
+          if (seen.has(p.provider_name)) return false
+          seen.add(p.provider_name)
+          return true
+        })
+        .map((p) => ({
+          label: p.provider_name,
+          value: p.provider_id.toString(),
+        })),
+    ]
   }, [providers])
 
   // Check if any filter differs from defaults

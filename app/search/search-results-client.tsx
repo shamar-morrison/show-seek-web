@@ -81,14 +81,17 @@ export function SearchResultsClient({
     useTrailer()
 
   // Handle watch trailer
-  const handleWatchTrailer = (result: TMDBSearchResult) => {
-    if (result.media_type === "person") return
-    watchTrailer(
-      result.id,
-      result.media_type,
-      result.title || result.name || "Trailer",
-    )
-  }
+  const handleWatchTrailer = useCallback(
+    (result: TMDBSearchResult) => {
+      if (result.media_type === "person") return
+      watchTrailer(
+        result.id,
+        result.media_type,
+        result.title || result.name || "Trailer",
+      )
+    },
+    [watchTrailer],
+  )
 
   // Perform search
   const performSearch = useCallback(async (searchQuery: string) => {
