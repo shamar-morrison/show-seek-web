@@ -5,6 +5,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
+import { useLists } from "@/hooks/use-lists"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -15,12 +16,13 @@ import {
   Note01Icon,
   PlusSignIcon,
   StarIcon,
+  Tick02Icon,
   Tv01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 interface MediaDetailHeroProps {
   /** Movie or TV show details */
@@ -106,6 +108,13 @@ export function MediaDetailHero({
 }: MediaDetailHeroProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
+  const { lists } = useLists()
+
+  // Check if media is in any list
+  const isInAnyList = useMemo(() => {
+    const numericKey = String(media.id)
+    return lists.some((list) => list.items && list.items[numericKey])
+  }, [lists, media.id])
 
   // Extract common properties
   const title =
@@ -295,8 +304,11 @@ export function MediaDetailHero({
                     className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
                     onClick={() => setIsAddToListOpen(true)}
                   >
-                    <HugeiconsIcon icon={PlusSignIcon} className="size-5" />
-                    Add
+                    <HugeiconsIcon
+                      icon={isInAnyList ? Tick02Icon : PlusSignIcon}
+                      className="size-5"
+                    />
+                    {isInAnyList ? "Added" : "Add"}
                   </Button>
 
                   {/* Mark as Watched - Secondary */}
