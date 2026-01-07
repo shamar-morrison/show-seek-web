@@ -4,6 +4,7 @@ import { Section } from "@/components/ui/section"
 import { ViewAllLink } from "@/components/ui/view-all-link"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import type { TMDBSeason } from "@/types/tmdb"
+import Link from "next/link"
 import { useMemo } from "react"
 
 interface SeasonsRowProps {
@@ -71,8 +72,12 @@ export function SeasonsRow({
           const hasProgress = watchedCount > 0
 
           return (
-            <div key={season.id} className="w-[140px] shrink-0 sm:w-[160px]">
-              <div className="group relative h-full w-full overflow-hidden rounded-xl bg-card shadow-md transition-all duration-300">
+            <Link
+              key={season.id}
+              href={`/tv/${tvShowId}/season/${season.season_number}`}
+              className="w-[140px] shrink-0 sm:w-[160px]"
+            >
+              <div className="group relative h-full w-full overflow-hidden rounded-xl bg-card  transition-all duration-300">
                 {/* Poster Image */}
                 <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
                   {season.poster_path ? (
@@ -117,7 +122,7 @@ export function SeasonsRow({
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>

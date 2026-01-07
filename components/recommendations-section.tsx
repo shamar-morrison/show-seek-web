@@ -48,7 +48,12 @@ export function RecommendationsSection({
 
   // Handle trailer playback
   const handleWatchTrailer = (media: TMDBMedia) => {
-    watchTrailer(media.id, mediaType, media.title || media.name || "Trailer")
+    // Use the media item's own type with fallback to component prop
+    const type =
+      media.media_type === "movie" || media.media_type === "tv"
+        ? media.media_type
+        : mediaType
+    watchTrailer(media.id, type, media.title || media.name || "Trailer")
   }
 
   // Don't render section if loaded and no recommendations

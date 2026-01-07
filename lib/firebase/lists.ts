@@ -9,7 +9,6 @@ import {
   deleteDoc,
   deleteField,
   doc,
-  getDoc,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -59,6 +58,7 @@ function getListRef(userId: string, listId: string) {
 /**
  * Add a media item to a list
  * Idempotent - safe to call multiple times for the same item
+ * Uses a transaction to atomically check document existence and set createdAt
  */
 export async function addToList(
   userId: string,
@@ -78,25 +78,27 @@ export async function addToList(
   const defaultList = DEFAULT_LISTS.find((l) => l.id === listId)
   const listName = defaultList?.name || listId
 
-  // Check if document exists to conditionally set createdAt
-  const docSnap = await getDoc(listRef)
-  const isNewDocument = !docSnap.exists()
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(listRef)
+    const isNewDocument = !docSnap.exists()
 
-  // Build the payload - only include createdAt for new documents
-  const payload: Record<string, unknown> = {
-    name: listName,
-    items: {
-      [itemKey]: sanitizedItem,
-    },
-    updatedAt: serverTimestamp(),
-  }
+    // Build the payload - only include createdAt for new documents
+    const payload: Record<string, unknown> = {
+      name: listName,
+      items: {
+        [itemKey]: sanitizedItem,
+      },
+      updatedAt: serverTimestamp(),
+    }
 
-  // Only set createdAt on new documents to preserve original timestamp
-  if (isNewDocument) {
-    payload.createdAt = serverTimestamp()
-  }
-
-  await setDoc(listRef, payload, { merge: true })
+    // Only set createdAt on new documents to preserve original timestamp
+    if (isNewDocument) {
+      payload.createdAt = serverTimestamp()
+      transaction.set(listRef, payload)
+    } else {
+      transaction.set(listRef, payload, { merge: true })
+    }
+  })
 }
 
 /**

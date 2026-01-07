@@ -35,6 +35,17 @@ export interface EpisodeTrackingMetadata {
   posterPath: string | null
   /** Timestamp of last update to tracking data */
   lastUpdated: number
+  /** Cached total episode count from TMDB (excludes season 0) */
+  totalEpisodes?: number
+  /** Cached average runtime in minutes from TMDB */
+  avgRuntime?: number
+  /** Cached next episode to watch (null if caught up, undefined if not computed) */
+  nextEpisode?: {
+    season: number
+    episode: number
+    title: string
+    airDate: string | null
+  } | null
 }
 
 /**

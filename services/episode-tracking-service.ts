@@ -110,6 +110,18 @@ class EpisodeTrackingService {
       tvShowName: string
       posterPath: string | null
     },
+    /** Optional cached TMDB stats to store for faster read access */
+    showStats?: {
+      totalEpisodes: number
+      avgRuntime: number
+    },
+    /** Optional next episode to watch (null means caught up) */
+    nextEpisode?: {
+      season: number
+      episode: number
+      title: string
+      airDate: string | null
+    } | null,
   ): Promise<void> {
     try {
       const user = auth.currentUser
@@ -132,6 +144,13 @@ class EpisodeTrackingService {
         tvShowName: showMetadata.tvShowName,
         posterPath: showMetadata.posterPath,
         lastUpdated: Date.now(),
+        // Include cached stats if provided (undefined values are excluded by Firestore)
+        ...(showStats && {
+          totalEpisodes: showStats.totalEpisodes,
+          avgRuntime: showStats.avgRuntime,
+        }),
+        // nextEpisode can be null (caught up) or object - only include if explicitly provided
+        ...(nextEpisode !== undefined && { nextEpisode }),
       }
 
       await this.withTimeout(
@@ -203,6 +222,18 @@ class EpisodeTrackingService {
       tvShowName: string
       posterPath: string | null
     },
+    /** Optional cached TMDB stats to store for faster read access */
+    showStats?: {
+      totalEpisodes: number
+      avgRuntime: number
+    },
+    /** Optional next episode to watch (null means caught up) */
+    nextEpisode?: {
+      season: number
+      episode: number
+      title: string
+      airDate: string | null
+    } | null,
   ): Promise<void> {
     try {
       const user = auth.currentUser
@@ -233,6 +264,13 @@ class EpisodeTrackingService {
         tvShowName: showMetadata.tvShowName,
         posterPath: showMetadata.posterPath,
         lastUpdated: now,
+        // Include cached stats if provided
+        ...(showStats && {
+          totalEpisodes: showStats.totalEpisodes,
+          avgRuntime: showStats.avgRuntime,
+        }),
+        // nextEpisode can be null (caught up) or object - only include if explicitly provided
+        ...(nextEpisode !== undefined && { nextEpisode }),
       }
 
       // Use setDoc with merge to update all episodes at once

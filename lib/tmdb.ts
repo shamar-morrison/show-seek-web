@@ -583,13 +583,24 @@ export interface TMDBSeasonEpisode {
   id: number
   episode_number: number
   name: string
+  overview: string
   air_date: string | null
   runtime: number | null
+  still_path: string | null
+  vote_average: number
+  vote_count: number
+  season_number: number
 }
 
 /** Season details response */
 export interface TMDBSeasonDetails {
+  id: number
   season_number: number
+  name: string
+  overview: string
+  poster_path: string | null
+  air_date: string | null
+  vote_average: number
   episodes: TMDBSeasonEpisode[]
 }
 
@@ -619,23 +630,39 @@ export async function getSeasonDetails(
 
     const data = await response.json()
 
-    // Return simplified episode data
+    // Return full season and episode data
     return {
+      id: data.id,
       season_number: data.season_number,
+      name: data.name || `Season ${data.season_number}`,
+      overview: data.overview || "",
+      poster_path: data.poster_path || null,
+      air_date: data.air_date || null,
+      vote_average: data.vote_average || 0,
       episodes:
         data.episodes?.map(
           (ep: {
             id: number
             episode_number: number
             name: string
+            overview: string
             air_date: string | null
             runtime: number | null
+            still_path: string | null
+            vote_average: number
+            vote_count: number
+            season_number: number
           }) => ({
             id: ep.id,
             episode_number: ep.episode_number,
             name: ep.name,
+            overview: ep.overview || "",
             air_date: ep.air_date,
             runtime: ep.runtime,
+            still_path: ep.still_path,
+            vote_average: ep.vote_average || 0,
+            vote_count: ep.vote_count || 0,
+            season_number: ep.season_number,
           }),
         ) || [],
     }

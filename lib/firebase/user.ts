@@ -56,15 +56,15 @@ export async function createUserDocument(user: User): Promise<void> {
 
       const updates: Partial<UserDocument> = {}
 
-      if (user.photoURL && user.photoURL !== existingData.photoURL) {
+      if (user.photoURL !== existingData.photoURL) {
         updates.photoURL = user.photoURL
       }
 
-      if (user.displayName && user.displayName !== existingData.displayName) {
+      if (user.displayName !== existingData.displayName) {
         updates.displayName = user.displayName
       }
 
-      if (user.email && user.email !== existingData.email) {
+      if (user.email !== existingData.email) {
         updates.email = user.email
       }
 

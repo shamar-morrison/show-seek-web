@@ -47,14 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userDocRef = doc(db, "users", user.uid)
-    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const userData = snapshot.data() as UserDocument
-        setIsPremium(userData.premium?.isPremium ?? false)
-      } else {
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.data() as UserDocument
+          setIsPremium(userData.premium?.isPremium ?? false)
+        } else {
+          setIsPremium(false)
+        }
+      },
+      (error) => {
+        console.error("Error listening to user document:", error)
         setIsPremium(false)
-      }
-    })
+      },
+    )
 
     return unsubscribe
   }, [user])

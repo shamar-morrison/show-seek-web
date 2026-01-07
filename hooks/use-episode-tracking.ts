@@ -1,14 +1,12 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
-import { tmdbQueryKeys } from "@/hooks/use-tmdb-queries"
 import { subscribeToAllEpisodeTracking } from "@/lib/firebase/episode-tracking"
 import type {
   InProgressShow,
   TVShowEpisodeTracking,
   WatchedEpisode,
 } from "@/types/episode-tracking"
-import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useState } from "react"
 
 /**
@@ -26,36 +24,8 @@ function parseEpisodeKey(
   }
 }
 
-/**
- * Build episode key for lookup
- */
-function buildEpisodeKey(season: number, episode: number): string {
-  return `${season}_${episode}`
-}
-
-/**
- * Episode data from TMDB
- */
-interface TMDBEpisodeData {
-  id: number
-  episode_number: number
-  name: string
-  air_date: string | null
-  runtime: number | null
-}
-
-/**
- * TV Show details from TMDB
- */
-interface TMDBShowData {
-  totalEpisodes: number
-  avgRuntime: number
-  seasons: Array<{
-    season_number: number
-    episode_count: number
-    air_date: string | null
-  }>
-}
+/** Default average runtime if not cached (typical TV episode length) */
+const DEFAULT_AVG_RUNTIME = 45
 
 /**
  * Enriched progress with TMDB data
@@ -79,9 +49,10 @@ export function formatRemainingTime(minutes: number): string {
 }
 
 /**
- * Compute basic progress data from tracking document
+ * Compute progress data from tracking document using cached metadata.
+ * No TMDB API calls required - all data comes from Firebase.
  */
-function computeBasicProgress(
+function computeProgressFromCache(
   tvShowId: number,
   tracking: TVShowEpisodeTracking,
 ): WatchProgressItem | null {
@@ -108,19 +79,24 @@ function computeBasicProgress(
 
   if (parsedEpisodes.length === 0) return null
 
-  // Find furthest watched (highest season, then highest episode)
-  const sortedBySeason = [...parsedEpisodes].sort((a, b) => {
-    if (a.parsed.season !== b.parsed.season)
-      return b.parsed.season - a.parsed.season
-    return b.parsed.episode - a.parsed.episode
-  })
-  const furthestWatched = sortedBySeason[0]
-
   // Find most recently watched for lastWatchedEpisode
   const sortedByTime = [...parsedEpisodes].sort(
     (a, b) => b.data.watchedAt - a.data.watchedAt,
   )
   const lastWatched = sortedByTime[0]
+
+  // Use cached values from metadata, or fallback to reasonable defaults
+  const totalEpisodes = metadata.totalEpisodes ?? 0
+  const avgRuntime = metadata.avgRuntime ?? DEFAULT_AVG_RUNTIME
+  const watchedCount = parsedEpisodes.length
+
+  // Calculate percentage (only if we have totalEpisodes cached)
+  const percentage =
+    totalEpisodes > 0 ? Math.round((watchedCount / totalEpisodes) * 100) : 0
+
+  // Calculate remaining time
+  const remainingEpisodes = Math.max(0, totalEpisodes - watchedCount)
+  const timeRemaining = remainingEpisodes * avgRuntime
 
   return {
     tvShowId,
@@ -128,168 +104,44 @@ function computeBasicProgress(
     posterPath: metadata.posterPath,
     backdropPath: null,
     lastUpdated: metadata.lastUpdated,
-    percentage: 0,
-    timeRemaining: 0,
+    percentage,
+    timeRemaining,
     lastWatchedEpisode: {
       season: lastWatched.parsed.season,
       episode: lastWatched.parsed.episode,
       title: lastWatched.data.episodeName,
     },
-    nextEpisode: null, // Will be enriched
-    watchedCount: parsedEpisodes.length,
-    totalEpisodes: 0,
-    avgRuntime: 45,
-    // Store for enrichment
-    _furthestWatched: furthestWatched.parsed,
-    _episodes: tracking.episodes,
-  } as WatchProgressItem & {
-    _furthestWatched: { season: number; episode: number }
-    _episodes: Record<string, WatchedEpisode>
+    // Use cached nextEpisode from metadata (can be null if caught up, undefined if not computed)
+    nextEpisode: metadata.nextEpisode ?? null,
+    watchedCount,
+    totalEpisodes,
+    avgRuntime,
   }
 }
 
 /**
- * Hook for managing episode tracking with real-time updates
+ * Hook for managing episode tracking with real-time updates.
+ *
+ * This hook reads episode tracking data from Firebase and uses cached TMDB
+ * metadata stored in the tracking documents. No TMDB API calls are made here -
+ * the enrichment data is written when marking episodes as watched.
+ *
+ * For legacy data without cached stats, fallback defaults are used.
  */
 export function useEpisodeTracking() {
   const { user, loading: authLoading } = useAuth()
-  const queryClient = useQueryClient()
   const [tracking, setTracking] = useState<Map<string, TVShowEpisodeTracking>>(
     new Map(),
   )
   const [loading, setLoading] = useState(true)
-  const [enriching, setEnriching] = useState(false)
-  const [enrichedProgress, setEnrichedProgress] = useState<WatchProgressItem[]>(
-    [],
-  )
-
-  // Fetch show details using React Query cache
-  const fetchShowDetails = useCallback(
-    async (
-      tvShowId: number,
-      signal?: AbortSignal,
-    ): Promise<TMDBShowData | null> => {
-      try {
-        return await queryClient.fetchQuery({
-          queryKey: tmdbQueryKeys.tvShowDetails(tvShowId),
-          queryFn: async (): Promise<TMDBShowData | null> => {
-            const response = await fetch(`/api/tv/${tvShowId}/details`, {
-              signal,
-            })
-            if (!response.ok) return null
-            const data = await response.json()
-            const avgRuntime =
-              data.episode_run_time?.length > 0 ? data.episode_run_time[0] : 45
-            return {
-              totalEpisodes: data.number_of_episodes || 0,
-              avgRuntime,
-              seasons: data.seasons || [],
-            }
-          },
-        })
-      } catch {
-        return null
-      }
-    },
-    [queryClient],
-  )
-
-  // Fetch season episodes using React Query cache
-  const fetchSeasonEpisodes = useCallback(
-    async (
-      tvShowId: number,
-      seasonNumber: number,
-      signal?: AbortSignal,
-    ): Promise<TMDBEpisodeData[]> => {
-      try {
-        return await queryClient.fetchQuery({
-          queryKey: tmdbQueryKeys.seasonEpisodes(tvShowId, seasonNumber),
-          queryFn: async (): Promise<TMDBEpisodeData[]> => {
-            const response = await fetch(
-              `/api/tv/${tvShowId}/season/${seasonNumber}`,
-              { signal },
-            )
-            if (!response.ok) return []
-            const data = await response.json()
-            return data.episodes || []
-          },
-        })
-      } catch {
-        return []
-      }
-    },
-    [queryClient],
-  )
-
-  // Find next episode to watch
-  const findNextEpisode = useCallback(
-    async (
-      tvShowId: number,
-      watchedEpisodes: Record<string, WatchedEpisode>,
-      furthestWatched: { season: number; episode: number },
-      signal?: AbortSignal,
-    ): Promise<{
-      season: number
-      episode: number
-      title: string
-      airDate: string | null
-    } | null> => {
-      const today = new Date()
-
-      const currentSeasonEpisodes = await fetchSeasonEpisodes(
-        tvShowId,
-        furthestWatched.season,
-        signal,
-      )
-
-      for (const ep of currentSeasonEpisodes) {
-        if (ep.episode_number <= furthestWatched.episode) continue
-        if (ep.air_date && new Date(ep.air_date) <= today) {
-          const key = buildEpisodeKey(furthestWatched.season, ep.episode_number)
-          if (!(key in watchedEpisodes)) {
-            return {
-              season: furthestWatched.season,
-              episode: ep.episode_number,
-              title: ep.name,
-              airDate: ep.air_date,
-            }
-          }
-        }
-      }
-
-      const nextSeasonEpisodes = await fetchSeasonEpisodes(
-        tvShowId,
-        furthestWatched.season + 1,
-        signal,
-      )
-
-      for (const ep of nextSeasonEpisodes) {
-        if (ep.air_date && new Date(ep.air_date) <= today) {
-          const key = buildEpisodeKey(
-            furthestWatched.season + 1,
-            ep.episode_number,
-          )
-          if (!(key in watchedEpisodes)) {
-            return {
-              season: furthestWatched.season + 1,
-              episode: ep.episode_number,
-              title: ep.name,
-              airDate: ep.air_date,
-            }
-          }
-        }
-      }
-
-      return null
-    },
-    [fetchSeasonEpisodes],
-  )
+  const [watchProgress, setWatchProgress] = useState<WatchProgressItem[]>([])
 
   // Subscribe to real-time tracking updates
   useEffect(() => {
     if (authLoading) return
     if (!user || user.isAnonymous) {
       setTracking(new Map())
+      setWatchProgress([])
       setLoading(false)
       return
     }
@@ -299,6 +151,20 @@ export function useEpisodeTracking() {
       user.uid,
       (trackingMap) => {
         setTracking(trackingMap)
+
+        // Compute progress immediately from cached data - no async needed!
+        const results: WatchProgressItem[] = []
+        for (const [tvShowIdStr, data] of trackingMap.entries()) {
+          const tvShowId = parseInt(tvShowIdStr, 10)
+          const progress = computeProgressFromCache(tvShowId, data)
+          if (progress) {
+            results.push(progress)
+          }
+        }
+
+        // Sort by last updated (most recent first)
+        results.sort((a, b) => b.lastUpdated - a.lastUpdated)
+        setWatchProgress(results)
         setLoading(false)
       },
       () => setLoading(false),
@@ -307,98 +173,17 @@ export function useEpisodeTracking() {
     return () => unsubscribe()
   }, [user, authLoading])
 
-  // Enrich with TMDB data
-  useEffect(() => {
-    if (tracking.size === 0) {
-      setEnrichedProgress([])
-      setEnriching(false)
-      return
-    }
-
-    setEnriching(true)
-
-    const controller = new AbortController()
-    const { signal } = controller
-
-    const enrichAll = async () => {
-      const results: WatchProgressItem[] = []
-
-      for (const [tvShowIdStr, data] of tracking.entries()) {
-        if (signal.aborted) return
-
-        const tvShowId = parseInt(tvShowIdStr, 10)
-        const basic = computeBasicProgress(tvShowId, data) as
-          | (WatchProgressItem & {
-              _furthestWatched?: { season: number; episode: number }
-              _episodes?: Record<string, WatchedEpisode>
-            })
-          | null
-
-        if (!basic) continue
-
-        const showData = await fetchShowDetails(tvShowId, signal)
-        if (signal.aborted) return
-
-        if (showData) {
-          basic.totalEpisodes = showData.totalEpisodes
-          basic.avgRuntime = showData.avgRuntime
-
-          if (showData.totalEpisodes > 0) {
-            basic.percentage = Math.round(
-              (basic.watchedCount / showData.totalEpisodes) * 100,
-            )
-          }
-
-          const remainingEpisodes = Math.max(
-            0,
-            showData.totalEpisodes - basic.watchedCount,
-          )
-          basic.timeRemaining = remainingEpisodes * showData.avgRuntime
-        }
-
-        if (basic._furthestWatched && basic._episodes) {
-          const nextEp = await findNextEpisode(
-            tvShowId,
-            basic._episodes,
-            basic._furthestWatched,
-            signal,
-          )
-          if (signal.aborted) return
-
-          if (nextEp) {
-            basic.nextEpisode = nextEp
-          }
-        }
-
-        delete basic._furthestWatched
-        delete basic._episodes
-
-        results.push(basic)
-      }
-
-      if (!signal.aborted) {
-        results.sort((a, b) => b.lastUpdated - a.lastUpdated)
-        setEnrichedProgress(results)
-        setEnriching(false)
-      }
-    }
-
-    enrichAll()
-
-    return () => controller.abort()
-  }, [tracking, fetchShowDetails, findNextEpisode])
-
   const getShowProgress = useCallback(
     (tvShowId: number): WatchProgressItem | null => {
-      return enrichedProgress.find((p) => p.tvShowId === tvShowId) || null
+      return watchProgress.find((p) => p.tvShowId === tvShowId) || null
     },
-    [enrichedProgress],
+    [watchProgress],
   )
 
   return {
     tracking,
-    watchProgress: enrichedProgress,
-    loading: loading || enriching,
+    watchProgress,
+    loading,
     getShowProgress,
   }
 }

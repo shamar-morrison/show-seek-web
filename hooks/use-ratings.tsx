@@ -100,12 +100,87 @@ export function useRatings() {
     [user],
   )
 
+  /**
+   * Get a rating for a specific episode
+   */
+  const getEpisodeRating = useCallback(
+    (
+      tvShowId: number,
+      seasonNumber: number,
+      episodeNumber: number,
+    ): Rating | null => {
+      const key = `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`
+      return ratings.get(key) || null
+    },
+    [ratings],
+  )
+
+  /**
+   * Save or update a rating for an episode
+   */
+  const saveEpisodeRating = useCallback(
+    async (
+      tvShowId: number,
+      seasonNumber: number,
+      episodeNumber: number,
+      rating: number,
+      episodeName: string,
+      tvShowName: string,
+      posterPath: string | null,
+      episodeAirDate: string | null = null,
+    ): Promise<void> => {
+      if (!user || user.isAnonymous) {
+        throw new Error("User must be authenticated to rate")
+      }
+
+      await setRating(user.uid, {
+        userId: user.uid,
+        id: `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`,
+        mediaType: "episode",
+        mediaId: tvShowId.toString(),
+        rating,
+        title: episodeName,
+        posterPath,
+        releaseDate: episodeAirDate,
+        // Episode-specific fields
+        tvShowId,
+        tvShowName,
+        seasonNumber,
+        episodeNumber,
+      })
+    },
+    [user],
+  )
+
+  /**
+   * Remove a rating for an episode
+   */
+  const removeEpisodeRating = useCallback(
+    async (
+      tvShowId: number,
+      seasonNumber: number,
+      episodeNumber: number,
+    ): Promise<void> => {
+      if (!user || user.isAnonymous) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      // Use the episode key format for deletion
+      const key = `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`
+      await deleteRating(user.uid, "episode" as any, key as any)
+    },
+    [user],
+  )
+
   return {
     ratings,
     loading,
     getRating,
     saveRating,
     removeRating,
+    getEpisodeRating,
+    saveEpisodeRating,
+    removeEpisodeRating,
   }
 }
 

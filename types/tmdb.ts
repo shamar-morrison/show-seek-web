@@ -298,6 +298,32 @@ export interface TMDBSeason {
   vote_average: number
 }
 
+/** Season episode data with full details */
+export interface TMDBSeasonEpisode {
+  id: number
+  episode_number: number
+  name: string
+  overview: string
+  air_date: string | null
+  runtime: number | null
+  still_path: string | null
+  vote_average: number
+  vote_count: number
+  season_number: number
+}
+
+/** Full season details with episodes */
+export interface TMDBSeasonDetails {
+  id: number
+  season_number: number
+  name: string
+  overview: string
+  poster_path: string | null
+  air_date: string | null
+  vote_average: number
+  episodes: TMDBSeasonEpisode[]
+}
+
 /** Collection info embedded in movie details */
 export interface TMDBCollectionInfo {
   id: number
