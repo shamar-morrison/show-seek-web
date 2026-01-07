@@ -324,6 +324,46 @@ export interface TMDBSeasonDetails {
   episodes: TMDBSeasonEpisode[]
 }
 
+/** Guest star from episode credits */
+export interface TMDBGuestStar {
+  id: number
+  name: string
+  character: string
+  profile_path: string | null
+  order: number
+}
+
+/** Episode crew member */
+export interface TMDBEpisodeCrewMember {
+  id: number
+  name: string
+  job: string
+  department: string
+  profile_path: string | null
+}
+
+/** Full episode details with cast, crew, images, and videos */
+export interface TMDBEpisodeDetails {
+  id: number
+  episode_number: number
+  season_number: number
+  name: string
+  overview: string
+  air_date: string | null
+  runtime: number | null
+  still_path: string | null
+  vote_average: number
+  vote_count: number
+  guest_stars: TMDBGuestStar[]
+  crew: TMDBEpisodeCrewMember[]
+  images?: {
+    stills: TMDBLogo[]
+  }
+  videos?: {
+    results: TMDBVideo[]
+  }
+}
+
 /** Collection info embedded in movie details */
 export interface TMDBCollectionInfo {
   id: number

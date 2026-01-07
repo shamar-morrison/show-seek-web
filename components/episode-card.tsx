@@ -12,6 +12,7 @@ import {
   Time02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import Link from "next/link"
 import { useCallback, useState } from "react"
 
 interface EpisodeCardProps {
@@ -184,13 +185,16 @@ export function EpisodeCard({
     <>
       <article className="group relative overflow-hidden rounded-xl bg-card transition-all hover:bg-card/80">
         <div className="flex flex-col sm:flex-row">
-          {/* Episode Still */}
-          <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-gray-900 sm:w-64 md:w-80">
+          {/* Episode Still - Clickable */}
+          <Link
+            href={`/tv/${tvShowId}/season/${episode.season_number}/episode/${episode.episode_number}`}
+            className="relative aspect-video w-full shrink-0 overflow-hidden bg-gray-900 sm:w-64 md:w-80"
+          >
             {stillUrl ? (
               <img
                 src={stillUrl}
                 alt={episode.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
             ) : (
@@ -222,7 +226,7 @@ export function EpisodeCard({
                 </span>
               </div>
             )}
-          </div>
+          </Link>
 
           {/* Episode Info */}
           <div className="flex flex-1 flex-col justify-between p-4">

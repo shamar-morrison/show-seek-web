@@ -3,6 +3,7 @@
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
 import { NotesModal } from "@/components/notes-modal"
+import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
@@ -348,23 +349,16 @@ export function MediaDetailHero({
                   </Button>
 
                   {/* Rate - Secondary */}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                  <RateButton
+                    hasRating={!!userRating}
+                    rating={userRating?.rating}
                     onClick={() =>
                       requireAuth(
                         () => setIsRatingModalOpen(true),
                         "Sign in to rate movies and TV shows",
                       )
                     }
-                  >
-                    <HugeiconsIcon
-                      icon={StarIcon}
-                      className={`size-5 ${userRating ? "fill-yellow-500 text-yellow-500" : ""}`}
-                    />
-                    {userRating ? `${userRating.rating}/10` : "Rate"}
-                  </Button>
+                  />
 
                   {/* Notes - Secondary */}
                   <Button

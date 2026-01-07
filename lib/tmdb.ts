@@ -10,6 +10,7 @@ import type {
   TMDBCollectionDetails,
   TMDBConfiguration,
   TMDBDiscoverResponse,
+  TMDBEpisodeDetails,
   TMDBGenreListResponse,
   TMDBImagesResponse,
   TMDBLanguage,
@@ -668,6 +669,115 @@ export async function getSeasonDetails(
     }
   } catch (error) {
     console.error("Failed to fetch season details:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch full episode details including guest stars, crew, images, and videos
+ * @param tvId - TMDB TV show ID
+ * @param seasonNumber - Season number
+ * @param episodeNumber - Episode number
+ * @returns Episode details or null
+ */
+export async function getEpisodeDetails(
+  tvId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+): Promise<TMDBEpisodeDetails | null> {
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
+    return null
+  }
+
+  try {
+    const response = await tmdbFetch(
+      `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`,
+      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { append_to_response: "images,videos" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    return {
+      id: data.id,
+      episode_number: data.episode_number,
+      season_number: data.season_number,
+      name: data.name || `Episode ${data.episode_number}`,
+      overview: data.overview || "",
+      air_date: data.air_date || null,
+      runtime: data.runtime || null,
+      still_path: data.still_path || null,
+      vote_average: data.vote_average || 0,
+      vote_count: data.vote_count || 0,
+      guest_stars:
+        data.guest_stars?.map(
+          (gs: {
+            id: number
+            name: string
+            character: string
+            profile_path: string | null
+            order: number
+          }) => ({
+            id: gs.id,
+            name: gs.name,
+            character: gs.character,
+            profile_path: gs.profile_path,
+            order: gs.order,
+          }),
+        ) || [],
+      crew:
+        data.crew?.map(
+          (c: {
+            id: number
+            name: string
+            job: string
+            department: string
+            profile_path: string | null
+          }) => ({
+            id: c.id,
+            name: c.name,
+            job: c.job,
+            department: c.department,
+            profile_path: c.profile_path,
+          }),
+        ) || [],
+      images: data.images
+        ? {
+            stills:
+              data.images.stills?.map(
+                (img: {
+                  aspect_ratio: number
+                  height: number
+                  iso_639_1: string | null
+                  file_path: string
+                  vote_average: number
+                  vote_count: number
+                  width: number
+                }) => ({
+                  aspect_ratio: img.aspect_ratio,
+                  height: img.height,
+                  iso_639_1: img.iso_639_1,
+                  file_path: img.file_path,
+                  vote_average: img.vote_average,
+                  vote_count: img.vote_count,
+                  width: img.width,
+                }),
+              ) || [],
+          }
+        : undefined,
+      videos: data.videos
+        ? {
+            results: data.videos.results || [],
+          }
+        : undefined,
+    }
+  } catch (error) {
+    console.error("Failed to fetch episode details:", error)
     return null
   }
 }
