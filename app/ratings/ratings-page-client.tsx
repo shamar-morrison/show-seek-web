@@ -77,7 +77,7 @@ export function RatingsPageClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* Tab Navigation */}
       <div className="flex flex-wrap items-center gap-3">
         <FilterTabButton
