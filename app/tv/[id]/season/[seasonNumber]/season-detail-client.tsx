@@ -16,6 +16,7 @@ import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
+  ArrowRight02Icon,
   Calendar03Icon,
   CheckmarkCircle02Icon,
   Loading03Icon,
@@ -337,6 +338,67 @@ export function SeasonDetailClient({
             No episodes available for this season yet.
           </div>
         )}
+
+        {/* Season Pagination */}
+        {(() => {
+          // Get valid seasons (excluding specials), sorted by number
+          const validSeasons =
+            tvShow.seasons
+              ?.filter((s) => s.season_number > 0)
+              .sort((a, b) => a.season_number - b.season_number) ?? []
+
+          const prevSeason = validSeasons.find(
+            (s) =>
+              s.season_number < season.season_number &&
+              !validSeasons.some(
+                (other) =>
+                  other.season_number > s.season_number &&
+                  other.season_number < season.season_number,
+              ),
+          )
+          // Find the closest previous season
+          const prevSeasons = validSeasons
+            .filter((s) => s.season_number < season.season_number)
+            .sort((a, b) => b.season_number - a.season_number)
+          const closestPrev = prevSeasons[0]
+
+          const nextSeasons = validSeasons
+            .filter((s) => s.season_number > season.season_number)
+            .sort((a, b) => a.season_number - b.season_number)
+          const nextSeason = nextSeasons[0]
+
+          if (!closestPrev && !nextSeason) return null
+
+          return (
+            <div className="mt-8 flex items-center justify-between gap-4">
+              {/* Previous Season */}
+              {closestPrev ? (
+                <Link
+                  href={`/tv/${tvShowId}/season/${closestPrev.season_number}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                >
+                  <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
+                  {closestPrev.name}
+                </Link>
+              ) : (
+                <div />
+              )}
+
+              {/* Next Season */}
+              {nextSeason ? (
+                <Link
+                  href={`/tv/${tvShowId}/season/${nextSeason.season_number}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                >
+                  {nextSeason.name}
+                  <HugeiconsIcon icon={ArrowRight02Icon} className="size-4" />
+                </Link>
+              ) : (
+                <div />
+              )}
+            </div>
+          )
+        })()}
       </PageContainer>
 
       {/* Confirm Dialog */}
