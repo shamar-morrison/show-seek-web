@@ -74,6 +74,12 @@ export async function setRating(
   userId: string,
   input: RatingInput,
 ): Promise<void> {
+  if (userId !== input.userId) {
+    throw new Error(
+      `UserId mismatch: path userId ${userId} does not match input userId ${input.userId}`,
+    )
+  }
+
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
   await runTransaction(db, async (transaction) => {

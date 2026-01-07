@@ -49,10 +49,15 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
     }
 
     startTransition(async () => {
-      const response = await searchMedia(searchQuery)
-      setResults(response.results.slice(0, MAX_RESULTS))
-      setIsOpen(true)
-      setSelectedIndex(-1)
+      try {
+        const response = await searchMedia(searchQuery)
+        setResults(response.results.slice(0, MAX_RESULTS))
+        setIsOpen(true)
+        setSelectedIndex(-1)
+      } catch (error) {
+        console.error("Search request failed:", error)
+        setResults([])
+      }
     })
   }, [])
 

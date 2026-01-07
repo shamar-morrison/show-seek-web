@@ -7,6 +7,8 @@ import {
   getMediaVideos,
   getRecommendations,
   getReviews,
+  getSeasonDetails,
+  getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
 
@@ -20,6 +22,75 @@ export async function searchMedia(query: string) {
   } catch (error) {
     console.error("Server Action: Failed to search media", error)
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
+  }
+}
+
+/** TV show details for progress calculation */
+export interface TVShowDetailsData {
+  totalEpisodes: number
+  avgRuntime: number
+  seasons: Array<{
+    season_number: number
+    episode_count: number
+    air_date: string | null
+  }>
+}
+
+/**
+ * Server action to fetch TV show details for progress calculation.
+ * Used for episode tracking and watch progress features.
+ */
+export async function fetchTVShowDetails(
+  tvShowId: number,
+): Promise<TVShowDetailsData | null> {
+  try {
+    const details = await getTVDetails(tvShowId)
+    if (!details) return null
+
+    const avgRuntime =
+      details.episode_run_time && details.episode_run_time.length > 0
+        ? details.episode_run_time[0]
+        : 45
+
+    return {
+      totalEpisodes: details.number_of_episodes || 0,
+      avgRuntime,
+      seasons:
+        details.seasons?.map((s) => ({
+          season_number: s.season_number,
+          episode_count: s.episode_count,
+          air_date: s.air_date || null,
+        })) || [],
+    }
+  } catch (error) {
+    console.error("Server Action: Failed to fetch TV show details", error)
+    return null
+  }
+}
+
+/** Episode data for progress tracking */
+export interface SeasonEpisodeData {
+  id: number
+  episode_number: number
+  name: string
+  air_date: string | null
+  runtime: number | null
+}
+
+/**
+ * Server action to fetch season episodes.
+ * Used for episode tracking features.
+ */
+export async function fetchSeasonEpisodes(
+  tvShowId: number,
+  seasonNumber: number,
+): Promise<SeasonEpisodeData[]> {
+  try {
+    const seasonData = await getSeasonDetails(tvShowId, seasonNumber)
+    return seasonData?.episodes || []
+  } catch (error) {
+    console.error("Server Action: Failed to fetch season episodes", error)
+    return []
   }
 }
 

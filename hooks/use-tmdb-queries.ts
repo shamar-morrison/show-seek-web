@@ -5,6 +5,10 @@ import {
   fetchMediaVideos,
   fetchRecommendations,
   fetchReviews,
+  fetchSeasonEpisodes,
+  fetchTVShowDetails,
+  type SeasonEpisodeData,
+  type TVShowDetailsData,
 } from "@/app/actions"
 import type { TMDBLogo, TMDBMedia, TMDBReview, TMDBVideo } from "@/types/tmdb"
 import { useQuery } from "@tanstack/react-query"
@@ -27,41 +31,14 @@ export const tmdbQueryKeys = {
     [mediaType, mediaId, "recommendations"] as const,
 }
 
-interface TMDBShowData {
-  totalEpisodes: number
-  avgRuntime: number
-  seasons: Array<{
-    season_number: number
-    episode_count: number
-    air_date: string | null
-  }>
-}
-
-interface TMDBEpisodeData {
-  id: number
-  episode_number: number
-  name: string
-  air_date: string | null
-  runtime: number | null
-}
-
 /**
  * Hook to fetch TV show details for progress calculation
  */
 export function useTVShowDetails(tvShowId: number, enabled = true) {
   return useQuery({
     queryKey: tmdbQueryKeys.tvShowDetails(tvShowId),
-    queryFn: async (): Promise<TMDBShowData | null> => {
-      const response = await fetch(`/api/tv/${tvShowId}/details`)
-      if (!response.ok) return null
-      const data = await response.json()
-      const avgRuntime =
-        data.episode_run_time?.length > 0 ? data.episode_run_time[0] : 45
-      return {
-        totalEpisodes: data.number_of_episodes || 0,
-        avgRuntime,
-        seasons: data.seasons || [],
-      }
+    queryFn: async (): Promise<TVShowDetailsData | null> => {
+      return await fetchTVShowDetails(tvShowId)
     },
     enabled,
   })
@@ -77,11 +54,8 @@ export function useSeasonEpisodes(
 ) {
   return useQuery({
     queryKey: tmdbQueryKeys.seasonEpisodes(tvShowId, seasonNumber),
-    queryFn: async (): Promise<TMDBEpisodeData[]> => {
-      const response = await fetch(`/api/tv/${tvShowId}/season/${seasonNumber}`)
-      if (!response.ok) return []
-      const data = await response.json()
-      return data.episodes || []
+    queryFn: async (): Promise<SeasonEpisodeData[]> => {
+      return await fetchSeasonEpisodes(tvShowId, seasonNumber)
     },
     enabled,
   })

@@ -570,6 +570,73 @@ export async function getTVDetails(
   }
 }
 
+/** Season episode data for progress tracking */
+export interface TMDBSeasonEpisode {
+  id: number
+  episode_number: number
+  name: string
+  air_date: string | null
+  runtime: number | null
+}
+
+/** Season details response */
+export interface TMDBSeasonDetails {
+  season_number: number
+  episodes: TMDBSeasonEpisode[]
+}
+
+/**
+ * Fetch season details including episodes
+ * @param tvId - TMDB TV show ID
+ * @param seasonNumber - Season number
+ * @returns Season details with episodes or null
+ */
+export async function getSeasonDetails(
+  tvId: number,
+  seasonNumber: number,
+): Promise<TMDBSeasonDetails | null> {
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
+    return null
+  }
+
+  try {
+    const response = await tmdbFetch(`/tv/${tvId}/season/${seasonNumber}`, {
+      next: { revalidate: 3600 },
+    }) // Cache for 1 hour
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Return simplified episode data
+    return {
+      season_number: data.season_number,
+      episodes:
+        data.episodes?.map(
+          (ep: {
+            id: number
+            episode_number: number
+            name: string
+            air_date: string | null
+            runtime: number | null
+          }) => ({
+            id: ep.id,
+            episode_number: ep.episode_number,
+            name: ep.name,
+            air_date: ep.air_date,
+            runtime: ep.runtime,
+          }),
+        ) || [],
+    }
+  } catch (error) {
+    console.error("Failed to fetch season details:", error)
+    return null
+  }
+}
+
 /**
  * Fetch full collection details
  * @param collectionId - TMDB collection ID
