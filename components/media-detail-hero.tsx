@@ -17,7 +17,6 @@ import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
-  CheckmarkCircle02Icon,
   Clock,
   InformationCircleIcon,
   Note01Icon,
@@ -333,19 +332,6 @@ export function MediaDetailHero({
                       className="size-5"
                     />
                     {isInAnyList ? "Added" : "Add"}
-                  </Button>
-
-                  {/* Mark as Watched - Secondary */}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                  >
-                    <HugeiconsIcon
-                      icon={CheckmarkCircle02Icon}
-                      className="size-5"
-                    />
-                    Mark as Watched
                   </Button>
 
                   {/* Rate - Secondary */}

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/auth-context"
 import {
+  addFavoritePerson,
   FavoritePerson,
   removeFavoritePerson,
   subscribeToFavoritePersons,
@@ -66,9 +67,32 @@ export function useFavoritePersons() {
     [user],
   )
 
+  // Add a person to favorites
+  const addPerson = useCallback(
+    async (personData: Omit<FavoritePerson, "addedAt">) => {
+      if (!user || user.isAnonymous) return
+
+      try {
+        await addFavoritePerson(user.uid, personData)
+      } catch (err) {
+        console.error("Failed to add favorite person:", err)
+        throw err
+      }
+    },
+    [user],
+  )
+
+  // Check if a specific person is favorited
+  const isPersonFavorited = useCallback(
+    (personId: number) => persons.some((p) => p.id === personId),
+    [persons],
+  )
+
   return {
     /** Filtered list of favorite persons */
     persons: filteredPersons,
+    /** All favorite persons (unfiltered, for checking favorites) */
+    allPersons: persons,
     /** Total count (unfiltered) */
     count: persons.length,
     /** Loading state */
@@ -81,5 +105,67 @@ export function useFavoritePersons() {
     setSearchQuery,
     /** Remove a person from favorites */
     removePerson,
+    /** Add a person to favorites */
+    addPerson,
+    /** Check if a person is favorited */
+    isPersonFavorited,
+  }
+}
+
+/**
+ * Hook for checking if a specific person is favorited (with real-time updates)
+ */
+export function useIsPersonFavorited(personId: number) {
+  const { allPersons, loading } = useFavoritePersons()
+  const isFavorited = allPersons.some((p) => p.id === personId)
+  return { isFavorited, loading }
+}
+
+/**
+ * Hook for favorite person mutations with loading states
+ */
+export function useFavoritePersonActions() {
+  const { user } = useAuth()
+  const [isAdding, setIsAdding] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  const addPerson = useCallback(
+    async (personData: Omit<FavoritePerson, "addedAt">) => {
+      if (!user || user.isAnonymous) {
+        throw new Error("Please sign in to add favorites")
+      }
+
+      setIsAdding(true)
+      try {
+        await addFavoritePerson(user.uid, personData)
+      } finally {
+        setIsAdding(false)
+      }
+    },
+    [user],
+  )
+
+  const removePerson = useCallback(
+    async (personId: number) => {
+      if (!user || user.isAnonymous) {
+        throw new Error("Please sign in to remove favorites")
+      }
+
+      setIsRemoving(true)
+      try {
+        await removeFavoritePerson(user.uid, personId)
+      } finally {
+        setIsRemoving(false)
+      }
+    },
+    [user],
+  )
+
+  return {
+    addPerson,
+    removePerson,
+    isAdding,
+    isRemoving,
+    isAuthenticated: !!user && !user.isAnonymous,
   }
 }

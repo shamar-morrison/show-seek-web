@@ -10,6 +10,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  setDoc,
   type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
@@ -94,4 +95,22 @@ export async function removeFavoritePerson(
 ): Promise<void> {
   const personRef = getFavoritePersonRef(userId, personId)
   await deleteDoc(personRef)
+}
+
+/**
+ * Add a person to favorites
+ * Uses Date.now() for timestamp to match mobile app implementation
+ */
+export async function addFavoritePerson(
+  userId: string,
+  personData: Omit<FavoritePerson, "addedAt">,
+): Promise<void> {
+  const personRef = getFavoritePersonRef(userId, personData.id)
+
+  const favoriteData: FavoritePerson = {
+    ...personData,
+    addedAt: Date.now(),
+  }
+
+  await setDoc(personRef, favoriteData)
 }

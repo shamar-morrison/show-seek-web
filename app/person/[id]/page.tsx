@@ -1,10 +1,8 @@
+import { FavoritePersonButton } from "@/components/favorite-person-button"
 import { Navbar } from "@/components/navbar"
 import { PageContainer } from "@/components/page-container"
 import { PersonContent } from "@/components/person-content"
-import { Button } from "@/components/ui/button"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
-import { FavouriteIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Metadata } from "next"
 import Image from "next/image"
 import { notFound } from "next/navigation"
@@ -87,16 +85,14 @@ export default async function PersonPage({ params }: PersonPageProps) {
               </div>
 
               {/* Add to Favorite Button */}
-              <Button
-                size="lg"
-                className="group w-full justify-center gap-2 bg-primary px-6 font-semibold text-white transition-all hover:shadow-primary/50"
-              >
-                <HugeiconsIcon
-                  icon={FavouriteIcon}
-                  className="size-5 transition-transform group-hover:scale-110"
-                />
-                Add to favorite people
-              </Button>
+              <FavoritePersonButton
+                person={{
+                  id: person.id,
+                  name: person.name,
+                  profile_path: person.profile_path,
+                  known_for_department: person.known_for_department,
+                }}
+              />
 
               {/* Personal Info */}
               <div className="space-y-4">
