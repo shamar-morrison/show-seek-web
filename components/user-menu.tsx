@@ -23,7 +23,7 @@ function getFirstName(displayName: string | null): string {
  * Displays user avatar, first name, and dropdown with Profile/Logout options
  */
 export function UserMenu() {
-  const { user, signOut } = useAuth()
+  const { user, isPremium, signOut } = useAuth()
   const router = useRouter()
 
   if (!user) return null
@@ -37,6 +37,7 @@ export function UserMenu() {
           src={user.photoURL}
           fallback={user.displayName || user.email || "U"}
           size="sm"
+          isPremium={isPremium}
         />
         <span className="hidden text-sm font-medium text-gray-200 sm:block">
           {firstName}

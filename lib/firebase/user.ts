@@ -8,6 +8,12 @@ export interface UserDocument {
   email: string | null
   photoURL: string | null
   createdAt: ReturnType<typeof serverTimestamp>
+  premium?: {
+    isPremium: boolean
+    orderId?: string
+    productId?: string
+    purchaseDate?: ReturnType<typeof serverTimestamp>
+  }
 }
 
 /**
