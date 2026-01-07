@@ -33,21 +33,64 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3"
 /** Default image base URL as fallback */
 const DEFAULT_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
 
+/** Bearer token for TMDB API authentication (preferred over api_key query param) */
+const TMDB_BEARER_TOKEN = process.env.TMDB_BEARER_TOKEN || TMDB_API_KEY
+
+/**
+ * Build standard headers for TMDB API requests
+ * Uses Bearer token authentication instead of query parameters
+ */
+function buildTmdbHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${TMDB_BEARER_TOKEN}`,
+    "Content-Type": "application/json",
+  }
+}
+
+/**
+ * Centralized fetch wrapper for TMDB API calls
+ * Uses Authorization header instead of api_key query parameter
+ * @param endpoint - API endpoint path (e.g., "/movie/popular")
+ * @param options - Additional fetch options (cache settings, etc.)
+ * @param queryParams - Optional query parameters (excluding api_key)
+ * @returns Fetch Response
+ */
+export async function tmdbFetch(
+  endpoint: string,
+  options?: RequestInit & { next?: { revalidate?: number } },
+  queryParams?: Record<string, string>,
+): Promise<Response> {
+  const url = new URL(`${TMDB_BASE_URL}${endpoint}`)
+
+  if (queryParams) {
+    Object.entries(queryParams).forEach(([key, value]) => {
+      url.searchParams.set(key, value)
+    })
+  }
+
+  return fetch(url.toString(), {
+    ...options,
+    headers: {
+      ...buildTmdbHeaders(),
+      ...options?.headers,
+    },
+  })
+}
+
 /**
  * Fetch TMDB API configuration including image base URLs
  * @returns Configuration object with image URLs
  */
 export async function getTMDBConfiguration(): Promise<TMDBConfiguration | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/configuration?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 86400 } }, // Cache for 24 hours
-    )
+    const response = await tmdbFetch("/configuration", {
+      next: { revalidate: 86400 },
+    }) // Cache for 24 hours
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -68,16 +111,15 @@ export async function getTMDBConfiguration(): Promise<TMDBConfiguration | null> 
 export async function getTrendingMedia(
   timeWindow: "day" | "week" = "day",
 ): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return []
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/trending/all/${timeWindow}?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
+    const response = await tmdbFetch(`/trending/all/${timeWindow}`, {
+      next: { revalidate: 3600 },
+    }) // Cache for 1 hour
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -104,13 +146,10 @@ async function fetchMediaList(
   mediaType: "movie" | "tv",
   errorMessage: string,
 ): Promise<TMDBMedia[]> {
-  if (!TMDB_API_KEY) return []
+  if (!TMDB_BEARER_TOKEN) return []
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}${endpoint}?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } },
-    )
+    const response = await tmdbFetch(endpoint, { next: { revalidate: 3600 } })
 
     if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
 
@@ -163,16 +202,15 @@ export async function getMediaImages(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): Promise<TMDBImagesResponse | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/images?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 2592000 } }, // Cache for 30 days
-    )
+    const response = await tmdbFetch(`/${mediaType}/${mediaId}/images`, {
+      next: { revalidate: 2592000 },
+    }) // Cache for 30 days
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -269,16 +307,15 @@ export async function getMediaVideos(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): Promise<TMDBVideosResponse | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/videos?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 86400 } }, // Cache for 24 hours
-    )
+    const response = await tmdbFetch(`/${mediaType}/${mediaId}/videos`, {
+      next: { revalidate: 86400 },
+    }) // Cache for 24 hours
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -468,16 +505,17 @@ export async function getHeroMediaList(
 export async function getMovieDetails(
   movieId: number,
 ): Promise<TMDBMovieDetails | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits,release_dates`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
+    const response = await tmdbFetch(
+      `/movie/${movieId}`,
+      { next: { revalidate: 3600 } },
+      { append_to_response: "credits,release_dates" },
+    ) // Cache for 1 hour
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -498,16 +536,17 @@ export async function getMovieDetails(
 export async function getTVDetails(
   tvId: number,
 ): Promise<TMDBTVDetails | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}&append_to_response=credits,content_ratings`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
+    const response = await tmdbFetch(
+      `/tv/${tvId}`,
+      { next: { revalidate: 3600 } },
+      { append_to_response: "credits,content_ratings" },
+    ) // Cache for 1 hour
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -528,16 +567,15 @@ export async function getTVDetails(
 export async function getCollectionDetails(
   collectionId: number,
 ): Promise<TMDBCollectionDetails | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/collection/${collectionId}?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 604800 } }, // Cache for 1 week
-    )
+    const response = await tmdbFetch(`/collection/${collectionId}`, {
+      next: { revalidate: 604800 },
+    }) // Cache for 1 week
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -565,15 +603,20 @@ export async function multiSearch(
   query: string,
   page: number = 1,
 ): Promise<TMDBSearchResponse> {
-  if (!TMDB_API_KEY || !query.trim()) {
+  if (!TMDB_BEARER_TOKEN || !query.trim()) {
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=${page}&include_adult=false`,
-      { next: { revalidate: 300 } }, // Cache for 5 minutes
-    )
+    const response = await tmdbFetch(
+      "/search/multi",
+      { next: { revalidate: 300 } },
+      {
+        query: query,
+        page: page.toString(),
+        include_adult: "false",
+      },
+    ) // Cache for 5 minutes
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -594,16 +637,17 @@ export async function multiSearch(
 export async function getPersonDetails(
   personId: number,
 ): Promise<TMDBPersonDetails | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/person/${personId}?api_key=${TMDB_API_KEY}&append_to_response=combined_credits`,
-      { next: { revalidate: 604800 } }, // Cache for 1 week
-    )
+    const response = await tmdbFetch(
+      `/person/${personId}`,
+      { next: { revalidate: 604800 } },
+      { append_to_response: "combined_credits" },
+    ) // Cache for 1 week
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -628,16 +672,16 @@ export async function getWatchProviders(
   mediaType: "movie" | "tv",
   region: string = "US",
 ): Promise<WatchProviders | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/watch/providers?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 2592000 } }, // Cache for 30 days
-    )
+    const response = await tmdbFetch(
+      `/${mediaType}/${mediaId}/watch/providers`,
+      { next: { revalidate: 2592000 } },
+    ) // Cache for 30 days
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -697,16 +741,15 @@ export async function getReviews(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): Promise<TMDBReviewsResponse | null> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return null
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/${mediaType}/${mediaId}/reviews?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 172800 } }, // Cache for 2 days
-    )
+    const response = await tmdbFetch(`/${mediaType}/${mediaId}/reviews`, {
+      next: { revalidate: 172800 },
+    }) // Cache for 2 days
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -729,18 +772,17 @@ export async function getReviews(
  * @returns Array of movie genres
  */
 export async function getMovieGenres(): Promise<Genre[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return []
   }
 
   try {
     // cache: 'force-cache' ensures this is cached indefinitely
     // Genres rarely change, so we don't need revalidation
-    const response = await fetch(
-      `${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}`,
-      { cache: "force-cache" },
-    )
+    const response = await tmdbFetch("/genre/movie/list", {
+      cache: "force-cache",
+    })
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -760,18 +802,15 @@ export async function getMovieGenres(): Promise<Genre[]> {
  * @returns Array of TV genres
  */
 export async function getTVGenres(): Promise<Genre[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return []
   }
 
   try {
     // cache: 'force-cache' ensures this is cached indefinitely
     // Genres rarely change, so we don't need revalidation
-    const response = await fetch(
-      `${TMDB_BASE_URL}/genre/tv/list?api_key=${TMDB_API_KEY}`,
-      { cache: "force-cache" },
-    )
+    const response = await tmdbFetch("/genre/tv/list", { cache: "force-cache" })
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -791,18 +830,17 @@ export async function getTVGenres(): Promise<Genre[]> {
  * @returns Array of languages
  */
 export async function getLanguages(): Promise<TMDBLanguage[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return []
   }
 
   try {
     // cache: 'force-cache' ensures this is cached indefinitely
     // Language list rarely changes
-    const response = await fetch(
-      `${TMDB_BASE_URL}/configuration/languages?api_key=${TMDB_API_KEY}`,
-      { cache: "force-cache" },
-    )
+    const response = await tmdbFetch("/configuration/languages", {
+      cache: "force-cache",
+    })
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -828,17 +866,18 @@ export async function getWatchProviderList(
   mediaType: "movie" | "tv",
   region: string = "US",
 ): Promise<TMDBWatchProviderOption[]> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return []
   }
 
   try {
     // cache: 'force-cache' ensures this is cached indefinitely
     // Provider list doesn't change frequently
-    const response = await fetch(
-      `${TMDB_BASE_URL}/watch/providers/${mediaType}?api_key=${TMDB_API_KEY}&watch_region=${region}`,
+    const response = await tmdbFetch(
+      `/watch/providers/${mediaType}`,
       { cache: "force-cache" },
+      { watch_region: region },
     )
 
     if (!response.ok) {
@@ -869,8 +908,8 @@ export const DEFAULT_WATCH_REGION = "US"
 export async function discoverMedia(
   params: DiscoverParams,
 ): Promise<TMDBDiscoverResponse> {
-  if (!TMDB_API_KEY) {
-    console.error("TMDB_API_KEY is not set")
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
   }
 
@@ -886,73 +925,71 @@ export async function discoverMedia(
     region = DEFAULT_WATCH_REGION,
   } = params
 
-  // Build query parameters
-  const queryParams = new URLSearchParams({
-    api_key: TMDB_API_KEY,
+  // Build query parameters (excluding api_key, which is now in headers)
+  const queryParams: Record<string, string> = {
     page: page.toString(),
     include_adult: "false",
-  })
+  }
 
   // Sort by mapping
   if (sortBy) {
     switch (sortBy) {
       case "popularity":
-        queryParams.set("sort_by", "popularity.desc")
+        queryParams["sort_by"] = "popularity.desc"
         break
       case "top_rated":
-        queryParams.set("sort_by", "vote_average.desc")
+        queryParams["sort_by"] = "vote_average.desc"
         // Add vote count filter to avoid low-vote items dominating
-        queryParams.set("vote_count.gte", "200")
+        queryParams["vote_count.gte"] = "200"
         break
       case "newest":
-        queryParams.set(
-          "sort_by",
+        queryParams["sort_by"] =
           mediaType === "movie"
             ? "primary_release_date.desc"
-            : "first_air_date.desc",
-        )
+            : "first_air_date.desc"
         break
     }
   } else {
     // Default sort
-    queryParams.set("sort_by", "popularity.desc")
+    queryParams["sort_by"] = "popularity.desc"
   }
 
   // Year filter
   if (year) {
     if (mediaType === "movie") {
-      queryParams.set("primary_release_year", year.toString())
+      queryParams["primary_release_year"] = year.toString()
     } else {
-      queryParams.set("first_air_date_year", year.toString())
+      queryParams["first_air_date_year"] = year.toString()
     }
   }
 
   // Rating filter
   if (rating) {
-    queryParams.set("vote_average.gte", rating.toString())
+    queryParams["vote_average.gte"] = rating.toString()
   }
 
   // Language filter
   if (language) {
-    queryParams.set("with_original_language", language)
+    queryParams["with_original_language"] = language
   }
 
   // Genre filter
   if (genre) {
-    queryParams.set("with_genres", genre.toString())
+    queryParams["with_genres"] = genre.toString()
   }
 
   // Providers filter
   if (providers && providers.length > 0) {
-    queryParams.set("with_watch_providers", providers.join("|"))
-    queryParams.set("watch_region", region)
+    queryParams["with_watch_providers"] = providers.join("|")
+    queryParams["watch_region"] = region
   }
 
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/discover/${mediaType}?${queryParams.toString()}`,
-      { next: { revalidate: 300 } }, // Cache for 5 minutes
-    )
+    const response = await tmdbFetch(
+      `/discover/${mediaType}`,
+      { next: { revalidate: 300 } },
+      queryParams,
+    ) // Cache for 5 minutes
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)

@@ -81,9 +81,10 @@ export function formatRemainingTime(minutes: number): string {
  */
 async function fetchShowDetails(
   tvShowId: number,
+  signal?: AbortSignal,
 ): Promise<TMDBShowData | null> {
   try {
-    const response = await fetch(`/api/tv/${tvShowId}/details`)
+    const response = await fetch(`/api/tv/${tvShowId}/details`, { signal })
     if (!response.ok) return null
     const data = await response.json()
     const avgRuntime =
@@ -106,9 +107,12 @@ async function fetchShowDetails(
 async function fetchSeasonEpisodes(
   tvShowId: number,
   seasonNumber: number,
+  signal?: AbortSignal,
 ): Promise<TMDBEpisodeData[]> {
   try {
-    const response = await fetch(`/api/tv/${tvShowId}/season/${seasonNumber}`)
+    const response = await fetch(`/api/tv/${tvShowId}/season/${seasonNumber}`, {
+      signal,
+    })
     if (!response.ok) return []
     const data = await response.json()
     return data.episodes || []
@@ -125,6 +129,7 @@ async function findNextEpisode(
   tvShowId: number,
   watchedEpisodes: Record<string, WatchedEpisode>,
   furthestWatched: { season: number; episode: number },
+  signal?: AbortSignal,
 ): Promise<{
   season: number
   episode: number
@@ -137,6 +142,7 @@ async function findNextEpisode(
   const currentSeasonEpisodes = await fetchSeasonEpisodes(
     tvShowId,
     furthestWatched.season,
+    signal,
   )
 
   // First, check remaining episodes in current season
@@ -161,6 +167,7 @@ async function findNextEpisode(
   const nextSeasonEpisodes = await fetchSeasonEpisodes(
     tvShowId,
     furthestWatched.season + 1,
+    signal,
   )
 
   for (const ep of nextSeasonEpisodes) {
@@ -292,10 +299,16 @@ export function useEpisodeTracking() {
       return
     }
 
+    const controller = new AbortController()
+    const { signal } = controller
+
     const enrichAll = async () => {
       const results: WatchProgressItem[] = []
 
       for (const [tvShowIdStr, data] of tracking.entries()) {
+        // Run-scoped cancellation check
+        if (signal.aborted) return
+
         const tvShowId = parseInt(tvShowIdStr, 10)
         const basic = computeBasicProgress(tvShowId, data) as
           | (WatchProgressItem & {
@@ -307,7 +320,9 @@ export function useEpisodeTracking() {
         if (!basic) continue
 
         // Fetch TMDB data
-        const showData = await fetchShowDetails(tvShowId)
+        const showData = await fetchShowDetails(tvShowId, signal)
+        if (signal.aborted) return
+
         if (showData) {
           basic.totalEpisodes = showData.totalEpisodes
           basic.avgRuntime = showData.avgRuntime
@@ -333,7 +348,10 @@ export function useEpisodeTracking() {
             tvShowId,
             basic._episodes,
             basic._furthestWatched,
+            signal,
           )
+          if (signal.aborted) return
+
           if (nextEp) {
             basic.nextEpisode = nextEp
           }
@@ -346,12 +364,18 @@ export function useEpisodeTracking() {
         results.push(basic)
       }
 
-      // Sort by last updated
-      results.sort((a, b) => b.lastUpdated - a.lastUpdated)
-      setEnrichedProgress(results)
+      // Check if run is still current before mutating state
+      if (!signal.aborted) {
+        // Sort by last updated
+        results.sort((a, b) => b.lastUpdated - a.lastUpdated)
+        setEnrichedProgress(results)
+      }
     }
 
     enrichAll()
+
+    // Cleanup: abort the controller to cancel stale executions
+    return () => controller.abort()
   }, [tracking])
 
   const getShowProgress = useCallback(

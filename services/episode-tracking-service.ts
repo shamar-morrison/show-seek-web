@@ -44,6 +44,21 @@ class EpisodeTrackingService {
   }
 
   /**
+   * Wrap a Promise with a timeout
+   * Rejects with the provided error message if the operation doesn't complete in time
+   */
+  private withTimeout<T>(
+    operation: Promise<T>,
+    timeoutMs = 10000,
+    errorMessage = "Request timed out",
+  ): Promise<T> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    })
+    return Promise.race([operation, timeoutPromise])
+  }
+
+  /**
    * Subscribe to episode tracking data for a specific TV show
    */
   subscribeToShowTracking(
@@ -119,11 +134,7 @@ class EpisodeTrackingService {
         lastUpdated: Date.now(),
       }
 
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
-      })
-
-      await Promise.race([
+      await this.withTimeout(
         setDoc(
           trackingRef,
           {
@@ -134,8 +145,7 @@ class EpisodeTrackingService {
           },
           { merge: true },
         ),
-        timeoutPromise,
-      ])
+      )
     } catch (error) {
       throw new Error(getFirestoreErrorMessage(error))
     }
@@ -156,10 +166,6 @@ class EpisodeTrackingService {
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
       const episodeKey = this.getEpisodeKey(seasonNumber, episodeNumber)
 
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
-      })
-
       // First check if the document exists to avoid "not-found" errors
       const snapshot = await getDoc(trackingRef)
       if (!snapshot.exists()) {
@@ -167,13 +173,12 @@ class EpisodeTrackingService {
         return
       }
 
-      await Promise.race([
+      await this.withTimeout(
         updateDoc(trackingRef, {
           [`episodes.${episodeKey}`]: deleteField(),
           "metadata.lastUpdated": Date.now(),
         }),
-        timeoutPromise,
-      ])
+      )
     } catch (error) {
       throw new Error(getFirestoreErrorMessage(error))
     }
@@ -222,12 +227,8 @@ class EpisodeTrackingService {
         lastUpdated: now,
       }
 
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
-      })
-
       // Use setDoc with merge to update all episodes at once
-      await Promise.race([
+      await this.withTimeout(
         setDoc(
           trackingRef,
           {
@@ -236,8 +237,7 @@ class EpisodeTrackingService {
           },
           { merge: true },
         ),
-        timeoutPromise,
-      ])
+      )
     } catch (error) {
       throw new Error(getFirestoreErrorMessage(error))
     }
@@ -344,13 +344,7 @@ class EpisodeTrackingService {
         "episode_tracking",
       )
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
-      })
-      const snapshot = await Promise.race([
-        getDocs(trackingCollectionRef),
-        timeoutPromise,
-      ])
+      const snapshot = await this.withTimeout(getDocs(trackingCollectionRef))
 
       return snapshot.docs.map((doc) => {
         const data = doc.data() as TVShowEpisodeTracking

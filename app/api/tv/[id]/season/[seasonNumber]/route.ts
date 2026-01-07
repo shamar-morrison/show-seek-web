@@ -1,7 +1,5 @@
+import { tmdbFetch } from "@/lib/tmdb"
 import { NextResponse } from "next/server"
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY
-const TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
 interface RouteParams {
   params: Promise<{ id: string; seasonNumber: string }>
@@ -20,18 +18,10 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 })
   }
 
-  if (!TMDB_API_KEY) {
-    return NextResponse.json(
-      { error: "TMDB API key not configured" },
-      { status: 500 },
-    )
-  }
-
   try {
-    const response = await fetch(
-      `${TMDB_BASE_URL}/tv/${tvId}/season/${season}?api_key=${TMDB_API_KEY}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
-    )
+    const response = await tmdbFetch(`/tv/${tvId}/season/${season}`, {
+      next: { revalidate: 3600 },
+    }) // Cache for 1 hour
 
     if (!response.ok) {
       return NextResponse.json({ error: "Season not found" }, { status: 404 })

@@ -15,7 +15,9 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   runTransaction,
+  serverTimestamp,
   setDoc,
   updateDoc,
 } from "firebase/firestore"
@@ -89,18 +91,25 @@ export async function addToList(
   const defaultList = DEFAULT_LISTS.find((l) => l.id === listId)
   const listName = defaultList?.name || listId
 
-  await setDoc(
-    listRef,
-    {
-      name: listName,
-      items: {
-        [itemKey]: sanitizedItem,
-      },
-      updatedAt: Date.now(),
-      createdAt: Date.now(),
+  // Check if document exists to conditionally set createdAt
+  const docSnap = await getDoc(listRef)
+  const isNewDocument = !docSnap.exists()
+
+  // Build the payload - only include createdAt for new documents
+  const payload: Record<string, unknown> = {
+    name: listName,
+    items: {
+      [itemKey]: sanitizedItem,
     },
-    { merge: true },
-  )
+    updatedAt: serverTimestamp(),
+  }
+
+  // Only set createdAt on new documents to preserve original timestamp
+  if (isNewDocument) {
+    payload.createdAt = serverTimestamp()
+  }
+
+  await setDoc(listRef, payload, { merge: true })
 }
 
 /**
@@ -121,7 +130,7 @@ export async function removeFromList(
       items: {
         [itemKey]: deleteField(),
       },
-      updatedAt: Date.now(),
+      updatedAt: serverTimestamp(),
     },
     { merge: true },
   )

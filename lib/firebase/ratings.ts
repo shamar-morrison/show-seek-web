@@ -10,8 +10,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
@@ -45,8 +45,8 @@ function getRatingRef(
 
 /**
  * Set or update a rating for a media item
- * Uses merge:true to preserve createdAt on updates
- * Atomic single-write operation with server timestamps
+ * Uses a transaction to preserve createdAt on updates
+ * Only sets createdAt for new documents, always updates updatedAt
  */
 export async function setRating(
   userId: string,
@@ -54,15 +54,20 @@ export async function setRating(
 ): Promise<void> {
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
-  await setDoc(
-    ratingRef,
-    {
-      ...input,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  )
+  await runTransaction(db, async (transaction) => {
+    const existingDoc = await transaction.get(ratingRef)
+    const exists = existingDoc.exists()
+
+    transaction.set(
+      ratingRef,
+      {
+        ...input,
+        ...(exists ? {} : { createdAt: serverTimestamp() }),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    )
+  })
 }
 
 /**
