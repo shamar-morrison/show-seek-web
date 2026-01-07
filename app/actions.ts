@@ -178,3 +178,38 @@ export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
 export async function fetchCollection(collectionId: number) {
   return await getCollectionDetails(collectionId)
 }
+
+/**
+ * Fetch movie details for enrichment
+ * Used by ratings page to get poster and title info
+ */
+export async function fetchMovieDetails(movieId: number) {
+  try {
+    const { getMovieDetails } = await import("@/lib/tmdb")
+    return await getMovieDetails(movieId)
+  } catch (error) {
+    // 404 is expected for deleted/invalid media - don't spam console
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
+    console.error("Server Action: Failed to fetch movie details", error)
+    return null
+  }
+}
+
+/**
+ * Fetch full TV show details for enrichment
+ * Used by ratings page to get poster and title info
+ */
+export async function fetchFullTVDetails(tvId: number) {
+  try {
+    return await getTVDetails(tvId)
+  } catch (error) {
+    // 404 is expected for deleted/invalid media - don't spam console
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
+    console.error("Server Action: Failed to fetch TV details", error)
+    return null
+  }
+}

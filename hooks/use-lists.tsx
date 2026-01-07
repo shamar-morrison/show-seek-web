@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react"
  * Automatically includes default lists even if they don't exist in Firestore
  */
 export function useLists() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [firestoreLists, setFirestoreLists] = useState<UserList[]>([])
   const [subscribed, setSubscribed] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -49,8 +49,8 @@ export function useLists() {
     return () => unsubscribe()
   }, [user])
 
-  // Derive loading state from user/subscribed status
-  const loading = !!user && !subscribed
+  // Derive loading state: loading while auth is pending OR while waiting for subscription
+  const loading = authLoading || (!!user && !subscribed)
 
   // Merge Firestore lists with default lists and sort appropriately
   const lists = useMemo(() => {

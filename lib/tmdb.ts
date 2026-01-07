@@ -534,6 +534,10 @@ export async function getMovieDetails(
 
     return response.json()
   } catch (error) {
+    // 404 is expected for deleted/invalid media - don't log
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
     console.error("Failed to fetch movie details:", error)
     return null
   }
@@ -565,6 +569,10 @@ export async function getTVDetails(
 
     return response.json()
   } catch (error) {
+    // 404 is expected for deleted/invalid media - don't log
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
     console.error("Failed to fetch TV details:", error)
     return null
   }

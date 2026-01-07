@@ -19,23 +19,29 @@ import { db } from "./config"
 
 /**
  * Convert Firestore document data to Rating interface
- * Handles Timestamp -> number conversion for createdAt/updatedAt
+ * Handles Timestamp -> number conversion for ratedAt
+ * Compatible with mobile app's data structure
  */
-function toRating(data: Record<string, unknown>): Rating {
-  const createdAt = data.createdAt
-  const updatedAt = data.updatedAt
+function toRating(docId: string, data: Record<string, unknown>): Rating {
+  const ratedAt = data.ratedAt
 
   return {
-    ...data,
-    createdAt:
-      createdAt instanceof Timestamp
-        ? createdAt.toMillis()
-        : (createdAt as number),
-    updatedAt:
-      updatedAt instanceof Timestamp
-        ? updatedAt.toMillis()
-        : (updatedAt as number),
-  } as Rating
+    id: docId,
+    mediaId: data.id as string,
+    mediaType: data.mediaType as Rating["mediaType"],
+    rating: data.rating as number,
+    title: data.title as string,
+    posterPath: (data.posterPath as string) || null,
+    releaseDate: (data.releaseDate as string) || null,
+    ratedAt:
+      ratedAt instanceof Timestamp ? ratedAt.toMillis() : (ratedAt as number),
+    // Episode fields
+    tvShowId: data.tvShowId as number | undefined,
+    seasonNumber: data.seasonNumber as number | undefined,
+    episodeNumber: data.episodeNumber as number | undefined,
+    episodeName: data.episodeName as string | undefined,
+    tvShowName: data.tvShowName as string | undefined,
+  }
 }
 
 /**
@@ -59,9 +65,12 @@ function getRatingsCollectionRef(userId: string) {
 function getRatingRef(
   userId: string,
   mediaType: "movie" | "tv",
-  mediaId: number,
+  mediaId: number | string,
 ) {
-  const docId = getRatingDocId(mediaType, mediaId)
+  const docId = getRatingDocId(
+    mediaType,
+    typeof mediaId === "number" ? mediaId : parseInt(mediaId),
+  )
   return doc(db, "users", userId, "ratings", docId)
 }
 
@@ -80,18 +89,30 @@ export async function setRating(
     )
   }
 
+  // Episodes require different document ID format - not yet implemented
+  if (input.mediaType === "episode") {
+    throw new Error("Episode ratings are not yet implemented")
+  }
+
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
   await runTransaction(db, async (transaction) => {
     const existingDoc = await transaction.get(ratingRef)
     const exists = existingDoc.exists()
 
+    // Use mobile app's field structure
     transaction.set(
       ratingRef,
       {
-        ...input,
-        ...(exists ? {} : { createdAt: serverTimestamp() }),
-        updatedAt: serverTimestamp(),
+        id: input.mediaId,
+        mediaType: input.mediaType,
+        rating: input.rating,
+        title: input.title,
+        posterPath: input.posterPath,
+        releaseDate: input.releaseDate,
+        ...(exists ? {} : { ratedAt: serverTimestamp() }),
+        // Always update ratedAt on updates (matches mobile behavior)
+        ratedAt: serverTimestamp(),
       },
       { merge: true },
     )
@@ -114,7 +135,7 @@ export async function getRating(
     return null
   }
 
-  return toRating(snapshot.data())
+  return toRating(snapshot.id, snapshot.data())
 }
 
 /**
@@ -144,10 +165,10 @@ export function subscribeToRatings(
     ratingsRef,
     (snapshot) => {
       const ratingsMap = new Map<string, Rating>()
-      snapshot.docs.forEach((doc) => {
-        const rating = toRating(doc.data())
-        // Key by mediaType-mediaId for easy lookup
-        ratingsMap.set(doc.id, rating)
+      snapshot.docs.forEach((docSnapshot) => {
+        const rating = toRating(docSnapshot.id, docSnapshot.data())
+        // Key by document ID for easy lookup
+        ratingsMap.set(docSnapshot.id, rating)
       })
       onRatingsChange(ratingsMap)
     },

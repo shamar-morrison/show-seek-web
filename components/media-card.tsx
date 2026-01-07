@@ -16,6 +16,8 @@ interface MediaCardProps {
   isLoading?: boolean
   buttonText?: string
   showRating?: boolean
+  /** Optional user rating to display as a badge (1-10 scale) */
+  userRating?: number | null
 }
 
 export function MediaCard({
@@ -25,6 +27,7 @@ export function MediaCard({
   isLoading = false,
   buttonText = "Trailer",
   showRating = false,
+  userRating,
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -71,6 +74,19 @@ export function MediaCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
               No Image
+            </div>
+          )}
+
+          {/* User Rating Badge */}
+          {userRating != null && (
+            <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
+              <HugeiconsIcon
+                icon={StarIcon}
+                className="size-3.5 fill-yellow-500 text-yellow-500"
+              />
+              <span className="text-sm font-semibold text-white">
+                {userRating}/10
+              </span>
             </div>
           )}
         </div>

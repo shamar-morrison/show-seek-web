@@ -42,13 +42,9 @@ const listsMenu: NavItemWithSubmenu = {
   ],
 }
 
-const ratingsMenu: NavItemWithSubmenu = {
+const ratingsLink: SimpleNavItem = {
   label: "Ratings",
-  links: [
-    { label: "Episode Ratings", href: "/ratings/episodes" },
-    { label: "Movie Ratings", href: "/ratings/movies" },
-    { label: "TV Show Ratings", href: "/ratings/tv-shows" },
-  ],
+  href: "/ratings",
 }
 
 const favoritesMenu: NavItemWithSubmenu = {
@@ -236,8 +232,15 @@ export function Navbar() {
                 {/* Lists - Dropdown */}
                 <DropdownMenuItem item={listsMenu} />
 
-                {/* Ratings - Dropdown */}
-                <DropdownMenuItem item={ratingsMenu} />
+                {/* Ratings - Simple Link */}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={ratingsLink.href}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {ratingsLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
 
                 {/* Favorites - Dropdown */}
                 <DropdownMenuItem item={favoritesMenu} />
@@ -321,11 +324,14 @@ export function Navbar() {
               onLinkClick={closeMobileMenu}
             />
 
-            {/* Ratings - Accordion */}
-            <MobileAccordionItem
-              item={ratingsMenu}
-              onLinkClick={closeMobileMenu}
-            />
+            {/* Ratings - Simple Link */}
+            <Link
+              href={ratingsLink.href}
+              onClick={closeMobileMenu}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {ratingsLink.label}
+            </Link>
 
             {/* Favorites - Accordion */}
             <MobileAccordionItem

@@ -1,8 +1,3 @@
-// Inline helper to extract error message
-function getFirestoreErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
-}
 import { auth, db } from "@/lib/firebase/config"
 import type {
   EpisodeTrackingMetadata,
@@ -25,6 +20,12 @@ import {
 // Season type for progress calculation
 interface Season {
   season_number: number
+}
+
+// Inline helper to extract error message
+function getFirestoreErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
 }
 
 class EpisodeTrackingService {

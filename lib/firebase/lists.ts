@@ -11,7 +11,6 @@ import {
   UserList,
 } from "@/types/list"
 import {
-  collection,
   deleteDoc,
   deleteField,
   doc,
@@ -60,13 +59,6 @@ function generateSlug(name: string): string {
  */
 function getListRef(userId: string, listId: string) {
   return doc(db, "users", userId, "lists", listId)
-}
-
-/**
- * Get the Firestore reference for a user's lists collection
- */
-function getListsCollectionRef(userId: string) {
-  return collection(db, "users", userId, "lists")
 }
 
 /**
