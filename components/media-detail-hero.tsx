@@ -52,8 +52,9 @@ interface Creator {
  * Extracts director from movie credits
  */
 function getDirector(media: TMDBMovieDetails): Creator[] {
-  const director = media.credits?.crew.find((c) => c.job === "Director")
-  return director ? [{ id: director.id, name: director.name }] : []
+  const directors =
+    media.credits?.crew.filter((c) => c.job === "Director") ?? []
+  return directors.map((d) => ({ id: d.id, name: d.name }))
 }
 
 /**

@@ -44,6 +44,7 @@ export function SeasonDetailClient({
   const { user } = useAuth()
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set())
   const [isMarkingAll, setIsMarkingAll] = useState(false)
+  const [isUnmarking, setIsUnmarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   // Get aired episodes only (exclude future episodes)
@@ -149,6 +150,7 @@ export function SeasonDetailClient({
       console.error("Failed to mark all episodes watched:", error)
     } finally {
       setIsMarkingAll(false)
+      setIsUnmarking(false)
     }
   }, [user, airedEpisodes, tvShowId, season.season_number, tvShow, showStats])
 
@@ -157,6 +159,7 @@ export function SeasonDetailClient({
     if (!user) return
 
     setIsMarkingAll(true)
+    setIsUnmarking(true)
     setShowConfirmDialog(false)
 
     try {
@@ -172,6 +175,7 @@ export function SeasonDetailClient({
       console.error("Failed to unmark all episodes:", error)
     } finally {
       setIsMarkingAll(false)
+      setIsUnmarking(false)
     }
   }, [user, airedEpisodes, tvShowId, season.season_number])
 
@@ -286,13 +290,13 @@ export function SeasonDetailClient({
                           icon={Loading03Icon}
                           className="mr-2 size-4 animate-spin"
                         />
-                        {allWatched ? "Unmarking..." : "Marking..."}
+                        {isUnmarking ? "Unmarking..." : "Marking..."}
                       </>
                     ) : (
                       <>
                         <HugeiconsIcon
                           icon={CheckmarkCircle02Icon}
-                          className="mr-2 size-4"
+                          className="size-4"
                         />
                         {allWatched ? "Unmark All" : "Mark All Watched"}
                       </>
