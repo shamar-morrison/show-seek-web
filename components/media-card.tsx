@@ -118,33 +118,33 @@ export function MediaCard({
             )}
           </div>
 
-          {/* Watch Now Button */}
-          <Button
-            size="sm"
-            className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
-            onClick={(e) => {
-              if (onWatchTrailer) {
+          {/* Trailer Button - only show when handler is provided */}
+          {onWatchTrailer && (
+            <Button
+              size="sm"
+              className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
+              onClick={(e) => {
                 e.preventDefault() // Prevent navigation when clicking the button
                 onWatchTrailer(media)
-              }
-            }}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <HugeiconsIcon
-                  icon={Loading03Icon}
-                  className="size-4 animate-spin"
-                />
-                Loading...
-              </>
-            ) : (
-              <>
-                <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                {buttonText}
-              </>
-            )}
-          </Button>
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="size-4 animate-spin"
+                  />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
+                  {buttonText}
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </Link>

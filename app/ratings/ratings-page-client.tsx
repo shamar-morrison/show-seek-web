@@ -2,6 +2,7 @@
 
 import { AuthModal } from "@/components/auth-modal"
 import { MediaCard } from "@/components/media-card"
+import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
   EmptyDescription,
@@ -17,10 +18,11 @@ import {
   useTVRatings,
   type RatingSortOption,
 } from "@/hooks/use-ratings"
+import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
 import { Film01Icon, StarIcon, Tv01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 
 type RatingTab = "movies" | "tv"
 
@@ -36,8 +38,25 @@ export function RatingsPageClient() {
   const movieRatings = useMovieRatings(sortBy, activeTab === "movies")
   const tvRatings = useTVRatings(sortBy, activeTab === "tv")
 
+  // Trailer hook
+  const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
+    useTrailer()
+
   const currentRatings = activeTab === "movies" ? movieRatings : tvRatings
   const isLoading = authLoading || currentRatings.loading
+
+  // Handle trailer click
+  const handleWatchTrailer = useCallback(
+    (media: TMDBMedia) => {
+      if (media.media_type === "person") return
+      watchTrailer(
+        media.id,
+        media.media_type,
+        media.title || media.name || "Trailer",
+      )
+    },
+    [watchTrailer],
+  )
 
   // Show auth prompt if not logged in
   if (!authLoading && (!user || user.isAnonymous)) {
@@ -165,11 +184,21 @@ export function RatingsPageClient() {
                   key={`${item.rating.mediaType}-${item.rating.mediaId}`}
                   media={media}
                   userRating={item.rating.rating}
+                  onWatchTrailer={handleWatchTrailer}
+                  isLoading={loadingMediaId === media.id}
                 />
               )
             })}
         </div>
       )}
+
+      {/* Trailer Modal */}
+      <TrailerModal
+        videoKey={activeTrailer?.key || null}
+        isOpen={isOpen}
+        onClose={closeTrailer}
+        title={activeTrailer?.title || "Trailer"}
+      />
     </div>
   )
 }
