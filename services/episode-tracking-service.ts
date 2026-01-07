@@ -16,7 +16,6 @@ import {
   collection,
   deleteField,
   doc,
-  getDoc,
   getDocs,
   onSnapshot,
   setDoc,
@@ -166,19 +165,27 @@ class EpisodeTrackingService {
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
       const episodeKey = this.getEpisodeKey(seasonNumber, episodeNumber)
 
-      // First check if the document exists to avoid "not-found" errors
-      const snapshot = await getDoc(trackingRef)
-      if (!snapshot.exists()) {
-        // No tracking data exists, nothing to unwatch - return early as no-op
-        return
+      try {
+        await this.withTimeout(
+          updateDoc(trackingRef, {
+            [`episodes.${episodeKey}`]: deleteField(),
+            "metadata.lastUpdated": Date.now(),
+          }),
+        )
+      } catch (updateError) {
+        // Handle Firestore "not-found" error as a no-op
+        // This can happen if the document doesn't exist or was deleted between check and update
+        const errorMessage = getFirestoreErrorMessage(updateError)
+        if (
+          errorMessage.includes("No document to update") ||
+          errorMessage.includes("not-found")
+        ) {
+          // No tracking data exists, nothing to unwatch - treat as success
+          return
+        }
+        // Re-throw other errors
+        throw updateError
       }
-
-      await this.withTimeout(
-        updateDoc(trackingRef, {
-          [`episodes.${episodeKey}`]: deleteField(),
-          "metadata.lastUpdated": Date.now(),
-        }),
-      )
     } catch (error) {
       throw new Error(getFirestoreErrorMessage(error))
     }

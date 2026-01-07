@@ -12,9 +12,31 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  Timestamp,
   type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
+
+/**
+ * Convert Firestore document data to Rating interface
+ * Handles Timestamp -> number conversion for createdAt/updatedAt
+ */
+function toRating(data: Record<string, unknown>): Rating {
+  const createdAt = data.createdAt
+  const updatedAt = data.updatedAt
+
+  return {
+    ...data,
+    createdAt:
+      createdAt instanceof Timestamp
+        ? createdAt.toMillis()
+        : (createdAt as number),
+    updatedAt:
+      updatedAt instanceof Timestamp
+        ? updatedAt.toMillis()
+        : (updatedAt as number),
+  } as Rating
+}
 
 /**
  * Generate document ID for a rating
@@ -86,7 +108,7 @@ export async function getRating(
     return null
   }
 
-  return snapshot.data() as Rating
+  return toRating(snapshot.data())
 }
 
 /**
@@ -117,7 +139,7 @@ export function subscribeToRatings(
     (snapshot) => {
       const ratingsMap = new Map<string, Rating>()
       snapshot.docs.forEach((doc) => {
-        const rating = doc.data() as Rating
+        const rating = toRating(doc.data())
         // Key by mediaType-mediaId for easy lookup
         ratingsMap.set(doc.id, rating)
       })

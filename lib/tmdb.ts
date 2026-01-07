@@ -39,8 +39,19 @@ const TMDB_BEARER_TOKEN = process.env.TMDB_BEARER_TOKEN || TMDB_API_KEY
 /**
  * Build standard headers for TMDB API requests
  * Uses Bearer token authentication instead of query parameters
+ * @throws Error if TMDB_BEARER_TOKEN is not configured
  */
 function buildTmdbHeaders(): HeadersInit {
+  if (
+    !TMDB_BEARER_TOKEN ||
+    typeof TMDB_BEARER_TOKEN !== "string" ||
+    TMDB_BEARER_TOKEN.trim() === ""
+  ) {
+    throw new Error(
+      "TMDB API credentials not configured. Set TMDB_BEARER_TOKEN or TMDB_API_KEY environment variable.",
+    )
+  }
+
   return {
     Authorization: `Bearer ${TMDB_BEARER_TOKEN}`,
     "Content-Type": "application/json",
