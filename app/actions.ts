@@ -5,6 +5,7 @@ import {
   getCollectionDetails,
   getMediaImages,
   getMediaVideos,
+  getMovieDetails,
   getRecommendations,
   getReviews,
   getSeasonDetails,
@@ -185,13 +186,8 @@ export async function fetchCollection(collectionId: number) {
  */
 export async function fetchMovieDetails(movieId: number) {
   try {
-    const { getMovieDetails } = await import("@/lib/tmdb")
     return await getMovieDetails(movieId)
   } catch (error) {
-    // 404 is expected for deleted/invalid media - don't spam console
-    if (error instanceof Error && error.message.includes("404")) {
-      return null
-    }
     console.error("Server Action: Failed to fetch movie details", error)
     return null
   }

@@ -7,6 +7,32 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
 
+/**
+ * Narrowed type for episode ratings with all required fields
+ */
+type EpisodeRating = Rating & {
+  mediaType: "episode"
+  tvShowId: number
+  seasonNumber: number
+  episodeNumber: number
+  episodeName: string
+  tvShowName: string
+}
+
+/**
+ * Type guard to check if a rating is a valid episode rating
+ */
+function isValidEpisodeRating(rating: Rating): rating is EpisodeRating {
+  return (
+    rating.mediaType === "episode" &&
+    typeof rating.tvShowId === "number" &&
+    typeof rating.seasonNumber === "number" &&
+    typeof rating.episodeNumber === "number" &&
+    typeof rating.episodeName === "string" &&
+    typeof rating.tvShowName === "string"
+  )
+}
+
 interface EpisodeRatingCardProps {
   /** The episode rating data */
   rating: Rating
@@ -15,13 +41,17 @@ interface EpisodeRatingCardProps {
 /**
  * EpisodeRatingCard Component
  * Displays a rated episode with poster, show info, episode details, and rating badge
+ * Returns null if the rating is not a valid episode rating
  */
 export function EpisodeRatingCard({ rating }: EpisodeRatingCardProps) {
+  // Validate that this is a proper episode rating
+  if (!isValidEpisodeRating(rating)) {
+    return null
+  }
+
   const posterUrl = buildImageUrl(rating.posterPath, "w500")
-  const tvShowName = rating.tvShowName || "Unknown Show"
-  const seasonEpisode = `S${rating.seasonNumber || 0} E${rating.episodeNumber || 0}`
-  const episodeName = rating.episodeName || "Unknown Episode"
   const href = `/tv/${rating.tvShowId}`
+  const seasonEpisode = `S${rating.seasonNumber} E${rating.episodeNumber}`
 
   return (
     <Link href={href} className="block group">
@@ -31,7 +61,7 @@ export function EpisodeRatingCard({ rating }: EpisodeRatingCardProps) {
           {posterUrl ? (
             <Image
               src={posterUrl}
-              alt={tvShowName}
+              alt={rating.tvShowName}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
@@ -64,9 +94,11 @@ export function EpisodeRatingCard({ rating }: EpisodeRatingCardProps) {
         {/* Info Content */}
         <div className="p-3 space-y-1">
           <h3 className="line-clamp-1 text-base font-bold text-white">
-            {tvShowName}
+            {rating.tvShowName}
           </h3>
-          <p className="line-clamp-1 text-sm text-gray-400">{episodeName}</p>
+          <p className="line-clamp-1 text-sm text-gray-400">
+            {rating.episodeName}
+          </p>
         </div>
       </div>
     </Link>

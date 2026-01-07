@@ -4,12 +4,7 @@
  */
 
 import { db } from "@/lib/firebase/config"
-import {
-  DEFAULT_LIST_IDS,
-  DEFAULT_LISTS,
-  ListMediaItem,
-  UserList,
-} from "@/types/list"
+import { DEFAULT_LIST_IDS, DEFAULT_LISTS, ListMediaItem } from "@/types/list"
 import {
   deleteDoc,
   deleteField,
@@ -149,11 +144,11 @@ export async function createList(
       const existing = await transaction.get(listRef)
 
       if (!existing.exists()) {
-        const newList: UserList = {
+        const newList = {
           id: listId,
           name: listName,
           items: {},
-          createdAt: Date.now(),
+          createdAt: serverTimestamp(),
           isCustom: true,
         }
         transaction.set(listRef, newList)
@@ -203,6 +198,6 @@ export async function renameList(
   const listRef = getListRef(userId, listId)
   await updateDoc(listRef, {
     name: newName,
-    updatedAt: Date.now(),
+    updatedAt: serverTimestamp(),
   })
 }

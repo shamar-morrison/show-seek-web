@@ -110,8 +110,7 @@ export async function setRating(
         title: input.title,
         posterPath: input.posterPath,
         releaseDate: input.releaseDate,
-        ...(exists ? {} : { ratedAt: serverTimestamp() }),
-        // Always update ratedAt on updates (matches mobile behavior)
+        // Always set ratedAt to current timestamp (matches mobile behavior)
         ratedAt: serverTimestamp(),
       },
       { merge: true },

@@ -2,6 +2,8 @@
  * TypeScript definitions for user lists (watchlists, favorites, etc.)
  */
 
+import type { Timestamp } from "firebase/firestore"
+
 /** Media item stored in a list */
 export interface ListMediaItem {
   id: number
@@ -22,7 +24,7 @@ export interface UserList {
   id: string
   name: string
   items: Record<string, ListMediaItem>
-  createdAt: number
+  createdAt: number | Timestamp
   updatedAt?: number
   isCustom?: boolean
 }

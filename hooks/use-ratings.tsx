@@ -140,7 +140,7 @@ function sortEpisodeRatings(
         return b.ratedAt - a.ratedAt // Most recent first
       case "rating":
         return b.rating - a.rating // Highest rating first
-      case "alphabetical":
+      case "alphabetical": {
         // Sort by TV show name, then by season, then by episode
         const showCompare = (a.tvShowName || "").localeCompare(
           b.tvShowName || "",
@@ -149,6 +149,7 @@ function sortEpisodeRatings(
         const seasonCompare = (a.seasonNumber || 0) - (b.seasonNumber || 0)
         if (seasonCompare !== 0) return seasonCompare
         return (a.episodeNumber || 0) - (b.episodeNumber || 0)
+      }
       default:
         return 0
     }

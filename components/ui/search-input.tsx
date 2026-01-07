@@ -16,6 +16,8 @@ interface SearchInputProps {
   id?: string
   /** Additional className for the container */
   className?: string
+  /** Accessible label for screen readers */
+  "aria-label"?: string
 }
 
 /**
@@ -28,6 +30,7 @@ export function SearchInput({
   placeholder = "Search...",
   id,
   className,
+  "aria-label": ariaLabel,
 }: SearchInputProps) {
   return (
     <div className={cn("relative max-w-2xl", className)}>
@@ -41,6 +44,7 @@ export function SearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
         className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
       />
     </div>

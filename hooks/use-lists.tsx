@@ -3,8 +3,18 @@
 import { useAuth } from "@/context/auth-context"
 import { db } from "@/lib/firebase/config"
 import { DEFAULT_LISTS, UserList } from "@/types/list"
-import { collection, onSnapshot } from "firebase/firestore"
+import { collection, onSnapshot, Timestamp } from "firebase/firestore"
 import { useEffect, useMemo, useState } from "react"
+
+/**
+ * Normalize createdAt to milliseconds for sorting
+ * Handles Firestore Timestamp objects and number values
+ */
+function normalizeTimestamp(value: number | Timestamp | undefined): number {
+  if (!value) return 0
+  if (value instanceof Timestamp) return value.toMillis()
+  return Number(value) || 0
+}
 
 /**
  * Hook for subscribing to user's lists with real-time updates
@@ -85,7 +95,10 @@ export function useLists() {
     // Add custom lists sorted by createdAt
     const customLists = firestoreLists
       .filter((l) => l.isCustom)
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+      .sort(
+        (a, b) =>
+          normalizeTimestamp(a.createdAt) - normalizeTimestamp(b.createdAt),
+      )
 
     mergedLists.push(...customLists)
 

@@ -139,6 +139,7 @@ export function NotesClient() {
         value={searchQuery}
         onChange={setSearchQuery}
         placeholder="Search by title or note content..."
+        aria-label="Search notes by title or content"
       />
 
       {/* Results */}
