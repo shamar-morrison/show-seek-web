@@ -57,7 +57,7 @@ export default async function TVPage({ params }: TVPageProps) {
     <main className="min-h-screen bg-black">
       <Navbar />
       <MediaDetailHero media={tvShow} mediaType="tv" trailerKey={trailerKey} />
-      <SeasonsRow title="Seasons" seasons={seasons} />
+      <SeasonsRow title="Seasons" seasons={seasons} tvShowId={tvId} />
       <CastRow
         title="Cast"
         cast={cast}
