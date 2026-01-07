@@ -39,20 +39,13 @@ const listsMenu: NavItemWithSubmenu = {
     { label: "Watch Lists", href: "/lists/watch-lists" },
     { label: "Custom Lists", href: "/lists/custom-lists" },
     { label: "Notes", href: "/lists/notes" },
+    { label: "Favorite People", href: "/lists/favorite-people" },
   ],
 }
 
 const ratingsLink: SimpleNavItem = {
   label: "Ratings",
   href: "/ratings",
-}
-
-const favoritesMenu: NavItemWithSubmenu = {
-  label: "Favorites",
-  links: [
-    { label: "Favorite Content", href: "/favorites/content" },
-    { label: "Favorite People", href: "/favorites/people" },
-  ],
 }
 
 const discoverLink: SimpleNavItem = {
@@ -241,9 +234,6 @@ export function Navbar() {
                     {ratingsLink.label}
                   </NavLink>
                 </NavigationMenu.Item>
-
-                {/* Favorites - Dropdown */}
-                <DropdownMenuItem item={favoritesMenu} />
               </NavigationMenu.List>
 
               <NavigationMenu.Portal>
@@ -332,12 +322,6 @@ export function Navbar() {
             >
               {ratingsLink.label}
             </Link>
-
-            {/* Favorites - Accordion */}
-            <MobileAccordionItem
-              item={favoritesMenu}
-              onLinkClick={closeMobileMenu}
-            />
           </div>
         </div>
       </div>

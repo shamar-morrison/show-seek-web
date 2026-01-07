@@ -7,7 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
 import { WatchProgressCard } from "@/components/watch-progress-card"
 import { useAuth } from "@/context/auth-context"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
@@ -88,20 +88,12 @@ export function WatchProgressClient() {
   return (
     <div className="space-y-8 pb-12">
       {/* Search Input */}
-      <div className="relative max-w-2xl">
-        <HugeiconsIcon
-          icon={Search01Icon}
-          className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
-        />
-        <Input
-          id="watch-progress-search-input"
-          type="text"
-          placeholder="Search TV shows..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
-        />
-      </div>
+      <SearchInput
+        id="watch-progress-search-input"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search TV shows..."
+      />
 
       {/* Results */}
       {filteredProgress.length > 0 ? (

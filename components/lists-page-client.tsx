@@ -10,7 +10,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { ListMediaItem, UserList } from "@/types/list"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -202,20 +202,12 @@ export function ListsPageClient({
       {/* Search and Tabs */}
       <div className="space-y-6">
         {/* Search Input */}
-        <div className="relative max-w-2xl">
-          <HugeiconsIcon
-            icon={Search01Icon}
-            className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
-          />
-          <Input
-            id="lists-search-input"
-            type="text"
-            placeholder="Search in this list..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
-          />
-        </div>
+        <SearchInput
+          id="lists-search-input"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search in this list..."
+        />
 
         {/* List Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2">
