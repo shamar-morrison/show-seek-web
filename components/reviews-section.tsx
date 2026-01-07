@@ -1,11 +1,11 @@
 "use client"
 
-import { fetchReviews } from "@/app/actions"
 import { ReviewCard } from "@/components/review-card"
 import { ReviewModal } from "@/components/review-modal"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { useMediaReviews } from "@/hooks/use-tmdb-queries"
 import type { TMDBReview } from "@/types/tmdb"
-import { useCallback, useState } from "react"
+import { useRef, useState } from "react"
 
 interface ReviewsSectionProps {
   /** TMDB media ID */
@@ -19,30 +19,27 @@ interface ReviewsSectionProps {
  * Lazily loads and displays reviews when scrolled into view
  */
 export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
-  const [reviews, setReviews] = useState<TMDBReview[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasLoaded, setHasLoaded] = useState(false)
+  const hasTriggered = useRef(false)
+  const [shouldFetch, setShouldFetch] = useState(false)
 
   // Modal state
   const [selectedReview, setSelectedReview] = useState<TMDBReview | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const loadReviews = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await fetchReviews(mediaId, mediaType)
-      setReviews(data?.results || [])
-    } catch (error) {
-      console.error("Failed to load reviews:", error)
-    } finally {
-      setIsLoading(false)
-      setHasLoaded(true)
+  // Use intersection observer to trigger fetch
+  const { ref: sectionRef } = useIntersectionObserver<HTMLDivElement>(() => {
+    if (!hasTriggered.current) {
+      hasTriggered.current = true
+      setShouldFetch(true)
     }
-  }, [mediaId, mediaType])
+  })
 
-  // Lazy load when section comes into view
-  const { ref: sectionRef } =
-    useIntersectionObserver<HTMLDivElement>(loadReviews)
+  // React Query for reviews
+  const {
+    data: reviews = [],
+    isLoading,
+    isFetched,
+  } = useMediaReviews(mediaId, mediaType, shouldFetch)
 
   // Handle review card click
   const handleReviewClick = (review: TMDBReview) => {
@@ -57,11 +54,11 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
   }
 
   // Don't render section if loaded and no reviews
-  if (hasLoaded && reviews.length === 0) return null
+  if (isFetched && reviews.length === 0) return null
 
   return (
     <div ref={sectionRef as React.RefObject<HTMLDivElement>}>
-      {isLoading || !hasLoaded ? (
+      {isLoading || !isFetched ? (
         /* Loading Skeleton */
         <section className="py-8">
           <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">

@@ -1,14 +1,13 @@
 "use client"
 
-import { fetchMediaVideos } from "@/app/actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { useMediaVideos } from "@/hooks/use-tmdb-queries"
 import type { TMDBVideo } from "@/types/tmdb"
 import { PlayIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useState } from "react"
-import { toast } from "sonner"
+import { useMemo, useRef, useState } from "react"
 
 interface VideosSectionProps {
   /** TMDB media ID */
@@ -31,48 +30,45 @@ function getYouTubeThumbnail(videoKey: string): string {
  * Lazily loads and displays videos when scrolled into view
  */
 export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
-  const [videos, setVideos] = useState<TMDBVideo[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasLoaded, setHasLoaded] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [activeVideo, setActiveVideo] = useState<TMDBVideo | null>(null)
+  const hasTriggered = useRef(false)
+  const [shouldFetch, setShouldFetch] = useState(false)
 
-  const loadVideos = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await fetchMediaVideos(mediaId, mediaType)
-      if (data?.results) {
-        // Filter to YouTube videos only
-        const youtubeVideos = data.results.filter(
-          (v) => v.site === "YouTube" && v.key,
-        )
-        setVideos(youtubeVideos)
-      }
-    } catch (error) {
-      console.error("Failed to load videos:", error)
-      toast.error("Failed to load videos")
-    } finally {
-      setIsLoading(false)
-      setHasLoaded(true)
+  // Use intersection observer to trigger fetch
+  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(() => {
+    if (!hasTriggered.current) {
+      hasTriggered.current = true
+      setShouldFetch(true)
     }
-  }, [mediaId, mediaType])
+  })
 
-  // Lazy load videos when section comes into view
-  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(loadVideos)
+  // React Query for videos
+  const {
+    data: rawVideos = [],
+    isLoading,
+    isFetched,
+  } = useMediaVideos(mediaId, mediaType, shouldFetch)
+
+  // Filter to YouTube videos only
+  const videos = useMemo(
+    () => rawVideos.filter((v) => v.site === "YouTube" && v.key),
+    [rawVideos],
+  )
 
   // Determine which videos to display
   const displayVideos = showAll ? videos : videos.slice(0, INITIAL_LIMIT)
   const hasMore = videos.length > INITIAL_LIMIT && !showAll
 
   // Don't render section if loaded and no videos
-  if (hasLoaded && videos.length === 0) return null
+  if (isFetched && videos.length === 0) return null
 
   return (
     <section ref={sectionRef as React.RefObject<HTMLElement>} className="py-8">
       {/* Header */}
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Videos</h2>
-        {hasLoaded && videos.length > 0 && (
+        {isFetched && videos.length > 0 && (
           <span className="text-sm text-gray-400">
             {showAll
               ? videos.length
@@ -84,7 +80,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
 
       {/* Content */}
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-        {isLoading || !hasLoaded ? (
+        {isLoading || !isFetched ? (
           <SectionSkeleton count={6} cardWidth={200} cardHeight={120} />
         ) : (
           /* Video Grid */

@@ -1,13 +1,12 @@
 "use client"
 
-import { fetchMediaImages } from "@/app/actions"
 import { PhotoLightbox } from "@/components/photo-lightbox"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { useMediaImages } from "@/hooks/use-tmdb-queries"
 import { buildImageUrl } from "@/lib/tmdb"
-import type { TMDBLogo } from "@/types/tmdb"
 import Image from "next/image"
-import { useCallback, useState } from "react"
+import { useRef, useState } from "react"
 
 interface PhotosSectionProps {
   /** TMDB media ID */
@@ -23,45 +22,39 @@ const INITIAL_LIMIT = 30
  * Lazily loads and displays photos (posters + backdrops) when scrolled into view
  */
 export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
-  const [images, setImages] = useState<TMDBLogo[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasLoaded, setHasLoaded] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const hasTriggered = useRef(false)
+  const [shouldFetch, setShouldFetch] = useState(false)
 
-  const loadImages = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await fetchMediaImages(mediaId, mediaType)
-      if (data) {
-        // Combine posters first, then backdrops
-        const allImages = [...(data.posters || []), ...(data.backdrops || [])]
-        setImages(allImages)
-      }
-    } catch (error) {
-      console.error("Failed to load images:", error)
-    } finally {
-      setIsLoading(false)
-      setHasLoaded(true)
+  // Use intersection observer to trigger fetch
+  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(() => {
+    if (!hasTriggered.current) {
+      hasTriggered.current = true
+      setShouldFetch(true)
     }
-  }, [mediaId, mediaType])
+  })
 
-  // Lazy load images when section comes into view
-  const { ref: sectionRef } = useIntersectionObserver<HTMLElement>(loadImages)
+  // React Query for images
+  const {
+    data: images = [],
+    isLoading,
+    isFetched,
+  } = useMediaImages(mediaId, mediaType, shouldFetch)
 
   // Determine which images to display
   const displayImages = showAll ? images : images.slice(0, INITIAL_LIMIT)
   const hasMore = images.length > INITIAL_LIMIT && !showAll
 
   // Don't render section if loaded and no images
-  if (hasLoaded && images.length === 0) return null
+  if (isFetched && images.length === 0) return null
 
   return (
     <section ref={sectionRef as React.RefObject<HTMLElement>} className="py-8">
       {/* Header */}
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Photos</h2>
-        {hasLoaded && images.length > 0 && (
+        {isFetched && images.length > 0 && (
           <span className="text-sm text-gray-400">
             {showAll
               ? images.length
@@ -73,7 +66,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
 
       {/* Content */}
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-        {isLoading || !hasLoaded ? (
+        {isLoading || !isFetched ? (
           <SectionSkeleton count={8} cardWidth={100} cardHeight={150} />
         ) : (
           /* Photo Grid */

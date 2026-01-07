@@ -140,6 +140,7 @@ export function NotesClient() {
           className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
         />
         <Input
+          id="notes-search-input"
           type="text"
           placeholder="Search by title or note content..."
           value={searchQuery}

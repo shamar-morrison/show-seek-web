@@ -173,6 +173,7 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
           )}
         />
         <Input
+          id="navbar-search-input"
           ref={inputRef}
           type="text"
           placeholder="Search..."

@@ -94,6 +94,7 @@ export function WatchProgressClient() {
           className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
         />
         <Input
+          id="watch-progress-search-input"
           type="text"
           placeholder="Search TV shows..."
           value={searchQuery}

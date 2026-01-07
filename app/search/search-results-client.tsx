@@ -225,6 +225,7 @@ export function SearchResultsClient({
             )}
           />
           <Input
+            id="search-page-input"
             type="text"
             placeholder="Search movies, TV shows, and people..."
             value={query}

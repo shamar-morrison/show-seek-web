@@ -208,6 +208,7 @@ export function ListsPageClient({
             className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
           />
           <Input
+            id="lists-search-input"
             type="text"
             placeholder="Search in this list..."
             value={searchQuery}
