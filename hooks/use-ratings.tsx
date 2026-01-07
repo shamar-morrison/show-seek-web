@@ -1,6 +1,5 @@
 "use client"
 
-import { fetchFullTVDetails, fetchMovieDetails } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import {
   deleteRating,
@@ -8,24 +7,10 @@ import {
   subscribeToRatings,
 } from "@/lib/firebase/ratings"
 import type { Rating } from "@/types/rating"
-import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
-import { useQueries } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
-
-/** Enriched rating with TMDB data */
-export interface EnrichedRating<T = TMDBMovieDetails | TMDBTVDetails> {
-  rating: Rating
-  media: T | null
-}
-
-/** Query keys for ratings TMDB enrichment */
-export const ratingsQueryKeys = {
-  movieDetails: (mediaId: number) => ["ratings", "movie", mediaId] as const,
-  tvDetails: (mediaId: number) => ["ratings", "tv", mediaId] as const,
-}
 
 /**
  * Hook for managing user ratings with real-time updates
@@ -143,8 +128,36 @@ function sortRatings(ratings: Rating[], sortBy: RatingSortOption): Rating[] {
 }
 
 /**
- * Hook for movie ratings with TMDB enrichment via React Query
- * Uses React Query's built-in caching - data persists across tab switches
+ * Sort episode ratings by the specified option
+ */
+function sortEpisodeRatings(
+  ratings: Rating[],
+  sortBy: RatingSortOption,
+): Rating[] {
+  return [...ratings].sort((a, b) => {
+    switch (sortBy) {
+      case "ratedAt":
+        return b.ratedAt - a.ratedAt // Most recent first
+      case "rating":
+        return b.rating - a.rating // Highest rating first
+      case "alphabetical":
+        // Sort by TV show name, then by season, then by episode
+        const showCompare = (a.tvShowName || "").localeCompare(
+          b.tvShowName || "",
+        )
+        if (showCompare !== 0) return showCompare
+        const seasonCompare = (a.seasonNumber || 0) - (b.seasonNumber || 0)
+        if (seasonCompare !== 0) return seasonCompare
+        return (a.episodeNumber || 0) - (b.episodeNumber || 0)
+      default:
+        return 0
+    }
+  })
+}
+
+/**
+ * Hook for movie ratings
+ * Uses Firebase data directly - no TMDB enrichment needed
  */
 export function useMovieRatings(
   sortBy: RatingSortOption = "ratedAt",
@@ -152,63 +165,24 @@ export function useMovieRatings(
 ) {
   const { ratings, loading: ratingsLoading } = useRatings()
 
-  // Filter movie ratings
+  // Filter and sort movie ratings
   const movieRatings = useMemo(() => {
-    return Array.from(ratings.values()).filter((r) => r.mediaType === "movie")
-  }, [ratings])
-
-  // Use React Query's useQueries for parallel fetching with automatic caching
-  const queries = useQueries({
-    queries: movieRatings.map((rating) => ({
-      queryKey: ratingsQueryKeys.movieDetails(parseInt(rating.mediaId)),
-      queryFn: async (): Promise<TMDBMovieDetails | null> => {
-        return await fetchMovieDetails(parseInt(rating.mediaId)).catch(
-          () => null,
-        )
-      },
-      // Only fetch when enabled
-      enabled,
-      // Keep data fresh for 5 minutes, but show stale data immediately
-      staleTime: 5 * 60 * 1000,
-      // Cache for 30 minutes
-      gcTime: 30 * 60 * 1000,
-    })),
-  })
-
-  // Combine ratings with TMDB data
-  const enrichedRatings = useMemo(() => {
-    const results: EnrichedRating<TMDBMovieDetails>[] = movieRatings.map(
-      (rating, index) => ({
-        rating,
-        media: queries[index]?.data ?? null,
-      }),
+    const filtered = Array.from(ratings.values()).filter(
+      (r) => r.mediaType === "movie",
     )
-    // Sort after enrichment
-    const sortedRatings = sortRatings(
-      results.map((r) => r.rating),
-      sortBy,
-    )
-    return sortedRatings.map((rating) => {
-      const enriched = results.find((r) => r.rating.id === rating.id)
-      return enriched ?? { rating, media: null }
-    })
-  }, [movieRatings, queries, sortBy])
-
-  // Check if any queries are still loading (for initial load only)
-  const isEnriching = queries.some((q) => q.isLoading)
-  const hasData = queries.some((q) => q.data !== undefined)
+    return enabled ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, enabled])
 
   return {
-    ratings: enrichedRatings,
-    // Only show loading skeleton on initial load, not when switching tabs
-    loading: ratingsLoading || (enabled && isEnriching && !hasData),
+    ratings: movieRatings,
+    loading: ratingsLoading,
     count: movieRatings.length,
   }
 }
 
 /**
- * Hook for TV show ratings with TMDB enrichment via React Query
- * Uses React Query's built-in caching - data persists across tab switches
+ * Hook for TV show ratings
+ * Uses Firebase data directly - no TMDB enrichment needed
  */
 export function useTVRatings(
   sortBy: RatingSortOption = "ratedAt",
@@ -216,56 +190,42 @@ export function useTVRatings(
 ) {
   const { ratings, loading: ratingsLoading } = useRatings()
 
-  // Filter TV ratings
+  // Filter and sort TV ratings
   const tvRatings = useMemo(() => {
-    return Array.from(ratings.values()).filter((r) => r.mediaType === "tv")
-  }, [ratings])
-
-  // Use React Query's useQueries for parallel fetching with automatic caching
-  const queries = useQueries({
-    queries: tvRatings.map((rating) => ({
-      queryKey: ratingsQueryKeys.tvDetails(parseInt(rating.mediaId)),
-      queryFn: async (): Promise<TMDBTVDetails | null> => {
-        return await fetchFullTVDetails(parseInt(rating.mediaId)).catch(
-          () => null,
-        )
-      },
-      // Only fetch when enabled
-      enabled,
-      // Keep data fresh for 5 minutes, but show stale data immediately
-      staleTime: 5 * 60 * 1000,
-      // Cache for 30 minutes
-      gcTime: 30 * 60 * 1000,
-    })),
-  })
-
-  // Combine ratings with TMDB data
-  const enrichedRatings = useMemo(() => {
-    const results: EnrichedRating<TMDBTVDetails>[] = tvRatings.map(
-      (rating, index) => ({
-        rating,
-        media: queries[index]?.data ?? null,
-      }),
+    const filtered = Array.from(ratings.values()).filter(
+      (r) => r.mediaType === "tv",
     )
-    // Sort after enrichment
-    const sortedRatings = sortRatings(
-      results.map((r) => r.rating),
-      sortBy,
-    )
-    return sortedRatings.map((rating) => {
-      const enriched = results.find((r) => r.rating.id === rating.id)
-      return enriched ?? { rating, media: null }
-    })
-  }, [tvRatings, queries, sortBy])
-
-  // Check if any queries are still loading (for initial load only)
-  const isEnriching = queries.some((q) => q.isLoading)
-  const hasData = queries.some((q) => q.data !== undefined)
+    return enabled ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, enabled])
 
   return {
-    ratings: enrichedRatings,
-    // Only show loading skeleton on initial load, not when switching tabs
-    loading: ratingsLoading || (enabled && isEnriching && !hasData),
+    ratings: tvRatings,
+    loading: ratingsLoading,
     count: tvRatings.length,
+  }
+}
+
+/**
+ * Hook for episode ratings
+ * Uses Firebase data directly - no TMDB enrichment needed
+ */
+export function useEpisodeRatings(
+  sortBy: RatingSortOption = "ratedAt",
+  enabled: boolean = true,
+) {
+  const { ratings, loading: ratingsLoading } = useRatings()
+
+  // Filter and sort episode ratings
+  const episodeRatings = useMemo(() => {
+    const filtered = Array.from(ratings.values()).filter(
+      (r) => r.mediaType === "episode",
+    )
+    return enabled ? sortEpisodeRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, enabled])
+
+  return {
+    ratings: episodeRatings,
+    loading: ratingsLoading,
+    count: episodeRatings.length,
   }
 }

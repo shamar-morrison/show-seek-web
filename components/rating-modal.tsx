@@ -50,6 +50,13 @@ export function RatingModal({
   const mediaId = media.id
   const posterPath: string | null =
     "poster_path" in media ? (media.poster_path ?? null) : null
+  // Get release date: use release_date for movies, first_air_date for TV shows
+  const releaseDate: string | null =
+    "release_date" in media && media.release_date
+      ? media.release_date
+      : "first_air_date" in media && media.first_air_date
+        ? media.first_air_date
+        : null
 
   // Load existing rating when modal opens
   useEffect(() => {
@@ -78,7 +85,14 @@ export function RatingModal({
 
     setIsSaving(true)
     try {
-      await saveRating(mediaType, mediaId, selectedRating, title, posterPath)
+      await saveRating(
+        mediaType,
+        mediaId,
+        selectedRating,
+        title,
+        posterPath,
+        releaseDate,
+      )
       onClose()
     } catch (error) {
       console.error("Error saving rating:", error)
@@ -92,6 +106,7 @@ export function RatingModal({
     mediaId,
     title,
     posterPath,
+    releaseDate,
     onClose,
   ])
 
