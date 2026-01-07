@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/auth-context"
 import {
+  deleteEpisodeRating,
   deleteRating,
   setRating,
   subscribeToRatings,
@@ -109,7 +110,7 @@ export function useRatings() {
       seasonNumber: number,
       episodeNumber: number,
     ): Rating | null => {
-      const key = `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`
+      const key = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
       return ratings.get(key) || null
     },
     [ratings],
@@ -135,7 +136,7 @@ export function useRatings() {
 
       await setRating(user.uid, {
         userId: user.uid,
-        id: `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`,
+        id: `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`,
         mediaType: "episode",
         mediaId: tvShowId.toString(),
         rating,
@@ -165,9 +166,7 @@ export function useRatings() {
         throw new Error("User must be authenticated to remove rating")
       }
 
-      // Use the episode key format for deletion
-      const key = `episode-${tvShowId}-s${seasonNumber}e${episodeNumber}`
-      await deleteRating(user.uid, "episode" as any, key as any)
+      await deleteEpisodeRating(user.uid, tvShowId, seasonNumber, episodeNumber)
     },
     [user],
   )

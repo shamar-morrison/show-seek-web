@@ -30,7 +30,8 @@ function toRating(docId: string, data: Record<string, unknown>): Rating {
     mediaId: data.id as string,
     mediaType: data.mediaType as Rating["mediaType"],
     rating: data.rating as number,
-    title: data.title as string,
+    // For episodes, use episodeName as title
+    title: (data.title as string) || (data.episodeName as string) || "",
     posterPath: (data.posterPath as string) || null,
     releaseDate: (data.releaseDate as string) || null,
     ratedAt:
@@ -89,9 +90,37 @@ export async function setRating(
     )
   }
 
-  // Episodes require different document ID format - not yet implemented
+  // Handle episode ratings with their own document ID format
   if (input.mediaType === "episode") {
-    throw new Error("Episode ratings are not yet implemented")
+    if (!input.tvShowId || !input.seasonNumber || !input.episodeNumber) {
+      throw new Error(
+        "Episode ratings require tvShowId, seasonNumber, and episodeNumber",
+      )
+    }
+
+    const docId = `episode-${input.tvShowId}-${input.seasonNumber}-${input.episodeNumber}`
+    const ratingRef = doc(db, "users", userId, "ratings", docId)
+
+    await runTransaction(db, async (transaction) => {
+      transaction.set(
+        ratingRef,
+        {
+          id: docId, // Use the document ID format
+          mediaType: "episode",
+          rating: input.rating,
+          episodeName: input.title, // Episode name
+          posterPath: input.posterPath,
+          ratedAt: serverTimestamp(),
+          // Episode-specific fields
+          tvShowId: input.tvShowId,
+          tvShowName: input.tvShowName,
+          seasonNumber: input.seasonNumber,
+          episodeNumber: input.episodeNumber,
+        },
+        { merge: true },
+      )
+    })
+    return
   }
 
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
@@ -146,6 +175,20 @@ export async function deleteRating(
   mediaId: number,
 ): Promise<void> {
   const ratingRef = getRatingRef(userId, mediaType, mediaId)
+  await deleteDoc(ratingRef)
+}
+
+/**
+ * Delete an episode rating
+ */
+export async function deleteEpisodeRating(
+  userId: string,
+  tvShowId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+): Promise<void> {
+  const docId = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
+  const ratingRef = doc(db, "users", userId, "ratings", docId)
   await deleteDoc(ratingRef)
 }
 
