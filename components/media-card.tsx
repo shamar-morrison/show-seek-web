@@ -1,5 +1,9 @@
 "use client"
 
+import {
+  MediaCardDropdownMenu,
+  type DropdownMenuItem,
+} from "@/components/media-card-dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -18,6 +22,8 @@ interface MediaCardProps {
   showRating?: boolean
   /** Optional user rating to display as a badge (1-10 scale) */
   userRating?: number | null
+  /** Optional dropdown menu items */
+  dropdownItems?: DropdownMenuItem[]
 }
 
 export function MediaCard({
@@ -28,6 +34,7 @@ export function MediaCard({
   buttonText = "Trailer",
   showRating = false,
   userRating,
+  dropdownItems,
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -77,9 +84,17 @@ export function MediaCard({
             </div>
           )}
 
+          {/* Dropdown Menu - top right */}
+          {dropdownItems && dropdownItems.length > 0 && (
+            <MediaCardDropdownMenu
+              items={dropdownItems}
+              className="absolute top-2 right-2"
+            />
+          )}
+
           {/* User Rating Badge */}
           {userRating != null && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
+            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
               <HugeiconsIcon
                 icon={StarIcon}
                 className="size-3.5 fill-yellow-500 text-yellow-500"
@@ -124,7 +139,7 @@ export function MediaCard({
               size="sm"
               className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
               onClick={(e) => {
-                e.preventDefault() // Prevent navigation when clicking the button
+                e.preventDefault()
                 onWatchTrailer(media)
               }}
               disabled={isLoading}

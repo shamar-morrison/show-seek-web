@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
-import { Navbar } from "@/components/navbar"
+import { fetchTrailerKey } from "@/app/actions"
 import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
+import { Navbar } from "@/components/navbar"
 import { TrailerModal } from "@/components/trailer-modal"
-import { fetchTrailerKey } from "@/app/actions"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
+import { useState } from "react"
+import { toast } from "sonner"
 
 interface HomePageClientProps {
   heroMediaList: HeroMedia[]
@@ -86,24 +86,28 @@ export function HomePageClient({
           items={trendingList}
           onWatchTrailer={handleCardWatchTrailer}
           loadingMediaId={loadingMediaId}
+          showActions
         />
         <MediaRow
           title="Popular Movies"
           items={popularMovies}
           onWatchTrailer={handleCardWatchTrailer}
           loadingMediaId={loadingMediaId}
+          showActions
         />
         <MediaRow
           title="Top Rated TV Shows"
           items={topRatedTV}
           onWatchTrailer={handleCardWatchTrailer}
           loadingMediaId={loadingMediaId}
+          showActions
         />
         <MediaRow
           title="Upcoming Movies"
           items={upcomingMovies}
           onWatchTrailer={handleCardWatchTrailer}
           loadingMediaId={loadingMediaId}
+          showActions
         />
       </div>
 
