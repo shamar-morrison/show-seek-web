@@ -1,6 +1,6 @@
 "use client"
 
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
@@ -228,7 +228,7 @@ export function ListsPageClient({
       {filteredItems.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {filteredItems.map((item) => (
-            <MediaCard
+            <MediaCardWithActions
               key={`${item.media_type}-${item.id}`}
               media={listItemToMedia(item)}
               onWatchTrailer={handleWatchTrailer}

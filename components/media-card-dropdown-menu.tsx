@@ -22,6 +22,8 @@ export interface MediaCardDropdownMenuProps {
   className?: string
   /** If true, trigger is always visible. If false, only visible on hover (requires parent to have `group` class) */
   alwaysVisible?: boolean
+  /** Custom trigger icon component. Defaults to MenuTwoLineIcon */
+  triggerIcon?: typeof MenuTwoLineIcon
 }
 
 interface MenuItemButtonProps {
@@ -74,6 +76,7 @@ export function MediaCardDropdownMenu({
   items,
   className,
   alwaysVisible = false,
+  triggerIcon = MenuTwoLineIcon,
 }: MediaCardDropdownMenuProps) {
   const [open, setOpen] = useState(false)
 
@@ -97,7 +100,7 @@ export function MediaCardDropdownMenu({
         )}
         aria-label="More options"
       >
-        <HugeiconsIcon icon={MenuTwoLineIcon} className="size-4 text-white" />
+        <HugeiconsIcon icon={triggerIcon} className="size-4 text-white" />
       </Popover.Trigger>
 
       <Popover.Portal>

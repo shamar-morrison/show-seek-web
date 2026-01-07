@@ -1,7 +1,7 @@
 "use client"
 
 import { AuthModal } from "@/components/auth-modal"
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { EpisodeRatingCard } from "@/components/ratings/episode-rating-card"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
@@ -221,10 +221,9 @@ export function RatingsPageClient() {
                   }
 
                   return (
-                    <MediaCard
+                    <MediaCardWithActions
                       key={`${rating.mediaType}-${rating.mediaId}`}
                       media={media}
-                      userRating={rating.rating}
                       onWatchTrailer={handleWatchTrailer}
                       isLoading={loadingMediaId === media.id}
                     />

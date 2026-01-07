@@ -1,7 +1,7 @@
 "use client"
 
 import { searchMedia } from "@/app/actions"
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
@@ -267,7 +267,7 @@ export function SearchResultsClient({
       ) : transformedMedia.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {transformedMedia.map(({ result, media }) => (
-            <MediaCard
+            <MediaCardWithActions
               key={`${result.media_type}-${result.id}`}
               media={media}
               onWatchTrailer={handleWatchTrailerMedia}

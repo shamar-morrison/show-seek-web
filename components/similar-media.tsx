@@ -37,6 +37,7 @@ export function SimilarMedia({ title, items, mediaType }: SimilarMediaProps) {
         scrollable
         onWatchTrailer={handleWatchTrailer}
         loadingMediaId={loadingMediaId}
+        showActions
       />
 
       <TrailerModal

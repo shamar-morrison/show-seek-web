@@ -70,6 +70,7 @@ export function RecommendationsSection({
           scrollable
           onWatchTrailer={handleWatchTrailer}
           loadingMediaId={loadingMediaId}
+          showActions
         />
       )}
 
