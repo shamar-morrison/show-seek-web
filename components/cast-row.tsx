@@ -31,7 +31,11 @@ export function CastRow({ title, cast, href, limit = 15 }: CastRowProps) {
     >
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
         {cast.slice(0, limit).map((member, index) => (
-          <CastCard key={member.id} cast={member} priority={index < 5} />
+          <CastCard
+            key={`${member.id}-${member.character || member.order || index}`}
+            cast={member}
+            priority={index < 5}
+          />
         ))}
       </div>
     </Section>

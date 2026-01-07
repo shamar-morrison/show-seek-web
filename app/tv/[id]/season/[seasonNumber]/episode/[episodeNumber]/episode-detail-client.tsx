@@ -25,6 +25,7 @@ import {
   Loading03Icon,
   PlayIcon,
   StarIcon,
+  Tick02Icon,
   Time01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -73,7 +74,7 @@ export function EpisodeDetailClient({
       tvShowId,
       (tracking) => {
         if (tracking?.episodes) {
-          const key = `s${episode.season_number}e${episode.episode_number}`
+          const key = `${episode.season_number}_${episode.episode_number}`
           setIsWatched(key in tracking.episodes)
         } else {
           setIsWatched(false)
@@ -83,6 +84,52 @@ export function EpisodeDetailClient({
 
     return () => unsubscribe()
   }, [user, tvShowId, episode.season_number, episode.episode_number])
+
+  // Compute next episode when marking this one as watched
+  const computeNextEpisode = useCallback(() => {
+    const today = new Date()
+    const airedEpisodes = season.episodes.filter(
+      (ep) => ep.air_date && new Date(ep.air_date) <= today,
+    )
+
+    // Find the current episode index in aired episodes
+    const currentIndex = airedEpisodes.findIndex(
+      (ep) => ep.episode_number === episode.episode_number,
+    )
+
+    // Check if there's a next episode in this season
+    if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
+      const nextEp = airedEpisodes[currentIndex + 1]
+      return {
+        season: nextEp.season_number,
+        episode: nextEp.episode_number,
+        title: nextEp.name,
+        airDate: nextEp.air_date,
+      }
+    }
+
+    // If this is the last episode, check for next season
+    if (tvShow.seasons && tvShow.seasons.length > 0) {
+      const nextSeasons = tvShow.seasons
+        .filter(
+          (s) => s.season_number > episode.season_number && s.season_number > 0,
+        )
+        .sort((a, b) => a.season_number - b.season_number)
+
+      if (nextSeasons.length > 0) {
+        const nextSeason = nextSeasons[0]
+        return {
+          season: nextSeason.season_number,
+          episode: 1,
+          title: `${nextSeason.name} Episode 1`,
+          airDate: nextSeason.air_date || null,
+        }
+      }
+    }
+
+    // No more episodes - user is caught up!
+    return null
+  }, [season.episodes, episode, tvShow.seasons])
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
@@ -97,6 +144,9 @@ export function EpisodeDetailClient({
           episode.episode_number,
         )
       } else {
+        // Compute next episode when marking as watched
+        const nextEpisode = computeNextEpisode()
+
         await episodeTrackingService.markEpisodeWatched(
           tvShowId,
           episode.season_number,
@@ -114,6 +164,7 @@ export function EpisodeDetailClient({
             totalEpisodes: tvShow.number_of_episodes,
             avgRuntime: tvShow.episode_run_time?.[0] || 45,
           },
+          nextEpisode,
         )
       }
     } catch (error) {
@@ -121,7 +172,15 @@ export function EpisodeDetailClient({
     } finally {
       setIsToggling(false)
     }
-  }, [user, isToggling, isWatched, tvShowId, episode, tvShow])
+  }, [
+    user,
+    isToggling,
+    isWatched,
+    tvShowId,
+    episode,
+    tvShow,
+    computeNextEpisode,
+  ])
 
   // Format helpers
   const formatDate = (dateString: string | null) => {
@@ -336,8 +395,8 @@ export function EpisodeDetailClient({
                       />
                     ) : (
                       <HugeiconsIcon
-                        icon={CheckmarkCircle02Icon}
-                        className="size-5"
+                        icon={isWatched ? Tick02Icon : CheckmarkCircle02Icon}
+                        className={`size-5 ${isWatched ? " text-green-400" : ""}`}
                       />
                     )}
                     {isWatched ? "Watched" : "Mark Watched"}
