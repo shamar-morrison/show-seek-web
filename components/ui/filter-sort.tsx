@@ -6,7 +6,6 @@ import {
   ArrowUp01Icon,
   Calendar03Icon,
   Cancel01Icon,
-  FilterIcon,
   SortingIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
@@ -143,8 +142,8 @@ function countActiveFilters(
 ): number {
   let count = filters.reduce((acc, category) => {
     const value = filterState[category.key]
-    // Count as active if value exists and is not "all"
-    if (value && value !== "all") {
+    // Count as active if value exists and is not a default value ("all" or "0")
+    if (value && value !== "all" && value !== "0") {
       return acc + 1
     }
     return acc
@@ -187,7 +186,7 @@ function FilterSubmenu({
           <HugeiconsIcon icon={category.icon} className="size-4" />
         )}
         <span>{category.label}</span>
-        {value && value !== "all" && (
+        {value && value !== "all" && value !== "0" && (
           <span className="ml-auto text-xs text-muted-foreground">
             {category.options.find((o) => o.value === value)?.label}
           </span>
@@ -399,13 +398,7 @@ export function FilterSort({
         {/* Filter submenus */}
         {(filters.length > 0 || yearRange || ratingFilter) && (
           <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              <HugeiconsIcon
-                icon={FilterIcon}
-                className="size-3.5 mr-1.5 inline"
-              />
-              Filters
-            </DropdownMenuLabel>
+            <DropdownMenuLabel>Filters</DropdownMenuLabel>
 
             {/* Standard filter categories */}
             {filters.map((category) => (
