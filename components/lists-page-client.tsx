@@ -9,20 +9,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { ListMediaItem, UserList } from "@/types/list"
-import type { TMDBMedia } from "@/types/tmdb"
+import type { Genre, TMDBMedia } from "@/types/tmdb"
 import {
   Bookmark02Icon,
   Cancel01Icon,
   FavouriteIcon,
+  Film01Icon,
   FolderLibraryIcon,
   Loading03Icon,
   PlayCircle02Icon,
   Search01Icon,
   Tick02Icon,
+  Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useMemo, useState } from "react"
@@ -62,6 +65,10 @@ function listItemToMedia(item: ListMediaItem): TMDBMedia {
   }
 }
 
+// Current year for year range filter
+const CURRENT_YEAR = new Date().getFullYear()
+const MIN_YEAR = 1950
+
 interface ListsPageClientProps {
   /** Lists to display as tabs */
   lists: UserList[]
@@ -75,11 +82,15 @@ interface ListsPageClientProps {
   noListsMessage?: string
   /** Empty state title when no lists exist */
   noListsTitle?: string
+  /** Movie genres for filter options */
+  movieGenres?: Genre[]
+  /** TV genres for filter options */
+  tvGenres?: Genre[]
 }
 
 /**
  * Reusable Lists Page Client Component
- * Displays lists with tab navigation and search filtering
+ * Displays lists with tab navigation, search filtering, and sort/filter options
  */
 export function ListsPageClient({
   lists,
@@ -88,13 +99,45 @@ export function ListsPageClient({
   defaultIcon = FolderLibraryIcon,
   noListsMessage = "Create a custom list to get started",
   noListsTitle = "No lists yet",
+  movieGenres = [],
+  tvGenres = [],
 }: ListsPageClientProps) {
   const [selectedListId, setSelectedListId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
 
+  // Filter state
+  const [filterState, setFilterState] = useState<FilterState>({
+    mediaType: "all",
+    genre: "all",
+  })
+  const [yearRange, setYearRange] = useState<[number, number]>([
+    MIN_YEAR,
+    CURRENT_YEAR,
+  ])
+  const [minRating, setMinRating] = useState<number>(0)
+
+  // Sort state
+  const [sortState, setSortState] = useState<SortState>({
+    field: "added",
+    direction: "desc",
+  })
+
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
+
+  // Merge movie and TV genres, removing duplicates by ID
+  const mergedGenres = useMemo(() => {
+    const genreMap = new Map<number, Genre>()
+    ;[...movieGenres, ...tvGenres].forEach((genre) => {
+      if (!genreMap.has(genre.id)) {
+        genreMap.set(genre.id, genre)
+      }
+    })
+    return Array.from(genreMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
+  }, [movieGenres, tvGenres])
 
   // Derive effective active list ID - use selected if valid, otherwise default to first list
   const activeListId = useMemo(() => {
@@ -118,15 +161,81 @@ export function ListsPageClient({
     )
   }, [activeList])
 
-  // Filter items by search query
+  // Filter items by all criteria
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return listItems
-    const query = searchQuery.toLowerCase()
-    return listItems.filter((item) => {
-      const title = (item.title || item.name || "").toLowerCase()
-      return title.includes(query)
+    let items = listItems
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      items = items.filter((item) => {
+        const title = (item.title || item.name || "").toLowerCase()
+        return title.includes(query)
+      })
+    }
+
+    // Media type filter
+    if (filterState.mediaType !== "all") {
+      items = items.filter((item) => item.media_type === filterState.mediaType)
+    }
+
+    // Genre filter
+    if (filterState.genre !== "all") {
+      const genreId = parseInt(filterState.genre)
+      items = items.filter((item) => item.genre_ids?.includes(genreId))
+    }
+
+    // Year range filter
+    items = items.filter((item) => {
+      const dateStr = item.release_date || item.first_air_date
+      if (!dateStr) return true // Include items without date
+      const year = new Date(dateStr).getFullYear()
+      return year >= yearRange[0] && year <= yearRange[1]
     })
-  }, [listItems, searchQuery])
+
+    // Minimum rating filter
+    if (minRating > 0) {
+      items = items.filter((item) => (item.vote_average ?? 0) >= minRating)
+    }
+
+    return items
+  }, [listItems, searchQuery, filterState, yearRange, minRating])
+
+  // Sort items
+  const sortedItems = useMemo(() => {
+    const sorted = [...filteredItems].sort((a, b) => {
+      let comparison = 0
+
+      switch (sortState.field) {
+        case "added":
+          comparison = (a.addedAt || 0) - (b.addedAt || 0)
+          break
+        case "release_date": {
+          const dateA = new Date(
+            a.release_date || a.first_air_date || 0,
+          ).getTime()
+          const dateB = new Date(
+            b.release_date || b.first_air_date || 0,
+          ).getTime()
+          comparison = dateA - dateB
+          break
+        }
+        case "rating":
+          comparison = (a.vote_average ?? 0) - (b.vote_average ?? 0)
+          break
+        case "title": {
+          const titleA = (a.title || a.name || "").toLowerCase()
+          const titleB = (b.title || b.name || "").toLowerCase()
+          comparison = titleA.localeCompare(titleB)
+          break
+        }
+      }
+
+      return sortState.direction === "asc" ? comparison : -comparison
+    })
+
+    return sorted
+  }, [filteredItems, sortState])
 
   // Get item count for each list
   const getItemCount = useCallback(
@@ -152,6 +261,19 @@ export function ListsPageClient({
     },
     [watchTrailer],
   )
+
+  // Handle filter change
+  const handleFilterChange = useCallback((key: string, value: string) => {
+    setFilterState((prev) => ({ ...prev, [key]: value }))
+  }, [])
+
+  // Handle clear all filters
+  const handleClearAll = useCallback(() => {
+    setFilterState({ mediaType: "all", genre: "all" })
+    setYearRange([MIN_YEAR, CURRENT_YEAR])
+    setMinRating(0)
+    setSortState({ field: "added", direction: "desc" })
+  }, [])
 
   // Loading state
   if (loading) {
@@ -200,17 +322,70 @@ export function ListsPageClient({
   const activeListIcon = activeList ? getListIcon(activeList) : defaultIcon
   const activeListName = activeList?.name ?? "Untitled"
 
+  // Build filter categories
+  const filterCategories = [
+    {
+      key: "mediaType",
+      label: "Media Type",
+      icon: Film01Icon,
+      options: [
+        { value: "all", label: "All" },
+        { value: "movie", label: "Movies" },
+        { value: "tv", label: "TV Shows" },
+      ],
+    },
+    {
+      key: "genre",
+      label: "Genres",
+      icon: Tv01Icon,
+      options: [
+        { value: "all", label: "All Genres" },
+        ...mergedGenres.map((g) => ({ value: String(g.id), label: g.name })),
+      ],
+    },
+  ]
+
+  // Build sort fields
+  const sortFields = [
+    { value: "added", label: "Recently Added" },
+    { value: "release_date", label: "Release Date" },
+    { value: "rating", label: "Rating" },
+    { value: "title", label: "Alphabetically" },
+  ]
+
   return (
     <div className="space-y-8 pb-12">
-      {/* Search and Tabs */}
+      {/* Search, Filter, and Tabs */}
       <div className="space-y-6">
-        {/* Search Input */}
-        <SearchInput
-          id="lists-search-input"
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search in this list..."
-        />
+        {/* Search and Filter Row */}
+        <div className="flex items-center gap-3">
+          <SearchInput
+            id="lists-search-input"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search in this list..."
+            className="flex-1"
+          />
+          <FilterSort
+            filters={filterCategories}
+            filterState={filterState}
+            onFilterChange={handleFilterChange}
+            sortFields={sortFields}
+            sortState={sortState}
+            onSortChange={setSortState}
+            yearRange={{
+              min: MIN_YEAR,
+              max: CURRENT_YEAR,
+              value: yearRange,
+              onChange: setYearRange,
+            }}
+            ratingFilter={{
+              value: minRating,
+              onChange: setMinRating,
+            }}
+            onClearAll={handleClearAll}
+          />
+        </div>
 
         {/* List Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2">
@@ -228,9 +403,9 @@ export function ListsPageClient({
       </div>
 
       {/* Results */}
-      {filteredItems.length > 0 ? (
+      {sortedItems.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {filteredItems.map((item) => (
+          {sortedItems.map((item) => (
             <MediaCardWithActions
               key={`${item.media_type}-${item.id}`}
               media={listItemToMedia(item)}
@@ -239,7 +414,13 @@ export function ListsPageClient({
             />
           ))}
         </div>
-      ) : listItems.length > 0 && searchQuery.trim() ? (
+      ) : listItems.length > 0 &&
+        (searchQuery.trim() ||
+          filterState.mediaType !== "all" ||
+          filterState.genre !== "all" ||
+          minRating > 0 ||
+          yearRange[0] !== MIN_YEAR ||
+          yearRange[1] !== CURRENT_YEAR) ? (
         <Empty className="py-20">
           <EmptyMedia variant="icon">
             <HugeiconsIcon icon={Search01Icon} className="size-6" />
@@ -247,8 +428,7 @@ export function ListsPageClient({
           <EmptyHeader>
             <EmptyTitle>No results found</EmptyTitle>
             <EmptyDescription>
-              No items in &quot;{activeListName}&quot; match &quot;
-              {searchQuery}&quot;
+              No items in &quot;{activeListName}&quot; match your filters
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

@@ -1,6 +1,7 @@
+import { PageHeader } from "@/components/page-header"
+import { getMovieGenres, getTVGenres } from "@/lib/tmdb"
 import { Metadata } from "next"
 import { CustomListsClient } from "./custom-lists-client"
-import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "Custom Lists | ShowSeek",
@@ -11,11 +12,17 @@ export const metadata: Metadata = {
  * Custom Lists Page
  * Displays user's custom lists with tab navigation and search filtering
  */
-export default function CustomListsPage() {
+export default async function CustomListsPage() {
+  // Fetch genres in parallel - these are cached indefinitely
+  const [movieGenres, tvGenres] = await Promise.all([
+    getMovieGenres(),
+    getTVGenres(),
+  ])
+
   return (
     <>
       <PageHeader title="Custom Lists" />
-      <CustomListsClient />
+      <CustomListsClient movieGenres={movieGenres} tvGenres={tvGenres} />
     </>
   )
 }
