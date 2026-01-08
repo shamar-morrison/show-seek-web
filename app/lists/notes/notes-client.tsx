@@ -9,6 +9,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { FilterSort, SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { useAuth } from "@/context/auth-context"
 import { useNotes } from "@/hooks/use-notes"
@@ -22,9 +23,16 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 
+// Sort field options for notes
+const SORT_FIELDS = [
+  { value: "updatedAt", label: "Last Updated" },
+  { value: "createdAt", label: "Date Added" },
+  { value: "title", label: "Alphabetically" },
+]
+
 /**
  * NotesClient Component
- * Client component for the notes page with search, grid, and modals
+ * Client component for the notes page with search, sort, grid, and modals
  */
 export function NotesClient() {
   const { user, loading: authLoading } = useAuth()
@@ -33,17 +41,14 @@ export function NotesClient() {
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Convert notes Map to array sorted by updatedAt (newest first)
-  const notesArray = useMemo(() => {
-    const arr = Array.from(notes.values())
-    return arr.sort((a, b) => {
-      const aTime =
-        typeof a.updatedAt?.toMillis === "function" ? a.updatedAt.toMillis() : 0
-      const bTime =
-        typeof b.updatedAt?.toMillis === "function" ? b.updatedAt.toMillis() : 0
-      return bTime - aTime
-    })
-  }, [notes])
+  // Sort state
+  const [sortState, setSortState] = useState<SortState>({
+    field: "updatedAt",
+    direction: "desc",
+  })
+
+  // Convert notes Map to array
+  const notesArray = useMemo(() => Array.from(notes.values()), [notes])
 
   // Filter notes by search query (matches title or content)
   const filteredNotes = useMemo(() => {
@@ -55,6 +60,50 @@ export function NotesClient() {
         note.content.toLowerCase().includes(query),
     )
   }, [notesArray, searchQuery])
+
+  // Sort notes based on sort state
+  const sortedNotes = useMemo(() => {
+    const sorted = [...filteredNotes].sort((a, b) => {
+      let comparison = 0
+
+      switch (sortState.field) {
+        case "updatedAt": {
+          const aTime =
+            typeof a.updatedAt?.toMillis === "function"
+              ? a.updatedAt.toMillis()
+              : 0
+          const bTime =
+            typeof b.updatedAt?.toMillis === "function"
+              ? b.updatedAt.toMillis()
+              : 0
+          comparison = aTime - bTime
+          break
+        }
+        case "createdAt": {
+          const aTime =
+            typeof a.createdAt?.toMillis === "function"
+              ? a.createdAt.toMillis()
+              : 0
+          const bTime =
+            typeof b.createdAt?.toMillis === "function"
+              ? b.createdAt.toMillis()
+              : 0
+          comparison = aTime - bTime
+          break
+        }
+        case "title": {
+          comparison = a.mediaTitle
+            .toLowerCase()
+            .localeCompare(b.mediaTitle.toLowerCase())
+          break
+        }
+      }
+
+      return sortState.direction === "asc" ? comparison : -comparison
+    })
+
+    return sorted
+  }, [filteredNotes, sortState])
 
   // Handle edit - open modal with the note's media
   const handleEdit = useCallback((note: Note) => {
@@ -133,19 +182,30 @@ export function NotesClient() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Search Input */}
-      <SearchInput
-        id="notes-search-input"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search by title or note content..."
-        aria-label="Search notes by title or content"
-      />
+      {/* Search and Sort Row */}
+      <div className="flex items-center gap-3">
+        <SearchInput
+          id="notes-search-input"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by title or note content..."
+          aria-label="Search notes by title or content"
+          className="flex-1"
+        />
+        <FilterSort
+          filters={[]}
+          filterState={{}}
+          onFilterChange={() => {}}
+          sortFields={SORT_FIELDS}
+          sortState={sortState}
+          onSortChange={setSortState}
+        />
+      </div>
 
       {/* Results */}
-      {filteredNotes.length > 0 ? (
+      {sortedNotes.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredNotes.map((note) => (
+          {sortedNotes.map((note) => (
             <NoteCard
               key={`${note.mediaType}-${note.mediaId}`}
               note={note}
