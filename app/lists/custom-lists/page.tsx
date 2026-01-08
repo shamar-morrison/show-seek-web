@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { CustomListsClient } from "./custom-lists-client"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "Custom Lists | ShowSeek",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function CustomListsPage() {
   return (
     <>
-      <h1 className="mb-8 text-3xl font-bold text-white">Custom Lists</h1>
+      <PageHeader title="Custom Lists" />
       <CustomListsClient />
     </>
   )

@@ -30,7 +30,7 @@ import type {
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 // Filter state interface
 interface DiscoverFilters {
@@ -109,12 +109,49 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
-  const { isPremium } = useAuth()
+  const { isPremium, loading: authLoading } = useAuth()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+
+  const updateFilters = useCallback(
+    (newFilters: Partial<DiscoverFilters>) => {
+      const updated = { ...filters, ...newFilters, page: 1 }
+
+      // If media type changed, reset genre (since genres differ between movie/tv)
+      if (newFilters.mediaType && newFilters.mediaType !== filters.mediaType) {
+        updated.genre = null
+      }
+
+      setFilters(updated)
+
+      const params = new URLSearchParams()
+      if (updated.mediaType !== "movie") params.set("type", updated.mediaType)
+      if (updated.year) params.set("year", updated.year.toString())
+      if (updated.sortBy !== "popularity") params.set("sort", updated.sortBy)
+      if (updated.rating) params.set("rating", updated.rating.toString())
+      if (updated.language) params.set("language", updated.language)
+      if (updated.genre) params.set("genre", updated.genre.toString())
+      if (updated.provider) params.set("provider", updated.provider.toString())
+
+      startTransition(() => {
+        const url = params.toString() ? `/discover?${params}` : "/discover"
+        router.push(url)
+      })
+    },
+    [filters, router],
+  )
+
+  // Prevent non-premium users from using provider filter via URL params
+  useEffect(() => {
+    if (!authLoading && !isPremium && filters.provider !== null) {
+      updateFilters({ provider: null })
+      setShowPremiumModal(true)
+    }
+  }, [authLoading, isPremium, filters.provider, updateFilters])
+
   // Results come from server via initialResults and update on navigation
   const results = initialResults
 
@@ -178,33 +215,7 @@ export function DiscoverClient({
     )
   }, [filters])
 
-  const updateFilters = useCallback(
-    (newFilters: Partial<DiscoverFilters>) => {
-      const updated = { ...filters, ...newFilters, page: 1 }
 
-      // If media type changed, reset genre (since genres differ between movie/tv)
-      if (newFilters.mediaType && newFilters.mediaType !== filters.mediaType) {
-        updated.genre = null
-      }
-
-      setFilters(updated)
-
-      const params = new URLSearchParams()
-      if (updated.mediaType !== "movie") params.set("type", updated.mediaType)
-      if (updated.year) params.set("year", updated.year.toString())
-      if (updated.sortBy !== "popularity") params.set("sort", updated.sortBy)
-      if (updated.rating) params.set("rating", updated.rating.toString())
-      if (updated.language) params.set("language", updated.language)
-      if (updated.genre) params.set("genre", updated.genre.toString())
-      if (updated.provider) params.set("provider", updated.provider.toString())
-
-      startTransition(() => {
-        const url = params.toString() ? `/discover?${params}` : "/discover"
-        router.push(url)
-      })
-    },
-    [filters, router],
-  )
 
   const handlePageChange = useCallback(
     (page: number) => {

@@ -1,5 +1,6 @@
 import { WatchListsClient } from "@/app/lists/watch-lists/watch-lists-client"
 import { Metadata } from "next"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "Watch Lists | ShowSeek",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function WatchListsPage() {
   return (
     <>
-      <h1 className="mb-8 text-3xl font-bold text-white">Watch Lists</h1>
+      <PageHeader title="Watch Lists" />
       <WatchListsClient />
     </>
   )

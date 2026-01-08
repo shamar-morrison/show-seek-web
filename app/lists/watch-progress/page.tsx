@@ -1,5 +1,6 @@
 import { WatchProgressClient } from "@/app/lists/watch-progress/watch-progress-client"
 import { Metadata } from "next"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "Watch Progress | ShowSeek",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function WatchProgressPage() {
   return (
     <>
-      <h1 className="mb-8 text-3xl font-bold text-white">Watch Progress</h1>
+      <PageHeader title="Watch Progress" />
       <WatchProgressClient />
     </>
   )

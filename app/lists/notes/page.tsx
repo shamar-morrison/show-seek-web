@@ -1,5 +1,6 @@
 import { NotesClient } from "@/app/lists/notes/notes-client"
 import { Metadata } from "next"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "My Notes | ShowSeek",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function NotesPage() {
   return (
     <>
-      <h1 className="mb-8 text-3xl font-bold text-white">My Notes</h1>
+      <PageHeader title="My Notes" />
       <NotesClient />
     </>
   )

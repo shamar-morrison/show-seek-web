@@ -1,5 +1,6 @@
 import { FavoritePeopleClient } from "@/app/lists/favorite-people/favorite-people-client"
 import { Metadata } from "next"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "Favorite People | ShowSeek",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function FavoritePeoplePage() {
   return (
     <>
-      <h1 className="mb-8 text-3xl font-bold text-white">Favorite People</h1>
+      <PageHeader title="Favorite People" />
       <FavoritePeopleClient />
     </>
   )
