@@ -375,7 +375,9 @@ export function EpisodeDetailClient({
 
                   {!hasAired && (
                     <div className="rounded-full bg-primary/20 px-6 py-2.5 text-sm font-semibold text-primary backdrop-blur-sm">
-                      Coming {formatDateLong(episode.air_date!)}
+                      {episode.air_date
+                        ? `Coming ${formatDateLong(episode.air_date)}`
+                        : "TBA"}
                     </div>
                   )}
                 </div>

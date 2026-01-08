@@ -93,7 +93,7 @@ export function ProfilePageClient() {
           ) : (
             <button
               onClick={() => setShowPremiumModal(true)}
-              className="rounded-full bg-linear-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Upgrade to Premium
             </button>
