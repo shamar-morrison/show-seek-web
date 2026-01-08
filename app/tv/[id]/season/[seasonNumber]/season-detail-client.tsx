@@ -154,6 +154,7 @@ export function SeasonDetailClient({
       )
     } catch (error) {
       console.error("Failed to mark all episodes watched:", error)
+      toast.error(`Failed to mark all episodes watched. Please try again.`)
     } finally {
       setIsMarkingAll(false)
     }
