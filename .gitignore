@@ -15,6 +15,7 @@ prompt.md
 firebase.json
 firestore.indexes.json
 firestore.rules
+*.md
 
 # testing
 /coverage

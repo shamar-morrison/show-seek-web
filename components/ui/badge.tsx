@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils"
-import { StarIcon } from "@hugeicons/core-free-icons"
+import { CrownIcon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { ReactNode } from "react"
 
 interface BadgeProps {
   /** Badge content */
   children: ReactNode
-  /** Badge variant - "rating" adds yellow styling with star icon */
-  variant?: "default" | "rating"
+  /** Badge variant */
+  variant?: "default" | "rating" | "premium"
   /** Additional className */
   className?: string
 }
@@ -31,6 +31,20 @@ export function Badge({
         )}
       >
         <HugeiconsIcon icon={StarIcon} className="size-3 fill-yellow-500" />
+        {children}
+      </span>
+    )
+  }
+
+  if (variant === "premium") {
+    return (
+      <span
+        className={cn(
+          "flex items-center gap-1 rounded-md bg-amber-500/20 px-2.5 py-1 text-sm font-medium text-amber-400 backdrop-blur-sm",
+          className,
+        )}
+      >
+        <HugeiconsIcon icon={CrownIcon} className="size-3" />
         {children}
       </span>
     )

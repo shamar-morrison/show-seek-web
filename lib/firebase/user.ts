@@ -2,6 +2,20 @@ import { User } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 import { db } from "./config"
 
+export interface UserPreferences {
+  autoAddToWatching: boolean
+  autoAddToAlreadyWatched: boolean
+  showListIndicators: boolean
+  blurPlotSpoilers: boolean
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  autoAddToWatching: false,
+  autoAddToAlreadyWatched: false,
+  showListIndicators: false,
+  blurPlotSpoilers: false,
+}
+
 export interface UserDocument {
   uid: string
   displayName: string | null
@@ -14,6 +28,7 @@ export interface UserDocument {
     productId?: string
     purchaseDate?: ReturnType<typeof serverTimestamp>
   }
+  preferences?: Partial<UserPreferences>
 }
 
 /**
