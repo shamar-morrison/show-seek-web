@@ -1,4 +1,3 @@
-import { Navbar } from "@/components/navbar"
 import { getSeasonDetails, getTVDetails } from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -36,7 +35,6 @@ export default async function SeasonPage({ params }: SeasonPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <Navbar />
       <SeasonDetailClient tvShow={tvShow} season={season} tvShowId={tvId} />
     </main>
   )

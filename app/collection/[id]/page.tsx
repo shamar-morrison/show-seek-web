@@ -1,5 +1,4 @@
 import { CollectionMoviesGrid } from "@/components/collection-movies-grid"
-import { Navbar } from "@/components/navbar"
 import { getCollectionDetails } from "@/lib/tmdb"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -44,8 +43,6 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
 
   return (
     <main className="min-h-screen bg-black pb-20">
-      <Navbar />
-
       {/* Hero Section */}
       <section className="relative w-full overflow-hidden">
         {/* Background Backdrop Image */}

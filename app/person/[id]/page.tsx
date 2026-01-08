@@ -1,5 +1,4 @@
 import { FavoritePersonButton } from "@/components/favorite-person-button"
-import { Navbar } from "@/components/navbar"
 import { PageContainer } from "@/components/page-container"
 import { PersonContent } from "@/components/person-content"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
@@ -59,8 +58,6 @@ export default async function PersonPage({ params }: PersonPageProps) {
 
   return (
     <main className="min-h-screen bg-black text-white pt-28">
-      <Navbar />
-
       <PageContainer className="py-8">
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Left Sidebar (Profile Info) */}

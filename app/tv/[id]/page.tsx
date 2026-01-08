@@ -1,7 +1,6 @@
 import { CastRow } from "@/components/cast-row"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { MediaDetails } from "@/components/media-details"
-import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
 import { ReviewsSection } from "@/components/reviews-section"
@@ -55,7 +54,6 @@ export default async function TVPage({ params }: TVPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <Navbar />
       <MediaDetailHero media={tvShow} mediaType="tv" trailerKey={trailerKey} />
       <SeasonsRow title="Seasons" seasons={seasons} tvShowId={tvId} />
       <CastRow

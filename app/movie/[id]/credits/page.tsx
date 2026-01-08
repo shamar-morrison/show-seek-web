@@ -1,4 +1,3 @@
-import { Navbar } from "@/components/navbar"
 import { getMovieDetails } from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -29,7 +28,6 @@ export default async function MovieCreditsPage({ params }: CreditsPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <Navbar />
       <div className="mx-auto max-w-[1800px] px-4 pt-24 sm:px-8 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-4">
           {movie.title} - Cast & Crew

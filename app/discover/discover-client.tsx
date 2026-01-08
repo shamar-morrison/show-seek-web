@@ -1,7 +1,6 @@
 "use client"
 
 import { MediaCard } from "@/components/media-card"
-import { Navbar } from "@/components/navbar"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
@@ -234,7 +233,6 @@ export function DiscoverClient({
 
   return (
     <>
-      <Navbar />
       <main className="min-h-screen pt-32 pb-16">
         <PageContainer>
           {/* Header */}

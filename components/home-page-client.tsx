@@ -3,7 +3,6 @@
 import { fetchTrailerKey } from "@/app/actions"
 import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
-import { Navbar } from "@/components/navbar"
 import { TrailerModal } from "@/components/trailer-modal"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import { useState } from "react"
@@ -72,8 +71,6 @@ export function HomePageClient({
 
   return (
     <main className="min-h-screen bg-black pb-16">
-      <Navbar />
-
       <HeroSection
         mediaList={heroMediaList}
         onWatchTrailer={handleHeroWatchTrailer}

@@ -1,4 +1,5 @@
 import { Footer } from "@/components/footer"
+import { Navbar } from "@/components/navbar"
 import { Providers } from "@/components/providers"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased font-sans`}>
         <Providers>
           <NextTopLoader color="#E50914" showSpinner={false} />
+          <Navbar />
           {children}
           <Footer />
           <Toaster position="top-center" richColors theme="dark" />

@@ -2,7 +2,6 @@ import { CastRow } from "@/components/cast-row"
 import { CollectionSection } from "@/components/collection-section"
 import { MediaDetailHero } from "@/components/media-detail-hero"
 import { MediaDetails } from "@/components/media-details"
-import { Navbar } from "@/components/navbar"
 import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
 import { ReviewsSection } from "@/components/reviews-section"
@@ -55,7 +54,6 @@ export default async function MoviePage({ params }: MoviePageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <Navbar />
       <MediaDetailHero
         media={movie}
         mediaType="movie"
