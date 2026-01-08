@@ -4,6 +4,7 @@ import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { addToList } from "@/lib/firebase/lists"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
@@ -15,6 +16,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useCallback, useState } from "react"
+import { toast } from "sonner"
 
 interface EpisodeCardProps {
   episode: TMDBSeasonEpisode
@@ -160,6 +162,27 @@ export function EpisodeCard({
           showStats,
           nextEpisode,
         )
+
+        // Auto-add to "Watching" list if preference is enabled
+        if (preferences.autoAddToWatching) {
+          try {
+            const wasAdded = await addToList(user.uid, "currently-watching", {
+              id: tvShowId,
+              title: tvShowName,
+              poster_path: tvShowPosterPath,
+              media_type: "tv",
+              vote_average: 0, // Placeholder as we don't have show rating here
+              release_date: "", // Placeholder as we don't have show air date here
+            })
+
+            if (wasAdded) {
+              toast.success("Added to Watching list")
+            }
+          } catch (listError) {
+            console.error("Failed to auto-add to Watching list:", listError)
+            // Don't fail the whole operation if list update fails
+          }
+        }
       }
     } catch (error) {
       console.error("Failed to toggle watched status:", error)
@@ -177,6 +200,7 @@ export function EpisodeCard({
     tvShowPosterPath,
     showStats,
     computeNextEpisode,
+    preferences.autoAddToWatching,
   ])
 
   const stillUrl = episode.still_path

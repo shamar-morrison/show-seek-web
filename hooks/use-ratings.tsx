@@ -1,6 +1,8 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { usePreferences } from "@/hooks/use-preferences"
+import { addToList } from "@/lib/firebase/lists"
 import {
   deleteEpisodeRating,
   deleteRating,
@@ -9,6 +11,7 @@ import {
 } from "@/lib/firebase/ratings"
 import type { Rating } from "@/types/rating"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
@@ -18,6 +21,7 @@ export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
  */
 export function useRatings() {
   const { user, loading: authLoading } = useAuth()
+  const { preferences } = usePreferences()
   const [ratings, setRatings] = useState<Map<string, Rating>>(new Map())
   const [loading, setLoading] = useState(true)
 
@@ -83,8 +87,34 @@ export function useRatings() {
         posterPath,
         releaseDate,
       })
+
+      // Auto-add to "Already Watched" list if preference is enabled and it's a movie
+      if (
+        mediaType === "movie" &&
+        preferences.autoAddToAlreadyWatched
+      ) {
+        try {
+          const wasAdded = await addToList(user.uid, "already-watched", {
+            id: mediaId,
+            title,
+            poster_path: posterPath,
+            media_type: "movie",
+            vote_average: 0, // Placeholder as we don't have global rating here
+            release_date: releaseDate || "",
+          })
+
+          if (wasAdded) {
+            toast.success("Added to Already Watched list")
+          }
+        } catch (listError) {
+          console.error(
+            "Failed to auto-add to Already Watched list:",
+            listError,
+          )
+        }
+      }
     },
-    [user],
+    [user, preferences.autoAddToAlreadyWatched],
   )
 
   /**
