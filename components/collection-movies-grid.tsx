@@ -1,6 +1,6 @@
 "use client"
 
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -21,7 +21,7 @@ export function CollectionMoviesGrid({ movies }: CollectionMoviesGridProps) {
     <>
       <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
         {movies.map((movie) => (
-          <MediaCard
+          <MediaCardWithActions
             key={movie.id}
             media={movie}
             onWatchTrailer={handleWatchTrailer}

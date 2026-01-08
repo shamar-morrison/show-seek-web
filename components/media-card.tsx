@@ -7,7 +7,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBMedia } from "@/types/tmdb"
-import { Loading03Icon, PlayIcon, StarIcon } from "@hugeicons/core-free-icons"
+import {
+  BookmarkIcon,
+  CheckmarkCircle02Icon,
+  FavouriteIcon,
+  Loading03Icon,
+  PlayIcon,
+  StarIcon,
+  StopCircleIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -24,6 +32,8 @@ interface MediaCardProps {
   userRating?: number | null
   /** Optional dropdown menu items */
   dropdownItems?: DropdownMenuItem[]
+  /** Optional list IDs to display indicators for */
+  listIds?: string[]
 }
 
 export function MediaCard({
@@ -35,6 +45,7 @@ export function MediaCard({
   showRating = false,
   userRating,
   dropdownItems,
+  listIds,
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -64,6 +75,26 @@ export function MediaCard({
 
   const detailUrl = getDetailUrl(media.media_type, media.id)
 
+  const getListIcon = (listId: string) => {
+    switch (listId) {
+      case "favorites":
+        return { icon: FavouriteIcon, color: "text-red-500 fill-red-500" }
+      case "watchlist":
+        return { icon: BookmarkIcon, color: "text-blue-500 fill-blue-500" }
+      case "currently-watching":
+        return { icon: PlayIcon, color: "text-amber-500 fill-amber-500" }
+      case "already-watched":
+        return {
+          icon: CheckmarkCircle02Icon,
+          color: "text-green-500 fill-green-500",
+        }
+      case "dropped":
+        return { icon: StopCircleIcon, color: "text-red-500" }
+      default:
+        return null
+    }
+  }
+
   return (
     <Link href={detailUrl} className="block">
       <div className="group relative w-full overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300 cursor-pointer">
@@ -92,18 +123,43 @@ export function MediaCard({
             />
           )}
 
-          {/* User Rating Badge */}
-          {userRating != null && (
-            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
-              <HugeiconsIcon
-                icon={StarIcon}
-                className="size-3.5 fill-yellow-500 text-yellow-500"
-              />
-              <span className="text-sm font-semibold text-white">
-                {userRating}/10
-              </span>
-            </div>
-          )}
+          {/* Status Badges - Top Left */}
+          <div className="absolute top-2 left-2 flex flex-col gap-2">
+            {/* User Rating Badge */}
+            {userRating != null && (
+              <div className="flex w-fit items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
+                <HugeiconsIcon
+                  icon={StarIcon}
+                  className="size-3.5 fill-yellow-500 text-yellow-500"
+                />
+                <span className="text-sm font-semibold text-white">
+                  {userRating}/10
+                </span>
+              </div>
+            )}
+
+            {/* List Indicators */}
+            {listIds && listIds.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {listIds.map((listId) => {
+                  const indicator = getListIcon(listId)
+                  if (!indicator) return null
+                  return (
+                    <div
+                      key={listId}
+                      className="flex items-center justify-center rounded-md bg-black/80 p-1.5 backdrop-blur-sm"
+                      title={listId}
+                    >
+                      <HugeiconsIcon
+                        icon={indicator.icon}
+                        className={`size-3.5 ${indicator.color}`}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Info Content */}

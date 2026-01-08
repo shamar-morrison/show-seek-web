@@ -1,7 +1,7 @@
 "use client"
 
 import { fetchTrailerKey } from "@/app/actions"
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import {
@@ -124,7 +124,7 @@ export function PersonContent({ person }: PersonContentProps) {
       {/* Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {mediaItems.map((media) => (
-          <MediaCard
+          <MediaCardWithActions
             key={`${media.media_type}-${media.id}`}
             media={media}
             buttonText="Trailer"

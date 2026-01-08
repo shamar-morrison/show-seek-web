@@ -9,6 +9,7 @@ import { RatingModal } from "@/components/rating-modal"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -47,6 +48,7 @@ export function MediaCardWithActions({
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
 
   const { lists } = useLists()
+  const { preferences } = usePreferences()
   const { getRating } = useRatings()
   const { getNote } = useNotes()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
@@ -69,6 +71,16 @@ export function MediaCardWithActions({
     const numericKey = String(media.id)
     return lists.some((list) => list.items && list.items[numericKey])
   }, [lists, media.id])
+
+  // Get lists the media is in (if preference enabled)
+  const listIds = useMemo(() => {
+    if (!preferences.showListIndicators) return undefined
+
+    const numericKey = String(media.id)
+    return lists
+      .filter((list) => list.items && list.items[numericKey])
+      .map((list) => list.id)
+  }, [lists, media.id, preferences.showListIndicators])
 
   // Build dropdown items
   const dropdownItems: DropdownMenuItem[] = useMemo(() => {
@@ -138,6 +150,7 @@ export function MediaCardWithActions({
         buttonText={buttonText}
         dropdownItems={dropdownItems}
         userRating={userRating?.rating}
+        listIds={listIds}
       />
 
       {/* Add to List Modal */}

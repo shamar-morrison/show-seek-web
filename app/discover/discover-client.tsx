@@ -1,6 +1,6 @@
 "use client"
 
-import { MediaCard } from "@/components/media-card"
+import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
@@ -355,7 +355,7 @@ export function DiscoverClient({
           {!isPending && results.results.length > 0 && (
             <div className="mb-12 grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
               {results.results.map((media) => (
-                <MediaCard
+                <MediaCardWithActions
                   key={`${media.media_type}-${media.id}`}
                   media={media}
                   onWatchTrailer={handleWatchTrailer}
