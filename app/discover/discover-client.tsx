@@ -410,7 +410,6 @@ export function DiscoverClient({
                   isLoading={
                     loadingMediaId === `${media.media_type}-${media.id}`
                   }
-                  showRating
                 />
               ))}
             </div>
