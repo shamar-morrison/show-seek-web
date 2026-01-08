@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer"
 import { Navbar } from "@/components/navbar"
 import { Providers } from "@/components/providers"
+import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import NextTopLoader from "nextjs-toploader"
@@ -30,6 +31,7 @@ export default function RootLayout({
           <NextTopLoader color="#E50914" showSpinner={false} />
           <Navbar />
           {children}
+          <Analytics />
           <Footer />
           <Toaster position="top-center" richColors theme="dark" />
         </Providers>

@@ -503,7 +503,7 @@ export function AddToListModal({
             <Button
               onClick={mode === "add" ? handleSave : () => setMode("add")}
               disabled={isSaving || listsLoading}
-              className="w-full"
+              className="w-full rounded-md"
             >
               {isSaving ? (
                 <>
