@@ -1,19 +1,37 @@
-import { Navbar } from "@/components/navbar"
-import { HeroSection } from "@/components/hero-section"
-import { getHeroMediaList } from "@/lib/tmdb"
+import {
+  getHeroMediaList,
+  getTrendingMedia,
+  getPopularMovies,
+  getTopRatedTV,
+  getUpcomingMovies,
+} from "@/lib/tmdb"
+import { HomePageClient } from "@/components/home-page-client"
 
-/**
- * Home Page
- * Server component that fetches trending media and composes the home screen
- */
-export default async function HomePage() {
-  // Fetch top 5 trending media for the hero carousel
-  const heroMediaList = await getHeroMediaList(5)
+export const revalidate = 3600 // Revalidate every hour
+
+export default async function Home() {
+  // Fetch all required data in parallel
+  const [
+    heroMediaList,
+    trendingList,
+    popularMovies,
+    topRatedTV,
+    upcomingMovies,
+  ] = await Promise.all([
+    getHeroMediaList(),
+    getTrendingMedia("day"),
+    getPopularMovies(),
+    getTopRatedTV(),
+    getUpcomingMovies(),
+  ])
 
   return (
-    <main className="min-h-screen bg-black">
-      <Navbar />
-      <HeroSection mediaList={heroMediaList} />
-    </main>
+    <HomePageClient
+      heroMediaList={heroMediaList}
+      trendingList={trendingList}
+      popularMovies={popularMovies}
+      topRatedTV={topRatedTV}
+      upcomingMovies={upcomingMovies}
+    />
   )
 }

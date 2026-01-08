@@ -1,37 +1,164 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
+import { AuthModal } from "@/components/auth-modal"
+import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
+import { UserMenu } from "@/components/user-menu"
+import { useAuth } from "@/context/auth-context"
+import { SHOWSEEK_ICON } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+import { Collapsible } from "@base-ui/react/collapsible"
+import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import {
-  Search01Icon,
-  Menu01Icon,
   Cancel01Icon,
-  Home01Icon,
-  Film01Icon,
-  Tv01Icon,
-  Compass01Icon,
-  LibraryIcon,
+  Menu01Icon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { default as Link, default as NextLink } from "next/link"
+import { useEffect, useState } from "react"
 
-/** Navigation menu item type */
-interface NavItem {
+/** Navigation item with sublinks */
+interface NavItemWithSubmenu {
   label: string
-  href: string
-  icon: typeof Home01Icon
+  links: { label: string; href: string }[]
 }
 
-/** Navigation menu items */
-const navItems: NavItem[] = [
-  { label: "Home", href: "/", icon: Home01Icon },
-  { label: "Movies", href: "/movies", icon: Film01Icon },
-  { label: "TV Shows", href: "/tv-shows", icon: Tv01Icon },
-  { label: "Discover", href: "/discover", icon: Compass01Icon },
-  { label: "Library", href: "/library", icon: LibraryIcon },
-]
+/** Simple navigation link */
+interface SimpleNavItem {
+  label: string
+  href: string
+}
+
+/** Navigation menu data */
+const listsMenu: NavItemWithSubmenu = {
+  label: "Lists",
+  links: [
+    { label: "Watch Progress", href: "/lists/watch-progress" },
+    { label: "Watch Lists", href: "/lists/watch-lists" },
+    { label: "Custom Lists", href: "/lists/custom-lists" },
+    { label: "Notes", href: "/lists/notes" },
+    { label: "Favorite People", href: "/lists/favorite-people" },
+  ],
+}
+
+const ratingsLink: SimpleNavItem = {
+  label: "Ratings",
+  href: "/ratings",
+}
+
+const discoverLink: SimpleNavItem = {
+  label: "Discover",
+  href: "/discover",
+}
+
+/** Chevron icon for dropdown indicators */
+function ChevronDownIcon(props: React.ComponentProps<"svg">) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" {...props}>
+      <path d="M1 3.5L5 7.5L9 3.5" stroke="currentcolor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+/** Arrow SVG for the navigation menu popup */
+function ArrowSvg(props: React.ComponentProps<"svg">) {
+  return (
+    <svg width="20" height="10" viewBox="0 0 20 10" fill="none" {...props}>
+      <path
+        d="M9.66437 2.60207L4.80758 6.97318C4.07308 7.63423 3.11989 8 2.13172 8H0V10H20V8H18.5349C17.5468 8 16.5936 7.63423 15.8591 6.97318L11.0023 2.60207C10.622 2.2598 10.0447 2.25979 9.66437 2.60207Z"
+        className="fill-[#1a1a1a]"
+      />
+      <path
+        d="M8.99542 1.85876C9.75604 1.17425 10.9106 1.17422 11.6713 1.85878L16.5281 6.22989C17.0789 6.72568 17.7938 7.00001 18.5349 7.00001L15.89 7L11.0023 2.60207C10.622 2.2598 10.0447 2.2598 9.66436 2.60207L4.77734 7L2.13171 7.00001C2.87284 7.00001 3.58774 6.72568 4.13861 6.22989L8.99542 1.85876Z"
+        className="fill-[#1a1a1a]"
+      />
+      <path
+        d="M10.3333 3.34539L5.47654 7.71648C4.55842 8.54279 3.36693 9 2.13172 9H0V8H2.13172C3.11989 8 4.07308 7.63423 4.80758 6.97318L9.66437 2.60207C10.0447 2.25979 10.622 2.2598 11.0023 2.60207L15.8591 6.97318C16.5936 7.63423 17.5468 8 18.5349 8H20V9H18.5349C17.2998 9 16.1083 8.54278 15.1901 7.71648L10.3333 3.34539Z"
+        className="fill-white/10"
+      />
+    </svg>
+  )
+}
+
+/** Custom link component that uses Next.js Link for client-side routing */
+function NavLink(props: NavigationMenu.Link.Props) {
+  return (
+    <NavigationMenu.Link
+      render={<NextLink href={props.href ?? ""} />}
+      {...props}
+    />
+  )
+}
+
+/** Dropdown menu item component */
+function DropdownMenuItem({ item }: { item: NavItemWithSubmenu }) {
+  return (
+    <NavigationMenu.Item>
+      <NavigationMenu.Trigger className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white data-popup-open:text-white">
+        {item.label}
+        <NavigationMenu.Icon className="flex transition-transform duration-200 data-popup-open:rotate-180">
+          <ChevronDownIcon />
+        </NavigationMenu.Icon>
+      </NavigationMenu.Trigger>
+      <NavigationMenu.Content className="p-2">
+        <ul className="flex flex-col gap-0.5 list-none m-0 p-0 min-w-[180px]">
+          {item.links.map((link) => (
+            <li key={link.href}>
+              <NavLink
+                href={link.href}
+                className="block px-3.5 py-2.5 text-sm font-medium text-gray-300 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/8 hover:text-white data-active:text-primary"
+                closeOnClick
+              >
+                {link.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </NavigationMenu.Content>
+    </NavigationMenu.Item>
+  )
+}
+
+/** Mobile accordion menu item */
+function MobileAccordionItem({
+  item,
+  onLinkClick,
+}: {
+  item: NavItemWithSubmenu
+  onLinkClick: () => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Collapsible.Trigger className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-300 bg-transparent border-none rounded-lg cursor-pointer transition-[background-color,color] duration-150 text-left hover:bg-white/5 hover:text-white">
+        <ChevronDownIcon
+          className={cn(
+            "transition-transform duration-200 ease-out",
+            isOpen && "rotate-180",
+          )}
+        />
+        {item.label}
+      </Collapsible.Trigger>
+      <Collapsible.Panel className="overflow-hidden transition-[height] duration-300 ease-out data-starting-style:h-0 data-ending-style:h-0 data-open:h-(--panel-height)">
+        <div className="flex flex-col gap-0.5 pl-7 py-1">
+          {item.links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={onLinkClick}
+              className="block px-3 py-2 text-sm font-medium text-gray-400 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/5 hover:text-white"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  )
+}
 
 /**
  * Navbar Component
@@ -40,6 +167,7 @@ const navItems: NavItem[] = [
  * Animates from transparent to solid black on scroll
  */
 export function Navbar() {
+  const { user, loading } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -51,6 +179,8 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
   return (
     <nav
@@ -70,9 +200,9 @@ export function Navbar() {
               className="flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               {/* Logo Icon */}
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E50914]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
                 <HugeiconsIcon
-                  icon={Film01Icon}
+                  icon={SHOWSEEK_ICON}
                   className="size-5 text-white"
                 />
               </div>
@@ -80,38 +210,53 @@ export function Navbar() {
             </Link>
 
             {/* Center Section - Navigation (Desktop) */}
-            <div className="hidden items-center gap-1 md:flex">
-              {navItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    item.label === "Home"
-                      ? "text-[#E50914]"
-                      : "text-gray-300 hover:bg-white/5 hover:text-white",
-                  )}
+            <NavigationMenu.Root className="hidden lg:block">
+              <NavigationMenu.List className="flex items-center gap-1 list-none m-0 p-0">
+                {/* Discover - Simple Link */}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={discoverLink.href}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {discoverLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
+
+                {/* Lists - Dropdown */}
+                <DropdownMenuItem item={listsMenu} />
+
+                {/* Ratings - Simple Link */}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={ratingsLink.href}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {ratingsLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
+              </NavigationMenu.List>
+
+              <NavigationMenu.Portal>
+                <NavigationMenu.Positioner
+                  className="z-100 outline-none"
+                  sideOffset={10}
+                  collisionPadding={{ top: 5, bottom: 5, left: 20, right: 20 }}
                 >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+                  <NavigationMenu.Popup className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden origin-(--transform-origin) transition-[opacity,transform] duration-200 ease-out data-starting-style:opacity-0 data-starting-style:-translate-y-2 data-ending-style:opacity-0 data-ending-style:-translate-y-2 data-open:opacity-100 data-open:translate-y-0">
+                    <NavigationMenu.Arrow className="flex items-center justify-center absolute -top-2.5 left-1/2 -translate-x-1/2 z-1">
+                      <ArrowSvg />
+                    </NavigationMenu.Arrow>
+                    <NavigationMenu.Viewport className="relative" />
+                  </NavigationMenu.Popup>
+                </NavigationMenu.Positioner>
+              </NavigationMenu.Portal>
+            </NavigationMenu.Root>
           </div>
 
           {/* Right Section - Search & Auth */}
           <div className="flex items-center gap-3">
             {/* Search Bar (Desktop) */}
-            <div className="relative hidden sm:block">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
-              />
-              <Input
-                type="text"
-                placeholder="Search..."
-                className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-gray-500 focus:border-[#E50914]/50 focus:ring-[#E50914]/20 lg:w-64"
-              />
-            </div>
+            <SearchDropdown className="hidden sm:block" />
 
             {/* Search Icon (Mobile) */}
             <Button
@@ -122,16 +267,20 @@ export function Navbar() {
               <HugeiconsIcon icon={Search01Icon} className="size-5" />
             </Button>
 
-            {/* Sign In Button */}
-            <Button className="bg-[#E50914] px-5 font-semibold text-white transition-all hover:bg-[#B20710]">
-              Sign In
-            </Button>
+            {/* Auth Section - Sign In or User Menu */}
+            {loading ? (
+              <Skeleton className="h-9 w-[100px] rounded-lg" />
+            ) : user ? (
+              <UserMenu />
+            ) : (
+              <AuthModal />
+            )}
 
             {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-gray-300 hover:bg-white/5 hover:text-white md:hidden"
+              className="text-gray-300 hover:bg-white/5 hover:text-white lg:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <HugeiconsIcon
@@ -145,27 +294,34 @@ export function Navbar() {
         {/* Mobile Navigation Menu */}
         <div
           className={cn(
-            "overflow-hidden transition-all duration-300 ease-in-out md:hidden",
-            isMobileMenuOpen ? "max-h-96 pb-4" : "max-h-0",
+            "overflow-hidden transition-all duration-300 ease-in-out lg:hidden",
+            isMobileMenuOpen ? "max-h-[500px] pb-4" : "max-h-0",
           )}
         >
           <div className="flex flex-col gap-1 pt-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  item.label === "Home"
-                    ? "bg-[#E50914]/10 text-[#E50914]"
-                    : "text-gray-300 hover:bg-white/5 hover:text-white",
-                )}
-              >
-                <HugeiconsIcon icon={item.icon} className="size-5" />
-                {item.label}
-              </Link>
-            ))}
+            {/* Discover - Simple Link */}
+            <Link
+              href={discoverLink.href}
+              onClick={closeMobileMenu}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {discoverLink.label}
+            </Link>
+
+            {/* Lists - Accordion */}
+            <MobileAccordionItem
+              item={listsMenu}
+              onLinkClick={closeMobileMenu}
+            />
+
+            {/* Ratings - Simple Link */}
+            <Link
+              href={ratingsLink.href}
+              onClick={closeMobileMenu}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {ratingsLink.label}
+            </Link>
           </div>
         </div>
       </div>

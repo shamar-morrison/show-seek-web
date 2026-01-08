@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { TrailerModal } from "@/components/trailer-modal"
-import type { HeroMedia } from "@/types/tmdb"
-import { PlayIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { Badge } from "@/components/ui/badge"
+import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { cn } from "@/lib/utils"
+import type { HeroMedia } from "@/types/tmdb"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import Image from "next/image"
+import Link from "next/link"
+import { useCallback, useEffect, useState } from "react"
 
 /** Duration each slide is shown (in milliseconds) */
 const SLIDE_DURATION = 5000
@@ -17,6 +18,8 @@ const ANIMATION_DURATION = 800
 
 interface HeroSectionProps {
   mediaList: HeroMedia[]
+  onWatchTrailer?: (media: HeroMedia) => void
+  isPaused?: boolean
 }
 
 /**
@@ -24,16 +27,15 @@ interface HeroSectionProps {
  * Cinematic hero carousel that cycles through trending media
  * with smooth fade animations between slides
  */
-export function HeroSection({ mediaList }: HeroSectionProps) {
+export function HeroSection({
+  mediaList,
+  onWatchTrailer,
+  isPaused = false,
+}: HeroSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
   const [displayIndex, setDisplayIndex] = useState(0)
   const [resetKey, setResetKey] = useState(0) // Used to reset the auto-advance timer
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false)
-  const [activeTrailer, setActiveTrailer] = useState<{
-    key: string
-    title: string
-  } | null>(null)
 
   // Handle slide transition
   const goToNextSlide = useCallback(() => {
@@ -49,14 +51,14 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
     }, ANIMATION_DURATION / 2)
   }, [mediaList.length])
 
-  // Auto-advance slides - pauses when trailer modal is open
+  // Auto-advance slides - pauses when isPaused prop is true (e.g., when parent opens trailer modal via onWatchTrailer callback)
   useEffect(() => {
     if (mediaList.length <= 1) return
-    if (isTrailerOpen) return // Pause when trailer is playing
+    if (isPaused) return // Pause when trailer is playing
 
     const interval = setInterval(goToNextSlide, SLIDE_DURATION)
     return () => clearInterval(interval)
-  }, [goToNextSlide, mediaList.length, resetKey, isTrailerOpen])
+  }, [goToNextSlide, mediaList.length, resetKey, isPaused])
 
   // Fallback content if no media is available
   if (!mediaList || mediaList.length === 0) {
@@ -138,18 +140,13 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
             {/* Metadata Badges */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
               {currentMedia.releaseYear && (
-                <span className="rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium text-gray-300 backdrop-blur-sm">
-                  {currentMedia.releaseYear}
-                </span>
+                <Badge>{currentMedia.releaseYear}</Badge>
               )}
-              <span className="rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium uppercase text-gray-300 backdrop-blur-sm">
+              <Badge className="uppercase">
                 {currentMedia.mediaType === "movie" ? "Movie" : "TV Series"}
-              </span>
+              </Badge>
               {currentMedia.voteAverage > 0 && (
-                <span className="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2.5 py-1 text-sm font-medium text-yellow-400 backdrop-blur-sm">
-                  <span className="text-yellow-500">★</span>
-                  {currentMedia.voteAverage}
-                </span>
+                <Badge variant="rating">{currentMedia.voteAverage}</Badge>
               )}
             </div>
 
@@ -160,36 +157,22 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                className="group bg-[#E50914] px-6 font-semibold text-white shadow-lg shadow-[#E50914]/30 transition-all hover:bg-[#B20710] hover:shadow-[#E50914]/50"
-                onClick={() => {
-                  if (currentMedia.trailerKey) {
-                    setActiveTrailer({
-                      key: currentMedia.trailerKey,
-                      title: currentMedia.title,
-                    })
-                    setIsTrailerOpen(true)
-                  }
-                }}
-                disabled={!currentMedia.trailerKey}
+              <WatchTrailerButton
+                hasTrailer={!!currentMedia.trailerKey && !!onWatchTrailer}
+                onClick={() => onWatchTrailer?.(currentMedia)}
+              />
+
+              {/* More Info Button - Secondary/Outline */}
+              <Link
+                href={`/${currentMedia.mediaType}/${currentMedia.id}`}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
               >
                 <HugeiconsIcon
-                  icon={PlayIcon}
-                  className="size-5 transition-transform group-hover:scale-110"
+                  icon={InformationCircleIcon}
+                  className="size-5"
                 />
-                Watch Trailer
-              </Button>
-
-              {/* Add to List Button - Secondary/Outline */}
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-              >
-                <HugeiconsIcon icon={PlusSignIcon} className="size-5" />
-                Add to List
-              </Button>
+                More Info
+              </Link>
             </div>
           </div>
 
@@ -215,7 +198,7 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
                     className={cn(
                       "h-1.5 rounded-full transition-all duration-300",
                       index === currentIndex
-                        ? "w-8 bg-[#E50914]"
+                        ? "w-8 bg-primary"
                         : "w-4 bg-white/30 hover:bg-white/50",
                     )}
                     aria-label={`Go to slide ${index + 1}`}
@@ -226,19 +209,6 @@ export function HeroSection({ mediaList }: HeroSectionProps) {
           )}
         </div>
       </div>
-
-      {/* Trailer Modal */}
-      <TrailerModal
-        videoKey={activeTrailer?.key || null}
-        isOpen={isTrailerOpen}
-        onClose={() => {
-          setIsTrailerOpen(false)
-          setActiveTrailer(null)
-          // Reset the timer when closing so user gets full duration on current slide
-          setResetKey((prev) => prev + 1)
-        }}
-        title={activeTrailer?.title || "Trailer"}
-      />
     </section>
   )
 }

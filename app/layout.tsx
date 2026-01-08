@@ -1,15 +1,16 @@
+import { Footer } from "@/components/footer"
+import { Navbar } from "@/components/navbar"
+import { Providers } from "@/components/providers"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter } from "next/font/google"
+import NextTopLoader from "nextjs-toploader"
+import { Toaster } from "sonner"
 import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-})
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 })
 
 export const metadata: Metadata = {
@@ -24,10 +25,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${inter.variable} antialiased font-sans`}>
+        <Providers>
+          <NextTopLoader color="#E50914" showSpinner={false} />
+          <Navbar />
+          {children}
+          <Footer />
+          <Toaster position="top-center" richColors theme="dark" />
+        </Providers>
       </body>
     </html>
   )
