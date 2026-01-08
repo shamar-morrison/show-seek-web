@@ -30,19 +30,7 @@ export function Footer() {
               href="/"
               className="text-gray-400 transition-colors hover:text-white"
             >
-              Home
-            </Link>
-            <Link
-              href="/movies"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              Movies
-            </Link>
-            <Link
-              href="/tv-shows"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              TV Shows
+              Discover
             </Link>
             <Link
               href="/search"
@@ -53,52 +41,23 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Categories Column */}
-        <div className="flex flex-col gap-4">
-          <h3 className="font-semibold text-white">Categories</h3>
-          <div className="flex flex-col gap-2">
-            <Link
-              href="/movies/popular"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              Popular Movies
-            </Link>
-            <Link
-              href="/movies/top-rated"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              Top Rated Movies
-            </Link>
-            <Link
-              href="/tv-shows/popular"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              Popular TV Shows
-            </Link>
-            <Link
-              href="/tv-shows/top-rated"
-              className="text-gray-400 transition-colors hover:text-white"
-            >
-              Top Rated TV Shows
-            </Link>
-          </div>
-        </div>
-
         {/* Support Column */}
         <div className="flex flex-col gap-4">
           <h3 className="font-semibold text-white">Support</h3>
           <div className="flex flex-col gap-2">
             <Link
-              href="/terms"
+              target="_blank"
+              href="https://privacy-policies-psi.vercel.app/show-seek/terms"
               className="text-gray-400 transition-colors hover:text-white"
             >
               Terms of Service
             </Link>
             <Link
-              href="/report-bug"
+              target="_blank"
+              href="https://privacy-policies-psi.vercel.app/show-seek/privacy"
               className="text-gray-400 transition-colors hover:text-white"
             >
-              Report a Bug
+              Privacy Policy
             </Link>
           </div>
         </div>

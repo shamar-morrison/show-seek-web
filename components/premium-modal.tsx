@@ -33,8 +33,8 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
               Unlock Premium
             </DialogTitle>
             <DialogDescription className="text-base text-white/70">
-              This exclusive feature is available for Premium members.
-              Experience the full potential of Show Seek on our mobile app.
+              This exclusive feature is available for Premium members. You can
+              upgrade on our mobile app.
             </DialogDescription>
           </DialogHeader>
 
