@@ -30,7 +30,7 @@ import type {
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 // Filter state interface
 interface DiscoverFilters {
@@ -116,12 +116,22 @@ export function DiscoverClient({
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
+  // Use a ref to access the latest filters inside updateFilters without adding it to dependencies
+  const filtersRef = useRef(filters)
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
+
   const updateFilters = useCallback(
     (newFilters: Partial<DiscoverFilters>) => {
-      const updated = { ...filters, ...newFilters, page: 1 }
+      const currentFilters = filtersRef.current
+      const updated = { ...currentFilters, ...newFilters, page: 1 }
 
       // If media type changed, reset genre (since genres differ between movie/tv)
-      if (newFilters.mediaType && newFilters.mediaType !== filters.mediaType) {
+      if (
+        newFilters.mediaType &&
+        newFilters.mediaType !== currentFilters.mediaType
+      ) {
         updated.genre = null
       }
 
@@ -141,7 +151,7 @@ export function DiscoverClient({
         router.push(url)
       })
     },
-    [filters, router],
+    [router],
   )
 
   // Prevent non-premium users from using provider filter via URL params
