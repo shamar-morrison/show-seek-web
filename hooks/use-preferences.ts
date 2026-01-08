@@ -69,8 +69,12 @@ export function usePreferences(): UsePreferencesReturn {
 
       const userDocRef = doc(db, "users", user.uid)
 
-      // Optimistic update
-      setPreferences((prev) => ({ ...prev, [key]: value }))
+      // Capture original value before optimistic update
+      let originalValue: UserPreferences[K]
+      setPreferences((prev) => {
+        originalValue = prev[key]
+        return { ...prev, [key]: value }
+      })
 
       try {
         await setDoc(
@@ -79,9 +83,9 @@ export function usePreferences(): UsePreferencesReturn {
           { merge: true },
         )
       } catch (error) {
-        // Revert on error
+        // Revert to original value on error
         console.error("Error updating preference:", error)
-        setPreferences((prev) => ({ ...prev, [key]: !value }))
+        setPreferences((prev) => ({ ...prev, [key]: originalValue }))
         throw error
       }
     },

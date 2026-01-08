@@ -153,7 +153,6 @@ export function SeasonDetailClient({
       console.error("Failed to mark all episodes watched:", error)
     } finally {
       setIsMarkingAll(false)
-      setIsUnmarking(false)
     }
   }, [user, airedEpisodes, tvShowId, season.season_number, tvShow, showStats])
 
@@ -357,15 +356,6 @@ export function SeasonDetailClient({
               ?.filter((s) => s.season_number > 0)
               .sort((a, b) => a.season_number - b.season_number) ?? []
 
-          const prevSeason = validSeasons.find(
-            (s) =>
-              s.season_number < season.season_number &&
-              !validSeasons.some(
-                (other) =>
-                  other.season_number > s.season_number &&
-                  other.season_number < season.season_number,
-              ),
-          )
           // Find the closest previous season
           const prevSeasons = validSeasons
             .filter((s) => s.season_number < season.season_number)
