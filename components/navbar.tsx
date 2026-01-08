@@ -3,6 +3,7 @@
 import { AuthModal } from "@/components/auth-modal"
 import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/context/auth-context"
@@ -17,6 +18,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { default as Link, default as NextLink } from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
 /** Navigation item with sublinks */
@@ -167,9 +169,11 @@ function MobileAccordionItem({
  * Animates from transparent to solid black on scroll
  */
 export function Navbar() {
+  const router = useRouter()
   const { user, loading } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("")
 
   const isAuthenticated = !!user && !user.isAnonymous
 
@@ -182,13 +186,24 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const closeMobileMenu = () => setIsMobileMenuOpen(false)
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false)
+    setMobileSearchQuery("")
+  }
+
+  // Handle mobile search - navigates to search page on Enter
+  const handleMobileSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && mobileSearchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(mobileSearchQuery)}`)
+      closeMobileMenu()
+    }
+  }
 
   return (
     <nav
       className={cn(
         "fixed left-0 right-0 top-0 z-50 transition-all duration-300",
-        isScrolled
+        isScrolled || isMobileMenuOpen
           ? "border-b border-white/10 bg-black/95 backdrop-blur-md"
           : "border-b border-transparent bg-black/20 backdrop-blur-sm",
       )}
@@ -261,17 +276,8 @@ export function Navbar() {
 
           {/* Right Section - Search & Auth */}
           <div className="flex items-center gap-3">
-            {/* Search Bar (Desktop) */}
-            <SearchDropdown className="hidden sm:block" />
-
-            {/* Search Icon (Mobile) */}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-gray-300 hover:bg-white/5 hover:text-white sm:hidden"
-            >
-              <HugeiconsIcon icon={Search01Icon} className="size-5" />
-            </Button>
+            {/* Search Bar (Desktop only - on mobile, search is in the dropdown menu) */}
+            <SearchDropdown className="hidden lg:block" />
 
             {/* Auth Section - Sign In or User Menu */}
             {loading ? (
@@ -300,11 +306,28 @@ export function Navbar() {
         {/* Mobile Navigation Menu */}
         <div
           className={cn(
-            "overflow-hidden transition-all duration-300 ease-in-out lg:hidden",
+            "overflow-hidden transition-all duration-300 ease-in-out lg:hidden px-4 sm:px-8",
             isMobileMenuOpen ? "max-h-[500px] pb-4" : "max-h-0",
           )}
         >
           <div className="flex flex-col gap-1 pt-2">
+            {/* Mobile Search Bar */}
+            <div className="relative mb-2">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+              />
+              <Input
+                id="mobile-search-input"
+                type="text"
+                placeholder="Search shows, movies, people..."
+                value={mobileSearchQuery}
+                onChange={(e) => setMobileSearchQuery(e.target.value)}
+                onKeyDown={handleMobileSearch}
+                className="h-10 w-full rounded-lg border-white/10 bg-white/5 pl-10 pr-3 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
+              />
+            </div>
+
             {/* Discover - Simple Link */}
             <Link
               href={discoverLink.href}
