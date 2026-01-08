@@ -17,14 +17,12 @@ import {
   useEpisodeRatings,
   useMovieRatings,
   useTVRatings,
-  type RatingSortOption,
 } from "@/hooks/use-ratings"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
 import {
   Film01Icon,
   PlayCircle02Icon,
-  StarIcon,
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -37,13 +35,12 @@ type RatingTab = "movies" | "tv" | "episodes"
  * Handles tab navigation between Movie, TV, and Episode ratings with sorting
  */
 export function RatingsPageClient() {
-  const { user, loading: authLoading } = useAuth()
+  const { loading: authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<RatingTab>("movies")
-  const [sortBy, setSortBy] = useState<RatingSortOption>("ratedAt")
 
-  const movieRatings = useMovieRatings(sortBy, activeTab === "movies")
-  const tvRatings = useTVRatings(sortBy, activeTab === "tv")
-  const episodeRatings = useEpisodeRatings(sortBy, activeTab === "episodes")
+  const movieRatings = useMovieRatings(undefined, activeTab === "movies")
+  const tvRatings = useTVRatings(undefined, activeTab === "tv")
+  const episodeRatings = useEpisodeRatings(undefined, activeTab === "episodes")
 
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
@@ -108,20 +105,6 @@ export function RatingsPageClient() {
           icon={PlayCircle02Icon}
           onClick={() => setActiveTab("episodes")}
         />
-
-        {/* Sort Dropdown */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-gray-400">Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as RatingSortOption)}
-            className="rounded-md border border-white/10 bg-black px-3 py-1.5 text-sm text-white focus:border-primary focus:outline-none"
-          >
-            <option value="ratedAt">Recently Rated</option>
-            <option value="rating">Highest Rating</option>
-            <option value="alphabetical">Alphabetical</option>
-          </select>
-        </div>
       </div>
 
       {/* Content */}
