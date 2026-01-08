@@ -45,7 +45,12 @@ export function SeasonsRow({
 }: SeasonsRowProps) {
   // Call hooks unconditionally to comply with React's Rules of Hooks
   const { tracking, loading } = useEpisodeTracking()
-  const displaySeasons = limit ? seasons?.slice(0, limit) : (seasons ?? [])
+
+  // Memoize displaySeasons to avoid unnecessary recomputations
+  const displaySeasons = useMemo(
+    () => (limit ? seasons?.slice(0, limit) : (seasons ?? [])),
+    [seasons, limit],
+  )
 
   // Pre-compute watched counts for all displayed seasons
   const seasonProgress = useMemo(() => {
@@ -79,7 +84,7 @@ export function SeasonsRow({
               href={`/tv/${tvShowId}/season/${season.season_number}`}
               className="w-[140px] shrink-0 sm:w-[160px]"
             >
-              <div className="group relative h-full w-full overflow-hidden rounded-xl bg-card  transition-all duration-300">
+              <div className="group relative h-full w-full overflow-hidden rounded-xl bg-card transition-all duration-300">
                 {/* Poster Image */}
                 <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
                   {season.poster_path ? (

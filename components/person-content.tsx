@@ -18,6 +18,16 @@ interface PersonContentProps {
   person: TMDBPersonDetails
 }
 
+// Helper to deduplicate items by id using Set (O(n) instead of O(n²))
+const deduplicateById = <T extends { id: number }>(items: T[]): T[] => {
+  const seen = new Set<number>()
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+}
+
 export function PersonContent({ person }: PersonContentProps) {
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie")
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -45,16 +55,6 @@ export function PersonContent({ person }: PersonContentProps) {
   } else {
     credits = person.combined_credits?.cast || []
     creditLabel = "Acting"
-  }
-
-  // Helper to deduplicate credits by id using Set (O(n) instead of O(n²))
-  const deduplicateById = <T extends { id: number }>(items: T[]): T[] => {
-    const seen = new Set<number>()
-    return items.filter((item) => {
-      if (seen.has(item.id)) return false
-      seen.add(item.id)
-      return true
-    })
   }
 
   // Split credits by media type, deduplicate, and sort by popularity

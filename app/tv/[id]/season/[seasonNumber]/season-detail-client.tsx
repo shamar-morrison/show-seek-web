@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import { formatDateLong } from "@/lib/format-helpers"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -165,14 +166,16 @@ export function SeasonDetailClient({
     setShowConfirmDialog(false)
 
     try {
-      // Unmark each aired episode
-      for (const ep of airedEpisodes) {
-        await episodeTrackingService.markEpisodeUnwatched(
-          tvShowId,
-          season.season_number,
-          ep.episode_number,
-        )
-      }
+      // Unmark all aired episodes in parallel
+      await Promise.all(
+        airedEpisodes.map((ep) =>
+          episodeTrackingService.markEpisodeUnwatched(
+            tvShowId,
+            season.season_number,
+            ep.episode_number,
+          ),
+        ),
+      )
     } catch (error) {
       console.error("Failed to unmark all episodes:", error)
     } finally {
@@ -180,16 +183,6 @@ export function SeasonDetailClient({
       setIsUnmarking(false)
     }
   }, [user, airedEpisodes, tvShowId, season.season_number])
-
-  // Format air date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
 
   const posterUrl = season.poster_path
     ? `https://image.tmdb.org/t/p/w500${season.poster_path}`
@@ -240,7 +233,7 @@ export function SeasonDetailClient({
               {season.air_date && (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon icon={Calendar03Icon} className="size-4" />
-                  <span>{formatDate(season.air_date)}</span>
+                  <span>{formatDateLong(season.air_date)}</span>
                 </div>
               )}
               <div className="flex items-center gap-1.5">

@@ -4,19 +4,14 @@
  */
 
 import { db } from "@/lib/firebase/config"
+import type { FavoritePerson } from "@/lib/firebase/favorite-persons"
 import { getMovieDetails, getTVDetails } from "@/lib/tmdb"
+import type { ListMediaItem } from "@/types/list"
 import { collection, getDocs } from "firebase/firestore"
 
 // ============================================================================
 // Types
 // ============================================================================
-
-interface ListMediaItem {
-  id: number
-  media_type: "movie" | "tv"
-  title?: string // For movies
-  name?: string // For TV
-}
 
 interface RatingDoc {
   id: string
@@ -72,11 +67,6 @@ function normalizeToDate(
   return null
 }
 
-interface FavoritePerson {
-  id: number
-  name: string
-}
-
 interface ListDoc {
   id: string
   name: string
@@ -96,41 +86,63 @@ interface EnrichedRating {
 // ============================================================================
 
 async function fetchLists(userId: string): Promise<ListDoc[]> {
-  const snapshot = await getDocs(collection(db, "users", userId, "lists"))
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    name: (doc.data().name as string) || doc.id,
-    items: doc.data().items as Record<string, ListMediaItem> | undefined,
-  }))
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "lists"))
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      name: (doc.data().name as string) || doc.id,
+      items: doc.data().items as Record<string, ListMediaItem> | undefined,
+    }))
+  } catch (error) {
+    console.error("Error fetching lists for export:", error)
+    return []
+  }
 }
 
 async function fetchRatings(userId: string): Promise<RatingDoc[]> {
-  const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
-  return snapshot.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      mediaId: data.mediaId as string,
-      mediaType: data.mediaType as "movie" | "tv" | "episode",
-      rating: data.rating as number,
-      ratedAt: data.ratedAt as RatingDoc["ratedAt"],
-      title: data.title as string | undefined,
-      tvShowName: data.tvShowName as string | undefined,
-      episodeName: data.episodeName as string | undefined,
-      seasonNumber: data.seasonNumber as number | undefined,
-      episodeNumber: data.episodeNumber as number | undefined,
-    }
-  })
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
+    return snapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        id: doc.id,
+        mediaId: data.mediaId as string,
+        mediaType: data.mediaType as "movie" | "tv" | "episode",
+        rating: data.rating as number,
+        ratedAt: data.ratedAt as RatingDoc["ratedAt"],
+        title: data.title as string | undefined,
+        tvShowName: data.tvShowName as string | undefined,
+        episodeName: data.episodeName as string | undefined,
+        seasonNumber: data.seasonNumber as number | undefined,
+        episodeNumber: data.episodeNumber as number | undefined,
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching ratings for export:", error)
+    return []
+  }
 }
 
 async function fetchFavoritePersons(userId: string): Promise<FavoritePerson[]> {
-  const snapshot = await getDocs(
-    collection(db, "users", userId, "favorite_persons"),
-  )
-  return snapshot.docs.map((doc) => ({
-    id: doc.data().id as number,
-    name: (doc.data().name as string) || "Unknown",
-  }))
+  try {
+    const snapshot = await getDocs(
+      collection(db, "users", userId, "favorite_persons"),
+    )
+    return snapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        id: data.id as number,
+        name: (data.name as string) || "Unknown",
+        known_for_department:
+          (data.known_for_department as string) || "Unknown",
+        profile_path: (data.profile_path as string) || null,
+        addedAt: (data.addedAt as number) || 0,
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching favorite persons for export:", error)
+    return []
+  }
 }
 
 // ============================================================================
@@ -236,13 +248,24 @@ async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
     }
   }
 
-  // Process in parallel with individual timeouts
-  const promises = ratings.map(formatRating)
+  // Process ratings in batches to avoid TMDB rate limiting
+  // Limit to 5 concurrent requests at a time
+  const BATCH_SIZE = 5
 
-  const results = await Promise.allSettled(promises)
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      enriched.push(result.value)
+  for (let i = 0; i < ratings.length; i += BATCH_SIZE) {
+    const batch = ratings.slice(i, i + BATCH_SIZE)
+    const results = await Promise.allSettled(batch.map(formatRating))
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        enriched.push(result.value)
+      }
+    }
+
+    // Add a small delay between batches to further respect rate limits
+    // Only add delay if there are more batches to process
+    if (i + BATCH_SIZE < ratings.length) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
 
