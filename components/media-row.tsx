@@ -11,7 +11,7 @@ interface MediaRowProps {
   items: TMDBMedia[]
   href?: string
   onWatchTrailer?: (media: TMDBMedia) => void
-  loadingMediaId?: number | null
+  loadingMediaId?: string | null
   /** If true, renders a horizontal scrollable row instead of a grid */
   scrollable?: boolean
   /** Maximum items to display (default: 7 for grid, all for scrollable) */
@@ -55,7 +55,7 @@ export function MediaRow({
               <CardComponent
                 media={item}
                 onWatchTrailer={onWatchTrailer}
-                isLoading={loadingMediaId === item.id}
+                isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
               />
             </div>
           ))}
@@ -68,7 +68,7 @@ export function MediaRow({
               key={`${item.media_type}-${item.id}`}
               media={item}
               onWatchTrailer={onWatchTrailer}
-              isLoading={loadingMediaId === item.id}
+              isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
             />
           ))}
         </div>

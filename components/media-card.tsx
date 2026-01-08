@@ -23,7 +23,6 @@ import Link from "next/link"
 interface MediaCardProps {
   media: TMDBMedia
   onWatchTrailer?: (media: TMDBMedia) => void
-  onAddToList?: (media: TMDBMedia) => void
   priority?: boolean
   isLoading?: boolean
   buttonText?: string

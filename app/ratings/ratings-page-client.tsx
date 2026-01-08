@@ -225,7 +225,9 @@ export function RatingsPageClient() {
                       key={`${rating.mediaType}-${rating.mediaId}`}
                       media={media}
                       onWatchTrailer={handleWatchTrailer}
-                      isLoading={loadingMediaId === media.id}
+                      isLoading={
+                        loadingMediaId === `${media.media_type}-${media.id}`
+                      }
                     />
                   )
                 })}

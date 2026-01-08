@@ -50,9 +50,8 @@ export function RecommendationsSection({
   const handleWatchTrailer = (media: TMDBMedia) => {
     // Use the media item's own type with fallback to component prop
     const type =
-      media.media_type === "movie" || media.media_type === "tv"
-        ? media.media_type
-        : mediaType
+      (media.media_type as "movie" | "tv") ||
+      (mediaType === "movie" || mediaType === "tv" ? mediaType : "movie")
     watchTrailer(media.id, type, media.title || media.name || "Trailer")
   }
 

@@ -11,6 +11,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { FileExportIcon, Logout01Icon } from "@hugeicons/core-free-icons"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 export function ProfilePageClient() {
   const { user, loading, isPremium, signOut } = useAuth()
@@ -55,6 +56,9 @@ export function ProfilePageClient() {
       router.push("/login")
     } catch (error) {
       console.error("Error signing out:", error)
+      // TODO: Send to error tracking service
+      // captureException(error)
+      toast.error("Failed to sign out. Please try again.")
       setIsSigningOut(false)
     }
   }

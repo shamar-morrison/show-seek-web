@@ -235,7 +235,7 @@ export function ListsPageClient({
               key={`${item.media_type}-${item.id}`}
               media={listItemToMedia(item)}
               onWatchTrailer={handleWatchTrailer}
-              isLoading={loadingMediaId === item.id}
+              isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
             />
           ))}
         </div>

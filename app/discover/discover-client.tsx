@@ -317,7 +317,7 @@ export function DiscoverClient({
               onChange={(val) =>
                 updateFilters({ provider: val ? parseInt(val) : null })
               }
-              placeholder="Any Provider"
+              placeholder="All Providers"
               popoverClassName="w-[380px]"
             />
 
@@ -359,7 +359,9 @@ export function DiscoverClient({
                   key={`${media.media_type}-${media.id}`}
                   media={media}
                   onWatchTrailer={handleWatchTrailer}
-                  isLoading={loadingMediaId === media.id}
+                  isLoading={
+                    loadingMediaId === `${media.media_type}-${media.id}`
+                  }
                   showRating
                 />
               ))}

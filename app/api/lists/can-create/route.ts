@@ -31,7 +31,17 @@ export async function GET() {
     const userId = decodedClaims.uid
 
     // Get Firestore instance from admin SDK
-    const app = getApps()[0]
+    const apps = getApps()
+    const app = apps.length > 0 ? apps[0] : undefined
+
+    if (!app) {
+      console.error("Firebase Admin app not initialized")
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 },
+      )
+    }
+
     const db = getFirestore(app)
 
     // Check user's premium status

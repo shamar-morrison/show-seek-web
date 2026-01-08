@@ -28,7 +28,7 @@ export function HomePageClient({
     key: string
     title: string
   } | null>(null)
-  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+  const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null)
 
   // Handle opening trailer for Hero Section items (pre-fetched trailerKey)
   const handleHeroWatchTrailer = (media: HeroMedia) => {
@@ -45,12 +45,14 @@ export function HomePageClient({
   const handleCardWatchTrailer = async (media: TMDBMedia) => {
     // For media cards, we might need to fetch the trailer key if not present
     const title = media.title || media.name || "Trailer"
+    const mediaType =
+      (media.media_type as "movie" | "tv") || (media.title ? "movie" : "tv")
+    const compositeKey = `${mediaType}-${media.id}`
 
-    setLoadingMediaId(media.id)
+    setLoadingMediaId(compositeKey)
 
     try {
-      const mediaType = media.media_type || (media.title ? "movie" : "tv")
-      const key = await fetchTrailerKey(media.id, mediaType as "movie" | "tv")
+      const key = await fetchTrailerKey(media.id, mediaType)
 
       if (key) {
         setActiveTrailer({

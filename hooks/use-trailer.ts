@@ -17,14 +17,15 @@ interface ActiveTrailer {
 export function useTrailer() {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTrailer, setActiveTrailer] = useState<ActiveTrailer | null>(null)
-  const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+  const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null)
 
   const watchTrailer = async (
     mediaId: number,
     mediaType: "movie" | "tv",
     title: string,
   ) => {
-    setLoadingMediaId(mediaId)
+    const compositeKey = `${mediaType}-${mediaId}`
+    setLoadingMediaId(compositeKey)
     try {
       const key = await fetchTrailerKey(mediaId, mediaType)
       if (key) {

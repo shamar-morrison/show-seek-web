@@ -276,7 +276,7 @@ export function SearchResultsClient({
               key={`${result.media_type}-${result.id}`}
               media={media}
               onWatchTrailer={handleWatchTrailerMedia}
-              isLoading={loadingMediaId === result.id}
+              isLoading={loadingMediaId === `${result.media_type}-${result.id}`}
             />
           ))}
         </div>
