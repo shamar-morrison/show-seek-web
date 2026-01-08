@@ -4,7 +4,9 @@ import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { computeNextEpisode } from "@/lib/episode-utils"
 import { addToList } from "@/lib/firebase/lists"
+import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
@@ -32,6 +34,10 @@ interface EpisodeCardProps {
   allSeasonEpisodes: TMDBSeasonEpisode[]
   /** All seasons in the TV show (for computing next episode in next season) */
   tvShowSeasons?: TMDBSeason[]
+  /** TV show vote average for list feature */
+  tvShowVoteAverage?: number
+  /** TV show first air date for list feature */
+  tvShowFirstAirDate?: string
 }
 
 /**
@@ -47,6 +53,8 @@ export function EpisodeCard({
   showStats,
   allSeasonEpisodes,
   tvShowSeasons,
+  tvShowVoteAverage,
+  tvShowFirstAirDate,
 }: EpisodeCardProps) {
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
@@ -65,70 +73,11 @@ export function EpisodeCard({
     episode.episode_number,
   )
 
-  // Format air date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
-  }
-
-  // Format runtime
-  const formatRuntime = (minutes: number | null) => {
-    if (!minutes) return null
-    if (minutes < 60) return `${minutes}m`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
-  }
-
   // Compute next episode when marking this one as watched
-  const computeNextEpisode = useCallback(() => {
-    const today = new Date()
-    const airedEpisodes = allSeasonEpisodes.filter(
-      (ep) => ep.air_date && new Date(ep.air_date) <= today,
-    )
-
-    // Find the next unwatched episode in this season
-    const currentIndex = airedEpisodes.findIndex(
-      (ep) => ep.episode_number === episode.episode_number,
-    )
-
-    // Check if there's a next episode in this season
-    if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
-      const nextEp = airedEpisodes[currentIndex + 1]
-      return {
-        season: nextEp.season_number,
-        episode: nextEp.episode_number,
-        title: nextEp.name,
-        airDate: nextEp.air_date,
-      }
-    }
-
-    // If this is the last episode, check for next season
-    if (tvShowSeasons && tvShowSeasons.length > 0) {
-      const nextSeasons = tvShowSeasons
-        .filter(
-          (s) => s.season_number > episode.season_number && s.season_number > 0,
-        )
-        .sort((a, b) => a.season_number - b.season_number)
-
-      if (nextSeasons.length > 0) {
-        const nextSeason = nextSeasons[0]
-        return {
-          season: nextSeason.season_number,
-          episode: 1,
-          title: `${nextSeason.name} Episode 1`,
-          airDate: nextSeason.air_date || null,
-        }
-      }
-    }
-
-    // No more episodes - user is caught up!
-    return null
-  }, [allSeasonEpisodes, episode, tvShowSeasons])
+  const getNextEpisode = useCallback(
+    () => computeNextEpisode(episode, allSeasonEpisodes, tvShowSeasons),
+    [allSeasonEpisodes, episode, tvShowSeasons],
+  )
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
@@ -144,7 +93,7 @@ export function EpisodeCard({
         )
       } else {
         // Compute next episode when marking as watched
-        const nextEpisode = computeNextEpisode()
+        const nextEpisode = getNextEpisode()
 
         await episodeTrackingService.markEpisodeWatched(
           tvShowId,
@@ -171,8 +120,8 @@ export function EpisodeCard({
               title: tvShowName,
               poster_path: tvShowPosterPath,
               media_type: "tv",
-              vote_average: 0, // Placeholder as we don't have show rating here
-              release_date: "", // Placeholder as we don't have show air date here
+              vote_average: tvShowVoteAverage,
+              first_air_date: tvShowFirstAirDate,
             })
 
             if (wasAdded) {
@@ -199,7 +148,7 @@ export function EpisodeCard({
     tvShowName,
     tvShowPosterPath,
     showStats,
-    computeNextEpisode,
+    getNextEpisode,
     preferences.autoAddToWatching,
   ])
 
@@ -248,7 +197,7 @@ export function EpisodeCard({
             {!hasAired && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                 <span className="rounded-md bg-primary/20 px-3 py-1.5 text-sm font-medium text-primary">
-                  Coming {formatDate(episode.air_date)}
+                  Coming {formatDateShort(episode.air_date)}
                 </span>
               </div>
             )}
@@ -280,7 +229,7 @@ export function EpisodeCard({
               {/* Meta Info */}
               <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
                 {episode.air_date && (
-                  <span>{formatDate(episode.air_date)}</span>
+                  <span>{formatDateShort(episode.air_date)}</span>
                 )}
                 {episode.runtime && (
                   <div className="flex items-center gap-1">

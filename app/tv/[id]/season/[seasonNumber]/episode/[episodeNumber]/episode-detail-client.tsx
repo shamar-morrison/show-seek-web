@@ -10,6 +10,8 @@ import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { computeNextEpisode } from "@/lib/episode-utils"
+import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { buildImageUrl } from "@/lib/tmdb"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type {
@@ -61,6 +63,10 @@ export function EpisodeDetailClient({
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
 
+  // Compute whether episode has aired
+  const today = new Date()
+  const hasAired = episode.air_date && new Date(episode.air_date) <= today
+
   // Get user's rating for this episode
   const userRating = getEpisodeRating(
     tvShowId,
@@ -88,50 +94,10 @@ export function EpisodeDetailClient({
   }, [user, tvShowId, episode.season_number, episode.episode_number])
 
   // Compute next episode when marking this one as watched
-  const computeNextEpisode = useCallback(() => {
-    const today = new Date()
-    const airedEpisodes = season.episodes.filter(
-      (ep) => ep.air_date && new Date(ep.air_date) <= today,
-    )
-
-    // Find the current episode index in aired episodes
-    const currentIndex = airedEpisodes.findIndex(
-      (ep) => ep.episode_number === episode.episode_number,
-    )
-
-    // Check if there's a next episode in this season
-    if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
-      const nextEp = airedEpisodes[currentIndex + 1]
-      return {
-        season: nextEp.season_number,
-        episode: nextEp.episode_number,
-        title: nextEp.name,
-        airDate: nextEp.air_date,
-      }
-    }
-
-    // If this is the last episode, check for next season
-    if (tvShow.seasons && tvShow.seasons.length > 0) {
-      const nextSeasons = tvShow.seasons
-        .filter(
-          (s) => s.season_number > episode.season_number && s.season_number > 0,
-        )
-        .sort((a, b) => a.season_number - b.season_number)
-
-      if (nextSeasons.length > 0) {
-        const nextSeason = nextSeasons[0]
-        return {
-          season: nextSeason.season_number,
-          episode: 1,
-          title: `${nextSeason.name} Episode 1`,
-          airDate: nextSeason.air_date || null,
-        }
-      }
-    }
-
-    // No more episodes - user is caught up!
-    return null
-  }, [season.episodes, episode, tvShow.seasons])
+  const getNextEpisode = useCallback(
+    () => computeNextEpisode(episode, season.episodes, tvShow.seasons),
+    [season.episodes, episode, tvShow.seasons],
+  )
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
@@ -147,7 +113,7 @@ export function EpisodeDetailClient({
         )
       } else {
         // Compute next episode when marking as watched
-        const nextEpisode = computeNextEpisode()
+        const nextEpisode = getNextEpisode()
 
         await episodeTrackingService.markEpisodeWatched(
           tvShowId,
@@ -174,33 +140,7 @@ export function EpisodeDetailClient({
     } finally {
       setIsToggling(false)
     }
-  }, [
-    user,
-    isToggling,
-    isWatched,
-    tvShowId,
-    episode,
-    tvShow,
-    computeNextEpisode,
-  ])
-
-  // Format helpers
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
-
-  const formatRuntime = (minutes: number | null) => {
-    if (!minutes) return null
-    if (minutes < 60) return `${minutes}m`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
-  }
+  }, [user, isToggling, isWatched, tvShowId, episode, tvShow, getNextEpisode])
 
   // Build image URLs
   const stillUrl = buildImageUrl(episode.still_path, "w1280")
@@ -343,7 +283,7 @@ export function EpisodeDetailClient({
                         icon={Calendar03Icon}
                         className="size-4 text-gray-500"
                       />
-                      {formatDate(episode.air_date)}
+                      {formatDateLong(episode.air_date)}
                     </span>
                   )}
                   {/* Runtime */}

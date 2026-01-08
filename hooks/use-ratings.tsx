@@ -72,6 +72,7 @@ export function useRatings() {
       title: string,
       posterPath: string | null,
       releaseDate: string | null = null,
+      voteAverage?: number,
     ): Promise<void> => {
       if (!user || user.isAnonymous) {
         throw new Error("User must be authenticated to rate")
@@ -89,18 +90,15 @@ export function useRatings() {
       })
 
       // Auto-add to "Already Watched" list if preference is enabled and it's a movie
-      if (
-        mediaType === "movie" &&
-        preferences.autoAddToAlreadyWatched
-      ) {
+      if (mediaType === "movie" && preferences.autoAddToAlreadyWatched) {
         try {
           const wasAdded = await addToList(user.uid, "already-watched", {
             id: mediaId,
             title,
             poster_path: posterPath,
             media_type: "movie",
-            vote_average: 0, // Placeholder as we don't have global rating here
-            release_date: releaseDate || "",
+            vote_average: voteAverage,
+            release_date: releaseDate || undefined,
           })
 
           if (wasAdded) {

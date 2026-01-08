@@ -69,11 +69,16 @@ export function PersonContent({ person }: PersonContentProps) {
   const currentCredits = activeTab === "movie" ? movieCredits : tvCredits
 
   // Map to TMDBMedia for MediaCard
+  // Note: original_language defaults to "en" since PersonCastMember/PersonCrewMember
+  // don't include this field. This is inaccurate for international content but unavoidable.
   const mediaItems: TMDBMedia[] = currentCredits.map((credit) => ({
     ...credit,
-    original_language: "en", // Placeholder
-    original_title: credit.title,
-    original_name: credit.name,
+    original_language: "en",
+    // Conditionally set original_title/original_name based on media_type
+    // to avoid polluting the object with undefined values
+    ...(credit.media_type === "movie"
+      ? { original_title: credit.title }
+      : { original_name: credit.name }),
   }))
 
   const handleWatchTrailer = async (media: TMDBMedia) => {

@@ -43,10 +43,9 @@ export function SeasonsRow({
   tvShowId,
   limit,
 }: SeasonsRowProps) {
-  if (!seasons || seasons.length === 0) return null
-
-  const displaySeasons = limit ? seasons.slice(0, limit) : seasons
+  // Call hooks unconditionally to comply with React's Rules of Hooks
   const { tracking, loading } = useEpisodeTracking()
+  const displaySeasons = limit ? seasons?.slice(0, limit) : (seasons ?? [])
 
   // Pre-compute watched counts for all displayed seasons
   const seasonProgress = useMemo(() => {
@@ -60,6 +59,9 @@ export function SeasonsRow({
     }
     return progress
   }, [tracking, tvShowId, displaySeasons])
+
+  // Early return after hooks are called
+  if (!seasons || seasons.length === 0) return null
 
   return (
     <Section title={title} headerExtra={<ViewAllLink disabled />}>

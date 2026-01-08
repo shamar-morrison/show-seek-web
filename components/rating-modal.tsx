@@ -57,6 +57,9 @@ export function RatingModal({
       : "first_air_date" in media && media.first_air_date
         ? media.first_air_date
         : null
+  // Get vote average for list feature
+  const voteAverage: number | undefined =
+    "vote_average" in media ? media.vote_average : undefined
 
   // Load existing rating when modal opens
   useEffect(() => {
@@ -92,6 +95,7 @@ export function RatingModal({
         title,
         posterPath,
         releaseDate,
+        voteAverage,
       )
       onClose()
     } catch (error) {
@@ -107,6 +111,7 @@ export function RatingModal({
     title,
     posterPath,
     releaseDate,
+    voteAverage,
     onClose,
   ])
 

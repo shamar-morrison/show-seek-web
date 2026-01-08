@@ -337,6 +337,8 @@ export function SeasonDetailClient({
               showStats={showStats}
               allSeasonEpisodes={season.episodes}
               tvShowSeasons={tvShow.seasons}
+              tvShowVoteAverage={tvShow.vote_average}
+              tvShowFirstAirDate={tvShow.first_air_date}
             />
           ))}
         </div>

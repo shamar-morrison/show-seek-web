@@ -1,19 +1,14 @@
 "use client"
 
+import { PremiumModal } from "@/components/premium-modal"
 import { ActionButton } from "@/components/profile/action-button"
-import { DeleteAccountModal } from "@/components/profile/delete-account-modal"
 import { ExportDataModal } from "@/components/profile/export-data-modal"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
-import { PremiumModal } from "@/components/premium-modal"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
-import {
-  Delete02Icon,
-  FileExportIcon,
-  Logout01Icon,
-} from "@hugeicons/core-free-icons"
+import { FileExportIcon, Logout01Icon } from "@hugeicons/core-free-icons"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -27,7 +22,7 @@ export function ProfilePageClient() {
   const router = useRouter()
 
   const [showExportModal, setShowExportModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -167,14 +162,6 @@ export function ProfilePageClient() {
             disabled={isSigningOut}
             showChevron={false}
           />
-          <div className="mx-4 border-t border-white/10" />
-          <ActionButton
-            icon={Delete02Icon}
-            label="Delete Account"
-            onClick={() => setShowDeleteModal(true)}
-            variant="danger"
-            showChevron={false}
-          />
         </div>
       </section>
 
@@ -183,10 +170,7 @@ export function ProfilePageClient() {
         open={showExportModal}
         onOpenChange={setShowExportModal}
       />
-      <DeleteAccountModal
-        open={showDeleteModal}
-        onOpenChange={setShowDeleteModal}
-      />
+
       <PremiumModal
         open={showPremiumModal}
         onOpenChange={setShowPremiumModal}

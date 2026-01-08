@@ -10,8 +10,8 @@ export interface ListMediaItem {
   title: string
   poster_path: string | null
   media_type: "movie" | "tv"
-  vote_average: number
-  release_date: string
+  vote_average?: number
+  release_date?: string
   addedAt: number
   genre_ids?: number[]
   // TV show fields

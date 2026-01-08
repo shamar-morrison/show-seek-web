@@ -98,8 +98,6 @@ export function SearchResultsClient({
       poster_path: result.poster_path ?? result.profile_path ?? null,
       title: result.title,
       name: result.name,
-      original_title: result.title,
-      original_name: result.name,
       overview: result.overview ?? "",
       genre_ids: [],
       popularity: result.popularity ?? 0,
@@ -108,6 +106,13 @@ export function SearchResultsClient({
       vote_average: result.vote_average ?? 0,
       vote_count: 0,
       original_language: "",
+      // Conditionally set original_title/original_name based on media_type
+      // to avoid polluting the object with undefined values
+      ...(result.media_type === "movie"
+        ? { original_title: result.title }
+        : result.media_type === "tv"
+          ? { original_name: result.name }
+          : {}),
     }),
     [],
   )

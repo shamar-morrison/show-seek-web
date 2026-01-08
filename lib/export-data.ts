@@ -23,11 +23,53 @@ interface RatingDoc {
   mediaId: string
   mediaType: "movie" | "tv" | "episode"
   rating: number
+  ratedAt?: { toDate?: () => Date } | number | string | Date
   title?: string
   tvShowName?: string
   episodeName?: string
   seasonNumber?: number
   episodeNumber?: number
+}
+
+/**
+ * Normalize a Firestore Timestamp | number | string | Date into a Date object
+ * Handles:
+ * - Firestore Timestamp objects (objects with toDate() method)
+ * - Numbers (treated as milliseconds since epoch)
+ * - Strings (parsed as date strings)
+ * - Date objects (returned as-is)
+ */
+function normalizeToDate(
+  value: { toDate?: () => Date } | number | string | Date | undefined,
+): Date | null {
+  if (!value) return null
+
+  // Firestore Timestamp: has toDate() method
+  if (
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof value.toDate === "function"
+  ) {
+    return value.toDate()
+  }
+
+  // Already a Date
+  if (value instanceof Date) {
+    return value
+  }
+
+  // Number: treat as milliseconds since epoch
+  if (typeof value === "number") {
+    return new Date(value)
+  }
+
+  // String: parse as date string
+  if (typeof value === "string") {
+    const parsed = new Date(value)
+    return isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  return null
 }
 
 interface FavoritePerson {
@@ -45,6 +87,8 @@ interface EnrichedRating {
   title: string
   type: "Movie" | "TV" | "Episode"
   rating: number
+  ratedAt?: Date | null
+  formattedDate?: string
 }
 
 // ============================================================================
@@ -69,6 +113,7 @@ async function fetchRatings(userId: string): Promise<RatingDoc[]> {
       mediaId: data.mediaId as string,
       mediaType: data.mediaType as "movie" | "tv" | "episode",
       rating: data.rating as number,
+      ratedAt: data.ratedAt as RatingDoc["ratedAt"],
       title: data.title as string | undefined,
       tvShowName: data.tvShowName as string | undefined,
       episodeName: data.episodeName as string | undefined,
@@ -112,33 +157,67 @@ async function fetchWithTimeout<T>(
 async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
   const enriched: EnrichedRating[] = []
 
-  // Process in parallel with individual timeouts
-  const promises = ratings.map(async (rating): Promise<EnrichedRating> => {
+  /**
+   * Format a single rating document into an EnrichedRating
+   * Handles Firestore Timestamp objects for ratedAt
+   */
+  const formatRating = async (rating: RatingDoc): Promise<EnrichedRating> => {
     const mediaId = parseInt(rating.mediaId, 10)
+
+    // Normalize ratedAt to a Date object (handles Firestore Timestamp, number, string, Date)
+    const ratedAtDate = normalizeToDate(rating.ratedAt)
+    const formattedDate = ratedAtDate
+      ? ratedAtDate.toLocaleDateString()
+      : undefined
 
     if (rating.mediaType === "movie") {
       // If we already have a title stored, use it
       if (rating.title) {
-        return { title: rating.title, type: "Movie", rating: rating.rating }
+        return {
+          title: rating.title,
+          type: "Movie",
+          rating: rating.rating,
+          ratedAt: ratedAtDate,
+          formattedDate,
+        }
       }
       // Fetch from TMDB with 10s timeout
       const details = await fetchWithTimeout(getMovieDetails(mediaId), 10000)
       const title = details?.title || `Movie ID: ${rating.mediaId}`
-      return { title, type: "Movie", rating: rating.rating }
+      return {
+        title,
+        type: "Movie",
+        rating: rating.rating,
+        ratedAt: ratedAtDate,
+        formattedDate,
+      }
     }
 
     if (rating.mediaType === "tv") {
       // If we already have a title stored, use it
       if (rating.title) {
-        return { title: rating.title, type: "TV", rating: rating.rating }
+        return {
+          title: rating.title,
+          type: "TV",
+          rating: rating.rating,
+          ratedAt: ratedAtDate,
+          formattedDate,
+        }
       }
       // Fetch from TMDB with 10s timeout
       const details = await fetchWithTimeout(getTVDetails(mediaId), 10000)
       const title = details?.name || `TV Show ID: ${rating.mediaId}`
-      return { title, type: "TV", rating: rating.rating }
+      return {
+        title,
+        type: "TV",
+        rating: rating.rating,
+        ratedAt: ratedAtDate,
+        formattedDate,
+      }
     }
 
     // Episode: use stored data with fallbacks
+    // Reference: rating.tvShowName, rating.episodeName, rating.seasonNumber, rating.episodeNumber
     let title = rating.tvShowName || "Unknown Show"
     if (rating.episodeName) {
       title += ` - ${rating.episodeName}`
@@ -148,8 +227,17 @@ async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
     ) {
       title += ` - S${rating.seasonNumber}E${rating.episodeNumber}`
     }
-    return { title, type: "Episode", rating: rating.rating }
-  })
+    return {
+      title,
+      type: "Episode",
+      rating: rating.rating,
+      ratedAt: ratedAtDate,
+      formattedDate,
+    }
+  }
+
+  // Process in parallel with individual timeouts
+  const promises = ratings.map(formatRating)
 
   const results = await Promise.allSettled(promises)
   for (const result of results) {

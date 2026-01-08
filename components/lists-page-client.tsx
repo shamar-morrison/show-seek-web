@@ -46,16 +46,19 @@ function listItemToMedia(item: ListMediaItem): TMDBMedia {
     poster_path: item.poster_path,
     title: item.media_type === "movie" ? item.title : undefined,
     name: item.media_type === "tv" ? item.name || item.title : undefined,
-    original_title: item.title,
-    original_name: item.name,
     overview: "",
     genre_ids: item.genre_ids || [],
     popularity: 0,
     release_date: item.release_date,
     first_air_date: item.first_air_date,
-    vote_average: item.vote_average,
+    vote_average: item.vote_average ?? 0,
     vote_count: 0,
     original_language: "",
+    // Conditionally set original_title/original_name based on media_type
+    // to avoid polluting the object with undefined values
+    ...(item.media_type === "movie"
+      ? { original_title: item.title }
+      : { original_name: item.name }),
   }
 }
 
