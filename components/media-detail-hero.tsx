@@ -12,6 +12,7 @@ import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
@@ -121,6 +122,7 @@ export function MediaDetailHero({
   const { lists } = useLists()
   const { getRating } = useRatings()
   const { getNote } = useNotes()
+  const { preferences } = usePreferences()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
   // Get user's rating for this media
@@ -307,7 +309,13 @@ export function MediaDetailHero({
                 )}
 
                 {/* Overview */}
-                <p className="max-w-3xl text-base leading-relaxed text-gray-300 lg:text-left text-center">
+                <p
+                  className={`max-w-3xl text-base leading-relaxed text-gray-300 lg:text-left text-center ${
+                    preferences.blurPlotSpoilers
+                      ? "blur-md transition-all duration-300 hover:blur-none"
+                      : ""
+                  }`}
+                >
                   {overview}
                 </p>
 

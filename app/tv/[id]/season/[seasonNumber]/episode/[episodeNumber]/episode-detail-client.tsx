@@ -8,6 +8,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { buildImageUrl } from "@/lib/tmdb"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
@@ -52,6 +53,7 @@ export function EpisodeDetailClient({
 }: EpisodeDetailClientProps) {
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
+  const { preferences } = usePreferences()
   const [isWatched, setIsWatched] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
@@ -369,7 +371,13 @@ export function EpisodeDetailClient({
 
                 {/* Overview */}
                 {episode.overview && (
-                  <p className="max-w-3xl text-base leading-relaxed text-gray-300 lg:text-left text-center">
+                  <p
+                    className={`max-w-3xl text-base leading-relaxed text-gray-300 lg:text-left text-center ${
+                      preferences.blurPlotSpoilers
+                        ? "blur-md transition-all duration-300 hover:blur-none"
+                        : ""
+                    }`}
+                  >
                     {episode.overview}
                   </p>
                 )}

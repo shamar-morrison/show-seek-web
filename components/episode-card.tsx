@@ -2,6 +2,7 @@
 
 import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { useAuth } from "@/context/auth-context"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
@@ -47,6 +48,7 @@ export function EpisodeCard({
 }: EpisodeCardProps) {
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
+  const { preferences } = usePreferences()
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
 
@@ -266,7 +268,13 @@ export function EpisodeCard({
 
               {/* Overview */}
               {episode.overview && (
-                <p className="text-sm text-gray-400 line-clamp-2">
+                <p
+                  className={`text-sm text-gray-400 line-clamp-2 ${
+                    preferences.blurPlotSpoilers
+                      ? "blur-md transition-all duration-300 hover:blur-none"
+                      : ""
+                  }`}
+                >
                   {episode.overview}
                 </p>
               )}

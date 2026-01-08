@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/context/auth-context"
+import { usePreferences } from "@/hooks/use-preferences"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -43,6 +44,7 @@ export function SeasonDetailClient({
   tvShowId,
 }: SeasonDetailClientProps) {
   const { user } = useAuth()
+  const { preferences } = usePreferences()
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set())
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const [isUnmarking, setIsUnmarking] = useState(false)
@@ -259,7 +261,13 @@ export function SeasonDetailClient({
 
             {/* Overview */}
             {season.overview && (
-              <p className="mb-6 max-w-2xl text-gray-300 line-clamp-3">
+              <p
+                className={`mb-6 max-w-2xl text-gray-300 line-clamp-3 ${
+                  preferences.blurPlotSpoilers
+                    ? "blur-md transition-all duration-300 hover:blur-none"
+                    : ""
+                }`}
+              >
                 {season.overview}
               </p>
             )}
