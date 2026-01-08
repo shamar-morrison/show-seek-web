@@ -197,7 +197,9 @@ export function EpisodeCard({
             {!hasAired && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                 <span className="rounded-md bg-primary/20 px-3 py-1.5 text-sm font-medium text-primary">
-                  Coming {formatDateShort(episode.air_date)}
+                  {episode.air_date
+                    ? `Coming ${formatDateShort(episode.air_date)}`
+                    : "TBA"}
                 </span>
               </div>
             )}

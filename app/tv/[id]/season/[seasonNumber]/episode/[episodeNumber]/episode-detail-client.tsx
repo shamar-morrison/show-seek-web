@@ -101,7 +101,7 @@ export function EpisodeDetailClient({
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
-    if (!user || isToggling) return
+    if (!user || !hasAired || isToggling) return
 
     setIsToggling(true)
     try {
@@ -140,7 +140,16 @@ export function EpisodeDetailClient({
     } finally {
       setIsToggling(false)
     }
-  }, [user, isToggling, isWatched, tvShowId, episode, tvShow, getNextEpisode])
+  }, [
+    user,
+    hasAired,
+    isToggling,
+    isWatched,
+    tvShowId,
+    episode,
+    tvShow,
+    getNextEpisode,
+  ])
 
   // Build image URLs
   const stillUrl = buildImageUrl(episode.still_path, "w1280")
@@ -324,38 +333,51 @@ export function EpisodeDetailClient({
 
                 {/* Action Buttons - matching media-detail-hero style */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-4 lg:justify-start">
-                  {/* Watched Toggle */}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={handleToggleWatched}
-                    disabled={isToggling}
-                    className={
-                      isWatched
-                        ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
-                        : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                    }
-                  >
-                    {isToggling ? (
-                      <HugeiconsIcon
-                        icon={Loading03Icon}
-                        className="size-5 animate-spin"
-                      />
-                    ) : (
-                      <HugeiconsIcon
-                        icon={isWatched ? Tick02Icon : CheckmarkCircle02Icon}
-                        className={`size-5 ${isWatched ? " text-green-400" : ""}`}
-                      />
-                    )}
-                    {isWatched ? "Watched" : "Mark Watched"}
-                  </Button>
+                  {user && hasAired && (
+                    <>
+                      {/* Watched Toggle */}
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={handleToggleWatched}
+                        disabled={isToggling}
+                        className={
+                          isWatched
+                            ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
+                            : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                        }
+                      >
+                        {isToggling ? (
+                          <HugeiconsIcon
+                            icon={Loading03Icon}
+                            className="size-5 animate-spin"
+                          />
+                        ) : (
+                          <HugeiconsIcon
+                            icon={
+                              isWatched ? Tick02Icon : CheckmarkCircle02Icon
+                            }
+                            className={`size-5 ${isWatched ? " text-green-400" : ""}`}
+                          />
+                        )}
+                        {isWatched ? "Watched" : "Mark Watched"}
+                      </Button>
 
-                  {/* Rate Button */}
-                  <RateButton
-                    hasRating={!!userRating}
-                    rating={userRating?.rating}
-                    onClick={() => setShowRatingModal(true)}
-                  />
+                      {/* Rate Button */}
+                      <RateButton
+                        hasRating={!!userRating}
+                        rating={userRating?.rating}
+                        onClick={() => setShowRatingModal(true)}
+                        disabled={isToggling}
+                      />
+                    </>
+                  )}
+
+                  {!hasAired && (
+                    <div className="rounded-full bg-primary/20 px-6 py-2.5 text-sm font-semibold text-primary backdrop-blur-sm">
+                      Coming {formatDateLong(episode.air_date!)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

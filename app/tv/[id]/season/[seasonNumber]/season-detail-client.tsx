@@ -141,7 +141,7 @@ export function SeasonDetailClient({
       await episodeTrackingService.markAllEpisodesWatched(
         tvShowId,
         season.season_number,
-        episodesToMark as any,
+        episodesToMark,
         {
           tvShowName: tvShow.name,
           posterPath: tvShow.poster_path,

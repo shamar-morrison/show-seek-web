@@ -217,7 +217,9 @@ class EpisodeTrackingService {
   async markAllEpisodesWatched(
     tvShowId: number,
     seasonNumber: number,
-    episodes: Episode[],
+    episodes: (Pick<Episode, "id" | "episode_number" | "name"> & {
+      air_date: string | null
+    })[],
     showMetadata: {
       tvShowName: string
       posterPath: string | null
