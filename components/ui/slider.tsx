@@ -84,22 +84,22 @@ export function Slider({
           <SliderPrimitive.Indicator
             className={cn("absolute h-full rounded-full", "bg-primary")}
           />
-          {/* Render thumb(s) */}
-          {normalizedValue.map((_, index) => (
-            <SliderPrimitive.Thumb
-              key={index}
-              className={cn(
-                "block size-4 rounded-full",
-                "bg-white shadow-md",
-                "border-2 border-primary",
-                "ring-offset-background transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2",
-                "disabled:pointer-events-none disabled:opacity-50",
-                "hover:scale-110 transition-transform cursor-grab active:cursor-grabbing",
-              )}
-            />
-          ))}
         </SliderPrimitive.Track>
+        {/* Render thumb(s) */}
+        {normalizedValue.map((_, index) => (
+          <SliderPrimitive.Thumb
+            key={index}
+            className={cn(
+              "block size-4 rounded-full",
+              "bg-white shadow-md",
+              "border-2 border-primary",
+              "ring-offset-background transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2",
+              "disabled:pointer-events-none disabled:opacity-50",
+              "hover:scale-110 transition-transform cursor-grab active:cursor-grabbing",
+            )}
+          />
+        ))}
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   )
