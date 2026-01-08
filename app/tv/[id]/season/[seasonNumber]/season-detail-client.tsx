@@ -28,6 +28,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
+import { toast } from "sonner"
 
 interface SeasonDetailClientProps {
   tvShow: TMDBTVDetails
@@ -50,6 +51,7 @@ export function SeasonDetailClient({
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const [isUnmarking, setIsUnmarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [posterFailed, setPosterFailed] = useState(false)
 
   // Get aired episodes only (exclude future episodes)
   const today = new Date()
@@ -178,6 +180,7 @@ export function SeasonDetailClient({
       )
     } catch (error) {
       console.error("Failed to unmark all episodes:", error)
+      toast.error("Failed to unmark all episodes. Please try again.")
     } finally {
       setIsMarkingAll(false)
       setIsUnmarking(false)
@@ -208,16 +211,20 @@ export function SeasonDetailClient({
 
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Season Poster */}
-          {posterUrl && (
-            <div className="shrink-0">
+          <div className="shrink-0">
+            {posterUrl && !posterFailed ? (
               <img
                 src={posterUrl}
                 alt={season.name}
                 className="w-48 rounded-xl shadow-2xl md:w-64"
-                loading="eager"
+                onError={() => setPosterFailed(true)}
               />
-            </div>
-          )}
+            ) : (
+              <div className="flex aspect-2/3 w-48 items-center justify-center rounded-xl bg-gray-800 text-gray-500 shadow-2xl md:w-64">
+                No Poster
+              </div>
+            )}
+          </div>
 
           {/* Season Info */}
           <div className="flex flex-col justify-end">

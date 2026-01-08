@@ -58,7 +58,7 @@ function listItemToMedia(item: ListMediaItem): TMDBMedia {
     // to avoid polluting the object with undefined values
     ...(item.media_type === "movie"
       ? { original_title: item.title }
-      : { original_name: item.name }),
+      : { original_name: item.name || item.title }),
   }
 }
 

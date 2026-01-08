@@ -20,6 +20,12 @@ export function safeParseInt(
 export function formatRelativeTime(timestamp: Date | number): string {
   const now = new Date()
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+
+  // Handle future timestamps - return formatted date instead of negative relative time
+  if (date > now) {
+    return date.toLocaleDateString()
+  }
+
   const diffMs = now.getTime() - date.getTime()
   const diffSeconds = Math.floor(diffMs / 1000)
   const diffMinutes = Math.floor(diffSeconds / 60)
