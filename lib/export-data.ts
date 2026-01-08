@@ -1,262 +1,332 @@
 /**
  * Export user data to CSV or Markdown format
- * Fetches all subcollections and generates downloadable files
+ * Matches mobile app export formats per spec.md
  */
 
 import { db } from "@/lib/firebase/config"
+import { getMovieDetails, getTVDetails } from "@/lib/tmdb"
 import { collection, getDocs } from "firebase/firestore"
 
-interface ExportedData {
-  ratings: Record<string, unknown>[]
-  lists: Record<string, unknown>[]
-  notes: Record<string, unknown>[]
-  favoritePersons: Record<string, unknown>[]
-  episodeTracking: Record<string, unknown>[]
+// ============================================================================
+// Types
+// ============================================================================
+
+interface ListMediaItem {
+  id: number
+  media_type: "movie" | "tv"
+  title?: string // For movies
+  name?: string // For TV
 }
 
-/**
- * Fetch all user data from Firestore subcollections
- */
-async function fetchAllUserData(userId: string): Promise<ExportedData> {
-  const [ratings, lists, notes, favoritePersons, episodeTracking] =
-    await Promise.all([
-      getDocs(collection(db, "users", userId, "ratings")),
-      getDocs(collection(db, "users", userId, "lists")),
-      getDocs(collection(db, "users", userId, "notes")),
-      getDocs(collection(db, "users", userId, "favorite_persons")),
-      getDocs(collection(db, "users", userId, "episode_tracking")),
-    ])
-
-  return {
-    ratings: ratings.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-    lists: lists.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-    notes: notes.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-    favoritePersons: favoritePersons.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })),
-    episodeTracking: episodeTracking.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })),
-  }
+interface RatingDoc {
+  id: string
+  mediaId: string
+  mediaType: "movie" | "tv" | "episode"
+  rating: number
+  title?: string
+  tvShowName?: string
+  episodeName?: string
+  seasonNumber?: number
+  episodeNumber?: number
 }
 
-/**
- * Convert array of objects to CSV string
- */
-function arrayToCSV(data: Record<string, unknown>[], title: string): string {
-  if (data.length === 0) {
-    return `\n# ${title}\nNo data\n`
-  }
+interface FavoritePerson {
+  id: number
+  name: string
+}
 
-  // Get all unique keys from all objects
-  const allKeys = new Set<string>()
-  data.forEach((item) => {
-    Object.keys(item).forEach((key) => allKeys.add(key))
+interface ListDoc {
+  id: string
+  name: string
+  items?: Record<string, ListMediaItem>
+}
+
+interface EnrichedRating {
+  title: string
+  type: "Movie" | "TV" | "Episode"
+  rating: number
+}
+
+// ============================================================================
+// Data Fetching
+// ============================================================================
+
+async function fetchLists(userId: string): Promise<ListDoc[]> {
+  const snapshot = await getDocs(collection(db, "users", userId, "lists"))
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    name: (doc.data().name as string) || doc.id,
+    items: doc.data().items as Record<string, ListMediaItem> | undefined,
+  }))
+}
+
+async function fetchRatings(userId: string): Promise<RatingDoc[]> {
+  const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
+  return snapshot.docs.map((doc) => {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      mediaId: data.mediaId as string,
+      mediaType: data.mediaType as "movie" | "tv" | "episode",
+      rating: data.rating as number,
+      title: data.title as string | undefined,
+      tvShowName: data.tvShowName as string | undefined,
+      episodeName: data.episodeName as string | undefined,
+      seasonNumber: data.seasonNumber as number | undefined,
+      episodeNumber: data.episodeNumber as number | undefined,
+    }
   })
-  const headers = Array.from(allKeys)
+}
 
-  const rows = data.map((item) =>
-    headers
-      .map((header) => {
-        const value = item[header]
-        if (value === null || value === undefined) return ""
-        if (typeof value === "object") return JSON.stringify(value)
-        return String(value).includes(",")
-          ? `"${String(value).replace(/"/g, '""')}"`
-          : String(value)
-      })
-      .join(","),
+async function fetchFavoritePersons(userId: string): Promise<FavoritePerson[]> {
+  const snapshot = await getDocs(
+    collection(db, "users", userId, "favorite_persons"),
   )
+  return snapshot.docs.map((doc) => ({
+    id: doc.data().id as number,
+    name: (doc.data().name as string) || "Unknown",
+  }))
+}
 
-  return `\n# ${title}\n${headers.join(",")}\n${rows.join("\n")}\n`
+// ============================================================================
+// TMDB Enrichment
+// ============================================================================
+
+/**
+ * Fetch title with timeout
+ */
+async function fetchWithTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | null> {
+  const timeout = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), timeoutMs),
+  )
+  return Promise.race([promise, timeout])
 }
 
 /**
- * Export user data as CSV
- * Returns a single CSV file with sections for each collection
+ * Enrich ratings with TMDB titles
+ * Movies and TV shows need title fetching, episodes use stored data
+ */
+async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
+  const enriched: EnrichedRating[] = []
+
+  // Process in parallel with individual timeouts
+  const promises = ratings.map(async (rating): Promise<EnrichedRating> => {
+    const mediaId = parseInt(rating.mediaId, 10)
+
+    if (rating.mediaType === "movie") {
+      // If we already have a title stored, use it
+      if (rating.title) {
+        return { title: rating.title, type: "Movie", rating: rating.rating }
+      }
+      // Fetch from TMDB with 10s timeout
+      const details = await fetchWithTimeout(getMovieDetails(mediaId), 10000)
+      const title = details?.title || `Movie ID: ${rating.mediaId}`
+      return { title, type: "Movie", rating: rating.rating }
+    }
+
+    if (rating.mediaType === "tv") {
+      // If we already have a title stored, use it
+      if (rating.title) {
+        return { title: rating.title, type: "TV", rating: rating.rating }
+      }
+      // Fetch from TMDB with 10s timeout
+      const details = await fetchWithTimeout(getTVDetails(mediaId), 10000)
+      const title = details?.name || `TV Show ID: ${rating.mediaId}`
+      return { title, type: "TV", rating: rating.rating }
+    }
+
+    // Episode: use stored data with fallbacks
+    let title = rating.tvShowName || "Unknown Show"
+    if (rating.episodeName) {
+      title += ` - ${rating.episodeName}`
+    } else if (
+      rating.seasonNumber !== undefined &&
+      rating.episodeNumber !== undefined
+    ) {
+      title += ` - S${rating.seasonNumber}E${rating.episodeNumber}`
+    }
+    return { title, type: "Episode", rating: rating.rating }
+  })
+
+  const results = await Promise.allSettled(promises)
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      enriched.push(result.value)
+    }
+  }
+
+  return enriched
+}
+
+// ============================================================================
+// CSV Export
+// ============================================================================
+
+/**
+ * Escape a string for CSV
+ * Wraps in quotes if contains comma, newline, or quote
+ * Doubles internal quotes
+ */
+function escapeCSV(value: string): string {
+  if (value.includes(",") || value.includes("\n") || value.includes('"')) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
+}
+
+/**
+ * Export user data as CSV per spec.md
+ * Headers: Category,Title,Type,Rating
  */
 export async function exportToCSV(userId: string): Promise<void> {
-  const data = await fetchAllUserData(userId)
+  // Fetch all data in parallel
+  const [lists, ratings, favoritePersons] = await Promise.all([
+    fetchLists(userId),
+    fetchRatings(userId),
+    fetchFavoritePersons(userId),
+  ])
 
-  let csvContent = "ShowSeek Data Export\n"
-  csvContent += `Exported: ${new Date().toISOString()}\n`
+  // Enrich ratings with TMDB titles
+  const enrichedRatings = await enrichRatings(ratings)
 
-  csvContent += arrayToCSV(data.ratings, "Ratings")
-  csvContent += arrayToCSV(data.notes, "Notes")
-  csvContent += arrayToCSV(data.favoritePersons, "Favorite People")
+  // Build CSV rows
+  const rows: string[] = ["Category,Title,Type,Rating"]
 
-  // Handle lists specially - flatten items
-  const flattenedLists: Record<string, unknown>[] = []
-  data.lists.forEach((list) => {
-    const listId = list.id
-    const listName = list.name
-    const items = list.items as Record<string, unknown> | undefined
-    if (items && typeof items === "object") {
-      Object.values(items).forEach((item) => {
-        if (item && typeof item === "object") {
-          flattenedLists.push({
-            listId,
-            listName,
-            ...(item as Record<string, unknown>),
-          })
-        }
-      })
+  // Lists
+  for (const list of lists) {
+    const categoryEscaped = escapeCSV(`List: ${list.name}`)
+    if (list.items && typeof list.items === "object") {
+      for (const item of Object.values(list.items)) {
+        const title = item.title || item.name || "Unknown"
+        const type = item.media_type === "movie" ? "Movie" : "TV"
+        rows.push(`${categoryEscaped},${escapeCSV(title)},${type},`)
+      }
     }
-  })
-  csvContent += arrayToCSV(flattenedLists, "Watch Lists")
-
-  // Handle episode tracking - flatten episodes
-  const flattenedEpisodes: Record<string, unknown>[] = []
-  data.episodeTracking.forEach((show) => {
-    const showId = show.id
-    const showName = show.showName
-    const posterPath = show.posterPath
-    const episodes = show.episodes as Record<string, unknown> | undefined
-    if (episodes && typeof episodes === "object") {
-      Object.entries(episodes).forEach(([episodeKey, episode]) => {
-        if (episode && typeof episode === "object") {
-          flattenedEpisodes.push({
-            showId,
-            showName,
-            posterPath,
-            episodeKey,
-            ...(episode as Record<string, unknown>),
-          })
-        }
-      })
-    }
-  })
-  csvContent += arrayToCSV(flattenedEpisodes, "Episode Tracking")
-
-  downloadFile(csvContent, "showseek-export.csv", "text/csv")
-}
-
-/**
- * Format a rating for Markdown
- */
-function formatRating(rating: Record<string, unknown>): string {
-  const title = rating.title || rating.episodeName || "Unknown"
-  const score = rating.rating
-  const mediaType = rating.mediaType
-  const date = rating.ratedAt
-    ? new Date(rating.ratedAt as number).toLocaleDateString()
-    : "Unknown"
-
-  let line = `- **${title}**`
-  if (mediaType === "episode" && rating.tvShowName) {
-    line += ` (${rating.tvShowName} S${rating.seasonNumber}E${rating.episodeNumber})`
   }
-  line += ` - ${score}/10 _(${date})_`
-  return line
+
+  // Ratings
+  for (const rating of enrichedRatings) {
+    rows.push(
+      `Rating,${escapeCSV(rating.title)},${rating.type},${rating.rating}`,
+    )
+  }
+
+  // Favorite People
+  for (const person of favoritePersons) {
+    rows.push(`Favorite Person,${escapeCSV(person.name)},Person,`)
+  }
+
+  const csvContent = rows.join("\n")
+  downloadFile(csvContent, "showseek_export.csv", "text/csv")
 }
 
+// ============================================================================
+// Markdown Export
+// ============================================================================
+
 /**
- * Export user data as Markdown
+ * Export user data as Markdown per spec.md
  */
 export async function exportToMarkdown(userId: string): Promise<void> {
-  const data = await fetchAllUserData(userId)
+  // Fetch all data in parallel
+  const [lists, ratings, favoritePersons] = await Promise.all([
+    fetchLists(userId),
+    fetchRatings(userId),
+    fetchFavoritePersons(userId),
+  ])
 
+  // Enrich ratings with TMDB titles
+  const enrichedRatings = await enrichRatings(ratings)
+
+  // Build Markdown content
   let md = "# ShowSeek Data Export\n\n"
-  md += `_Exported: ${new Date().toLocaleString()}_\n\n`
-  md += "---\n\n"
+  md += `_Exported on ${new Date().toLocaleDateString()}_\n\n`
 
-  // Ratings Section
-  md += "## Ratings\n\n"
-  if (data.ratings.length === 0) {
-    md += "_No ratings yet_\n\n"
+  // -------------------------------------------------------------------------
+  // Lists Section
+  // -------------------------------------------------------------------------
+  md += "## Lists\n\n"
+  if (lists.length === 0) {
+    md += "_No lists found_\n\n"
   } else {
-    const movieRatings = data.ratings.filter((r) => r.mediaType === "movie")
-    const tvRatings = data.ratings.filter((r) => r.mediaType === "tv")
-    const episodeRatings = data.ratings.filter((r) => r.mediaType === "episode")
+    for (const list of lists) {
+      md += `### ${list.name}\n`
+      if (list.items && typeof list.items === "object") {
+        const items = Object.values(list.items)
+        if (items.length === 0) {
+          md += "_No items_\n"
+        } else {
+          for (const item of items) {
+            const title = item.title || item.name || "Unknown"
+            const type = item.media_type === "movie" ? "Movie" : "TV"
+            md += `- **${title}** (${type})\n`
+          }
+        }
+      } else {
+        md += "_No items_\n"
+      }
+      md += "\n"
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Ratings Section
+  // -------------------------------------------------------------------------
+  md += "## Ratings\n\n"
+  if (enrichedRatings.length === 0) {
+    md += "_No ratings found_\n\n"
+  } else {
+    const movieRatings = enrichedRatings.filter((r) => r.type === "Movie")
+    const tvRatings = enrichedRatings.filter((r) => r.type === "TV")
+    const episodeRatings = enrichedRatings.filter((r) => r.type === "Episode")
 
     if (movieRatings.length > 0) {
-      md += "### Movies\n\n"
-      movieRatings.forEach((r) => {
-        md += formatRating(r) + "\n"
-      })
+      md += "### Movies\n"
+      for (const r of movieRatings) {
+        md += `- **${r.title}**: ${r.rating}/10\n`
+      }
       md += "\n"
     }
 
     if (tvRatings.length > 0) {
-      md += "### TV Shows\n\n"
-      tvRatings.forEach((r) => {
-        md += formatRating(r) + "\n"
-      })
+      md += "### TV Shows\n"
+      for (const r of tvRatings) {
+        md += `- **${r.title}**: ${r.rating}/10\n`
+      }
       md += "\n"
     }
 
     if (episodeRatings.length > 0) {
-      md += "### Episodes\n\n"
-      episodeRatings.forEach((r) => {
-        md += formatRating(r) + "\n"
-      })
+      md += "### Episodes\n"
+      for (const r of episodeRatings) {
+        md += `- **${r.title}**: ${r.rating}/10\n`
+      }
       md += "\n"
     }
   }
 
-  // Lists Section
-  md += "## Watch Lists\n\n"
-  if (data.lists.length === 0) {
-    md += "_No lists yet_\n\n"
-  } else {
-    data.lists.forEach((list) => {
-      md += `### ${list.name || list.id}\n\n`
-      const items = list.items as Record<string, unknown> | undefined
-      if (items && typeof items === "object") {
-        Object.values(items).forEach((item) => {
-          if (item && typeof item === "object") {
-            const i = item as Record<string, unknown>
-            md += `- ${i.title || i.name || "Unknown"}`
-            if (i.mediaType) md += ` _(${i.mediaType})_`
-            md += "\n"
-          }
-        })
-      } else {
-        md += "_Empty list_\n"
-      }
-      md += "\n"
-    })
-  }
-
-  // Notes Section
-  md += "## Notes\n\n"
-  if (data.notes.length === 0) {
-    md += "_No notes yet_\n\n"
-  } else {
-    data.notes.forEach((note) => {
-      md += `### ${note.title || "Untitled"}\n\n`
-      md += `${note.content || ""}\n\n`
-    })
-  }
-
+  // -------------------------------------------------------------------------
   // Favorite People Section
+  // -------------------------------------------------------------------------
   md += "## Favorite People\n\n"
-  if (data.favoritePersons.length === 0) {
-    md += "_No favorites yet_\n\n"
+  if (favoritePersons.length === 0) {
+    md += "_No favorite people found_\n\n"
   } else {
-    data.favoritePersons.forEach((person) => {
-      md += `- **${person.name}** _(${person.known_for_department || "Unknown"})_\n`
-    })
+    for (const person of favoritePersons) {
+      md += `- **${person.name}**\n`
+    }
     md += "\n"
   }
 
-  // Episode Tracking Section
-  md += "## Episode Tracking\n\n"
-  if (data.episodeTracking.length === 0) {
-    md += "_No tracked shows yet_\n\n"
-  } else {
-    data.episodeTracking.forEach((show) => {
-      const episodes = show.episodes as Record<string, unknown> | undefined
-      const watchedCount = episodes ? Object.keys(episodes).length : 0
-      md += `- **${show.showName || show.id}** - ${watchedCount} episodes watched\n`
-    })
-    md += "\n"
-  }
-
-  downloadFile(md, "showseek-export.md", "text/markdown")
+  downloadFile(md, "showseek_export.md", "text/markdown")
 }
+
+// ============================================================================
+// Helpers
+// ============================================================================
 
 /**
  * Trigger browser download of a file
