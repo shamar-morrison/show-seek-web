@@ -2,12 +2,14 @@
 
 import { CastRow } from "@/components/cast-row"
 import { EpisodeRatingModal } from "@/components/episode-rating-modal"
+import { AuthModal } from "@/components/auth-modal"
 import { PhotoLightbox } from "@/components/photo-lightbox"
 import { RateButton } from "@/components/rate-button"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
+import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
@@ -56,6 +58,7 @@ export function EpisodeDetailClient({
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
   const { preferences } = usePreferences()
+  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
   const [isWatched, setIsWatched] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
@@ -333,13 +336,18 @@ export function EpisodeDetailClient({
 
                 {/* Action Buttons - matching media-detail-hero style */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-4 lg:justify-start">
-                  {user && hasAired && (
+                  {hasAired && (
                     <>
                       {/* Watched Toggle */}
                       <Button
                         size="lg"
                         variant="outline"
-                        onClick={handleToggleWatched}
+                        onClick={() =>
+                          requireAuth(
+                            handleToggleWatched,
+                            "Sign in to track your watch progress",
+                          )
+                        }
                         disabled={isToggling}
                         className={
                           isWatched
@@ -367,7 +375,12 @@ export function EpisodeDetailClient({
                       <RateButton
                         hasRating={!!userRating}
                         rating={userRating?.rating}
-                        onClick={() => setShowRatingModal(true)}
+                        onClick={() =>
+                          requireAuth(
+                            () => setShowRatingModal(true),
+                            "Sign in to rate episodes",
+                          )
+                        }
                         disabled={isToggling}
                       />
                     </>
@@ -530,6 +543,13 @@ export function EpisodeDetailClient({
         isOpen={videoModalOpen}
         onClose={() => setVideoModalOpen(false)}
         title={video?.name || "Video"}
+      />
+
+      {/* Auth Modal for unauthenticated users */}
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        message={modalMessage}
       />
     </div>
   )

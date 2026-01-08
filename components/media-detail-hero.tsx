@@ -333,7 +333,12 @@ export function MediaDetailHero({
                     size="lg"
                     variant="outline"
                     className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                    onClick={() => setIsAddToListOpen(true)}
+                    onClick={() =>
+                      requireAuth(
+                        () => setIsAddToListOpen(true),
+                        "Sign in to add to your lists",
+                      )
+                    }
                   >
                     <HugeiconsIcon
                       icon={isInAnyList ? Tick02Icon : PlusSignIcon}

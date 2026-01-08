@@ -1,7 +1,9 @@
 "use client"
 
 import { EpisodeRatingModal } from "@/components/episode-rating-modal"
+import { AuthModal } from "@/components/auth-modal"
 import { useAuth } from "@/context/auth-context"
+import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
@@ -59,6 +61,7 @@ export function EpisodeCard({
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
   const { preferences } = usePreferences()
+  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
 
@@ -150,6 +153,8 @@ export function EpisodeCard({
     showStats,
     getNextEpisode,
     preferences.autoAddToWatching,
+    tvShowVoteAverage,
+    tvShowFirstAirDate,
   ])
 
   const stillUrl = episode.still_path
@@ -256,11 +261,16 @@ export function EpisodeCard({
             </div>
 
             {/* Actions */}
-            {user && hasAired && (
+            {hasAired && (
               <div className="mt-4 flex items-center gap-3">
                 {/* Watched Toggle */}
                 <button
-                  onClick={handleToggleWatched}
+                  onClick={() =>
+                    requireAuth(
+                      handleToggleWatched,
+                      "Sign in to track your watch progress",
+                    )
+                  }
                   disabled={isToggling}
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isWatched
@@ -287,7 +297,12 @@ export function EpisodeCard({
 
                 {/* Rate Button */}
                 <button
-                  onClick={() => setShowRatingModal(true)}
+                  onClick={() =>
+                    requireAuth(
+                      () => setShowRatingModal(true),
+                      "Sign in to rate episodes",
+                    )
+                  }
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     userRating
                       ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
@@ -314,6 +329,13 @@ export function EpisodeCard({
         episode={episode}
         tvShowId={tvShowId}
         tvShowName={tvShowName}
+      />
+
+      {/* Auth Modal for unauthenticated users */}
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        message={modalMessage}
       />
     </>
   )

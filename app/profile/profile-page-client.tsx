@@ -28,13 +28,6 @@ export function ProfilePageClient() {
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login")
-    }
-  }, [user, loading, router])
-
   if (loading || prefsLoading || !user) {
     return (
       <div className="animate-pulse space-y-6">
