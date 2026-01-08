@@ -39,3 +39,11 @@ export function formatRelativeTime(timestamp: Date | number): string {
   if (diffMonths < 12) return `${diffMonths} months ago`
   return date.toLocaleDateString()
 }
+
+/**
+ * Capture an exception and send it to the error tracking service
+ * (Placeholder for Sentry/LogRocket/etc.)
+ */
+export function captureException(error: unknown) {
+  console.error("Captured exception:", error)
+}

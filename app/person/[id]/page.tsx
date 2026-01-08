@@ -19,9 +19,29 @@ function calculateAge(
   if (!birthday) return null
   const birthDate = new Date(birthday)
   const compareDate = deathday ? new Date(deathday) : new Date()
-  const ageDifMs = compareDate.getTime() - birthDate.getTime()
-  const ageDate = new Date(ageDifMs)
-  return Math.abs(ageDate.getUTCFullYear() - 1970).toString()
+
+  if (isNaN(birthDate.getTime()) || isNaN(compareDate.getTime())) {
+    return null
+  }
+
+  const birthYear = birthDate.getUTCFullYear()
+  const birthMonth = birthDate.getUTCMonth()
+  const birthDay = birthDate.getUTCDate()
+
+  const compareYear = compareDate.getUTCFullYear()
+  const compareMonth = compareDate.getUTCMonth()
+  const compareDay = compareDate.getUTCDate()
+
+  let years = compareYear - birthYear
+
+  if (
+    compareMonth < birthMonth ||
+    (compareMonth === birthMonth && compareDay < birthDay)
+  ) {
+    years--
+  }
+
+  return years.toString()
 }
 
 function formatDate(dateString: string | null): string | null {
@@ -180,9 +200,9 @@ export async function generateMetadata({
     description:
       person.biography?.slice(0, 160) || `Details about ${person.name}`,
     openGraph: {
-      images: person.profile_path
-        ? [buildImageUrl(person.profile_path, "w500") || ""]
-        : [],
+      images: [buildImageUrl(person.profile_path, "w500")].filter(
+        Boolean,
+      ) as string[],
     },
   }
 }

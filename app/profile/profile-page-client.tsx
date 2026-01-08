@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import { captureException } from "@/lib/utils"
 import { FileExportIcon, Logout01Icon } from "@hugeicons/core-free-icons"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -55,9 +56,7 @@ export function ProfilePageClient() {
       await signOut()
       router.push("/login")
     } catch (error) {
-      console.error("Error signing out:", error)
-      // TODO: Send to error tracking service
-      // captureException(error)
+      captureException(error)
       toast.error("Failed to sign out. Please try again.")
       setIsSigningOut(false)
     }
