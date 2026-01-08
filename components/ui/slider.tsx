@@ -9,9 +9,9 @@ import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 
 export interface SliderProps {
   /** Current value - single number or [min, max] for range */
-  value: number | number[]
+  value: number | [number, number]
   /** Callback when value changes */
-  onValueChange: (value: number | number[]) => void
+  onValueChange: (value: number | [number, number]) => void
   /** Minimum value */
   min?: number
   /** Maximum value */
@@ -49,7 +49,11 @@ export function Slider({
       value={normalizedValue}
       onValueChange={(newValue) => {
         // Return in same format as input
-        onValueChange(isRange ? newValue : newValue[0])
+        if (isRange) {
+          onValueChange(newValue as [number, number])
+        } else {
+          onValueChange(newValue[0])
+        }
       }}
       min={min}
       max={max}
