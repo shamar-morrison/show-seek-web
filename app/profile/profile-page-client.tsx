@@ -4,6 +4,7 @@ import { ActionButton } from "@/components/profile/action-button"
 import { DeleteAccountModal } from "@/components/profile/delete-account-modal"
 import { ExportDataModal } from "@/components/profile/export-data-modal"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
+import { PremiumModal } from "@/components/premium-modal"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
@@ -27,6 +28,7 @@ export function ProfilePageClient() {
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
 
   // Redirect to login if not authenticated
@@ -64,7 +66,7 @@ export function ProfilePageClient() {
 
   function handleExportData() {
     if (!isPremium) {
-      router.push("/premium")
+      setShowPremiumModal(true)
       return
     }
     setShowExportModal(true)
@@ -92,7 +94,7 @@ export function ProfilePageClient() {
             <Badge variant="premium">Premium Member</Badge>
           ) : (
             <button
-              onClick={() => router.push("/premium")}
+              onClick={() => setShowPremiumModal(true)}
               className="rounded-full bg-linear-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Upgrade to Premium
@@ -184,6 +186,10 @@ export function ProfilePageClient() {
       <DeleteAccountModal
         open={showDeleteModal}
         onOpenChange={setShowDeleteModal}
+      />
+      <PremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
       />
     </>
   )
