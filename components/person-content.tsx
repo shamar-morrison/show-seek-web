@@ -4,14 +4,9 @@ import { fetchTrailerKey } from "@/app/actions"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
-import {
-  PersonCastMember,
-  PersonCrewMember,
-  TMDBMedia,
-  TMDBPersonDetails,
-} from "@/types/tmdb"
+import { PersonCastMember, PersonCrewMember, TMDBMedia, TMDBPersonDetails } from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface PersonContentProps {
@@ -34,52 +29,60 @@ export function PersonContent({ person }: PersonContentProps) {
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
 
-  const knownFor = person.known_for_department
-  const isDirecting = knownFor === "Directing"
-  const isWriting = knownFor === "Writing"
+  const { movieCredits, tvCredits, mediaItems, creditLabel } = useMemo(() => {
+    const knownFor = person.known_for_department
+    const isDirecting = knownFor === "Directing"
+    const isWriting = knownFor === "Writing"
 
-  let credits: (PersonCastMember | PersonCrewMember)[] = []
-  let creditLabel = "Acting"
+    let credits: (PersonCastMember | PersonCrewMember)[] = []
+    let label = "Acting"
 
-  if (isDirecting) {
-    credits =
-      person.combined_credits?.crew.filter(
-        (c) => c.department === "Directing",
-      ) || []
-    creditLabel = "Directing"
-  } else if (isWriting) {
-    credits =
-      person.combined_credits?.crew.filter((c) => c.department === "Writing") ||
-      []
-    creditLabel = "Writing"
-  } else {
-    credits = person.combined_credits?.cast || []
-    creditLabel = "Acting"
-  }
+    if (isDirecting) {
+      credits =
+        person.combined_credits?.crew.filter(
+          (c) => c.department === "Directing",
+        ) || []
+      label = "Directing"
+    } else if (isWriting) {
+      credits =
+        person.combined_credits?.crew.filter(
+          (c) => c.department === "Writing",
+        ) || []
+      label = "Writing"
+    } else {
+      credits = person.combined_credits?.cast || []
+      label = "Acting"
+    }
 
-  // Split credits by media type, deduplicate, and sort by popularity
-  const movieCredits = deduplicateById(
-    credits.filter((c) => c.media_type === "movie" && c.poster_path),
-  ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    // Split credits by media type, deduplicate, and sort by popularity
+    const movies = deduplicateById(
+      credits.filter((c) => c.media_type === "movie" && c.poster_path),
+    ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
 
-  const tvCredits = deduplicateById(
-    credits.filter((c) => c.media_type === "tv" && c.poster_path),
-  ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    const tv = deduplicateById(
+      credits.filter((c) => c.media_type === "tv" && c.poster_path),
+    ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
 
-  const currentCredits = activeTab === "movie" ? movieCredits : tvCredits
+    const current = activeTab === "movie" ? movies : tv
 
-  // Map to TMDBMedia for MediaCard
-  // Note: original_language defaults to "en" since PersonCastMember/PersonCrewMember
-  // don't include this field. This is inaccurate for international content but unavoidable.
-  const mediaItems: TMDBMedia[] = currentCredits.map((credit) => ({
-    ...credit,
-    original_language: "en",
-    // Conditionally set original_title/original_name based on media_type
-    // to avoid polluting the object with undefined values
-    ...(credit.media_type === "movie"
-      ? { original_title: credit.title }
-      : { original_name: credit.name }),
-  }))
+    // Map to TMDBMedia for MediaCard
+    const items: TMDBMedia[] = current.map((credit) => ({
+      ...credit,
+      original_language: "en",
+      // Conditionally set original_title/original_name based on media_type
+      // to avoid polluting the object with undefined values
+      ...(credit.media_type === "movie"
+        ? { original_title: credit.title }
+        : { original_name: credit.name }),
+    }))
+
+    return {
+      movieCredits: movies,
+      tvCredits: tv,
+      mediaItems: items,
+      creditLabel: label,
+    }
+  }, [person, activeTab])
 
   const handleWatchTrailer = async (media: TMDBMedia) => {
     setLoadingMediaId(media.id)

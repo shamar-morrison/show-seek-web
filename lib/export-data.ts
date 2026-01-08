@@ -86,63 +86,47 @@ interface EnrichedRating {
 // ============================================================================
 
 async function fetchLists(userId: string): Promise<ListDoc[]> {
-  try {
-    const snapshot = await getDocs(collection(db, "users", userId, "lists"))
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      name: (doc.data().name as string) || doc.id,
-      items: doc.data().items as Record<string, ListMediaItem> | undefined,
-    }))
-  } catch (error) {
-    console.error("Error fetching lists for export:", error)
-    return []
-  }
+  const snapshot = await getDocs(collection(db, "users", userId, "lists"))
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    name: (doc.data().name as string) || doc.id,
+    items: doc.data().items as Record<string, ListMediaItem> | undefined,
+  }))
 }
 
 async function fetchRatings(userId: string): Promise<RatingDoc[]> {
-  try {
-    const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
-    return snapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        id: doc.id,
-        mediaId: data.mediaId as string,
-        mediaType: data.mediaType as "movie" | "tv" | "episode",
-        rating: data.rating as number,
-        ratedAt: data.ratedAt as RatingDoc["ratedAt"],
-        title: data.title as string | undefined,
-        tvShowName: data.tvShowName as string | undefined,
-        episodeName: data.episodeName as string | undefined,
-        seasonNumber: data.seasonNumber as number | undefined,
-        episodeNumber: data.episodeNumber as number | undefined,
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching ratings for export:", error)
-    return []
-  }
+  const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
+  return snapshot.docs.map((doc) => {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      mediaId: data.mediaId as string,
+      mediaType: data.mediaType as "movie" | "tv" | "episode",
+      rating: data.rating as number,
+      ratedAt: data.ratedAt as RatingDoc["ratedAt"],
+      title: data.title as string | undefined,
+      tvShowName: data.tvShowName as string | undefined,
+      episodeName: data.episodeName as string | undefined,
+      seasonNumber: data.seasonNumber as number | undefined,
+      episodeNumber: data.episodeNumber as number | undefined,
+    }
+  })
 }
 
 async function fetchFavoritePersons(userId: string): Promise<FavoritePerson[]> {
-  try {
-    const snapshot = await getDocs(
-      collection(db, "users", userId, "favorite_persons"),
-    )
-    return snapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        id: data.id as number,
-        name: (data.name as string) || "Unknown",
-        known_for_department:
-          (data.known_for_department as string) || "Unknown",
-        profile_path: (data.profile_path as string) || null,
-        addedAt: (data.addedAt as number) || 0,
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching favorite persons for export:", error)
-    return []
-  }
+  const snapshot = await getDocs(
+    collection(db, "users", userId, "favorite_persons"),
+  )
+  return snapshot.docs.map((doc) => {
+    const data = doc.data()
+    return {
+      id: data.id as number,
+      name: (data.name as string) || "Unknown",
+      known_for_department: (data.known_for_department as string) || "Unknown",
+      profile_path: (data.profile_path as string) || null,
+      addedAt: (data.addedAt as number) || 0,
+    }
+  })
 }
 
 // ============================================================================
@@ -256,11 +240,29 @@ async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
     const batch = ratings.slice(i, i + BATCH_SIZE)
     const results = await Promise.allSettled(batch.map(formatRating))
 
-    for (const result of results) {
+    results.forEach((result, index) => {
       if (result.status === "fulfilled") {
         enriched.push(result.value)
+      } else {
+        // Fallback for failed enrichments
+        const originalRating = batch[index]
+        const ratedAtDate = normalizeToDate(originalRating.ratedAt)
+        enriched.push({
+          title: `Unknown ${originalRating.mediaType} (ID: ${originalRating.mediaId})`,
+          type:
+            originalRating.mediaType === "movie"
+              ? "Movie"
+              : originalRating.mediaType === "tv"
+                ? "TV"
+                : "Episode",
+          rating: originalRating.rating,
+          ratedAt: ratedAtDate,
+          formattedDate: ratedAtDate
+            ? ratedAtDate.toLocaleDateString()
+            : undefined,
+        })
       }
-    }
+    })
 
     // Add a small delay between batches to further respect rate limits
     // Only add delay if there are more batches to process
