@@ -2,6 +2,8 @@
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
+import { PremiumModal } from "@/components/premium-modal"
+import { PremiumBadge } from "@/components/premium-badge"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +18,7 @@ import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
+import { useAuth } from "@/context/auth-context"
 import { useTrailer } from "@/hooks/use-trailer"
 import type {
   Genre,
@@ -27,7 +30,14 @@ import type {
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useMemo, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 
 // Filter state interface
 interface DiscoverFilters {
@@ -106,10 +116,59 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const { isPremium, loading: authLoading } = useAuth()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+
+  // Use a ref to access the latest filters inside updateFilters without adding it to dependencies
+  const filtersRef = useRef(filters)
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
+
+  const updateFilters = useCallback(
+    (newFilters: Partial<DiscoverFilters>) => {
+      const currentFilters = filtersRef.current
+      const updated = { ...currentFilters, ...newFilters, page: 1 }
+
+      // If media type changed, reset genre (since genres differ between movie/tv)
+      if (
+        newFilters.mediaType &&
+        newFilters.mediaType !== currentFilters.mediaType
+      ) {
+        updated.genre = null
+      }
+
+      setFilters(updated)
+
+      const params = new URLSearchParams()
+      if (updated.mediaType !== "movie") params.set("type", updated.mediaType)
+      if (updated.year) params.set("year", updated.year.toString())
+      if (updated.sortBy !== "popularity") params.set("sort", updated.sortBy)
+      if (updated.rating) params.set("rating", updated.rating.toString())
+      if (updated.language) params.set("language", updated.language)
+      if (updated.genre) params.set("genre", updated.genre.toString())
+      if (updated.provider) params.set("provider", updated.provider.toString())
+
+      startTransition(() => {
+        const url = params.toString() ? `/discover?${params}` : "/discover"
+        router.push(url)
+      })
+    },
+    [router],
+  )
+
+  // Prevent non-premium users from using provider filter via URL params
+  useEffect(() => {
+    if (!authLoading && !isPremium && filters.provider !== null) {
+      updateFilters({ provider: null })
+      setShowPremiumModal(true)
+    }
+  }, [authLoading, isPremium, filters.provider])
+
   // Results come from server via initialResults and update on navigation
   const results = initialResults
 
@@ -172,34 +231,6 @@ export function DiscoverClient({
       filters.provider !== null
     )
   }, [filters])
-
-  const updateFilters = useCallback(
-    (newFilters: Partial<DiscoverFilters>) => {
-      const updated = { ...filters, ...newFilters, page: 1 }
-
-      // If media type changed, reset genre (since genres differ between movie/tv)
-      if (newFilters.mediaType && newFilters.mediaType !== filters.mediaType) {
-        updated.genre = null
-      }
-
-      setFilters(updated)
-
-      const params = new URLSearchParams()
-      if (updated.mediaType !== "movie") params.set("type", updated.mediaType)
-      if (updated.year) params.set("year", updated.year.toString())
-      if (updated.sortBy !== "popularity") params.set("sort", updated.sortBy)
-      if (updated.rating) params.set("rating", updated.rating.toString())
-      if (updated.language) params.set("language", updated.language)
-      if (updated.genre) params.set("genre", updated.genre.toString())
-      if (updated.provider) params.set("provider", updated.provider.toString())
-
-      startTransition(() => {
-        const url = params.toString() ? `/discover?${params}` : "/discover"
-        router.push(url)
-      })
-    },
-    [filters, router],
-  )
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -310,16 +341,33 @@ export function DiscoverClient({
             />
 
             {/* Streaming Provider */}
-            <VirtualizedFilterCombobox
-              label="Streaming"
-              value={filters.provider?.toString() || null}
-              options={providerOptions}
-              onChange={(val) =>
-                updateFilters({ provider: val ? parseInt(val) : null })
-              }
-              placeholder="All Providers"
-              popoverClassName="w-[380px]"
-            />
+            <div
+              className="relative"
+              onClickCapture={(e) => {
+                if (!isPremium) {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setShowPremiumModal(true)
+                }
+              }}
+            >
+              <VirtualizedFilterCombobox
+                label={
+                  <div className="flex items-center gap-2">
+                    Streaming
+                    <PremiumBadge isPremium={isPremium} />
+                  </div>
+                }
+                value={filters.provider?.toString() || null}
+                options={providerOptions}
+                onChange={(val) =>
+                  updateFilters({ provider: val ? parseInt(val) : null })
+                }
+                placeholder="All Providers"
+                popoverClassName="w-[380px]"
+                disabled={!isPremium}
+              />
+            </div>
 
             {/* Clear All Button */}
             {hasActiveFilters && (
@@ -415,6 +463,12 @@ export function DiscoverClient({
         isOpen={isOpen}
         onClose={closeTrailer}
         title={activeTrailer?.title}
+      />
+
+      {/* Premium Modal */}
+      <PremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
       />
     </>
   )

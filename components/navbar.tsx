@@ -171,6 +171,8 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
+  const isAuthenticated = !!user && !user.isAnonymous
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50)
@@ -222,18 +224,22 @@ export function Navbar() {
                   </NavLink>
                 </NavigationMenu.Item>
 
-                {/* Lists - Dropdown */}
-                <DropdownMenuItem item={listsMenu} />
+                {isAuthenticated && (
+                  <>
+                    {/* Lists - Dropdown */}
+                    <DropdownMenuItem item={listsMenu} />
 
-                {/* Ratings - Simple Link */}
-                <NavigationMenu.Item>
-                  <NavLink
-                    href={ratingsLink.href}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
-                  >
-                    {ratingsLink.label}
-                  </NavLink>
-                </NavigationMenu.Item>
+                    {/* Ratings - Simple Link */}
+                    <NavigationMenu.Item>
+                      <NavLink
+                        href={ratingsLink.href}
+                        className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                      >
+                        {ratingsLink.label}
+                      </NavLink>
+                    </NavigationMenu.Item>
+                  </>
+                )}
               </NavigationMenu.List>
 
               <NavigationMenu.Portal>
@@ -308,20 +314,24 @@ export function Navbar() {
               {discoverLink.label}
             </Link>
 
-            {/* Lists - Accordion */}
-            <MobileAccordionItem
-              item={listsMenu}
-              onLinkClick={closeMobileMenu}
-            />
+            {isAuthenticated && (
+              <>
+                {/* Lists - Accordion */}
+                <MobileAccordionItem
+                  item={listsMenu}
+                  onLinkClick={closeMobileMenu}
+                />
 
-            {/* Ratings - Simple Link */}
-            <Link
-              href={ratingsLink.href}
-              onClick={closeMobileMenu}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              {ratingsLink.label}
-            </Link>
+                {/* Ratings - Simple Link */}
+                <Link
+                  href={ratingsLink.href}
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  {ratingsLink.label}
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

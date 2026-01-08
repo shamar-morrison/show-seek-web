@@ -79,35 +79,37 @@ export function HomePageClient({
         isPaused={isTrailerOpen}
       />
 
-      <div className="relative z-20 -mt-24 space-y-4 pt-32">
-        <MediaRow
-          title="Trending Now"
-          items={trendingList}
-          onWatchTrailer={handleCardWatchTrailer}
-          loadingMediaId={loadingMediaId}
-          showActions
-        />
-        <MediaRow
-          title="Popular Movies"
-          items={popularMovies}
-          onWatchTrailer={handleCardWatchTrailer}
-          loadingMediaId={loadingMediaId}
-          showActions
-        />
-        <MediaRow
-          title="Top Rated TV Shows"
-          items={topRatedTV}
-          onWatchTrailer={handleCardWatchTrailer}
-          loadingMediaId={loadingMediaId}
-          showActions
-        />
-        <MediaRow
-          title="Upcoming Movies"
-          items={upcomingMovies}
-          onWatchTrailer={handleCardWatchTrailer}
-          loadingMediaId={loadingMediaId}
-          showActions
-        />
+      <div className="relative z-20 -mt-24 pt-32 pointer-events-none">
+        <div className="pointer-events-auto space-y-4">
+          <MediaRow
+            title="Trending Now"
+            items={trendingList}
+            onWatchTrailer={handleCardWatchTrailer}
+            loadingMediaId={loadingMediaId}
+            showActions
+          />
+          <MediaRow
+            title="Popular Movies"
+            items={popularMovies}
+            onWatchTrailer={handleCardWatchTrailer}
+            loadingMediaId={loadingMediaId}
+            showActions
+          />
+          <MediaRow
+            title="Top Rated TV Shows"
+            items={topRatedTV}
+            onWatchTrailer={handleCardWatchTrailer}
+            loadingMediaId={loadingMediaId}
+            showActions
+          />
+          <MediaRow
+            title="Upcoming Movies"
+            items={upcomingMovies}
+            onWatchTrailer={handleCardWatchTrailer}
+            loadingMediaId={loadingMediaId}
+            showActions
+          />
+        </div>
       </div>
 
       <TrailerModal

@@ -178,7 +178,7 @@ export function HeroSection({
 
           {/* Slide Indicators - Centered */}
           {mediaList.length > 1 && (
-            <div className="absolute inset-x-0 bottom-8 flex justify-center">
+            <div className="absolute inset-x-0 bottom-8 z-50 flex justify-center">
               <div className="flex items-center gap-2">
                 {mediaList.map((_, index) => (
                   <button

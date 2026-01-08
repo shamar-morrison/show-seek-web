@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
 } from "firebase/auth"
 import { doc, onSnapshot } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 import {
   ReactNode,
   createContext,
@@ -26,6 +27,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isPremium, setIsPremium] = useState(false)
@@ -77,6 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Then sign out from Firebase client
       await firebaseSignOut(auth)
+
+      // Redirect to home page
+      router.push("/")
     } catch (error) {
       console.error("Error signing out:", error)
       throw error

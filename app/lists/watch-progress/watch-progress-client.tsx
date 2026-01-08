@@ -51,23 +51,6 @@ export function WatchProgressClient() {
     )
   }
 
-  // Not logged in state
-  if (!user) {
-    return (
-      <Empty className="py-20">
-        <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={PlayCircle02Icon} className="size-6" />
-        </EmptyMedia>
-        <EmptyHeader>
-          <EmptyTitle>Sign in to track progress</EmptyTitle>
-          <EmptyDescription>
-            Track your watch progress across all your TV shows.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
   // No progress state
   if (watchProgress.length === 0) {
     return (

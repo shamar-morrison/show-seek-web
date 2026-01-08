@@ -1,10 +1,9 @@
 "use client"
 
 import { PremiumModal } from "@/components/premium-modal"
+import { PremiumBadge } from "@/components/premium-badge"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { CrownIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { useState } from "react"
 
 interface PreferenceToggleProps {
@@ -49,19 +48,7 @@ export function PreferenceToggle({
         <div className="flex-1 space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-white">{label}</span>
-            {premiumRequired && (
-              <span
-                className={cn(
-                  "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                  isPremium
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "bg-white/10 text-white/60",
-                )}
-              >
-                <HugeiconsIcon icon={CrownIcon} className="size-3" />
-                Premium
-              </span>
-            )}
+            {premiumRequired && <PremiumBadge isPremium={isPremium} />}
           </div>
           <p className="text-sm text-white/60">{description}</p>
         </div>

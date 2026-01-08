@@ -19,7 +19,7 @@ export interface ComboboxOption {
 
 interface VirtualizedFilterComboboxProps {
   /** Label for the combobox */
-  label?: string
+  label?: React.ReactNode
   /** Currently selected value */
   value?: string | null
   /** Available options */

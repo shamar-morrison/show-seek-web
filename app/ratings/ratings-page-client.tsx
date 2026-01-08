@@ -1,6 +1,5 @@
 "use client"
 
-import { AuthModal } from "@/components/auth-modal"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { EpisodeRatingCard } from "@/components/ratings/episode-rating-card"
 import { TrailerModal } from "@/components/trailer-modal"
@@ -69,24 +68,6 @@ export function RatingsPageClient() {
     },
     [watchTrailer],
   )
-
-  // Show auth prompt if not logged in
-  if (!authLoading && (!user || user.isAnonymous)) {
-    return (
-      <Empty className="border border-white/10">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={StarIcon} />
-          </EmptyMedia>
-          <EmptyTitle>Sign in to view your ratings</EmptyTitle>
-          <EmptyDescription>
-            Rate movies and TV shows to track your opinions and see them here.
-          </EmptyDescription>
-        </EmptyHeader>
-        <AuthModal />
-      </Empty>
-    )
-  }
 
   // Get the appropriate empty state text
   const getEmptyText = () => {
