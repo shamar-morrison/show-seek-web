@@ -2,6 +2,8 @@
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
+import { PremiumModal } from "@/components/premium-modal"
+import { PremiumBadge } from "@/components/premium-badge"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +18,7 @@ import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
+import { useAuth } from "@/context/auth-context"
 import { useTrailer } from "@/hooks/use-trailer"
 import type {
   Genre,
@@ -106,10 +109,12 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const { isPremium } = useAuth()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
   // Results come from server via initialResults and update on navigation
   const results = initialResults
 
@@ -310,16 +315,33 @@ export function DiscoverClient({
             />
 
             {/* Streaming Provider */}
-            <VirtualizedFilterCombobox
-              label="Streaming"
-              value={filters.provider?.toString() || null}
-              options={providerOptions}
-              onChange={(val) =>
-                updateFilters({ provider: val ? parseInt(val) : null })
-              }
-              placeholder="All Providers"
-              popoverClassName="w-[380px]"
-            />
+            <div
+              className="relative"
+              onClickCapture={(e) => {
+                if (!isPremium) {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setShowPremiumModal(true)
+                }
+              }}
+            >
+              <VirtualizedFilterCombobox
+                label={
+                  <div className="flex items-center gap-2">
+                    Streaming
+                    <PremiumBadge isPremium={isPremium} />
+                  </div>
+                }
+                value={filters.provider?.toString() || null}
+                options={providerOptions}
+                onChange={(val) =>
+                  updateFilters({ provider: val ? parseInt(val) : null })
+                }
+                placeholder="All Providers"
+                popoverClassName="w-[380px]"
+                disabled={!isPremium}
+              />
+            </div>
 
             {/* Clear All Button */}
             {hasActiveFilters && (
@@ -415,6 +437,12 @@ export function DiscoverClient({
         isOpen={isOpen}
         onClose={closeTrailer}
         title={activeTrailer?.title}
+      />
+
+      {/* Premium Modal */}
+      <PremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
       />
     </>
   )

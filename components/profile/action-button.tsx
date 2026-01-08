@@ -1,7 +1,8 @@
 "use client"
 
+import { PremiumBadge } from "@/components/premium-badge"
 import { cn } from "@/lib/utils"
-import { ArrowRight01Icon, CrownIcon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react"
 import { forwardRef } from "react"
 
@@ -74,12 +75,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
             {badge}
           </span>
         )}
-        {isLocked && (
-          <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/60">
-            <HugeiconsIcon icon={CrownIcon} className="size-3" />
-            Premium
-          </span>
-        )}
+        {isLocked && <PremiumBadge isPremium={false} />}
         {showChevron && (
           <HugeiconsIcon
             icon={ArrowRight01Icon}
