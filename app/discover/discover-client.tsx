@@ -30,7 +30,14 @@ import type {
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 
 // Filter state interface
 interface DiscoverFilters {
@@ -160,7 +167,7 @@ export function DiscoverClient({
       updateFilters({ provider: null })
       setShowPremiumModal(true)
     }
-  }, [authLoading, isPremium, filters.provider, updateFilters])
+  }, [authLoading, isPremium, filters.provider])
 
   // Results come from server via initialResults and update on navigation
   const results = initialResults
@@ -224,8 +231,6 @@ export function DiscoverClient({
       filters.provider !== null
     )
   }, [filters])
-
-
 
   const handlePageChange = useCallback(
     (page: number) => {
