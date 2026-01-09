@@ -53,3 +53,22 @@ export function formatRelativeTime(timestamp: Date | number): string {
 export function captureException(error: unknown) {
   console.error("Captured exception:", error)
 }
+
+/**
+ * Generate the detail page URL for a media item based on its type
+ * @param type - Media type: "movie", "tv", or "person"
+ * @param id - TMDB media ID
+ * @returns URL path to the detail page
+ */
+export function getMediaUrl(type: string, id: number): string {
+  switch (type) {
+    case "movie":
+      return `/movie/${id}`
+    case "tv":
+      return `/tv/${id}`
+    case "person":
+      return `/person/${id}`
+    default:
+      return "/"
+  }
+}

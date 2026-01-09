@@ -1,6 +1,7 @@
 "use client"
 
 import { TrailerModal } from "@/components/trailer-modal"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { VideoCard } from "@/components/video-card"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
@@ -76,7 +77,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
           <SectionSkeleton count={6} cardWidth={200} cardHeight={120} />
         ) : (
           /* Video Grid */
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+          <ScrollableRow className="pb-2">
             {displayVideos.map((video) => (
               <VideoCard
                 key={video.id}
@@ -99,7 +100,7 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
                 <span className="text-xs text-gray-400">View all</span>
               </button>
             )}
-          </div>
+          </ScrollableRow>
         )}
       </div>
 

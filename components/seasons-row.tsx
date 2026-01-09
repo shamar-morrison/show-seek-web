@@ -1,5 +1,6 @@
 "use client"
 
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import type { TMDBSeason } from "@/types/tmdb"
@@ -69,7 +70,7 @@ export function SeasonsRow({
 
   return (
     <Section title={title}>
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4">
+      <ScrollableRow className="pb-4">
         {displaySeasons.map((season) => {
           const watchedCount = seasonProgress[season.season_number] || 0
           const totalCount = season.episode_count || 0
@@ -131,7 +132,7 @@ export function SeasonsRow({
             </Link>
           )
         })}
-      </div>
+      </ScrollableRow>
     </Section>
   )
 }

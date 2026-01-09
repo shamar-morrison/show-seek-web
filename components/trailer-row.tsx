@@ -1,5 +1,6 @@
 "use client"
 
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { VideoCard } from "@/components/video-card"
 import type { TrailerItem } from "@/lib/tmdb"
@@ -14,7 +15,7 @@ export function TrailerRow({ title, trailers }: TrailerRowProps) {
 
   return (
     <Section title={title}>
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+      <ScrollableRow className="pb-2">
         {trailers.map((trailer) => (
           <VideoCard
             key={`${trailer.mediaType}-${trailer.id}`}
@@ -23,7 +24,7 @@ export function TrailerRow({ title, trailers }: TrailerRowProps) {
             subtitle={trailer.mediaType === "movie" ? "Movie" : "TV Show"}
           />
         ))}
-      </div>
+      </ScrollableRow>
     </Section>
   )
 }

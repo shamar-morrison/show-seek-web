@@ -5,7 +5,9 @@ import {
   type DropdownMenuItem,
 } from "@/components/media-card-dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { buildImageUrl } from "@/lib/tmdb"
+import { getMediaUrl } from "@/lib/utils"
 import type { TMDBMedia } from "@/types/tmdb"
 import {
   BookmarkIcon,
@@ -17,7 +19,6 @@ import {
   StopCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 
 interface MediaCardProps {
@@ -49,22 +50,7 @@ export function MediaCard({
   const year = date ? date.split("-")[0] : null
   const posterUrl = buildImageUrl(media.poster_path, "w500")
   const hasRating = (media.vote_average || 0) > 0
-
-  // Determine the detail page URL based on media type
-  const getDetailUrl = (type: string, id: number) => {
-    switch (type) {
-      case "movie":
-        return `/movie/${id}`
-      case "tv":
-        return `/tv/${id}`
-      case "person":
-        return `/person/${id}`
-      default:
-        return "/"
-    }
-  }
-
-  const detailUrl = getDetailUrl(media.media_type, media.id)
+  const detailUrl = getMediaUrl(media.media_type, media.id)
 
   const getListIcon = (listId: string) => {
     switch (listId) {
@@ -91,20 +77,12 @@ export function MediaCard({
       <div className="group relative w-full overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300 cursor-pointer">
         {/* Poster Image */}
         <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
-          {posterUrl ? (
-            <Image
-              src={posterUrl}
-              alt={title}
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
-              priority={priority}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-              No Image
-            </div>
-          )}
+          <ImageWithFallback
+            src={posterUrl}
+            alt={title}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+            priority={priority}
+          />
 
           {/* Dropdown Menu - top right */}
           {dropdownItems && dropdownItems.length > 0 && (
