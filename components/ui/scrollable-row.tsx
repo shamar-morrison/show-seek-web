@@ -57,13 +57,16 @@ export function ScrollableRow({
     // Listen for scroll events
     container.addEventListener("scroll", updateScrollState, { passive: true })
 
-    // Also listen for resize to handle dynamic content
-    const resizeObserver = new ResizeObserver(updateScrollState)
-    resizeObserver.observe(container)
+    // Also listen for resize to handle dynamic content (if supported)
+    let resizeObserver: ResizeObserver | undefined
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateScrollState)
+      resizeObserver.observe(container)
+    }
 
     return () => {
       container.removeEventListener("scroll", updateScrollState)
-      resizeObserver.disconnect()
+      resizeObserver?.disconnect()
     }
   }, [updateScrollState])
 
