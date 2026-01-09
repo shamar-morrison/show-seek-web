@@ -7,7 +7,8 @@ import { Menu } from "@base-ui/react/menu"
 import { Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useState } from "react"
 import { toast } from "sonner"
 
 /**
@@ -25,23 +26,61 @@ function getFirstName(displayName: string | null): string {
 export function UserMenu() {
   const { user, isPremium, signOut } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   if (!user) return null
 
   const firstName = getFirstName(user.displayName)
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+
+      // Check if current route is protected
+      const isProtectedRoute =
+        pathname.startsWith("/profile") ||
+        pathname.startsWith("/ratings") ||
+        pathname.startsWith("/lists")
+
+      if (isProtectedRoute) {
+        router.push("/")
+      }
+    } catch {
+      toast.error("Failed to log out. Please try again.")
+      setIsLoggingOut(false)
+    }
+  }
+
   return (
     <Menu.Root>
-      <Menu.Trigger className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5">
-        <Avatar
-          src={user.photoURL}
-          fallback={user.displayName || user.email || "U"}
-          size="sm"
-          isPremium={isPremium}
-        />
-        <span className="hidden text-sm font-medium text-gray-200 sm:block">
-          {firstName}
-        </span>
+      <Menu.Trigger
+        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={isLoggingOut}
+      >
+        {isLoggingOut ? (
+          <div className="flex items-center gap-2">
+            <div className="size-8 flex items-center justify-center">
+              <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+            <span className="hidden text-sm font-medium text-gray-400 sm:block">
+              Logging out...
+            </span>
+          </div>
+        ) : (
+          <>
+            <Avatar
+              src={user.photoURL}
+              fallback={user.displayName || user.email || "U"}
+              size="sm"
+              isPremium={isPremium}
+            />
+            <span className="hidden text-sm font-medium text-gray-200 sm:block">
+              {firstName}
+            </span>
+          </>
+        )}
       </Menu.Trigger>
 
       <Menu.Portal>
@@ -62,14 +101,7 @@ export function UserMenu() {
             <Menu.Separator className="my-1.5 h-px bg-white/10" />
 
             <Menu.Item
-              onClick={async () => {
-                try {
-                  await signOut()
-                  router.push("/")
-                } catch {
-                  toast.error("Failed to log out. Please try again.")
-                }
-              }}
+              onClick={handleLogout}
               className={cn(
                 "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm outline-none transition-colors text-primary",
                 "hover:bg-white/8 hover:text-white",
