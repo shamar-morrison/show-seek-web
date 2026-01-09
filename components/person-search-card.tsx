@@ -7,6 +7,7 @@ import {
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
 import { buildImageUrl } from "@/lib/tmdb"
+import { cn } from "@/lib/utils"
 import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
@@ -104,11 +105,12 @@ export function PersonSearchCard({
             <button
               onClick={handleFavoriteClick}
               disabled={isProcessing || favLoading}
-              className={`absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/70 text-white transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed z-10 ${
+              className={cn(
+                "absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/70 text-white transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed z-10",
                 isFavorited || isProcessing
                   ? "opacity-100"
-                  : "opacity-0 group-hover:opacity-100"
-              }`}
+                  : "opacity-0 group-hover:opacity-100",
+              )}
               aria-label={
                 isFavorited
                   ? `Remove ${person.name} from favorites`
@@ -123,9 +125,10 @@ export function PersonSearchCard({
               ) : (
                 <HugeiconsIcon
                   icon={FavouriteIcon}
-                  className={`size-4 transition-colors ${
-                    isFavorited ? "text-red-500 fill-red-500" : "text-white"
-                  }`}
+                  className={cn(
+                    "size-4 transition-colors",
+                    isFavorited ? "text-red-500 fill-red-500" : "text-white",
+                  )}
                 />
               )}
             </button>
