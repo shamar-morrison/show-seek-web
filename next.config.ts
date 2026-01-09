@@ -15,9 +15,7 @@ const nextConfig: NextConfig = {
   },
 
   // Silence Next 16 Turbopack warning without forcing it
-  experimental: {
-    // turbopack: {},
-  },
+  turbopack: {},
 
   images: {
     remotePatterns: [
