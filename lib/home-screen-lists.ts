@@ -8,7 +8,8 @@ export const AVAILABLE_TMDB_LISTS = [
   { id: "trending-movies", label: "Trending Movies" },
   { id: "trending-tv", label: "Trending TV Shows" },
   { id: "popular-movies", label: "Popular Movies" },
-  { id: "top-rated-movies", label: "Top Rated" },
+  { id: "top-rated-movies", label: "Top Rated Movies" },
+  { id: "top-rated-tv", label: "Top Rated TV Shows" },
   { id: "upcoming-movies", label: "Upcoming Movies" },
   { id: "upcoming-tv", label: "Upcoming TV Shows" },
 ] as const

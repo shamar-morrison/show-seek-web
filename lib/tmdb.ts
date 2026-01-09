@@ -185,6 +185,18 @@ export async function getPopularMovies(): Promise<TMDBMedia[]> {
 }
 
 /**
+ * Fetch top rated movies
+ * @returns Array of top rated movies
+ */
+export async function getTopRatedMovies(): Promise<TMDBMedia[]> {
+  return fetchMediaList(
+    "/movie/top_rated",
+    "movie",
+    "Failed to fetch top rated movies:",
+  )
+}
+
+/**
  * Fetch top rated TV shows
  * @returns Array of top rated TV shows
  */
@@ -201,6 +213,18 @@ export async function getUpcomingMovies(): Promise<TMDBMedia[]> {
     "/movie/upcoming",
     "movie",
     "Failed to fetch upcoming movies:",
+  )
+}
+
+/**
+ * Fetch upcoming TV shows
+ * @returns Array of upcoming TV shows
+ */
+export async function getUpcomingTV(): Promise<TMDBMedia[]> {
+  return fetchMediaList(
+    "/tv/on_the_air",
+    "tv",
+    "Failed to fetch upcoming TV shows:",
   )
 }
 

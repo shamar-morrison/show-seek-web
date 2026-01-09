@@ -17,8 +17,10 @@ interface HomePageClientProps {
   heroMediaList: HeroMedia[]
   trendingList: TMDBMedia[]
   popularMovies: TMDBMedia[]
+  topRatedMovies: TMDBMedia[]
   topRatedTV: TMDBMedia[]
   upcomingMovies: TMDBMedia[]
+  upcomingTV: TMDBMedia[]
   latestTrailers: TrailerItem[]
 }
 
@@ -32,8 +34,10 @@ export function HomePageClient({
   heroMediaList,
   trendingList,
   popularMovies,
+  topRatedMovies,
   topRatedTV,
   upcomingMovies,
+  upcomingTV,
   latestTrailers,
 }: HomePageClientProps) {
   const { preferences, isLoading: prefsLoading } = usePreferences()
@@ -44,17 +48,36 @@ export function HomePageClient({
   } | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null)
 
+  // Filter trending list by media type
+  const trendingMovies = useMemo(
+    () => trendingList.filter((m) => m.media_type === "movie"),
+    [trendingList],
+  )
+  const trendingTV = useMemo(
+    () => trendingList.filter((m) => m.media_type === "tv"),
+    [trendingList],
+  )
+
   // Create mapping of list ID to data/title (for media lists, not trailers)
   const listDataMap = useMemo<Record<string, ListConfig>>(
     () => ({
-      "trending-movies": { title: "Trending Movies", data: trendingList },
-      "trending-tv": { title: "Trending TV Shows", data: trendingList },
+      "trending-movies": { title: "Trending Movies", data: trendingMovies },
+      "trending-tv": { title: "Trending TV Shows", data: trendingTV },
       "popular-movies": { title: "Popular Movies", data: popularMovies },
-      "top-rated-movies": { title: "Top Rated", data: topRatedTV },
+      "top-rated-movies": { title: "Top Rated Movies", data: topRatedMovies },
+      "top-rated-tv": { title: "Top Rated TV Shows", data: topRatedTV },
       "upcoming-movies": { title: "Upcoming Movies", data: upcomingMovies },
-      "upcoming-tv": { title: "Upcoming TV Shows", data: upcomingMovies },
+      "upcoming-tv": { title: "Upcoming TV Shows", data: upcomingTV },
     }),
-    [trendingList, popularMovies, topRatedTV, upcomingMovies],
+    [
+      trendingMovies,
+      trendingTV,
+      popularMovies,
+      topRatedMovies,
+      topRatedTV,
+      upcomingMovies,
+      upcomingTV,
+    ],
   )
 
   // Get user's selected lists or defaults

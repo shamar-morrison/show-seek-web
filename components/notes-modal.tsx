@@ -142,24 +142,6 @@ export function NotesModal({
         </div>
 
         <div className="flex gap-3">
-          <Button
-            size={"lg"}
-            onClick={handleSave}
-            disabled={isSaving || !canSave}
-            className="flex-1"
-          >
-            {isSaving ? (
-              <>
-                <HugeiconsIcon
-                  icon={Loading03Icon}
-                  className="size-4 animate-spin"
-                />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
-          </Button>
           {hasExistingNote && (
             <Button
               size={"lg"}
@@ -171,6 +153,24 @@ export function NotesModal({
               Clear
             </Button>
           )}
+          <Button
+            size={"lg"}
+            onClick={handleSave}
+            disabled={isSaving || !canSave}
+            className="flex-1"
+          >
+            {isSaving ? (
+              <>
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="mr-2 size-4 animate-spin"
+                />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

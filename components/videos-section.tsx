@@ -18,13 +18,6 @@ interface VideosSectionProps {
 const INITIAL_LIMIT = 10
 
 /**
- * Get YouTube thumbnail URL for a video
- */
-function getYouTubeThumbnail(videoKey: string): string {
-  return `https://img.youtube.com/vi/${videoKey}/mqdefault.jpg`
-}
-
-/**
  * VideosSection Component
  * Lazily loads and displays videos when scrolled into view
  */

@@ -66,7 +66,7 @@ export function PersonSearchCard({
           id: person.id,
           name: person.name,
           profile_path: person.profile_path ?? null,
-          known_for_department: person.known_for_department || "Unknown",
+          known_for_department: person.known_for_department || "Person",
         })
         toast.success(`Added ${person.name} to favorites`)
       }
