@@ -46,3 +46,7 @@ export const DEFAULT_LISTS: DefaultListConfig[] = [
 
 /** Set of default list IDs for quick lookup */
 export const DEFAULT_LIST_IDS = new Set(DEFAULT_LISTS.map((l) => l.id))
+
+/** Check if a list ID is a default (non-custom) list */
+export const isDefaultList = (listId: string): boolean =>
+  DEFAULT_LIST_IDS.has(listId)

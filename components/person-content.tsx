@@ -138,7 +138,6 @@ export function PersonContent({ person }: PersonContentProps) {
             buttonText="Trailer"
             onWatchTrailer={handleWatchTrailer}
             isLoading={loadingMediaId === media.id}
-            showRating={true}
           />
         ))}
 

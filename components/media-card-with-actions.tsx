@@ -27,7 +27,6 @@ interface MediaCardWithActionsProps {
   onWatchTrailer?: (media: TMDBMedia) => void
   isLoading?: boolean
   priority?: boolean
-  showRating?: boolean
   buttonText?: string
 }
 
@@ -40,7 +39,6 @@ export function MediaCardWithActions({
   onWatchTrailer,
   isLoading = false,
   priority = false,
-  showRating = false,
   buttonText,
 }: MediaCardWithActionsProps) {
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
@@ -146,7 +144,6 @@ export function MediaCardWithActions({
         onWatchTrailer={onWatchTrailer}
         isLoading={isLoading}
         priority={priority}
-        showRating={showRating}
         buttonText={buttonText}
         dropdownItems={dropdownItems}
         userRating={userRating?.rating}

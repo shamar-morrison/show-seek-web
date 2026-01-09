@@ -141,41 +141,35 @@ export function NotesModal({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <Button
-            size={"lg"}
-            onClick={handleSave}
-            disabled={isSaving || !canSave}
-          >
-            {isSaving ? (
-              <>
-                <HugeiconsIcon
-                  icon={Loading03Icon}
-                  className="size-4 animate-spin"
-                />
-                Saving...
-              </>
-            ) : (
-              "Save Note"
-            )}
-          </Button>
+        <div className="flex gap-3">
           {hasExistingNote && (
             <Button
               size={"lg"}
               variant="secondary"
               onClick={handleClearNote}
               disabled={isSaving}
+              className="flex-1"
             >
-              Clear Note
+              Clear
             </Button>
           )}
           <Button
             size={"lg"}
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSaving}
+            onClick={handleSave}
+            disabled={isSaving || !canSave}
+            className="flex-1"
           >
-            Cancel
+            {isSaving ? (
+              <>
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="mr-2 size-4 animate-spin"
+                />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
           </Button>
         </div>
       </DialogContent>

@@ -3,15 +3,20 @@
 import { PremiumModal } from "@/components/premium-modal"
 import { ActionButton } from "@/components/profile/action-button"
 import { ExportDataModal } from "@/components/profile/export-data-modal"
+import { HomeScreenCustomizer } from "@/components/profile/HomeScreenCustomizer"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { captureException } from "@/lib/utils"
-import { FileExportIcon, Logout01Icon } from "@hugeicons/core-free-icons"
+import {
+  FileExportIcon,
+  Home01Icon,
+  Logout01Icon,
+} from "@hugeicons/core-free-icons"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 export function ProfilePageClient() {
@@ -24,7 +29,7 @@ export function ProfilePageClient() {
   const router = useRouter()
 
   const [showExportModal, setShowExportModal] = useState(false)
-
+  const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -137,6 +142,20 @@ export function ProfilePageClient() {
         </div>
       </section>
 
+      {/* Home Screen Section */}
+      <section className="mb-8">
+        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
+          Home Screen
+        </h2>
+        <div className="rounded-xl bg-white/5">
+          <ActionButton
+            icon={Home01Icon}
+            label="Customize Home Screen"
+            onClick={() => setShowHomeCustomizer(true)}
+          />
+        </div>
+      </section>
+
       {/* Settings Section */}
       <section>
         <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
@@ -170,6 +189,11 @@ export function ProfilePageClient() {
       <PremiumModal
         open={showPremiumModal}
         onOpenChange={setShowPremiumModal}
+      />
+
+      <HomeScreenCustomizer
+        open={showHomeCustomizer}
+        onOpenChange={setShowHomeCustomizer}
       />
     </>
   )

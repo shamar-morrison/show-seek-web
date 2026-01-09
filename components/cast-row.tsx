@@ -23,12 +23,7 @@ export function CastRow({ title, cast, href, limit = 15 }: CastRowProps) {
   if (!cast || cast.length === 0) return null
 
   return (
-    <Section
-      title={title}
-      headerExtra={
-        cast.length > limit ? <ViewAllLink href={href} /> : undefined
-      }
-    >
+    <Section title={title} headerExtra={<ViewAllLink href={href} />}>
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
         {cast.slice(0, limit).map((member, index) => (
           <CastCard

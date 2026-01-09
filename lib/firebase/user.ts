@@ -2,11 +2,22 @@ import { User } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 import { db } from "./config"
 
+/** Type of list for home screen customization */
+export type HomeListType = "tmdb" | "default" | "custom"
+
+/** Configuration for a single home screen list item */
+export interface HomeScreenListItem {
+  id: string
+  type: HomeListType
+  label: string
+}
+
 export interface UserPreferences {
   autoAddToWatching: boolean
   autoAddToAlreadyWatched: boolean
   showListIndicators: boolean
   blurPlotSpoilers: boolean
+  homeScreenLists?: HomeScreenListItem[]
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {

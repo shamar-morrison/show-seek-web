@@ -185,6 +185,18 @@ export async function getPopularMovies(): Promise<TMDBMedia[]> {
 }
 
 /**
+ * Fetch top rated movies
+ * @returns Array of top rated movies
+ */
+export async function getTopRatedMovies(): Promise<TMDBMedia[]> {
+  return fetchMediaList(
+    "/movie/top_rated",
+    "movie",
+    "Failed to fetch top rated movies:",
+  )
+}
+
+/**
  * Fetch top rated TV shows
  * @returns Array of top rated TV shows
  */
@@ -202,6 +214,85 @@ export async function getUpcomingMovies(): Promise<TMDBMedia[]> {
     "movie",
     "Failed to fetch upcoming movies:",
   )
+}
+
+/**
+ * Fetch upcoming TV shows
+ * @returns Array of upcoming TV shows
+ */
+export async function getUpcomingTV(): Promise<TMDBMedia[]> {
+  return fetchMediaList(
+    "/tv/on_the_air",
+    "tv",
+    "Failed to fetch upcoming TV shows:",
+  )
+}
+
+/** Trailer item with media info and YouTube key */
+export interface TrailerItem {
+  id: number
+  title: string
+  mediaType: "movie" | "tv"
+  posterPath: string | null
+  backdropPath: string | null
+  trailerKey: string
+  releaseYear: string | null
+}
+
+/**
+ * Get latest trailers from trending media
+ * Fetches trending items and enriches with trailer keys
+ * @param count - Number of trailers to return (default: 10)
+ * @returns Array of TrailerItem objects with YouTube keys
+ */
+export async function getLatestTrailers(
+  count: number = 10,
+): Promise<TrailerItem[]> {
+  try {
+    // Fetch trending media
+    const trendingMedia = await getTrendingMedia("day")
+
+    if (trendingMedia.length === 0) {
+      return []
+    }
+
+    // Take more items than needed to account for items without trailers
+    const candidates = trendingMedia.slice(0, count * 2)
+
+    // Fetch trailers for all candidates in parallel
+    const trailersPromises = candidates.map(async (media) => {
+      const mediaType = media.media_type as "movie" | "tv"
+      const videos = await getMediaVideos(media.id, mediaType)
+      const trailerKey = getBestTrailer(videos)
+
+      if (!trailerKey) return null
+
+      const item: TrailerItem = {
+        id: media.id,
+        title: media.title || media.name || "Unknown",
+        mediaType,
+        posterPath: media.poster_path,
+        backdropPath: media.backdrop_path,
+        trailerKey,
+        releaseYear:
+          media.release_date?.split("-")[0] ||
+          media.first_air_date?.split("-")[0] ||
+          null,
+      }
+
+      return item
+    })
+
+    const results = await Promise.all(trailersPromises)
+
+    // Filter out nulls and limit to requested count
+    return results
+      .filter((item): item is TrailerItem => item !== null)
+      .slice(0, count)
+  } catch (error) {
+    console.error("Failed to get latest trailers:", error)
+    return []
+  }
 }
 
 /**

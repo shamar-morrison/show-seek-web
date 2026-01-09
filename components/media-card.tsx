@@ -26,7 +26,6 @@ interface MediaCardProps {
   priority?: boolean
   isLoading?: boolean
   buttonText?: string
-  showRating?: boolean
   /** Optional user rating to display as a badge (1-10 scale) */
   userRating?: number | null
   /** Optional dropdown menu items */
@@ -41,7 +40,6 @@ export function MediaCard({
   priority = false,
   isLoading = false,
   buttonText = "Trailer",
-  showRating = false,
   userRating,
   dropdownItems,
   listIds,
@@ -50,12 +48,6 @@ export function MediaCard({
   const date = media.release_date || media.first_air_date
   const year = date ? date.split("-")[0] : null
   const posterUrl = buildImageUrl(media.poster_path, "w500")
-  const mediaType =
-    media.media_type === "movie"
-      ? "Movie"
-      : media.media_type === "tv"
-        ? "TV Show"
-        : "Person"
   const hasRating = (media.vote_average || 0) > 0
 
   // Determine the detail page URL based on media type
@@ -167,25 +159,19 @@ export function MediaCard({
             <h3 className="line-clamp-1 text-base font-bold text-white ">
               {title}
             </h3>
-            {showRating ? (
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
-                {year}
-                {year && hasRating && <span className="text-gray-600">•</span>}
-                {hasRating && (
-                  <div className="flex items-center gap-1 text-yellow-500">
-                    <HugeiconsIcon
-                      icon={StarIcon}
-                      className="size-3 fill-yellow-500"
-                    />
-                    <span>{media.vote_average.toFixed(1)}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-xs font-medium text-gray-400">
-                {year} {mediaType}
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
+              {year}
+              {year && hasRating && <span className="text-gray-600">•</span>}
+              {hasRating && (
+                <div className="flex items-center gap-1 text-yellow-500">
+                  <HugeiconsIcon
+                    icon={StarIcon}
+                    className="size-3 fill-yellow-500"
+                  />
+                  <span>{media.vote_average.toFixed(1)}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Trailer Button - only show when handler is provided */}
