@@ -9,7 +9,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 // Number of thumbnails to show on each side of current
 const THUMBNAIL_WINDOW = 10
@@ -42,6 +42,14 @@ export function PhotoLightbox({
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex < images.length - 1
   const thumbnailContainerRef = useRef<HTMLDivElement>(null)
+  const [loadedIndex, setLoadedIndex] = useState<number | null>(null)
+
+  const isImageLoading = loadedIndex !== currentIndex
+
+  // Reset loading state when closed
+  useEffect(() => {
+    if (!isOpen) setLoadedIndex(null)
+  }, [isOpen])
 
   // Calculate visible thumbnail range (current ± THUMBNAIL_WINDOW)
   const visibleThumbnails = useMemo(() => {
@@ -160,14 +168,23 @@ export function PhotoLightbox({
 
         {/* Image */}
         {imageUrl && (
-          <div className="relative max-h-[70vh] max-w-full">
+          <div className="relative flex max-h-[70vh] max-w-full items-center justify-center">
+            {isImageLoading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+              </div>
+            )}
             <Image
+              key={imageUrl}
               src={imageUrl}
               alt={`Photo ${currentIndex + 1}`}
               width={currentImage.width}
               height={currentImage.height}
-              className="max-h-[70vh] w-auto object-contain"
+              className={`max-h-[70vh] w-auto object-contain transition-opacity duration-300 ${
+                isImageLoading ? "opacity-0" : "opacity-100"
+              }`}
               priority
+              onLoad={() => setLoadedIndex(currentIndex)}
             />
           </div>
         )}
