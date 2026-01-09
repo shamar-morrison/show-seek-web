@@ -199,7 +199,7 @@ export function CustomListsClient({
             >
               Cancel
             </Button>
-            <Button onClick={handleRename} disabled={isProcessing || !newName.trim()}>
+            <Button onClick={handleRename} disabled={isProcessing || !activeList || !newName.trim()}>
               {isProcessing && (
                 <HugeiconsIcon
                   icon={Loading03Icon}
@@ -231,7 +231,7 @@ export function CustomListsClient({
                 e.preventDefault()
                 handleDelete()
               }}
-              disabled={isProcessing}
+              disabled={isProcessing || !activeList}
               className="bg-red-600 hover:bg-red-700"
             >
               {isProcessing && (
