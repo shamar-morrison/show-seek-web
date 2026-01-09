@@ -133,8 +133,6 @@ export function HomePageClient({
             }),
           )
 
-        if (items.length === 0) return null
-
         return {
           id: item.id,
           title: item.label || userList.name,
@@ -241,6 +239,7 @@ export function HomePageClient({
               onWatchTrailer={handleCardWatchTrailer}
               loadingMediaId={loadingMediaId}
               showActions
+              scrollable
             />
           ))}
         </div>

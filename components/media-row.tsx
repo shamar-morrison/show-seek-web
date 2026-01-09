@@ -30,7 +30,7 @@ export function MediaRow({
   limit,
   showActions = false,
 }: MediaRowProps) {
-  if (!items || items.length === 0) return null
+  if (!items) return null
 
   // Default limits: 7 for grid, all items for scrollable
   const displayLimit = limit ?? (scrollable ? items.length : 7)
@@ -44,7 +44,11 @@ export function MediaRow({
       title={title}
       headerExtra={href ? <ViewAllLink href={href} /> : undefined}
     >
-      {scrollable ? (
+      {items.length === 0 ? (
+        <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 text-gray-400">
+          <p>No items in this list</p>
+        </div>
+      ) : scrollable ? (
         /* Horizontal Scroll Layout */
         <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
           {displayItems.map((item) => (
