@@ -31,27 +31,23 @@ export function PersonContent({ person }: PersonContentProps) {
 
   const { movieCredits, tvCredits, mediaItems, creditLabel } = useMemo(() => {
     const knownFor = person.known_for_department
-    const isDirecting = knownFor === "Directing"
-    const isWriting = knownFor === "Writing"
-
     let credits: (PersonCastMember | PersonCrewMember)[] = []
-    let label = "Acting"
+    let label = knownFor
 
-    if (isDirecting) {
-      credits =
-        person.combined_credits?.crew.filter(
-          (c) => c.department === "Directing",
-        ) || []
-      label = "Directing"
-    } else if (isWriting) {
-      credits =
-        person.combined_credits?.crew.filter(
-          (c) => c.department === "Writing",
-        ) || []
-      label = "Writing"
-    } else {
+    if (knownFor === "Acting") {
       credits = person.combined_credits?.cast || []
-      label = "Acting"
+    } else {
+      // For non-acting departments (Directing, Writing, Production, etc.),
+      // filter crew credits by that department
+      credits =
+        person.combined_credits?.crew.filter((c) => c.department === knownFor) ||
+        []
+      
+      // Fallback: If the person is known for a department but has no credits listed under that specific department
+      // (e.g. data inconsistency), we might want to check for "Creator" job explicitly if looking for creative roles,
+      // but strictly following known_for_department is the standard TMDB approach.
+      // However, if the result is empty, we could fallback to all crew credits? 
+      // Let's stick to strict filtering to be accurate.
     }
 
     // Split credits by media type, deduplicate, and sort by popularity
