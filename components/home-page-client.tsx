@@ -167,8 +167,6 @@ export function HomePageClient({
     )
   }
 
-  // ... rest of component ...
-
   return (
     <main className="min-h-screen bg-black pb-16">
       <HeroSection

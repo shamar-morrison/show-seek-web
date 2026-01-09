@@ -131,12 +131,8 @@ export function ListsPageClient({
 
   // Set default selection when lists load
   useEffect(() => {
-    if (!loading && lists.length > 0 && !selectedListId) {
-       // Prefer internal state update or callback if controlled (though usually parent handles default if controlled)
-       if (!controlledSelectedListId) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          handleListSelect(lists[0].id)
-       }
+    if (!loading && lists.length > 0 && !selectedListId && controlledSelectedListId === undefined) {
+      handleListSelect(lists[0].id)
     }
   }, [loading, lists, selectedListId, controlledSelectedListId, handleListSelect])
 

@@ -40,6 +40,8 @@ interface CustomListsClientProps {
   movieGenres?: Genre[]
   /** TV genres for filter options */
   tvGenres?: Genre[]
+  /** Error message if genre fetch failed */
+  genreFetchError?: string
 }
 
 /**
@@ -49,9 +51,17 @@ interface CustomListsClientProps {
 export function CustomListsClient({
   movieGenres = [],
   tvGenres = [],
+  genreFetchError,
 }: CustomListsClientProps) {
   const { lists, loading, error, removeList, updateList } = useLists()
   const [selectedListId, setSelectedListId] = useState<string>("")
+
+  // Show toast if genre fetch failed
+  useEffect(() => {
+    if (genreFetchError) {
+      toast.warning(genreFetchError)
+    }
+  }, [genreFetchError])
 
   // Dialog states
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)

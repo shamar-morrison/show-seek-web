@@ -18,9 +18,19 @@ export default async function CustomListsPage() {
     getTVGenres(),
   ])
 
+  // Check for failures
+  const genreFetchError =
+    movieGenres.length === 0 || tvGenres.length === 0
+      ? "Failed to load some filter options. Genre filtering may be limited."
+      : undefined
+
   return (
     <>
-      <CustomListsClient movieGenres={movieGenres} tvGenres={tvGenres} />
+      <CustomListsClient
+        movieGenres={movieGenres}
+        tvGenres={tvGenres}
+        genreFetchError={genreFetchError}
+      />
     </>
   )
 }
