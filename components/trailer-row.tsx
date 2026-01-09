@@ -1,7 +1,7 @@
 "use client"
 
-import { TrailerCard } from "@/components/trailer-card"
 import { Section } from "@/components/ui/section"
+import { VideoCard } from "@/components/video-card"
 import type { TrailerItem } from "@/lib/tmdb"
 
 interface TrailerRowProps {
@@ -14,11 +14,13 @@ export function TrailerRow({ title, trailers }: TrailerRowProps) {
 
   return (
     <Section title={title}>
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
         {trailers.map((trailer) => (
-          <TrailerCard
+          <VideoCard
             key={`${trailer.mediaType}-${trailer.id}`}
-            trailer={trailer}
+            videoKey={trailer.trailerKey}
+            title={trailer.title}
+            subtitle={trailer.mediaType === "movie" ? "Movie" : "TV Show"}
           />
         ))}
       </div>

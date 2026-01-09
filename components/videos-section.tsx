@@ -2,11 +2,10 @@
 
 import { TrailerModal } from "@/components/trailer-modal"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
+import { VideoCard } from "@/components/video-card"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useMediaVideos } from "@/hooks/use-tmdb-queries"
 import type { TMDBVideo } from "@/types/tmdb"
-import { PlayIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { useMemo, useRef, useState } from "react"
 
 interface VideosSectionProps {
@@ -86,40 +85,13 @@ export function VideosSection({ mediaId, mediaType }: VideosSectionProps) {
           /* Video Grid */
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
             {displayVideos.map((video) => (
-              <button
+              <VideoCard
                 key={video.id}
+                videoKey={video.key}
+                title={video.name}
+                subtitle={video.type}
                 onClick={() => setActiveVideo(video)}
-                className="group shrink-0 text-left"
-              >
-                {/* Thumbnail Container */}
-                <div className="relative overflow-hidden rounded-lg">
-                  {/* Thumbnail */}
-                  <img
-                    src={getYouTubeThumbnail(video.key)}
-                    alt={video.name}
-                    className="h-[120px] w-[200px] object-cover sm:h-[140px] sm:w-[240px]"
-                    loading="lazy"
-                  />
-
-                  {/* Play overlay - hidden by default, visible on hover */}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
-                    <div className="rounded-full bg-white/90 p-3 transition-transform group-hover:scale-110">
-                      <HugeiconsIcon
-                        icon={PlayIcon}
-                        className="size-6 text-black"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Video info - below thumbnail */}
-                <div className="mt-2 w-[200px] sm:w-[240px]">
-                  <p className="line-clamp-1 text-sm font-medium text-white">
-                    {video.name}
-                  </p>
-                  <span className="text-xs text-gray-400">{video.type}</span>
-                </div>
-              </button>
+              />
             ))}
 
             {/* View All Button */}

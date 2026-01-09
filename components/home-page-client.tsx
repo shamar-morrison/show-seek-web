@@ -5,6 +5,7 @@ import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
 import { TrailerRow } from "@/components/trailer-row"
+import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { usePreferences } from "@/hooks/use-preferences"
 import { DEFAULT_HOME_LISTS } from "@/lib/home-screen-lists"
 import type { TrailerItem } from "@/lib/tmdb"
@@ -119,7 +120,7 @@ export function HomePageClient({
     }
   }
 
-  // Show skeleton while loading preferences (brief flash)
+  // Show skeleton while loading preferences (prevent jarring transition)
   if (prefsLoading) {
     return (
       <main className="min-h-screen bg-black pb-16">
@@ -130,27 +131,17 @@ export function HomePageClient({
         />
         <div className="relative z-20 -mt-24 pt-32 pointer-events-none">
           <div className="pointer-events-auto space-y-4">
-            {/* Show default lists while loading */}
-            {DEFAULT_HOME_LISTS.filter(
-              (item) =>
-                item.type === "tmdb" &&
-                item.id !== "latest-trailers" &&
-                listDataMap[item.id],
-            ).map((item) => (
-              <MediaRow
-                key={item.id}
-                title={listDataMap[item.id].title}
-                items={listDataMap[item.id].data}
-                onWatchTrailer={handleCardWatchTrailer}
-                loadingMediaId={loadingMediaId}
-                showActions
-              />
+            {/* Render 4 skeletons to simulate content loading */}
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SectionSkeleton key={i} withSectionWrapper count={6} />
             ))}
           </div>
         </div>
       </main>
     )
   }
+
+  // ... rest of component ...
 
   return (
     <main className="min-h-screen bg-black pb-16">
