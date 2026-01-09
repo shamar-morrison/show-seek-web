@@ -18,23 +18,25 @@ export async function proxy(request: NextRequest) {
   // Check if route is an auth route
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
 
-  // Validate session cookie signature and expiry via API
-  const isValidSession = sessionCookie
-    ? await validateSession(sessionCookie, request)
-    : false
+  // Only validate session if the route actually needs it
+  if (isProtectedRoute || isAuthRoute) {
+    const isValidSession = sessionCookie
+      ? await validateSession(sessionCookie, request)
+      : false
 
-  // For protected routes, redirect to home if no valid session
-  // We redirect to home instead of /login since auth is via modal
-  if (isProtectedRoute && !isValidSession) {
-    const homeUrl = new URL("/", request.url)
-    homeUrl.searchParams.set("auth", "required")
-    homeUrl.searchParams.set("redirect", pathname)
-    return NextResponse.redirect(homeUrl)
-  }
+    // For protected routes, redirect to home if no valid session
+    // We redirect to home instead of /login since auth is via modal
+    if (isProtectedRoute && !isValidSession) {
+      const homeUrl = new URL("/", request.url)
+      homeUrl.searchParams.set("auth", "required")
+      homeUrl.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(homeUrl)
+    }
 
-  // For auth routes, redirect to home if already logged in
-  if (isAuthRoute && isValidSession) {
-    return NextResponse.redirect(new URL("/", request.url))
+    // For auth routes, redirect to home if already logged in
+    if (isAuthRoute && isValidSession) {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
   }
 
   return NextResponse.next()
