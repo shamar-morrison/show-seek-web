@@ -1,7 +1,6 @@
 "use client"
 
 import { Section } from "@/components/ui/section"
-import { ViewAllLink } from "@/components/ui/view-all-link"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import type { TMDBSeason } from "@/types/tmdb"
 import Link from "next/link"
@@ -69,7 +68,7 @@ export function SeasonsRow({
   if (!seasons || seasons.length === 0) return null
 
   return (
-    <Section title={title} headerExtra={<ViewAllLink disabled />}>
+    <Section title={title}>
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4">
         {displaySeasons.map((season) => {
           const watchedCount = seasonProgress[season.season_number] || 0
