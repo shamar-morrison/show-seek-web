@@ -133,7 +133,12 @@ export function HomePageClient({
           <div className="pointer-events-auto space-y-4">
             {/* Render 4 skeletons to simulate content loading */}
             {Array.from({ length: 4 }).map((_, i) => (
-              <SectionSkeleton key={i} withSectionWrapper count={6} />
+              <SectionSkeleton
+                key={i}
+                withSectionWrapper
+                count={7}
+                variant="grid"
+              />
             ))}
           </div>
         </div>

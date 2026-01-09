@@ -22,13 +22,16 @@ interface UsePreferencesReturn {
 }
 
 export function usePreferences(): UsePreferencesReturn {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [preferences, setPreferences] =
     useState<UserPreferences>(DEFAULT_PREFERENCES)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) return
+
     if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreferences(DEFAULT_PREFERENCES)
       setIsLoading(false)
       return
@@ -58,7 +61,7 @@ export function usePreferences(): UsePreferencesReturn {
     )
 
     return unsubscribe
-  }, [user])
+  }, [user, authLoading])
 
   const updatePreference = useCallback(
     async <K extends keyof UserPreferences>(
