@@ -1,11 +1,12 @@
+import { HomePageClient } from "@/components/home-page-client"
 import {
   getHeroMediaList,
-  getTrendingMedia,
+  getLatestTrailers,
   getPopularMovies,
   getTopRatedTV,
+  getTrendingMedia,
   getUpcomingMovies,
 } from "@/lib/tmdb"
-import { HomePageClient } from "@/components/home-page-client"
 
 export const revalidate = 3600 // Revalidate every hour
 
@@ -17,12 +18,14 @@ export default async function Home() {
     popularMovies,
     topRatedTV,
     upcomingMovies,
+    latestTrailers,
   ] = await Promise.all([
     getHeroMediaList(),
     getTrendingMedia("day"),
     getPopularMovies(),
     getTopRatedTV(),
     getUpcomingMovies(),
+    getLatestTrailers(10),
   ])
 
   return (
@@ -32,6 +35,7 @@ export default async function Home() {
       popularMovies={popularMovies}
       topRatedTV={topRatedTV}
       upcomingMovies={upcomingMovies}
+      latestTrailers={latestTrailers}
     />
   )
 }

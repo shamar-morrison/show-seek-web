@@ -4,6 +4,7 @@ import { useAuth } from "@/context/auth-context"
 import { db } from "@/lib/firebase/config"
 import {
   DEFAULT_PREFERENCES,
+  HomeScreenListItem,
   UserDocument,
   UserPreferences,
 } from "@/lib/firebase/user"
@@ -17,6 +18,7 @@ interface UsePreferencesReturn {
     key: K,
     value: UserPreferences[K],
   ) => Promise<void>
+  updateHomeScreenLists: (lists: HomeScreenListItem[]) => Promise<void>
 }
 
 export function usePreferences(): UsePreferencesReturn {
@@ -92,5 +94,36 @@ export function usePreferences(): UsePreferencesReturn {
     [user],
   )
 
-  return { preferences, isLoading, updatePreference }
+  const updateHomeScreenLists = useCallback(
+    async (lists: HomeScreenListItem[]): Promise<void> => {
+      if (!user) {
+        throw new Error("User must be logged in to update home screen lists")
+      }
+
+      const userDocRef = doc(db, "users", user.uid)
+
+      // Capture original value before optimistic update
+      let originalLists: HomeScreenListItem[] | undefined
+      setPreferences((prev) => {
+        originalLists = prev.homeScreenLists
+        return { ...prev, homeScreenLists: lists }
+      })
+
+      try {
+        await setDoc(
+          userDocRef,
+          { preferences: { homeScreenLists: lists } },
+          { merge: true },
+        )
+      } catch (error) {
+        // Revert to original value on error
+        console.error("Error updating home screen lists:", error)
+        setPreferences((prev) => ({ ...prev, homeScreenLists: originalLists }))
+        throw error
+      }
+    },
+    [user],
+  )
+
+  return { preferences, isLoading, updatePreference, updateHomeScreenLists }
 }
