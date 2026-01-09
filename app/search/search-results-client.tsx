@@ -2,6 +2,7 @@
 
 import { searchMedia } from "@/app/actions"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
+import { PersonSearchCard } from "@/components/person-search-card"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
@@ -271,14 +272,29 @@ export function SearchResultsClient({
         </div>
       ) : transformedMedia.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {transformedMedia.map(({ result, media }) => (
-            <MediaCardWithActions
-              key={`${result.media_type}-${result.id}`}
-              media={media}
-              onWatchTrailer={handleWatchTrailerMedia}
-              isLoading={loadingMediaId === `${result.media_type}-${result.id}`}
-            />
-          ))}
+          {transformedMedia.map(({ result, media }, index) =>
+            result.media_type === "person" ? (
+              <PersonSearchCard
+                key={`person-${result.id}`}
+                person={{
+                  id: result.id,
+                  name: result.name || "",
+                  profile_path: result.profile_path,
+                  known_for_department: result.known_for_department,
+                }}
+                priority={index < 7}
+              />
+            ) : (
+              <MediaCardWithActions
+                key={`${result.media_type}-${result.id}`}
+                media={media}
+                onWatchTrailer={handleWatchTrailerMedia}
+                isLoading={
+                  loadingMediaId === `${result.media_type}-${result.id}`
+                }
+              />
+            ),
+          )}
         </div>
       ) : query.trim() ? (
         <Empty className="py-20">
