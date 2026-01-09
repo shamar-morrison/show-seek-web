@@ -7,7 +7,7 @@ import {
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
 import { buildImageUrl } from "@/lib/tmdb"
-import type { CastMember } from "@/types/tmdb"
+import type { CrewMember } from "@/types/tmdb"
 import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
@@ -15,29 +15,23 @@ import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 
-interface CastCardProps {
-  /** Cast member data */
-  cast: CastMember
+interface CrewCardProps {
+  /** Crew member data */
+  crew: CrewMember
   /** Priority loading for above-the-fold images */
   priority?: boolean
-  /** If true, card fills container width (for grids). If false, uses fixed width (for horizontal scroll) */
-  fullWidth?: boolean
 }
 
 /**
- * CastCard Component
- * Displays a cast member's photo, name, and character
+ * CrewCard Component
+ * Displays a crew member's photo, name, and job
  * Links to the person detail page
  * Shows a favorite heart icon on hover to add/remove from favorites
  */
-export function CastCard({
-  cast,
-  priority = false,
-  fullWidth = false,
-}: CastCardProps) {
-  const profileUrl = buildImageUrl(cast.profile_path, "w500")
+export function CrewCard({ crew, priority = false }: CrewCardProps) {
+  const profileUrl = buildImageUrl(crew.profile_path, "w500")
   const { user } = useAuth()
-  const { isFavorited, loading: favLoading } = useIsPersonFavorited(cast.id)
+  const { isFavorited, loading: favLoading } = useIsPersonFavorited(crew.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
     useFavoritePersonActions()
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -57,16 +51,16 @@ export function CastCard({
 
     try {
       if (isFavorited) {
-        await removePerson(cast.id)
-        toast.success(`Removed ${cast.name} from favorites`)
+        await removePerson(crew.id)
+        toast.success(`Removed ${crew.name} from favorites`)
       } else {
         await addPerson({
-          id: cast.id,
-          name: cast.name,
-          profile_path: cast.profile_path,
-          known_for_department: "Acting",
+          id: crew.id,
+          name: crew.name,
+          profile_path: crew.profile_path,
+          known_for_department: crew.department || "Crew",
         })
-        toast.success(`Added ${cast.name} to favorites`)
+        toast.success(`Added ${crew.name} to favorites`)
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error)
@@ -80,23 +74,17 @@ export function CastCard({
 
   return (
     <>
-      <Link href={`/person/${cast.id}`} className="block shrink-0">
-        <div
-          className={`group relative overflow-hidden rounded-xl bg-card shadow-md transition-all duration-300 cursor-pointer ${fullWidth ? "w-full" : "w-36 sm:w-40"}`}
-        >
+      <Link href={`/person/${crew.id}`} className="block shrink-0">
+        <div className="group relative w-full overflow-hidden rounded-xl bg-card shadow-md transition-all duration-300 cursor-pointer">
           {/* Profile Image */}
           <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
             {profileUrl ? (
               <Image
                 src={profileUrl}
-                alt={cast.name}
+                alt={crew.name}
                 fill
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
-                sizes={
-                  fullWidth
-                    ? "(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 14vw"
-                    : "160px"
-                }
+                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 14vw"
                 priority={priority}
               />
             ) : (
@@ -116,8 +104,8 @@ export function CastCard({
               }`}
               aria-label={
                 isFavorited
-                  ? `Remove ${cast.name} from favorites`
-                  : `Add ${cast.name} to favorites`
+                  ? `Remove ${crew.name} from favorites`
+                  : `Add ${crew.name} to favorites`
               }
             >
               {isProcessing ? (
@@ -139,10 +127,10 @@ export function CastCard({
           {/* Info Content */}
           <div className="flex flex-col gap-1 p-3">
             <h3 className="line-clamp-1 text-sm font-bold text-white">
-              {cast.name}
+              {crew.name}
             </h3>
             <p className="line-clamp-1 text-xs text-gray-400 font-medium">
-              {cast.character}
+              {crew.job}
             </p>
           </div>
         </div>

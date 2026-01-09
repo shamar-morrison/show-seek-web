@@ -1,3 +1,4 @@
+import { CreditsClient } from "@/components/credits-client"
 import { getTVDetails } from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -9,8 +10,8 @@ interface CreditsPageProps {
 }
 
 /**
- * TV Show Credits Page (Placeholder)
- * Will display full cast and crew list
+ * TV Show Credits Page
+ * Displays full cast and crew list with tabs and search
  */
 export default async function TVCreditsPage({ params }: CreditsPageProps) {
   const { id } = await params
@@ -26,15 +27,19 @@ export default async function TVCreditsPage({ params }: CreditsPageProps) {
     notFound()
   }
 
+  const cast = tvShow.credits?.cast || []
+  const crew = tvShow.credits?.crew || []
+
   return (
     <main className="min-h-screen bg-black">
-      <div className="mx-auto max-w-[1800px] px-4 pt-24 sm:px-8 lg:px-12">
-        <h1 className="text-3xl font-bold text-white mb-4">
-          {tvShow.name} - Cast & Crew
-        </h1>
-        <p className="text-gray-400">
-          Full cast and crew listing coming soon...
-        </p>
+      <div className="mx-auto max-w-[1800px] px-4 pt-24 pb-12 sm:px-8 lg:px-12">
+        <CreditsClient
+          title={tvShow.name}
+          mediaType="tv"
+          mediaId={tvId}
+          cast={cast}
+          crew={crew}
+        />
       </div>
     </main>
   )
