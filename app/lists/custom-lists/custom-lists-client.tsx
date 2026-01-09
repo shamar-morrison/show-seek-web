@@ -221,8 +221,7 @@ export function CustomListsClient({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the list &quot;{activeList?.name}
-              &quot; and all items in it. This action cannot be undone.
+              This will permanently delete the list &quot;{activeList?.name}&quot; and all items in it. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
