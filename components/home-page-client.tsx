@@ -6,9 +6,11 @@ import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
 import { TrailerRow } from "@/components/trailer-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
+import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
 import { DEFAULT_HOME_LISTS, PREMIUM_LIST_ID } from "@/lib/home-screen-lists"
 import type { TrailerItem } from "@/lib/tmdb"
+import type { ListMediaItem } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -41,6 +43,7 @@ export function HomePageClient({
   latestTrailers,
 }: HomePageClientProps) {
   const { preferences, isLoading: prefsLoading } = usePreferences()
+  const { lists: userLists } = useLists()
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [activeTrailer, setActiveTrailer] = useState<{
     key: string
@@ -85,20 +88,67 @@ export function HomePageClient({
 
   // Filter lists - separate trailers from media lists
   const { showTrailers, visibleMediaLists } = useMemo(() => {
-    const showTrailers = selectedLists.some((item) => item.id === PREMIUM_LIST_ID)
-    const visibleMediaLists = selectedLists
-      .filter(
-        (item) =>
-          item.type === "tmdb" &&
-          item.id !== PREMIUM_LIST_ID &&
-          listDataMap[item.id],
-      )
-      .map((item) => ({
-        id: item.id,
-        ...listDataMap[item.id],
-      }))
-    return { showTrailers, visibleMediaLists }
-  }, [selectedLists, listDataMap])
+    const showTrailers = selectedLists.some(
+      (item) => item.id === PREMIUM_LIST_ID,
+    )
+
+    const mediaLists = selectedLists
+      .map((item) => {
+        // Handle TMDB lists
+        if (item.type === "tmdb") {
+          if (item.id === PREMIUM_LIST_ID) return null // Handled separately
+          const config = listDataMap[item.id]
+          if (!config) return null
+          return {
+            id: item.id,
+            title: config.title,
+            data: config.data,
+          }
+        }
+
+        // Handle Custom / Default lists
+        const userList = userLists.find((l) => l.id === item.id)
+        if (!userList) return null
+
+        // Convert ListMediaItem record to TMDBMedia[]
+        const items = Object.values(userList.items)
+          .sort((a, b) => b.addedAt - a.addedAt) // Sort by added time descending
+          .map(
+            (mediaItem: ListMediaItem): TMDBMedia => ({
+              id: mediaItem.id,
+              media_type: mediaItem.media_type,
+              title: mediaItem.title,
+              name: mediaItem.name || mediaItem.title,
+              poster_path: mediaItem.poster_path,
+              backdrop_path: null,
+              overview: "",
+              vote_average: mediaItem.vote_average || 0,
+              vote_count: 0,
+              popularity: 0,
+              original_language: "en",
+              adult: false,
+              genre_ids: mediaItem.genre_ids || [],
+              release_date: mediaItem.release_date,
+              first_air_date: mediaItem.first_air_date,
+            }),
+          )
+
+        if (items.length === 0) return null
+
+        return {
+          id: item.id,
+          title: item.label || userList.name,
+          data: items,
+        }
+      })
+      .filter((list) => list !== null) as {
+      id: string
+      title: string
+      data: TMDBMedia[]
+    }[]
+
+    return { showTrailers, visibleMediaLists: mediaLists }
+  }, [selectedLists, listDataMap, userLists])
 
   // Handle opening trailer for Hero Section items (pre-fetched trailerKey)
   const handleHeroWatchTrailer = (media: HeroMedia) => {
