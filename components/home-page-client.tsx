@@ -7,7 +7,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { TrailerRow } from "@/components/trailer-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { usePreferences } from "@/hooks/use-preferences"
-import { DEFAULT_HOME_LISTS } from "@/lib/home-screen-lists"
+import { DEFAULT_HOME_LISTS, PREMIUM_LIST_ID } from "@/lib/home-screen-lists"
 import type { TrailerItem } from "@/lib/tmdb"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import { useMemo, useState } from "react"
@@ -85,14 +85,12 @@ export function HomePageClient({
 
   // Filter lists - separate trailers from media lists
   const { showTrailers, visibleMediaLists } = useMemo(() => {
-    const showTrailers = selectedLists.some(
-      (item) => item.id === "latest-trailers",
-    )
+    const showTrailers = selectedLists.some((item) => item.id === PREMIUM_LIST_ID)
     const visibleMediaLists = selectedLists
       .filter(
         (item) =>
           item.type === "tmdb" &&
-          item.id !== "latest-trailers" &&
+          item.id !== PREMIUM_LIST_ID &&
           listDataMap[item.id],
       )
       .map((item) => ({

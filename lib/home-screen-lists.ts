@@ -27,7 +27,7 @@ export const DEFAULT_HOME_LISTS: HomeScreenListItem[] = [
   { id: "popular-movies", type: "tmdb", label: "Popular Movies" },
   { id: "upcoming-movies", type: "tmdb", label: "Upcoming Movies" },
   { id: "upcoming-tv", type: "tmdb", label: "Upcoming TV Shows" },
-  { id: "top-rated-movies", type: "tmdb", label: "Top Rated" },
+  { id: "top-rated-movies", type: "tmdb", label: "Top Rated Movies" },
 ]
 
 /** ID of the premium-only list */

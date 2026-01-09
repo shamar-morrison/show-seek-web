@@ -2,9 +2,13 @@
 
 import { useAuth } from "@/context/auth-context"
 import { db } from "@/lib/firebase/config"
+import {
+  deleteList,
+  renameList,
+} from "@/lib/firebase/lists"
 import { DEFAULT_LISTS, UserList } from "@/types/list"
 import { collection, onSnapshot, Timestamp } from "firebase/firestore"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 /**
  * Normalize createdAt to milliseconds for sorting
@@ -29,6 +33,7 @@ export function useLists() {
   useEffect(() => {
     // Early return for unauthenticated users - no subscription needed
     if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFirestoreLists([])
       setSubscribed(false)
       setError(null)
@@ -105,5 +110,21 @@ export function useLists() {
     return mergedLists
   }, [firestoreLists])
 
-  return { lists, loading, error }
+  const removeList = useCallback(
+    async (listId: string) => {
+      if (!user) throw new Error("User must be logged in")
+      await deleteList(user.uid, listId)
+    },
+    [user],
+  )
+
+  const updateList = useCallback(
+    async (listId: string, newName: string) => {
+      if (!user) throw new Error("User must be logged in")
+      await renameList(user.uid, listId, newName)
+    },
+    [user],
+  )
+
+  return { lists, loading, error, removeList, updateList }
 }

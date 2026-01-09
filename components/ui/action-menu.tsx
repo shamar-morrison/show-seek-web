@@ -151,7 +151,10 @@ export interface ActionMenuProps {
 // Default Trigger Component
 // ============================================================================
 
-function DefaultTrigger({ className }: { className?: string }) {
+function DefaultTrigger({
+  className,
+  ...props
+}: React.ComponentProps<"button">) {
   return (
     <button
       type="button"
@@ -163,6 +166,7 @@ function DefaultTrigger({ className }: { className?: string }) {
         className,
       )}
       aria-label="More options"
+      {...props}
     >
       <HugeiconsIcon icon={MoreVerticalIcon} className="size-5" />
     </button>
@@ -293,16 +297,16 @@ export function ActionMenu({
       {trigger ? (
         <DropdownMenuTrigger render={trigger} />
       ) : (
-        <DropdownMenuTrigger>
-          <DefaultTrigger className={triggerClassName} />
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={<DefaultTrigger className={triggerClassName} />}
+        />
       )}
       <DropdownMenuContent
         align={align}
         side={side}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
-        className={className}
+        className={cn("w-max", className)}
       >
         {items.map(renderMenuItem)}
       </DropdownMenuContent>

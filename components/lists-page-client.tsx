@@ -1,6 +1,7 @@
 "use client"
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
+import { PageHeader } from "@/components/page-header"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
@@ -28,7 +29,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 /** Map list IDs to icons for default lists */
 export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
@@ -86,6 +87,14 @@ interface ListsPageClientProps {
   movieGenres?: Genre[]
   /** TV genres for filter options */
   tvGenres?: Genre[]
+  /** Optional controlled selected list ID */
+  selectedListId?: string
+  /** Callback when list selection changes */
+  onListSelect?: (listId: string) => void
+  /** Whether to show the dynamic page header with the list name */
+  showDynamicHeader?: boolean
+  /** Optional action element to render next to the header title */
+  headerAction?: React.ReactNode
 }
 
 /**
@@ -101,9 +110,36 @@ export function ListsPageClient({
   noListsTitle = "No lists yet",
   movieGenres = [],
   tvGenres = [],
+  selectedListId: controlledSelectedListId,
+  onListSelect,
+  showDynamicHeader = false,
+  headerAction,
 }: ListsPageClientProps) {
-  const [selectedListId, setSelectedListId] = useState<string>("")
+  const [internalSelectedListId, setInternalSelectedListId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Use controlled state if provided, otherwise internal state
+  const selectedListId = controlledSelectedListId !== undefined ? controlledSelectedListId : internalSelectedListId
+
+  const handleListSelect = useCallback((id: string) => {
+    if (onListSelect) {
+      onListSelect(id)
+    } else {
+      setInternalSelectedListId(id)
+    }
+  }, [onListSelect])
+
+  // Set default selection when lists load
+  useEffect(() => {
+    if (!loading && lists.length > 0 && !selectedListId) {
+       // Prefer internal state update or callback if controlled (though usually parent handles default if controlled)
+       if (!controlledSelectedListId) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          handleListSelect(lists[0].id)
+       }
+    }
+  }, [loading, lists, selectedListId, controlledSelectedListId, handleListSelect])
+
 
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({
@@ -355,6 +391,14 @@ export function ListsPageClient({
 
   return (
     <div className="space-y-8 pb-12">
+      {/* Dynamic Header */}
+      {showDynamicHeader && activeList && (
+        <div className="flex items-center gap-4">
+          <PageHeader title={activeList.name} className="mb-0" />
+          {headerAction}
+        </div>
+      )}
+
       {/* Search, Filter, and Tabs */}
       <div className="space-y-6">
         {/* Search and Filter Row */}
@@ -396,7 +440,7 @@ export function ListsPageClient({
               count={getItemCount(list)}
               isActive={activeListId === list.id}
               icon={getListIcon(list)}
-              onClick={() => setSelectedListId(list.id)}
+              onClick={() => handleListSelect(list.id)}
             />
           ))}
         </div>

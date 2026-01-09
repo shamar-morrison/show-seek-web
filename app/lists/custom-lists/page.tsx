@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/page-header"
 import { getMovieGenres, getTVGenres } from "@/lib/tmdb"
 import { Metadata } from "next"
 import { CustomListsClient } from "./custom-lists-client"
@@ -21,7 +20,6 @@ export default async function CustomListsPage() {
 
   return (
     <>
-      <PageHeader title="Custom Lists" />
       <CustomListsClient movieGenres={movieGenres} tvGenres={tvGenres} />
     </>
   )
