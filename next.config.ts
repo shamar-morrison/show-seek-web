@@ -1,6 +1,12 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  webpack: (config) => {
+    config.watchOptions = {
+      ignored: ["**/node_modules/**", "**/.next/**", "**/.git/**"],
+    }
+    return config
+  },
   images: {
     remotePatterns: [
       {
