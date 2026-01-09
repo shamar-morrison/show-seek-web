@@ -141,11 +141,12 @@ export function NotesModal({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           <Button
             size={"lg"}
             onClick={handleSave}
             disabled={isSaving || !canSave}
+            className="flex-1"
           >
             {isSaving ? (
               <>
@@ -156,7 +157,7 @@ export function NotesModal({
                 Saving...
               </>
             ) : (
-              "Save Note"
+              "Save"
             )}
           </Button>
           {hasExistingNote && (
@@ -165,18 +166,11 @@ export function NotesModal({
               variant="secondary"
               onClick={handleClearNote}
               disabled={isSaving}
+              className="flex-1"
             >
-              Clear Note
+              Clear
             </Button>
           )}
-          <Button
-            size={"lg"}
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
