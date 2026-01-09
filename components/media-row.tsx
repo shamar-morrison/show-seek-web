@@ -2,6 +2,7 @@
 
 import { MediaCard } from "@/components/media-card"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { ViewAllLink } from "@/components/ui/view-all-link"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -50,7 +51,7 @@ export function MediaRow({
         </div>
       ) : scrollable ? (
         /* Horizontal Scroll Layout */
-        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+        <ScrollableRow className="pb-2">
           {displayItems.map((item) => (
             <div
               key={`${item.media_type}-${item.id}`}
@@ -63,7 +64,7 @@ export function MediaRow({
               />
             </div>
           ))}
-        </div>
+        </ScrollableRow>
       ) : (
         /* Grid Layout */
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">

@@ -1,6 +1,7 @@
 "use client"
 
 import { PhotoLightbox } from "@/components/photo-lightbox"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useMediaImages } from "@/hooks/use-tmdb-queries"
@@ -70,7 +71,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
           <SectionSkeleton count={8} cardWidth={100} cardHeight={150} />
         ) : (
           /* Photo Grid */
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+          <ScrollableRow className="pb-2">
             {displayImages.map((image, index) => {
               const imageUrl = buildImageUrl(image.file_path, "w300")
               if (!imageUrl) return null
@@ -110,7 +111,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
                 <span className="text-xs text-gray-400">View all</span>
               </button>
             )}
-          </div>
+          </ScrollableRow>
         )}
       </div>
 

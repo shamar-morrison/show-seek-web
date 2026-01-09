@@ -1,4 +1,5 @@
 import { CastCard } from "@/components/cast-card"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { ViewAllLink } from "@/components/ui/view-all-link"
 import type { CastMember } from "@/types/tmdb"
@@ -24,7 +25,7 @@ export function CastRow({ title, cast, href, limit = 15 }: CastRowProps) {
 
   return (
     <Section title={title} headerExtra={<ViewAllLink href={href} />}>
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+      <ScrollableRow className="pb-2">
         {cast.slice(0, limit).map((member, index) => (
           <CastCard
             key={`${member.id}-${member.character || member.order || index}`}
@@ -32,7 +33,7 @@ export function CastRow({ title, cast, href, limit = 15 }: CastRowProps) {
             priority={index < 5}
           />
         ))}
-      </div>
+      </ScrollableRow>
     </Section>
   )
 }

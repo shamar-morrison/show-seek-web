@@ -2,6 +2,7 @@
 
 import { ReviewCard } from "@/components/review-card"
 import { ReviewModal } from "@/components/review-modal"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useMediaReviews } from "@/hooks/use-tmdb-queries"
 import type { TMDBReview } from "@/types/tmdb"
@@ -86,7 +87,7 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
 
           {/* Horizontally Scrollable Row */}
           <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-            <div className="scrollbar-hide -mx-4 flex gap-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <ScrollableRow>
               {reviews.map((review) => (
                 <ReviewCard
                   key={review.id}
@@ -94,7 +95,7 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
                   onClick={() => handleReviewClick(review)}
                 />
               ))}
-            </div>
+            </ScrollableRow>
           </div>
         </section>
       )}
