@@ -1,3 +1,4 @@
+import { getMediaUrl } from "@/lib/utils"
 import { TMDBSearchResult } from "@/types/tmdb"
 import { Film01Icon, Tv01Icon, UserIcon } from "@hugeicons/core-free-icons"
 
@@ -33,11 +34,7 @@ export function getSearchResultInfo(
       ? Math.round(result.vote_average * 10) / 10
       : null
 
-  const href = isMovie
-    ? `/movie/${result.id}`
-    : isTV
-      ? `/tv/${result.id}`
-      : `/person/${result.id}`
+  const href = getMediaUrl(result.media_type, result.id)
 
   const getMediaTypeInfo = () => {
     if (isMovie) return { label: "Movie", icon: Film01Icon }
