@@ -1,3 +1,6 @@
+// Force Node.js runtime for firebase-admin compatibility
+export const runtime = "nodejs"
+
 import { adminAuth, adminDb } from "@/lib/firebase/admin"
 import {
   getHistory,
@@ -92,11 +95,17 @@ export async function POST() {
     }
 
     // Verify the session and get user ID
-    const decodedToken = await adminAuth.verifySessionCookie(
-      sessionCookie,
-      true,
-    )
-    const userId = decodedToken.uid
+    let userId: string
+    try {
+      const decodedToken = await adminAuth.verifySessionCookie(
+        sessionCookie,
+        true,
+      )
+      userId = decodedToken.uid
+    } catch {
+      // Invalid or expired session cookie
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     // Get user document with Trakt tokens
     const userDoc = await adminDb.doc(`users/${userId}`).get()
@@ -263,14 +272,13 @@ export async function POST() {
       result.movies++
     }
 
-    if (Object.keys(alreadyWatchedItems).length > 0) {
-      batchWriter.set(adminDb.doc(`users/${userId}/lists/already-watched`), {
-        name: "Already Watched",
-        items: alreadyWatchedItems,
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
-    }
+    // Always write the list (even if empty) to clear stale data
+    batchWriter.set(adminDb.doc(`users/${userId}/lists/already-watched`), {
+      name: "Already Watched",
+      items: alreadyWatchedItems,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
 
     // --- EPISODE HISTORY → episode_tracking ---
     // Group episodes by show
@@ -452,14 +460,13 @@ export async function POST() {
       result.watchlist++
     }
 
-    if (Object.keys(watchlistItems).length > 0) {
-      batchWriter.set(adminDb.doc(`users/${userId}/lists/watchlist`), {
-        name: "Should Watch",
-        items: watchlistItems,
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
-    }
+    // Always write the list (even if empty) to clear stale data
+    batchWriter.set(adminDb.doc(`users/${userId}/lists/watchlist`), {
+      name: "Should Watch",
+      items: watchlistItems,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
 
     // --- CUSTOM LISTS (including Favorites) ---
     if (process.env.DEBUG_SYNC) {
@@ -505,24 +512,23 @@ export async function POST() {
         }
       }
 
-      if (Object.keys(items).length > 0) {
-        // Check if this is the "Favorites" list
-        const isFavorites = list.name.toLowerCase() === "favorites"
-        const listId = isFavorites ? "favorites" : list.ids.slug
+      // Check if this is the "Favorites" list
+      const isFavorites = list.name.toLowerCase() === "favorites"
+      const listId = isFavorites ? "favorites" : list.ids.slug
 
-        batchWriter.set(adminDb.doc(`users/${userId}/lists/${listId}`), {
-          name: list.name,
-          items,
-          updatedAt: FieldValue.serverTimestamp(),
-          isCustom: !isFavorites,
-        })
-        if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
+      // Always write the list (even if empty) to clear stale data
+      batchWriter.set(adminDb.doc(`users/${userId}/lists/${listId}`), {
+        name: list.name,
+        items,
+        updatedAt: FieldValue.serverTimestamp(),
+        isCustom: !isFavorites,
+      })
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
 
-        if (isFavorites) {
-          result.favorites = Object.keys(items).length
-        } else {
-          result.lists++
-        }
+      if (isFavorites) {
+        result.favorites = Object.keys(items).length
+      } else {
+        result.lists++
       }
     }
 

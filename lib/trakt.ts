@@ -211,6 +211,9 @@ export async function getHistory(
       const pageCountHeader = response.headers.get("X-Pagination-Page-Count")
       if (pageCountHeader) {
         totalPages = parseInt(pageCountHeader, 10)
+      } else {
+        // Header missing: treat as unknown, fallback to MAX_PAGES
+        totalPages = MAX_PAGES
       }
     }
 
