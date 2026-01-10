@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TraktSettingsPage() {
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-2xl px-4 pb-8 pt-24">
       <TraktSettingsClient />
     </main>
   )

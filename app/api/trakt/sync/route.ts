@@ -1,37 +1,25 @@
 import { adminAuth, adminDb } from "@/lib/firebase/admin"
 import {
   getHistory,
+  getListItems,
   getRatings,
+  getUserLists,
   getWatchlist,
   refreshAccessToken,
 } from "@/lib/trakt"
+import { FieldValue } from "firebase-admin/firestore"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
-// Get TMDB metadata for a movie or show
-async function getTmdbMetadata(
-  tmdbId: number,
-  type: "movie" | "tv",
-): Promise<{
-  title: string
-  posterPath: string | null
-  releaseDate: string | null
-} | null> {
-  try {
-    const response = await fetch(
-      `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${process.env.TMDB_API_KEY}`,
-    )
-    if (!response.ok) return null
-
-    const data = await response.json()
-    return {
-      title: data.title || data.name,
-      posterPath: data.poster_path,
-      releaseDate: data.release_date || data.first_air_date || null,
-    }
-  } catch {
-    return null
-  }
+export interface SyncResult {
+  success: boolean
+  movies: number
+  shows: number
+  episodes: number
+  ratings: number
+  lists: number
+  favorites: number
+  watchlist: number
 }
 
 export async function POST() {
@@ -69,13 +57,11 @@ export async function POST() {
 
     // Refresh token if expired
     if (Date.now() > expiresAt - 60000) {
-      // Refresh 1 minute before expiry
       try {
         const newTokens = await refreshAccessToken(refreshToken)
         accessToken = newTokens.access_token
         refreshToken = newTokens.refresh_token
 
-        // Update stored tokens on user document
         await adminDb.doc(`users/${userId}`).update({
           traktAccessToken: accessToken,
           traktRefreshToken: refreshToken,
@@ -92,32 +78,144 @@ export async function POST() {
       }
     }
 
-    // Fetch data from Trakt
+    const result: SyncResult = {
+      success: true,
+      movies: 0,
+      shows: 0,
+      episodes: 0,
+      ratings: 0,
+      lists: 0,
+      favorites: 0,
+      watchlist: 0,
+    }
+
+    // Fetch all data from Trakt in parallel
     const [
+      movieHistory,
+      episodeHistory,
       movieRatings,
       showRatings,
       episodeRatings,
       movieWatchlist,
       showWatchlist,
-      movieHistory,
+      customLists,
     ] = await Promise.all([
+      getHistory(accessToken, "movies", 1000),
+      getHistory(accessToken, "episodes", 1000),
       getRatings(accessToken, "movies"),
       getRatings(accessToken, "shows"),
       getRatings(accessToken, "episodes"),
       getWatchlist(accessToken, "movies"),
       getWatchlist(accessToken, "shows"),
-      getHistory(accessToken, "movies", 500),
+      getUserLists(accessToken),
     ])
 
-    let totalItems = 0
+    console.log("[SYNC] Raw counts from Trakt API:")
+    console.log(`  - Movie history: ${movieHistory.length}`)
+    console.log(`  - Episode history: ${episodeHistory.length}`)
+    console.log(`  - Movie watchlist: ${movieWatchlist.length}`)
+    console.log(`  - Show watchlist: ${showWatchlist.length}`)
+    console.log(`  - Movie ratings: ${movieRatings.length}`)
+    console.log(`  - Show ratings: ${showRatings.length}`)
+    console.log(`  - Episode ratings: ${episodeRatings.length}`)
+
     const batch = adminDb.batch()
 
-    // Sync movie ratings
+    // --- MOVIE HISTORY → already-watched list ---
+    const alreadyWatchedItems: Record<string, unknown> = {}
+    const seenMovies = new Set<number>()
+    for (const item of movieHistory) {
+      if (!item.movie?.ids.tmdb) continue
+      const tmdbId = item.movie.ids.tmdb
+      if (seenMovies.has(tmdbId)) continue
+      seenMovies.add(tmdbId)
+
+      alreadyWatchedItems[String(tmdbId)] = {
+        id: tmdbId,
+        media_type: "movie",
+        title: item.movie.title,
+        poster_path: null, // Will be enriched later
+        release_date: null,
+        addedAt: new Date(item.watched_at).getTime(),
+      }
+      result.movies++
+    }
+
+    if (Object.keys(alreadyWatchedItems).length > 0) {
+      batch.set(
+        adminDb.doc(`users/${userId}/lists/already-watched`),
+        {
+          name: "Already Watched",
+          items: alreadyWatchedItems,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      )
+    }
+
+    // --- EPISODE HISTORY → episode_tracking ---
+    // Group episodes by show
+    const showEpisodes = new Map<
+      number,
+      {
+        show: { title: string; tmdbId: number }
+        episodes: Map<string, unknown>
+      }
+    >()
+
+    for (const item of episodeHistory) {
+      if (!item.show?.ids.tmdb || !item.episode) continue
+      const tvShowId = item.show.ids.tmdb
+      const episodeKey = `${item.episode.season}_${item.episode.number}`
+
+      if (!showEpisodes.has(tvShowId)) {
+        showEpisodes.set(tvShowId, {
+          show: { title: item.show.title, tmdbId: tvShowId },
+          episodes: new Map(),
+        })
+      }
+
+      const showData = showEpisodes.get(tvShowId)!
+      if (!showData.episodes.has(episodeKey)) {
+        showData.episodes.set(episodeKey, {
+          episodeId: item.episode.ids.tmdb || 0,
+          tvShowId,
+          seasonNumber: item.episode.season,
+          episodeNumber: item.episode.number,
+          watchedAt: new Date(item.watched_at).getTime(),
+          episodeName: item.episode.title,
+          episodeAirDate: null,
+        })
+        result.episodes++
+      }
+    }
+
+    result.shows = showEpisodes.size
+
+    for (const [tvShowId, showData] of showEpisodes) {
+      const episodesObj: Record<string, unknown> = {}
+      for (const [key, episode] of showData.episodes) {
+        episodesObj[key] = episode
+      }
+
+      batch.set(
+        adminDb.doc(`users/${userId}/episode_tracking/${tvShowId}`),
+        {
+          episodes: episodesObj,
+          metadata: {
+            tvShowName: showData.show.title,
+            posterPath: null, // Will be enriched later
+            lastUpdated: Date.now(),
+          },
+        },
+        { merge: true },
+      )
+    }
+
+    // --- RATINGS ---
     for (const item of movieRatings) {
       if (!item.movie?.ids.tmdb) continue
-
       const tmdbId = item.movie.ids.tmdb
-      const metadata = await getTmdbMetadata(tmdbId, "movie")
       const docId = `movie-${tmdbId}`
 
       batch.set(
@@ -126,23 +224,19 @@ export async function POST() {
           id: tmdbId,
           mediaType: "movie",
           rating: item.rating,
-          title: metadata?.title || item.movie.title,
-          posterPath: metadata?.posterPath || null,
-          releaseDate: metadata?.releaseDate || null,
+          title: item.movie.title,
+          posterPath: null,
+          releaseDate: null,
           ratedAt: new Date(item.rated_at).getTime(),
         },
         { merge: true },
       )
-
-      totalItems++
+      result.ratings++
     }
 
-    // Sync show ratings
     for (const item of showRatings) {
       if (!item.show?.ids.tmdb) continue
-
       const tmdbId = item.show.ids.tmdb
-      const metadata = await getTmdbMetadata(tmdbId, "tv")
       const docId = `tv-${tmdbId}`
 
       batch.set(
@@ -151,21 +245,18 @@ export async function POST() {
           id: tmdbId,
           mediaType: "tv",
           rating: item.rating,
-          title: metadata?.title || item.show.title,
-          posterPath: metadata?.posterPath || null,
-          releaseDate: metadata?.releaseDate || null,
+          title: item.show.title,
+          posterPath: null,
+          releaseDate: null,
           ratedAt: new Date(item.rated_at).getTime(),
         },
         { merge: true },
       )
-
-      totalItems++
+      result.ratings++
     }
 
-    // Sync episode ratings
     for (const item of episodeRatings) {
       if (!item.show?.ids.tmdb || !item.episode) continue
-
       const tvShowId = item.show.ids.tmdb
       const season = item.episode.season
       const episode = item.episode.number
@@ -187,45 +278,51 @@ export async function POST() {
         },
         { merge: true },
       )
-
-      totalItems++
+      result.ratings++
     }
 
-    // Sync movie watchlist
+    // --- WATCHLIST ---
     const watchlistItems: Record<string, unknown> = {}
     for (const item of movieWatchlist) {
-      if (!item.movie?.ids.tmdb) continue
-
+      if (!item.movie?.ids.tmdb) {
+        console.log(
+          "[SYNC] Skipping movie watchlist item - no TMDB ID:",
+          item.movie?.title,
+        )
+        continue
+      }
       const tmdbId = item.movie.ids.tmdb
-      const metadata = await getTmdbMetadata(tmdbId, "movie")
 
       watchlistItems[String(tmdbId)] = {
         id: tmdbId,
         media_type: "movie",
-        title: metadata?.title || item.movie.title,
-        poster_path: metadata?.posterPath || null,
-        release_date: metadata?.releaseDate || null,
+        title: item.movie.title,
+        poster_path: null,
+        release_date: null,
         addedAt: new Date(item.listed_at).getTime(),
       }
-      totalItems++
+      result.watchlist++
     }
 
-    // Sync show watchlist
     for (const item of showWatchlist) {
-      if (!item.show?.ids.tmdb) continue
-
+      if (!item.show?.ids.tmdb) {
+        console.log(
+          "[SYNC] Skipping show watchlist item - no TMDB ID:",
+          item.show?.title,
+        )
+        continue
+      }
       const tmdbId = item.show.ids.tmdb
-      const metadata = await getTmdbMetadata(tmdbId, "tv")
 
       watchlistItems[String(tmdbId)] = {
         id: tmdbId,
         media_type: "tv",
-        title: metadata?.title || item.show.title,
-        poster_path: metadata?.posterPath || null,
-        first_air_date: metadata?.releaseDate || null,
+        title: item.show.title,
+        poster_path: null,
+        first_air_date: null,
         addedAt: new Date(item.listed_at).getTime(),
       }
-      totalItems++
+      result.watchlist++
     }
 
     if (Object.keys(watchlistItems).length > 0) {
@@ -234,65 +331,78 @@ export async function POST() {
         {
           name: "Should Watch",
           items: watchlistItems,
-          updatedAt: Date.now(),
+          updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
       )
     }
 
-    // Sync movie history to "Already Watched" list
-    const alreadyWatchedItems: Record<string, unknown> = {}
-    for (const item of movieHistory) {
-      if (item.type !== "movie" || !item.movie?.ids.tmdb) continue
+    // --- CUSTOM LISTS (including Favorites) ---
+    console.log(
+      "[SYNC] Custom lists from Trakt:",
+      customLists.map((l) => l.name),
+    )
+    for (const list of customLists) {
+      const listItems = await getListItems(accessToken, list.ids.slug)
+      console.log(`[SYNC] List '${list.name}' has ${listItems.length} items`)
+      const items: Record<string, unknown> = {}
 
-      const tmdbId = item.movie.ids.tmdb
-      // Skip if already in the map (we only want the first watch)
-      if (alreadyWatchedItems[String(tmdbId)]) continue
-
-      const metadata = await getTmdbMetadata(tmdbId, "movie")
-
-      alreadyWatchedItems[String(tmdbId)] = {
-        id: tmdbId,
-        media_type: "movie",
-        title: metadata?.title || item.movie.title,
-        poster_path: metadata?.posterPath || null,
-        release_date: metadata?.releaseDate || null,
-        addedAt: new Date(item.watched_at).getTime(),
+      for (const item of listItems) {
+        if (item.type === "movie" && item.movie?.ids.tmdb) {
+          items[String(item.movie.ids.tmdb)] = {
+            id: item.movie.ids.tmdb,
+            media_type: "movie",
+            title: item.movie.title,
+            poster_path: null,
+            release_date: null,
+            addedAt: new Date(item.listed_at).getTime(),
+          }
+        } else if (item.type === "show" && item.show?.ids.tmdb) {
+          items[String(item.show.ids.tmdb)] = {
+            id: item.show.ids.tmdb,
+            media_type: "tv",
+            title: item.show.title,
+            poster_path: null,
+            first_air_date: null,
+            addedAt: new Date(item.listed_at).getTime(),
+          }
+        }
       }
-      totalItems++
-    }
 
-    if (Object.keys(alreadyWatchedItems).length > 0) {
-      batch.set(
-        adminDb.doc(`users/${userId}/lists/already-watched`),
-        {
-          name: "Already Watched",
-          items: alreadyWatchedItems,
-          updatedAt: Date.now(),
-        },
-        { merge: true },
-      )
+      if (Object.keys(items).length > 0) {
+        // Check if this is the "Favorites" list
+        const isFavorites = list.name.toLowerCase() === "favorites"
+        const listId = isFavorites ? "favorites" : list.ids.slug
+
+        batch.set(
+          adminDb.doc(`users/${userId}/lists/${listId}`),
+          {
+            name: list.name,
+            items,
+            updatedAt: FieldValue.serverTimestamp(),
+            isCustom: !isFavorites,
+          },
+          { merge: true },
+        )
+
+        if (isFavorites) {
+          result.favorites = Object.keys(items).length
+        } else {
+          result.lists++
+        }
+      }
     }
 
     // Commit all changes
     await batch.commit()
 
-    // Update last sync time on user document
+    // Update last sync time and sync result on user document
     await adminDb.doc(`users/${userId}`).update({
-      traktLastSyncAt: new Date(),
+      traktLastSyncAt: FieldValue.serverTimestamp(),
+      traktLastSyncResult: result,
     })
 
-    return NextResponse.json({
-      success: true,
-      totalItems,
-      details: {
-        movieRatings: movieRatings.length,
-        showRatings: showRatings.length,
-        episodeRatings: episodeRatings.length,
-        watchlist: movieWatchlist.length + showWatchlist.length,
-        history: Object.keys(alreadyWatchedItems).length,
-      },
-    })
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Trakt sync error:", error)
     return NextResponse.json(

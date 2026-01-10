@@ -251,3 +251,57 @@ export async function revokeToken(accessToken: string): Promise<void> {
     }),
   })
 }
+
+// Custom Lists types
+export interface TraktList {
+  name: string
+  description: string
+  ids: {
+    trakt: number
+    slug: string
+  }
+  item_count: number
+  likes: number
+  created_at: string
+  updated_at: string
+}
+
+export interface TraktListItem {
+  rank: number
+  listed_at: string
+  type: "movie" | "show"
+  movie?: TraktMovie
+  show?: TraktShow
+}
+
+/**
+ * Fetch user's custom lists from Trakt
+ */
+export async function getUserLists(accessToken: string): Promise<TraktList[]> {
+  const response = await traktFetch("/users/me/lists", accessToken)
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lists: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Fetch items in a specific user list
+ */
+export async function getListItems(
+  accessToken: string,
+  listSlug: string,
+): Promise<TraktListItem[]> {
+  const response = await traktFetch(
+    `/users/me/lists/${listSlug}/items`,
+    accessToken,
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch list items: ${response.statusText}`)
+  }
+
+  return response.json()
+}
