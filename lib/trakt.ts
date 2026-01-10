@@ -183,23 +183,49 @@ export interface TraktWatchlistItem {
 }
 
 /**
- * Fetch user's watch history from Trakt
+ * Fetch user's watch history from Trakt with pagination support.
+ * Uses a reasonable cap to prevent runaway syncs for users with very large histories.
  */
 export async function getHistory(
   accessToken: string,
   type: "movies" | "shows" | "episodes" = "movies",
-  limit = 100,
+  limit = 1000,
 ): Promise<TraktHistoryItem[]> {
-  const response = await traktFetch(
-    `/sync/history/${type}?limit=${limit}`,
-    accessToken,
-  )
+  const MAX_PAGES = 10 // Cap at 10 pages (10,000 items with limit=1000)
+  const allItems: TraktHistoryItem[] = []
+  let currentPage = 1
+  let totalPages = 1
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch history: ${response.statusText}`)
+  while (currentPage <= totalPages && currentPage <= MAX_PAGES) {
+    const response = await traktFetch(
+      `/sync/history/${type}?page=${currentPage}&limit=${limit}`,
+      accessToken,
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch history: ${response.statusText}`)
+    }
+
+    // Get pagination info from headers on first request
+    if (currentPage === 1) {
+      const pageCountHeader = response.headers.get("X-Pagination-Page-Count")
+      if (pageCountHeader) {
+        totalPages = parseInt(pageCountHeader, 10)
+      }
+    }
+
+    const items: TraktHistoryItem[] = await response.json()
+    allItems.push(...items)
+
+    // If we got fewer items than the limit, we've reached the end
+    if (items.length < limit) {
+      break
+    }
+
+    currentPage++
   }
 
-  return response.json()
+  return allItems
 }
 
 /**

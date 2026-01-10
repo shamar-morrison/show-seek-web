@@ -109,19 +109,41 @@ export function TraktSettingsClient() {
 
   // Tick every second to update cooldown countdown display
   useEffect(() => {
-    const syncRemaining = getCooldownRemaining(
+    // Check if we need to start ticking at all
+    const initialSyncRemaining = getCooldownRemaining(
       status?.lastSyncAt,
       SYNC_COOLDOWN_MS,
     )
-    const enrichRemaining = getCooldownRemaining(
+    const initialEnrichRemaining = getCooldownRemaining(
       status?.lastEnrichAt,
       ENRICH_COOLDOWN_MS,
     )
 
-    if (syncRemaining > 0 || enrichRemaining > 0) {
-      const interval = setInterval(() => setTick((t) => t + 1), 1000)
-      return () => clearInterval(interval)
+    if (initialSyncRemaining <= 0 && initialEnrichRemaining <= 0) {
+      return // No cooldowns active, no need to tick
     }
+
+    const interval = setInterval(() => {
+      // Recompute cooldowns on each tick
+      const syncRemaining = getCooldownRemaining(
+        status?.lastSyncAt,
+        SYNC_COOLDOWN_MS,
+      )
+      const enrichRemaining = getCooldownRemaining(
+        status?.lastEnrichAt,
+        ENRICH_COOLDOWN_MS,
+      )
+
+      if (syncRemaining <= 0 && enrichRemaining <= 0) {
+        // Both cooldowns expired, stop ticking
+        clearInterval(interval)
+      }
+
+      // Force a re-render to update the UI
+      setTick((t) => t + 1)
+    }, 1000)
+
+    return () => clearInterval(interval)
   }, [status?.lastSyncAt, status?.lastEnrichAt])
 
   function handleConnect() {

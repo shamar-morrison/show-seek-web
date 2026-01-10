@@ -110,6 +110,22 @@ export async function POST() {
 
     const userData = userDoc.data()!
 
+    // Validate that tokens are present - if not, require re-authentication
+    const storedAccessToken = userData.traktAccessToken
+    const storedRefreshToken = userData.traktRefreshToken
+
+    if (
+      typeof storedAccessToken !== "string" ||
+      !storedAccessToken ||
+      typeof storedRefreshToken !== "string" ||
+      !storedRefreshToken
+    ) {
+      return NextResponse.json(
+        { error: "Trakt re-authentication required", code: "REAUTH_REQUIRED" },
+        { status: 401 },
+      )
+    }
+
     // --- Rate limiting: 5-minute cooldown between syncs ---
     const SYNC_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
     const lastSyncRaw = userData.traktLastSyncAt
@@ -140,8 +156,8 @@ export async function POST() {
       )
     }
 
-    let accessToken = userData.traktAccessToken as string
-    let refreshToken = userData.traktRefreshToken as string
+    let accessToken = storedAccessToken
+    let refreshToken = storedRefreshToken
 
     // Compute expiresMs robustly: handle Firestore Timestamp, Date, number, or missing/invalid
     let expiresMs: number
@@ -248,15 +264,11 @@ export async function POST() {
     }
 
     if (Object.keys(alreadyWatchedItems).length > 0) {
-      batchWriter.set(
-        adminDb.doc(`users/${userId}/lists/already-watched`),
-        {
-          name: "Already Watched",
-          items: alreadyWatchedItems,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      )
+      batchWriter.set(adminDb.doc(`users/${userId}/lists/already-watched`), {
+        name: "Already Watched",
+        items: alreadyWatchedItems,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
       if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
     }
 
@@ -441,15 +453,11 @@ export async function POST() {
     }
 
     if (Object.keys(watchlistItems).length > 0) {
-      batchWriter.set(
-        adminDb.doc(`users/${userId}/lists/watchlist`),
-        {
-          name: "Should Watch",
-          items: watchlistItems,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      )
+      batchWriter.set(adminDb.doc(`users/${userId}/lists/watchlist`), {
+        name: "Should Watch",
+        items: watchlistItems,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
       if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
     }
 
@@ -502,16 +510,12 @@ export async function POST() {
         const isFavorites = list.name.toLowerCase() === "favorites"
         const listId = isFavorites ? "favorites" : list.ids.slug
 
-        batchWriter.set(
-          adminDb.doc(`users/${userId}/lists/${listId}`),
-          {
-            name: list.name,
-            items,
-            updatedAt: FieldValue.serverTimestamp(),
-            isCustom: !isFavorites,
-          },
-          { merge: true },
-        )
+        batchWriter.set(adminDb.doc(`users/${userId}/lists/${listId}`), {
+          name: list.name,
+          items,
+          updatedAt: FieldValue.serverTimestamp(),
+          isCustom: !isFavorites,
+        })
         if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
 
         if (isFavorites) {
