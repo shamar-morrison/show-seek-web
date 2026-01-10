@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY
+const FETCH_TIMEOUT_MS = 10000
 
 interface TmdbMetadata {
   title: string
@@ -18,15 +19,17 @@ async function getTmdbMetadata(
   try {
     const response = await fetch(
       `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${TMDB_API_KEY}`,
+      { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
     )
     if (!response.ok) return null
 
     const data = await response.json()
     return {
       title: data.title || data.name,
-      posterPath: data.poster_path,
+      posterPath: data.poster_path ?? null,
       releaseDate: data.release_date || data.first_air_date || null,
-      voteAverage: data.vote_average || null,
+      // Use ?? to preserve 0 values (|| would turn 0 into null)
+      voteAverage: data.vote_average ?? null,
     }
   } catch {
     return null
@@ -41,6 +44,14 @@ export async function POST() {
 
     if (!sessionCookie || !adminAuth || !adminDb) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Fail fast if TMDB_API_KEY is not configured
+    if (!TMDB_API_KEY) {
+      return NextResponse.json(
+        { error: "TMDB_API_KEY is not configured" },
+        { status: 500 },
+      )
     }
 
     const decodedToken = await adminAuth.verifySessionCookie(
@@ -92,13 +103,14 @@ export async function POST() {
 
       for (const [itemId, item] of Object.entries(items)) {
         const itemData = item as Record<string, unknown>
-        if (itemData.poster_path !== null) continue
+        // Use loose equality to skip items that already have a poster (handles both null and undefined)
+        const poster = itemData["poster_path"]
+        if (poster != null) continue
 
-        const mediaType = itemData.media_type === "tv" ? "tv" : "movie"
+        const mediaType = itemData["media_type"] === "tv" ? "tv" : "movie"
+        const rawId = itemData["id"]
         const tmdbId =
-          typeof itemData.id === "number"
-            ? itemData.id
-            : parseInt(itemData.id as string)
+          typeof rawId === "number" ? rawId : parseInt(rawId as string)
         if (isNaN(tmdbId)) continue
 
         const metadata = await getTmdbMetadata(tmdbId, mediaType)
@@ -106,7 +118,7 @@ export async function POST() {
           items[itemId] = {
             ...itemData,
             poster_path: metadata.posterPath,
-            title: metadata.title || itemData.title,
+            title: metadata.title || itemData["title"],
             release_date: metadata.releaseDate,
             vote_average: metadata.voteAverage,
           }

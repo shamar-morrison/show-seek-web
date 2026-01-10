@@ -111,11 +111,24 @@ export async function POST() {
     const userData = userDoc.data()!
     let accessToken = userData.traktAccessToken as string
     let refreshToken = userData.traktRefreshToken as string
-    const expiresAt =
-      userData.traktTokenExpiresAt?.toMillis?.() || userData.traktTokenExpiresAt
 
-    // Refresh token if expired
-    if (Date.now() > expiresAt - 60000) {
+    // Compute expiresMs robustly: handle Firestore Timestamp, Date, number, or missing/invalid
+    let expiresMs: number
+    const expiresRaw = userData.traktTokenExpiresAt
+    if (typeof expiresRaw?.toMillis === "function") {
+      // Firestore Timestamp
+      expiresMs = expiresRaw.toMillis()
+    } else if (expiresRaw instanceof Date) {
+      expiresMs = expiresRaw.getTime()
+    } else if (typeof expiresRaw === "number") {
+      expiresMs = expiresRaw
+    } else {
+      // Missing or invalid - treat as expired
+      expiresMs = 0
+    }
+
+    // Refresh token if expired or if expiry is missing/invalid
+    if (!Number.isFinite(expiresMs) || Date.now() > expiresMs - 60000) {
       try {
         const newTokens = await refreshAccessToken(refreshToken)
         accessToken = newTokens.access_token
@@ -169,14 +182,16 @@ export async function POST() {
       getUserLists(accessToken),
     ])
 
-    console.log("[SYNC] Raw counts from Trakt API:")
-    console.log(`  - Movie history: ${movieHistory.length}`)
-    console.log(`  - Episode history: ${episodeHistory.length}`)
-    console.log(`  - Movie watchlist: ${movieWatchlist.length}`)
-    console.log(`  - Show watchlist: ${showWatchlist.length}`)
-    console.log(`  - Movie ratings: ${movieRatings.length}`)
-    console.log(`  - Show ratings: ${showRatings.length}`)
-    console.log(`  - Episode ratings: ${episodeRatings.length}`)
+    if (process.env.DEBUG_SYNC) {
+      console.log("[SYNC] Raw counts from Trakt API:")
+      console.log(`  - Movie history: ${movieHistory.length}`)
+      console.log(`  - Episode history: ${episodeHistory.length}`)
+      console.log(`  - Movie watchlist: ${movieWatchlist.length}`)
+      console.log(`  - Show watchlist: ${showWatchlist.length}`)
+      console.log(`  - Movie ratings: ${movieRatings.length}`)
+      console.log(`  - Show ratings: ${showRatings.length}`)
+      console.log(`  - Episode ratings: ${episodeRatings.length}`)
+    }
 
     // Use BatchWriter to automatically chunk commits at 500 operations
     const batchWriter = new BatchWriter(adminDb)
@@ -404,13 +419,17 @@ export async function POST() {
     }
 
     // --- CUSTOM LISTS (including Favorites) ---
-    console.log(
-      "[SYNC] Custom lists from Trakt:",
-      customLists.map((l) => l.name),
-    )
+    if (process.env.DEBUG_SYNC) {
+      console.log(
+        "[SYNC] Custom lists from Trakt:",
+        customLists.map((l) => l.name),
+      )
+    }
     for (const list of customLists) {
       const listItems = await getListItems(accessToken, list.ids.slug)
-      console.log(`[SYNC] List '${list.name}' has ${listItems.length} items`)
+      if (process.env.DEBUG_SYNC) {
+        console.log(`[SYNC] List '${list.name}' has ${listItems.length} items`)
+      }
       const items: Record<string, unknown> = {}
 
       for (const item of listItems) {
