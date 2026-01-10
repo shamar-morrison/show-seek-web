@@ -78,7 +78,7 @@ export function TraktSettingsClient() {
   }, [user?.uid])
 
   function handleConnect() {
-    window.open("/api/trakt/auth", "_blank")
+    window.open("/api/trakt/auth", "_blank", "noopener,noreferrer")
   }
 
   async function handleSync() {
@@ -162,10 +162,14 @@ export function TraktSettingsClient() {
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffMins < 1) return "in less than a minute"
-    if (diffMins < 60) return `${diffMins} minutes ago`
-    if (diffHours < 24) return `${diffHours} hours ago`
-    return `${diffDays} days ago`
+    if (diffMins < 1) return "less than a minute ago"
+    if (diffMins < 60) {
+      return diffMins === 1 ? "1 minute ago" : `${diffMins} minutes ago`
+    }
+    if (diffHours < 24) {
+      return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`
+    }
+    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`
   }
 
   if (loading) {

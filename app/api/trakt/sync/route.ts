@@ -7,7 +7,7 @@ import {
   getWatchlist,
   refreshAccessToken,
 } from "@/lib/trakt"
-import { FieldValue } from "firebase-admin/firestore"
+import { FieldValue, Firestore, WriteBatch } from "firebase-admin/firestore"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -20,6 +20,65 @@ export interface SyncResult {
   lists: number
   favorites: number
   watchlist: number
+}
+
+/**
+ * Helper class to manage Firestore batch writes with automatic chunking.
+ * Firestore limits batches to 500 operations, so this class commits
+ * automatically when that limit is reached.
+ */
+class BatchWriter {
+  private batch: WriteBatch
+  private operationCount = 0
+  private readonly MAX_OPERATIONS = 500
+
+  constructor(private db: Firestore) {
+    this.batch = db.batch()
+  }
+
+  set(
+    ref: FirebaseFirestore.DocumentReference,
+    data: FirebaseFirestore.DocumentData,
+    options?: FirebaseFirestore.SetOptions,
+  ): void {
+    if (options) {
+      this.batch.set(ref, data, options)
+    } else {
+      this.batch.set(ref, data)
+    }
+    this.operationCount++
+  }
+
+  /**
+   * Check if we've reached the operation limit and need to commit
+   */
+  shouldCommit(): boolean {
+    return this.operationCount >= this.MAX_OPERATIONS
+  }
+
+  /**
+   * Commit current batch if it has operations and reset for more writes
+   */
+  async commitIfNeeded(): Promise<void> {
+    if (this.operationCount > 0) {
+      await this.batch.commit()
+      this.batch = this.db.batch()
+      this.operationCount = 0
+    }
+  }
+
+  /**
+   * Final commit - commits any remaining operations
+   */
+  async commit(): Promise<void> {
+    if (this.operationCount > 0) {
+      await this.batch.commit()
+    }
+  }
+
+  get count(): number {
+    return this.operationCount
+  }
 }
 
 export async function POST() {
@@ -119,7 +178,8 @@ export async function POST() {
     console.log(`  - Show ratings: ${showRatings.length}`)
     console.log(`  - Episode ratings: ${episodeRatings.length}`)
 
-    const batch = adminDb.batch()
+    // Use BatchWriter to automatically chunk commits at 500 operations
+    const batchWriter = new BatchWriter(adminDb)
 
     // --- MOVIE HISTORY → already-watched list ---
     const alreadyWatchedItems: Record<string, unknown> = {}
@@ -142,7 +202,7 @@ export async function POST() {
     }
 
     if (Object.keys(alreadyWatchedItems).length > 0) {
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/lists/already-watched`),
         {
           name: "Already Watched",
@@ -151,6 +211,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
     }
 
     // --- EPISODE HISTORY → episode_tracking ---
@@ -198,7 +259,7 @@ export async function POST() {
         episodesObj[key] = episode
       }
 
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/episode_tracking/${tvShowId}`),
         {
           episodes: episodesObj,
@@ -210,6 +271,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
     }
 
     // --- RATINGS ---
@@ -218,7 +280,7 @@ export async function POST() {
       const tmdbId = item.movie.ids.tmdb
       const docId = `movie-${tmdbId}`
 
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/ratings/${docId}`),
         {
           id: tmdbId,
@@ -231,6 +293,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
       result.ratings++
     }
 
@@ -239,7 +302,7 @@ export async function POST() {
       const tmdbId = item.show.ids.tmdb
       const docId = `tv-${tmdbId}`
 
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/ratings/${docId}`),
         {
           id: tmdbId,
@@ -252,6 +315,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
       result.ratings++
     }
 
@@ -262,7 +326,7 @@ export async function POST() {
       const episode = item.episode.number
       const docId = `episode-${tvShowId}-${season}-${episode}`
 
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/ratings/${docId}`),
         {
           id: docId,
@@ -278,6 +342,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
       result.ratings++
     }
 
@@ -326,7 +391,7 @@ export async function POST() {
     }
 
     if (Object.keys(watchlistItems).length > 0) {
-      batch.set(
+      batchWriter.set(
         adminDb.doc(`users/${userId}/lists/watchlist`),
         {
           name: "Should Watch",
@@ -335,6 +400,7 @@ export async function POST() {
         },
         { merge: true },
       )
+      if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
     }
 
     // --- CUSTOM LISTS (including Favorites) ---
@@ -374,7 +440,7 @@ export async function POST() {
         const isFavorites = list.name.toLowerCase() === "favorites"
         const listId = isFavorites ? "favorites" : list.ids.slug
 
-        batch.set(
+        batchWriter.set(
           adminDb.doc(`users/${userId}/lists/${listId}`),
           {
             name: list.name,
@@ -384,6 +450,7 @@ export async function POST() {
           },
           { merge: true },
         )
+        if (batchWriter.shouldCommit()) await batchWriter.commitIfNeeded()
 
         if (isFavorites) {
           result.favorites = Object.keys(items).length
@@ -393,8 +460,8 @@ export async function POST() {
       }
     }
 
-    // Commit all changes
-    await batch.commit()
+    // Commit any remaining operations
+    await batchWriter.commit()
 
     // Update last sync time and sync result on user document
     await adminDb.doc(`users/${userId}`).update({
