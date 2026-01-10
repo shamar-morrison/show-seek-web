@@ -8,11 +8,9 @@ const FETCH_TIMEOUT_MS = 10000
 
 // Chunk size for parallel TMDB requests (~5 requests at a time to stay under 40/10s rate limit)
 const TMDB_CHUNK_SIZE = 5
-// Maximum items to process per section to prevent timeout/memory issues
-const MAX_RATINGS_ITEMS = 50
-const MAX_LIST_ITEMS_PER_LIST = 50
-const MAX_LISTS = 10
-const MAX_EPISODE_TRACKING_ITEMS = 100
+// Maximum items to process per enrichment run to prevent timeout issues
+// With chunked parallelism at 5 concurrent requests, 100 items takes ~20 API calls
+const MAX_ITEMS_PER_RUN = 100
 
 interface TmdbMetadata {
   title: string
@@ -124,19 +122,24 @@ export async function POST() {
     let enrichedCount = 0
 
     // --- Enrich ratings with controlled parallelism ---
+    // Fetch ALL ratings and filter client-side because Firestore .where("field", "==", null)
+    // does NOT match documents where the field doesn't exist
     const ratingsSnapshot = await adminDb
       .collection(`users/${userId}/ratings`)
-      .where("posterPath", "==", null)
-      .limit(MAX_RATINGS_ITEMS)
       .get()
 
-    // Filter and prepare rating docs for enrichment
-    const ratingDocsToEnrich = ratingsSnapshot.docs.filter((doc) => {
-      const data = doc.data()
-      if (data.mediaType === "episode") return false
-      const tmdbId = typeof data.id === "number" ? data.id : parseInt(data.id)
-      return !isNaN(tmdbId)
-    })
+    // Filter and prepare rating docs for enrichment (missing or null posterPath)
+    const ratingDocsToEnrich = ratingsSnapshot.docs
+      .filter((doc) => {
+        const data = doc.data()
+        // Skip episodes - they don't have posters
+        if (data.mediaType === "episode") return false
+        // Skip if already has a valid posterPath
+        if (data.posterPath) return false
+        const tmdbId = typeof data.id === "number" ? data.id : parseInt(data.id)
+        return !isNaN(tmdbId)
+      })
+      .slice(0, MAX_ITEMS_PER_RUN)
 
     // Process ratings in parallel chunks
     const ratingUpdates = await processInChunks(
@@ -176,28 +179,33 @@ export async function POST() {
       await batch.commit()
     }
 
-    // --- Enrich lists with limits and controlled parallelism ---
+    // --- Enrich lists with controlled parallelism ---
+    // Fetch ALL lists (no limit) since we need to process all user content
     const listsSnapshot = await adminDb
       .collection(`users/${userId}/lists`)
-      .limit(MAX_LISTS)
       .get()
 
+    let listItemsEnriched = 0
     for (const listDoc of listsSnapshot.docs) {
+      // Stop if we've hit the per-run limit across all lists
+      if (listItemsEnriched >= MAX_ITEMS_PER_RUN) break
+
       const listData = listDoc.data()
       const items = listData.items || {}
 
-      // Filter items that need enrichment and limit count
+      // Filter items that need enrichment (missing or falsy poster_path)
       const itemsToEnrich = Object.entries(items)
         .filter(([, item]) => {
           const itemData = item as Record<string, unknown>
+          // Skip if already has a valid poster_path (truthy check covers null, undefined, empty string)
           const poster = itemData["poster_path"]
-          if (poster != null) return false
+          if (poster) return false
           const rawId = itemData["id"]
           const tmdbId =
             typeof rawId === "number" ? rawId : parseInt(rawId as string)
           return !isNaN(tmdbId)
         })
-        .slice(0, MAX_LIST_ITEMS_PER_LIST)
+        .slice(0, MAX_ITEMS_PER_RUN - listItemsEnriched)
 
       if (itemsToEnrich.length === 0) continue
 
@@ -236,25 +244,28 @@ export async function POST() {
           if (update) {
             items[update.itemId] = update.enrichedData
             enrichedCount++
+            listItemsEnriched++
           }
         }
         await listDoc.ref.update({ items })
       }
     }
 
-    // --- Enrich episode tracking with limits and controlled parallelism ---
+    // --- Enrich episode tracking with controlled parallelism ---
     const trackingSnapshot = await adminDb
       .collection(`users/${userId}/episode_tracking`)
-      .limit(MAX_EPISODE_TRACKING_ITEMS)
       .get()
 
-    // Filter docs that need enrichment
-    const trackingDocsToEnrich = trackingSnapshot.docs.filter((doc) => {
-      const data = doc.data()
-      if (data.metadata?.posterPath) return false
-      const tvShowId = parseInt(doc.id)
-      return !isNaN(tvShowId)
-    })
+    // Filter docs that need enrichment (missing or falsy posterPath)
+    const trackingDocsToEnrich = trackingSnapshot.docs
+      .filter((doc) => {
+        const data = doc.data()
+        // Skip if already has a valid posterPath
+        if (data.metadata?.posterPath) return false
+        const tvShowId = parseInt(doc.id)
+        return !isNaN(tvShowId)
+      })
+      .slice(0, MAX_ITEMS_PER_RUN)
 
     // Process tracking docs in parallel chunks
     const trackingUpdates = await processInChunks(

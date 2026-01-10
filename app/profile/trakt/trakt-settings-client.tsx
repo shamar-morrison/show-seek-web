@@ -227,7 +227,7 @@ export function TraktSettingsClient() {
     return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`
   }
 
-  if (loading) {
+  if (loading || !status) {
     return (
       <div className="flex items-center justify-center py-20">
         <HugeiconsIcon
@@ -369,6 +369,9 @@ export function TraktSettingsClient() {
                 </button>
               )
             })()}
+            <p className="mt-2 text-center text-xs text-white/40">
+              Large libraries may require multiple runs to enrich all items.
+            </p>
           </div>
 
           {/* Disconnect */}
