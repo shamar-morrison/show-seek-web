@@ -527,10 +527,11 @@ export async function POST() {
         const tvShowId = item.show.ids.tmdb
         const season = item.episode.season
         const episode = item.episode.number
+        const episodeTmdbId = item.episode.ids?.tmdb || 0
         const docId = `episode-${tvShowId}-${season}-${episode}`
 
         batchWriter2.set(adminDb.doc(`users/${userId}/ratings/${docId}`), {
-          id: docId,
+          id: episodeTmdbId,
           mediaType: "episode",
           rating: item.rating,
           episodeName: item.episode.title,
@@ -616,6 +617,42 @@ export async function POST() {
           return { list, listItems }
         }),
       )
+
+      // Collect fresh list IDs from Trakt (including favorites, watchlist, already-watched)
+      const freshListIds = new Set<string>([
+        "favorites",
+        "watchlist",
+        "already-watched",
+      ])
+      for (const { list } of listItemsResults) {
+        const isFavorites = list.name.toLowerCase() === "favorites"
+        const listId = isFavorites ? "favorites" : list.ids.slug
+        freshListIds.add(listId)
+      }
+
+      // Delete stale custom lists that are no longer in Trakt
+      // Only query custom lists (isCustom == true) to avoid deleting system lists
+      const existingCustomListsSnap = await adminDb
+        .collection(`users/${userId}/lists`)
+        .where("isCustom", "==", true)
+        .get()
+      const staleCustomListDocs = existingCustomListsSnap.docs.filter(
+        (doc) => !freshListIds.has(doc.id),
+      )
+      if (staleCustomListDocs.length > 0) {
+        // Commit any pending writes before deletes
+        await batchWriter2.commitIfNeeded()
+
+        // Delete in batches of 500
+        for (let i = 0; i < staleCustomListDocs.length; i += 500) {
+          const chunk = staleCustomListDocs.slice(i, i + 500)
+          const deleteBatch = adminDb.batch()
+          for (const doc of chunk) {
+            deleteBatch.delete(doc.ref)
+          }
+          await deleteBatch.commit()
+        }
+      }
 
       for (const { list, listItems } of listItemsResults) {
         if (process.env.DEBUG_SYNC) {
