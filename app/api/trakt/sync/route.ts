@@ -409,16 +409,19 @@ export async function POST() {
       // Commit any pending writes before deletes
       await batchWriter.commit()
 
-      // Delete stale episode_tracking documents
+      // Delete stale episode_tracking documents in batches of 500
       const staleEpisodeTrackingDocs = existingEpisodeTrackingSnap.docs.filter(
         (doc) => !freshShowIds.has(doc.id),
       )
       if (staleEpisodeTrackingDocs.length > 0) {
-        const deleteBatch = adminDb.batch()
-        for (const doc of staleEpisodeTrackingDocs) {
-          deleteBatch.delete(doc.ref)
+        for (let i = 0; i < staleEpisodeTrackingDocs.length; i += 500) {
+          const chunk = staleEpisodeTrackingDocs.slice(i, i + 500)
+          const deleteBatch = adminDb.batch()
+          for (const doc of chunk) {
+            deleteBatch.delete(doc.ref)
+          }
+          await deleteBatch.commit()
         }
-        await deleteBatch.commit()
       }
 
       // Re-create BatchWriter for remaining operations
