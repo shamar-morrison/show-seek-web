@@ -5,6 +5,14 @@ import { NextResponse } from "next/server"
 const TMDB_API_KEY = process.env.TMDB_API_KEY
 const FETCH_TIMEOUT_MS = 10000
 
+// Chunk size for parallel TMDB requests (~5 requests at a time to stay under 40/10s rate limit)
+const TMDB_CHUNK_SIZE = 5
+// Maximum items to process per section to prevent timeout/memory issues
+const MAX_RATINGS_ITEMS = 50
+const MAX_LIST_ITEMS_PER_LIST = 50
+const MAX_LISTS = 10
+const MAX_EPISODE_TRACKING_ITEMS = 100
+
 interface TmdbMetadata {
   title: string
   posterPath: string | null
@@ -36,6 +44,23 @@ async function getTmdbMetadata(
   }
 }
 
+/**
+ * Process items in chunks with controlled parallelism to respect TMDB rate limits
+ */
+async function processInChunks<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  chunkSize: number,
+): Promise<R[]> {
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize)
+    const chunkResults = await Promise.all(chunk.map(processor))
+    results.push(...chunkResults)
+  }
+  return results
+}
+
 export async function POST() {
   try {
     // Get session cookie
@@ -62,96 +87,173 @@ export async function POST() {
 
     let enrichedCount = 0
 
-    // --- Enrich ratings ---
+    // --- Enrich ratings with controlled parallelism ---
     const ratingsSnapshot = await adminDb
       .collection(`users/${userId}/ratings`)
       .where("posterPath", "==", null)
-      .limit(50)
+      .limit(MAX_RATINGS_ITEMS)
       .get()
 
-    for (const doc of ratingsSnapshot.docs) {
+    // Filter and prepare rating docs for enrichment
+    const ratingDocsToEnrich = ratingsSnapshot.docs.filter((doc) => {
       const data = doc.data()
-      const mediaType = data.mediaType === "tv" ? "tv" : "movie"
-
-      // Skip episodes - they don't have posters
-      if (data.mediaType === "episode") continue
-
+      if (data.mediaType === "episode") return false
       const tmdbId = typeof data.id === "number" ? data.id : parseInt(data.id)
-      if (isNaN(tmdbId)) continue
+      return !isNaN(tmdbId)
+    })
 
-      const metadata = await getTmdbMetadata(tmdbId, mediaType)
-      if (metadata?.posterPath) {
-        await doc.ref.update({
-          posterPath: metadata.posterPath,
-          title: metadata.title || data.title,
-          releaseDate: metadata.releaseDate,
-          voteAverage: metadata.voteAverage,
-        })
-        enrichedCount++
+    // Process ratings in parallel chunks
+    const ratingUpdates = await processInChunks(
+      ratingDocsToEnrich,
+      async (doc) => {
+        const data = doc.data()
+        const mediaType = data.mediaType === "tv" ? "tv" : "movie"
+        const tmdbId = typeof data.id === "number" ? data.id : parseInt(data.id)
+
+        const metadata = await getTmdbMetadata(tmdbId, mediaType)
+        if (metadata?.posterPath) {
+          return {
+            ref: doc.ref,
+            update: {
+              posterPath: metadata.posterPath,
+              title: metadata.title || data.title,
+              releaseDate: metadata.releaseDate,
+              voteAverage: metadata.voteAverage,
+            },
+          }
+        }
+        return null
+      },
+      TMDB_CHUNK_SIZE,
+    )
+
+    // Batch write rating updates
+    const validRatingUpdates = ratingUpdates.filter(Boolean)
+    if (validRatingUpdates.length > 0) {
+      const batch = adminDb.batch()
+      for (const update of validRatingUpdates) {
+        if (update) {
+          batch.update(update.ref, update.update)
+          enrichedCount++
+        }
       }
+      await batch.commit()
     }
 
-    // --- Enrich lists ---
+    // --- Enrich lists with limits and controlled parallelism ---
     const listsSnapshot = await adminDb
       .collection(`users/${userId}/lists`)
+      .limit(MAX_LISTS)
       .get()
 
     for (const listDoc of listsSnapshot.docs) {
       const listData = listDoc.data()
       const items = listData.items || {}
-      let updated = false
 
-      for (const [itemId, item] of Object.entries(items)) {
-        const itemData = item as Record<string, unknown>
-        // Use loose equality to skip items that already have a poster (handles both null and undefined)
-        const poster = itemData["poster_path"]
-        if (poster != null) continue
+      // Filter items that need enrichment and limit count
+      const itemsToEnrich = Object.entries(items)
+        .filter(([, item]) => {
+          const itemData = item as Record<string, unknown>
+          const poster = itemData["poster_path"]
+          if (poster != null) return false
+          const rawId = itemData["id"]
+          const tmdbId =
+            typeof rawId === "number" ? rawId : parseInt(rawId as string)
+          return !isNaN(tmdbId)
+        })
+        .slice(0, MAX_LIST_ITEMS_PER_LIST)
 
-        const mediaType = itemData["media_type"] === "tv" ? "tv" : "movie"
-        const rawId = itemData["id"]
-        const tmdbId =
-          typeof rawId === "number" ? rawId : parseInt(rawId as string)
-        if (isNaN(tmdbId)) continue
+      if (itemsToEnrich.length === 0) continue
 
-        const metadata = await getTmdbMetadata(tmdbId, mediaType)
-        if (metadata?.posterPath) {
-          items[itemId] = {
-            ...itemData,
-            poster_path: metadata.posterPath,
-            title: metadata.title || itemData["title"],
-            release_date: metadata.releaseDate,
-            vote_average: metadata.voteAverage,
+      // Process list items in parallel chunks
+      const itemUpdates = await processInChunks(
+        itemsToEnrich,
+        async ([itemId, item]) => {
+          const itemData = item as Record<string, unknown>
+          const mediaType = itemData["media_type"] === "tv" ? "tv" : "movie"
+          const rawId = itemData["id"]
+          const tmdbId =
+            typeof rawId === "number" ? rawId : parseInt(rawId as string)
+
+          const metadata = await getTmdbMetadata(tmdbId, mediaType)
+          if (metadata?.posterPath) {
+            return {
+              itemId,
+              enrichedData: {
+                ...itemData,
+                poster_path: metadata.posterPath,
+                title: metadata.title || itemData["title"],
+                release_date: metadata.releaseDate,
+                vote_average: metadata.voteAverage,
+              },
+            }
           }
-          updated = true
-          enrichedCount++
-        }
-      }
+          return null
+        },
+        TMDB_CHUNK_SIZE,
+      )
 
-      if (updated) {
+      // Apply updates to items object
+      const validItemUpdates = itemUpdates.filter(Boolean)
+      if (validItemUpdates.length > 0) {
+        for (const update of validItemUpdates) {
+          if (update) {
+            items[update.itemId] = update.enrichedData
+            enrichedCount++
+          }
+        }
         await listDoc.ref.update({ items })
       }
     }
 
-    // --- Enrich episode tracking ---
+    // --- Enrich episode tracking with limits and controlled parallelism ---
     const trackingSnapshot = await adminDb
       .collection(`users/${userId}/episode_tracking`)
+      .limit(MAX_EPISODE_TRACKING_ITEMS)
       .get()
 
-    for (const trackingDoc of trackingSnapshot.docs) {
-      const data = trackingDoc.data()
-      if (data.metadata?.posterPath) continue
+    // Filter docs that need enrichment
+    const trackingDocsToEnrich = trackingSnapshot.docs.filter((doc) => {
+      const data = doc.data()
+      if (data.metadata?.posterPath) return false
+      const tvShowId = parseInt(doc.id)
+      return !isNaN(tvShowId)
+    })
 
-      const tvShowId = parseInt(trackingDoc.id)
-      if (isNaN(tvShowId)) continue
+    // Process tracking docs in parallel chunks
+    const trackingUpdates = await processInChunks(
+      trackingDocsToEnrich,
+      async (trackingDoc) => {
+        const data = trackingDoc.data()
+        const tvShowId = parseInt(trackingDoc.id)
 
-      const metadata = await getTmdbMetadata(tvShowId, "tv")
-      if (metadata?.posterPath) {
-        await trackingDoc.ref.update({
-          "metadata.posterPath": metadata.posterPath,
-          "metadata.tvShowName": metadata.title || data.metadata?.tvShowName,
-        })
-        enrichedCount++
+        const metadata = await getTmdbMetadata(tvShowId, "tv")
+        if (metadata?.posterPath) {
+          return {
+            ref: trackingDoc.ref,
+            update: {
+              "metadata.posterPath": metadata.posterPath,
+              "metadata.tvShowName":
+                metadata.title || data.metadata?.tvShowName,
+            },
+          }
+        }
+        return null
+      },
+      TMDB_CHUNK_SIZE,
+    )
+
+    // Batch write tracking updates
+    const validTrackingUpdates = trackingUpdates.filter(Boolean)
+    if (validTrackingUpdates.length > 0) {
+      const batch = adminDb.batch()
+      for (const update of validTrackingUpdates) {
+        if (update) {
+          batch.update(update.ref, update.update)
+          enrichedCount++
+        }
       }
+      await batch.commit()
     }
 
     return NextResponse.json({

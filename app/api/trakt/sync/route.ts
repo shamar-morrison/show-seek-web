@@ -365,10 +365,12 @@ export async function POST() {
     const watchlistItems: Record<string, unknown> = {}
     for (const item of movieWatchlist) {
       if (!item.movie?.ids.tmdb) {
-        console.log(
-          "[SYNC] Skipping movie watchlist item - no TMDB ID:",
-          item.movie?.title,
-        )
+        if (process.env.DEBUG_SYNC) {
+          console.log(
+            "[SYNC] Skipping movie watchlist item - no TMDB ID:",
+            item.movie?.title,
+          )
+        }
         continue
       }
       const tmdbId = item.movie.ids.tmdb
@@ -386,10 +388,12 @@ export async function POST() {
 
     for (const item of showWatchlist) {
       if (!item.show?.ids.tmdb) {
-        console.log(
-          "[SYNC] Skipping show watchlist item - no TMDB ID:",
-          item.show?.title,
-        )
+        if (process.env.DEBUG_SYNC) {
+          console.log(
+            "[SYNC] Skipping show watchlist item - no TMDB ID:",
+            item.show?.title,
+          )
+        }
         continue
       }
       const tmdbId = item.show.ids.tmdb
@@ -425,8 +429,16 @@ export async function POST() {
         customLists.map((l) => l.name),
       )
     }
-    for (const list of customLists) {
-      const listItems = await getListItems(accessToken, list.ids.slug)
+
+    // Fetch all list items in parallel for better performance
+    const listItemsResults = await Promise.all(
+      customLists.map(async (list) => {
+        const listItems = await getListItems(accessToken, list.ids.slug)
+        return { list, listItems }
+      }),
+    )
+
+    for (const { list, listItems } of listItemsResults) {
       if (process.env.DEBUG_SYNC) {
         console.log(`[SYNC] List '${list.name}' has ${listItems.length} items`)
       }
