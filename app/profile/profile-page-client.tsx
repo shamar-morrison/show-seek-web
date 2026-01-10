@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/profile/action-button"
 import { ExportDataModal } from "@/components/profile/export-data-modal"
 import { HomeScreenCustomizer } from "@/components/profile/HomeScreenCustomizer"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
+import { TraktConnect } from "@/components/profile/TraktConnect"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
@@ -153,6 +154,16 @@ export function ProfilePageClient() {
             label="Customize Home Screen"
             onClick={() => setShowHomeCustomizer(true)}
           />
+        </div>
+      </section>
+
+      {/* Integrations Section */}
+      <section className="mb-8">
+        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
+          Integrations
+        </h2>
+        <div className="rounded-xl bg-white/5">
+          <TraktConnect />
         </div>
       </section>
 

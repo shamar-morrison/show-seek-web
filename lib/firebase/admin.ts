@@ -1,7 +1,12 @@
 import { App, cert, getApps, initializeApp } from "firebase-admin/app"
 import { Auth, getAuth } from "firebase-admin/auth"
+import { Firestore, getFirestore } from "firebase-admin/firestore"
 
-function getFirebaseAdmin(): { app: App | null; adminAuth: Auth | null } {
+function getFirebaseAdmin(): {
+  app: App | null
+  adminAuth: Auth | null
+  adminDb: Firestore | null
+} {
   if (!getApps().length) {
     // Check if we have the required environment variables
     const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID
@@ -15,6 +20,7 @@ function getFirebaseAdmin(): { app: App | null; adminAuth: Auth | null } {
       return {
         app: null,
         adminAuth: null,
+        adminDb: null,
       }
     }
 
@@ -27,13 +33,14 @@ function getFirebaseAdmin(): { app: App | null; adminAuth: Auth | null } {
       }),
     })
 
-    return { app, adminAuth: getAuth(app) }
+    return { app, adminAuth: getAuth(app), adminDb: getFirestore(app) }
   }
 
   const app = getApps()[0]
-  return { app, adminAuth: getAuth(app) }
+  return { app, adminAuth: getAuth(app), adminDb: getFirestore(app) }
 }
 
 const firebaseAdmin = getFirebaseAdmin()
 
 export const adminAuth = firebaseAdmin.adminAuth
+export const adminDb = firebaseAdmin.adminDb
