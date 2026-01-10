@@ -242,7 +242,7 @@ export function TraktSettingsClient() {
           {/* Sync Button */}
           <button
             onClick={handleSync}
-            disabled={syncing}
+            disabled={syncing || enriching}
             className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <HugeiconsIcon
@@ -293,7 +293,7 @@ export function TraktSettingsClient() {
                 disconnecting ? "Disconnecting..." : "Disconnect from Trakt"
               }
               onClick={handleDisconnect}
-              disabled={disconnecting}
+              disabled={disconnecting || enriching}
               variant="danger"
               showChevron={false}
             />

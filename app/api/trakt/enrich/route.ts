@@ -8,6 +8,7 @@ interface TmdbMetadata {
   title: string
   posterPath: string | null
   releaseDate: string | null
+  voteAverage: number | null
 }
 
 async function getTmdbMetadata(
@@ -25,6 +26,7 @@ async function getTmdbMetadata(
       title: data.title || data.name,
       posterPath: data.poster_path,
       releaseDate: data.release_date || data.first_air_date || null,
+      voteAverage: data.vote_average || null,
     }
   } catch {
     return null
@@ -72,6 +74,7 @@ export async function POST() {
           posterPath: metadata.posterPath,
           title: metadata.title || data.title,
           releaseDate: metadata.releaseDate,
+          voteAverage: metadata.voteAverage,
         })
         enrichedCount++
       }
@@ -105,6 +108,7 @@ export async function POST() {
             poster_path: metadata.posterPath,
             title: metadata.title || itemData.title,
             release_date: metadata.releaseDate,
+            vote_average: metadata.voteAverage,
           }
           updated = true
           enrichedCount++
