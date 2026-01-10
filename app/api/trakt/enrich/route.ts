@@ -1,4 +1,5 @@
 import { adminAuth, adminDb } from "@/lib/firebase/admin"
+import { FieldValue } from "firebase-admin/firestore"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -84,6 +85,41 @@ export async function POST() {
       true,
     )
     const userId = decodedToken.uid
+
+    // --- Rate limiting: 2-minute cooldown between enrichments ---
+    const ENRICH_COOLDOWN_MS = 2 * 60 * 1000 // 2 minutes
+    const userDoc = await adminDb.doc(`users/${userId}`).get()
+    const userData = userDoc.data()
+
+    if (userData) {
+      const lastEnrichRaw = userData.traktLastEnrichAt
+      let lastEnrichMs = 0
+      if (typeof lastEnrichRaw?.toMillis === "function") {
+        lastEnrichMs = lastEnrichRaw.toMillis()
+      } else if (lastEnrichRaw instanceof Date) {
+        lastEnrichMs = lastEnrichRaw.getTime()
+      } else if (typeof lastEnrichRaw === "number") {
+        lastEnrichMs = lastEnrichRaw
+      }
+
+      const timeSinceLastEnrich = Date.now() - lastEnrichMs
+      if (lastEnrichMs > 0 && timeSinceLastEnrich < ENRICH_COOLDOWN_MS) {
+        const retryAfterSeconds = Math.ceil(
+          (ENRICH_COOLDOWN_MS - timeSinceLastEnrich) / 1000,
+        )
+        return NextResponse.json(
+          {
+            error: "Enrich rate limit exceeded",
+            retryAfter: retryAfterSeconds,
+            message: `Please wait ${retryAfterSeconds} seconds before enriching again`,
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(retryAfterSeconds) },
+          },
+        )
+      }
+    }
 
     let enrichedCount = 0
 
@@ -255,6 +291,11 @@ export async function POST() {
       }
       await batch.commit()
     }
+
+    // Update last enrich timestamp for rate limiting
+    await adminDb.doc(`users/${userId}`).update({
+      traktLastEnrichAt: FieldValue.serverTimestamp(),
+    })
 
     return NextResponse.json({
       success: true,

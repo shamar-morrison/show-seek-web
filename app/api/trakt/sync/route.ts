@@ -109,6 +109,37 @@ export async function POST() {
     }
 
     const userData = userDoc.data()!
+
+    // --- Rate limiting: 5-minute cooldown between syncs ---
+    const SYNC_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
+    const lastSyncRaw = userData.traktLastSyncAt
+    let lastSyncMs = 0
+    if (typeof lastSyncRaw?.toMillis === "function") {
+      lastSyncMs = lastSyncRaw.toMillis()
+    } else if (lastSyncRaw instanceof Date) {
+      lastSyncMs = lastSyncRaw.getTime()
+    } else if (typeof lastSyncRaw === "number") {
+      lastSyncMs = lastSyncRaw
+    }
+
+    const timeSinceLastSync = Date.now() - lastSyncMs
+    if (lastSyncMs > 0 && timeSinceLastSync < SYNC_COOLDOWN_MS) {
+      const retryAfterSeconds = Math.ceil(
+        (SYNC_COOLDOWN_MS - timeSinceLastSync) / 1000,
+      )
+      return NextResponse.json(
+        {
+          error: "Sync rate limit exceeded",
+          retryAfter: retryAfterSeconds,
+          message: `Please wait ${Math.ceil(retryAfterSeconds / 60)} minute(s) before syncing again`,
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfterSeconds) },
+        },
+      )
+    }
+
     let accessToken = userData.traktAccessToken as string
     let refreshToken = userData.traktRefreshToken as string
 

@@ -29,7 +29,31 @@ interface SyncResult {
 interface TraktStatus {
   connected: boolean
   lastSyncAt?: number
+  lastEnrichAt?: number
   lastSyncResult?: SyncResult
+}
+
+// Cooldown periods in milliseconds (must match server-side values)
+const SYNC_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
+const ENRICH_COOLDOWN_MS = 2 * 60 * 1000 // 2 minutes
+
+function getCooldownRemaining(
+  lastActionAt: number | undefined,
+  cooldownMs: number,
+): number {
+  if (!lastActionAt) return 0
+  const elapsed = Date.now() - lastActionAt
+  const remaining = cooldownMs - elapsed
+  return remaining > 0 ? remaining : 0
+}
+
+function formatCooldown(ms: number): string {
+  const seconds = Math.ceil(ms / 1000)
+  if (seconds >= 60) {
+    const mins = Math.ceil(seconds / 60)
+    return `${mins}m`
+  }
+  return `${seconds}s`
 }
 
 export function TraktSettingsClient() {
@@ -39,6 +63,7 @@ export function TraktSettingsClient() {
   const [syncing, setSyncing] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [, setTick] = useState(0) // Force re-renders for cooldown countdown
 
   // Real-time listener on user document for Trakt status
   useEffect(() => {
@@ -54,12 +79,17 @@ export function TraktSettingsClient() {
         if (snapshot.exists()) {
           const data = snapshot.data()
           const lastSyncAt = data.traktLastSyncAt
+          const lastEnrichAt = data.traktLastEnrichAt
           setStatus({
             connected: data.traktConnected === true,
             lastSyncAt:
               lastSyncAt instanceof Timestamp
                 ? lastSyncAt.toMillis()
                 : lastSyncAt || undefined,
+            lastEnrichAt:
+              lastEnrichAt instanceof Timestamp
+                ? lastEnrichAt.toMillis()
+                : lastEnrichAt || undefined,
             lastSyncResult: data.traktLastSyncResult,
           })
         } else {
@@ -77,6 +107,23 @@ export function TraktSettingsClient() {
     return () => unsubscribe()
   }, [user?.uid])
 
+  // Tick every second to update cooldown countdown display
+  useEffect(() => {
+    const syncRemaining = getCooldownRemaining(
+      status?.lastSyncAt,
+      SYNC_COOLDOWN_MS,
+    )
+    const enrichRemaining = getCooldownRemaining(
+      status?.lastEnrichAt,
+      ENRICH_COOLDOWN_MS,
+    )
+
+    if (syncRemaining > 0 || enrichRemaining > 0) {
+      const interval = setInterval(() => setTick((t) => t + 1), 1000)
+      return () => clearInterval(interval)
+    }
+  }, [status?.lastSyncAt, status?.lastEnrichAt])
+
   function handleConnect() {
     window.open("/api/trakt/auth", "_blank", "noopener,noreferrer")
   }
@@ -88,6 +135,10 @@ export function TraktSettingsClient() {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
+        // Handle rate limit specifically
+        if (response.status === 429 && error.message) {
+          throw new Error(error.message)
+        }
         throw new Error(error.error || "Sync failed")
       }
 
@@ -118,6 +169,10 @@ export function TraktSettingsClient() {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
+        // Handle rate limit specifically
+        if (response.status === 429 && error.message) {
+          throw new Error(error.message)
+        }
         throw new Error(error.error || "Enrichment failed")
       }
 
@@ -244,17 +299,30 @@ export function TraktSettingsClient() {
           )}
 
           {/* Sync Button */}
-          <button
-            onClick={handleSync}
-            disabled={syncing || enriching}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <HugeiconsIcon
-              icon={RefreshIcon}
-              className={syncing ? "size-5 animate-spin" : "size-5"}
-            />
-            {syncing ? "Syncing..." : "Sync Now"}
-          </button>
+          {(() => {
+            const syncCooldown = getCooldownRemaining(
+              status.lastSyncAt,
+              SYNC_COOLDOWN_MS,
+            )
+            const isSyncDisabled = syncing || enriching || syncCooldown > 0
+            return (
+              <button
+                onClick={handleSync}
+                disabled={isSyncDisabled}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <HugeiconsIcon
+                  icon={RefreshIcon}
+                  className={syncing ? "size-5 animate-spin" : "size-5"}
+                />
+                {syncing
+                  ? "Syncing..."
+                  : syncCooldown > 0
+                    ? `Sync (${formatCooldown(syncCooldown)})`
+                    : "Sync Now"}
+              </button>
+            )
+          })()}
 
           {/* Enrich Section */}
           <div
@@ -276,17 +344,31 @@ export function TraktSettingsClient() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleEnrich}
-              disabled={enriching || !status.lastSyncResult}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 py-3 font-medium text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <HugeiconsIcon
-                icon={SparklesIcon}
-                className={enriching ? "size-5 animate-spin" : "size-5"}
-              />
-              {enriching ? "Enriching..." : "Enrich My Library"}
-            </button>
+            {(() => {
+              const enrichCooldown = getCooldownRemaining(
+                status.lastEnrichAt,
+                ENRICH_COOLDOWN_MS,
+              )
+              const isEnrichDisabled =
+                enriching || !status.lastSyncResult || enrichCooldown > 0
+              return (
+                <button
+                  onClick={handleEnrich}
+                  disabled={isEnrichDisabled}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 py-3 font-medium text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <HugeiconsIcon
+                    icon={SparklesIcon}
+                    className={enriching ? "size-5 animate-spin" : "size-5"}
+                  />
+                  {enriching
+                    ? "Enriching..."
+                    : enrichCooldown > 0
+                      ? `Enrich (${formatCooldown(enrichCooldown)})`
+                      : "Enrich My Library"}
+                </button>
+              )
+            })()}
           </div>
 
           {/* Disconnect */}
