@@ -178,25 +178,28 @@ export function useWatchProgressEnrichment(
     useState<WatchProgressItem[]>(initialProgress)
   const [isEnriching, setIsEnriching] = useState(false)
   const enrichedShowsRef = useRef<Set<number>>(new Set())
+  const prevIncomingIdsRef = useRef<Set<number>>(new Set())
 
-  // Reset when initial data changes significantly
+  // Reset when initial data changes significantly (track with ref to avoid dependency cycle)
   useEffect(() => {
     const incomingIds = new Set(initialProgress.map((p) => p.tvShowId))
-    const currentIds = new Set(enrichedProgress.map((p) => p.tvShowId))
+    const prevIds = prevIncomingIdsRef.current
 
     const idsMatch =
-      incomingIds.size === currentIds.size &&
-      [...incomingIds].every((id) => currentIds.has(id))
+      incomingIds.size === prevIds.size &&
+      [...incomingIds].every((id) => prevIds.has(id))
 
     if (!idsMatch) {
+      // Clean up enriched cache for removed shows
       for (const id of enrichedShowsRef.current) {
         if (!incomingIds.has(id)) {
           enrichedShowsRef.current.delete(id)
         }
       }
       setEnrichedProgress(initialProgress)
+      prevIncomingIdsRef.current = incomingIds
     }
-  }, [initialProgress, enrichedProgress])
+  }, [initialProgress])
 
   const enrichItems = useCallback(async () => {
     if (initialProgress.length === 0) return
