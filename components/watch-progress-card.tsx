@@ -31,13 +31,12 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
         ? "Complete"
         : ""
 
-  // Format next episode text - only include title if available
-  const nextEpisodeText =
-    progress.nextEpisode && progress.percentage < 100
-      ? progress.nextEpisode.title
-        ? `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}: ${progress.nextEpisode.title}`
-        : `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}`
-      : null
+  // Format next episode text - show "Caught up!" when no next episode
+  const nextEpisodeText = progress.nextEpisode
+    ? progress.nextEpisode.title
+      ? `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}: ${progress.nextEpisode.title}`
+      : `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}`
+    : "Caught up!"
 
   // Determine progress width (use actual percentage or fallback)
   const progressWidth = progress.percentage > 0 ? progress.percentage : 0

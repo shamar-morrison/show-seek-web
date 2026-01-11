@@ -190,7 +190,19 @@ export function useWatchProgressEnrichment(
                 details.seasons,
               )
 
-              // Calculate enriched values
+              // Count total AIRED episodes (for time remaining calculation)
+              const today = new Date()
+              let totalAiredEpisodes = 0
+              for (const episodes of seasonsData.values()) {
+                for (const ep of episodes) {
+                  if (ep.air_date && new Date(ep.air_date) <= today) {
+                    totalAiredEpisodes++
+                  }
+                }
+              }
+
+              // Use TOTAL episodes for percentage (like mobile app)
+              // Use AIRED episodes for time remaining
               const totalEpisodes = details.totalEpisodes
               const avgRuntime = details.avgRuntime
               const watchedCount = watchedKeys.size
@@ -198,11 +210,11 @@ export function useWatchProgressEnrichment(
                 totalEpisodes > 0
                   ? Math.round((watchedCount / totalEpisodes) * 100)
                   : 0
-              const remainingEpisodes = Math.max(
+              const remainingAiredEpisodes = Math.max(
                 0,
-                totalEpisodes - watchedCount,
+                totalAiredEpisodes - watchedCount,
               )
-              const timeRemaining = remainingEpisodes * avgRuntime
+              const timeRemaining = remainingAiredEpisodes * avgRuntime
 
               enrichedUpdates.set(item.tvShowId, {
                 totalEpisodes,

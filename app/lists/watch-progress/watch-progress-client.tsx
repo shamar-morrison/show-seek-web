@@ -37,13 +37,14 @@ export function WatchProgressClient() {
   )
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Filter progress by search query
+  // Filter progress: exclude 100% complete shows and apply search
   const filteredProgress = useMemo(() => {
-    if (!searchQuery.trim()) return enrichedProgress
+    // First, filter out fully caught up shows (100% progress)
+    const inProgress = enrichedProgress.filter((p) => p.percentage < 100)
+
+    if (!searchQuery.trim()) return inProgress
     const query = searchQuery.toLowerCase()
-    return enrichedProgress.filter((p) =>
-      p.tvShowName.toLowerCase().includes(query),
-    )
+    return inProgress.filter((p) => p.tvShowName.toLowerCase().includes(query))
   }, [enrichedProgress, searchQuery])
 
   const isLoading = authLoading || trackingLoading
