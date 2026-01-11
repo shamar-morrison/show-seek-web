@@ -135,6 +135,9 @@ export function useEpisodeTracking() {
   )
   const [loading, setLoading] = useState(true)
   const [watchProgress, setWatchProgress] = useState<WatchProgressItem[]>([])
+  const [watchedEpisodesByShow, setWatchedEpisodesByShow] = useState<
+    Map<number, Set<string>>
+  >(new Map())
 
   // Subscribe to real-time tracking updates
   useEffect(() => {
@@ -142,6 +145,7 @@ export function useEpisodeTracking() {
     if (!user || user.isAnonymous) {
       setTracking(new Map())
       setWatchProgress([])
+      setWatchedEpisodesByShow(new Map())
       setLoading(false)
       return
     }
@@ -154,17 +158,24 @@ export function useEpisodeTracking() {
 
         // Compute progress immediately from cached data - no async needed!
         const results: WatchProgressItem[] = []
+        const episodesByShow = new Map<number, Set<string>>()
+
         for (const [tvShowIdStr, data] of trackingMap.entries()) {
           const tvShowId = parseInt(tvShowIdStr, 10)
           const progress = computeProgressFromCache(tvShowId, data)
           if (progress) {
             results.push(progress)
           }
+
+          // Collect watched episode keys for this show
+          const keys = new Set(Object.keys(data.episodes))
+          episodesByShow.set(tvShowId, keys)
         }
 
         // Sort by last updated (most recent first)
         results.sort((a, b) => b.lastUpdated - a.lastUpdated)
         setWatchProgress(results)
+        setWatchedEpisodesByShow(episodesByShow)
         setLoading(false)
       },
       () => setLoading(false),
@@ -183,6 +194,7 @@ export function useEpisodeTracking() {
   return {
     tracking,
     watchProgress,
+    watchedEpisodesByShow,
     loading,
     getShowProgress,
   }
