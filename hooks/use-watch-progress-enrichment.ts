@@ -7,6 +7,25 @@ import { useCallback, useEffect, useRef, useState } from "react"
 /** Concurrency limit for TMDB fetches */
 const BATCH_CONCURRENCY = 5
 
+/** Cache duration in milliseconds (5 minutes like mobile) */
+const CACHE_DURATION_MS = 5 * 60 * 1000
+
+/** Cache key prefix for sessionStorage */
+const CACHE_KEY_PREFIX = "watch_progress_enrichment_"
+
+interface CachedEnrichment {
+  timestamp: number
+  watchedKeysHash: string
+  data: Partial<WatchProgressItem>
+}
+
+/**
+ * Simple hash function for watched keys to detect changes
+ */
+function hashWatchedKeys(keys: Set<string>): string {
+  return Array.from(keys).sort().join(",")
+}
+
 /**
  * Parse episode key (e.g., "1_3") to season and episode numbers
  */
@@ -22,8 +41,21 @@ function parseEpisodeKey(
 }
 
 /**
+ * Get the highest season number from watched episodes
+ */
+function getMaxWatchedSeason(watchedKeys: Set<string>): number {
+  let maxSeason = 1
+  for (const key of watchedKeys) {
+    const parsed = parseEpisodeKey(key)
+    if (parsed && parsed.season > 0 && parsed.season > maxSeason) {
+      maxSeason = parsed.season
+    }
+  }
+  return maxSeason
+}
+
+/**
  * Compute the next episode to watch based on watched episodes and season data.
- * Finds the first unwatched aired episode in order: all episodes of season 1, then season 2, etc.
  */
 function computeNextEpisodeFromWatched(
   watchedKeys: Set<string>,
@@ -49,7 +81,6 @@ function computeNextEpisodeFromWatched(
     const episodes = seasonsData.get(season.season_number)
     if (!episodes) continue
 
-    // Sort episodes by number
     const sortedEpisodes = [...episodes].sort(
       (a, b) => a.episode_number - b.episode_number,
     )
@@ -59,7 +90,6 @@ function computeNextEpisodeFromWatched(
       const isWatched = watchedKeys.has(key)
 
       if (!isWatched) {
-        // Check if aired
         const airDate = ep.air_date ? new Date(ep.air_date) : null
         if (airDate && airDate <= today) {
           return {
@@ -73,13 +103,72 @@ function computeNextEpisodeFromWatched(
     }
   }
 
-  // All aired episodes watched - caught up!
   return null
 }
 
 /**
+ * Get cached enrichment data from sessionStorage
+ */
+function getCachedEnrichment(
+  tvShowId: number,
+  currentWatchedKeysHash: string,
+): Partial<WatchProgressItem> | null {
+  if (typeof window === "undefined") return null
+
+  try {
+    const cached = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${tvShowId}`)
+    if (!cached) return null
+
+    const parsed: CachedEnrichment = JSON.parse(cached)
+    const now = Date.now()
+
+    // Check if cache is still valid (not expired and watched keys unchanged)
+    if (
+      now - parsed.timestamp < CACHE_DURATION_MS &&
+      parsed.watchedKeysHash === currentWatchedKeysHash
+    ) {
+      return parsed.data
+    }
+
+    // Cache expired or watched keys changed - remove it
+    sessionStorage.removeItem(`${CACHE_KEY_PREFIX}${tvShowId}`)
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Save enrichment data to sessionStorage cache
+ */
+function setCachedEnrichment(
+  tvShowId: number,
+  watchedKeysHash: string,
+  data: Partial<WatchProgressItem>,
+): void {
+  if (typeof window === "undefined") return
+
+  try {
+    const cached: CachedEnrichment = {
+      timestamp: Date.now(),
+      watchedKeysHash,
+      data,
+    }
+    sessionStorage.setItem(
+      `${CACHE_KEY_PREFIX}${tvShowId}`,
+      JSON.stringify(cached),
+    )
+  } catch {
+    // Ignore storage errors (e.g., quota exceeded)
+  }
+}
+
+/**
  * Hook that enriches watch progress data by fetching fresh TMDB data.
- * Processes items in batches to avoid overwhelming the API.
+ * Optimized to:
+ * 1. Fetch only current season + next season (not all seasons)
+ * 2. Use 5-minute sessionStorage cache
+ * 3. Invalidate cache when watched episodes change
  */
 export function useWatchProgressEnrichment(
   initialProgress: WatchProgressItem[],
@@ -90,18 +179,16 @@ export function useWatchProgressEnrichment(
   const [isEnriching, setIsEnriching] = useState(false)
   const enrichedShowsRef = useRef<Set<number>>(new Set())
 
-  // Reset when initial data changes significantly (e.g., on re-login)
+  // Reset when initial data changes significantly
   useEffect(() => {
     const incomingIds = new Set(initialProgress.map((p) => p.tvShowId))
     const currentIds = new Set(enrichedProgress.map((p) => p.tvShowId))
 
-    // Check if the set of shows changed
     const idsMatch =
       incomingIds.size === currentIds.size &&
       [...incomingIds].every((id) => currentIds.has(id))
 
     if (!idsMatch) {
-      // Reset enriched cache for removed shows
       for (const id of enrichedShowsRef.current) {
         if (!incomingIds.has(id)) {
           enrichedShowsRef.current.delete(id)
@@ -114,7 +201,7 @@ export function useWatchProgressEnrichment(
   const enrichItems = useCallback(async () => {
     if (initialProgress.length === 0) return
 
-    // Find items that need enrichment (not already enriched this session)
+    // Find items that need enrichment
     const itemsToEnrich = initialProgress.filter(
       (p) => !enrichedShowsRef.current.has(p.tvShowId),
     )
@@ -124,7 +211,6 @@ export function useWatchProgressEnrichment(
     setIsEnriching(true)
 
     try {
-      // Process in batches with concurrency limit
       const queue = [...itemsToEnrich]
       const enrichedUpdates: Map<number, Partial<WatchProgressItem>> = new Map()
 
@@ -134,25 +220,40 @@ export function useWatchProgressEnrichment(
         await Promise.all(
           batch.map(async (item) => {
             try {
+              const watchedKeys =
+                watchedEpisodesByShow.get(item.tvShowId) || new Set()
+              const watchedKeysHash = hashWatchedKeys(watchedKeys)
+
+              // Check cache first
+              const cached = getCachedEnrichment(item.tvShowId, watchedKeysHash)
+              if (cached) {
+                enrichedUpdates.set(item.tvShowId, cached)
+                enrichedShowsRef.current.add(item.tvShowId)
+                return
+              }
+
+              // Fetch TV show details
               const details = await fetchTVShowDetails(item.tvShowId)
               if (!details) return
 
-              // Determine which seasons have watched episodes
-              const watchedKeys =
-                watchedEpisodesByShow.get(item.tvShowId) || new Set()
-              const seasonsWithWatched = new Set<number>()
-              for (const key of watchedKeys) {
-                const parsed = parseEpisodeKey(key)
-                if (parsed && parsed.season > 0) {
-                  seasonsWithWatched.add(parsed.season)
-                }
-              }
+              // OPTIMIZATION: Only fetch current season + next season
+              const maxWatchedSeason = getMaxWatchedSeason(watchedKeys)
+              const seasonsToFetch = [
+                maxWatchedSeason,
+                maxWatchedSeason + 1,
+              ].filter((s) =>
+                details.seasons.some((ds) => ds.season_number === s),
+              )
 
-              // Fetch all aired seasons that we care about
-              // Include all seasons to find the true next episode
-              const seasonNumbers = details.seasons
-                .filter((s) => s.season_number > 0)
-                .map((s) => s.season_number)
+              // If no seasons found, fall back to last 2 aired seasons
+              if (seasonsToFetch.length === 0) {
+                const airedSeasons = details.seasons
+                  .filter((s) => s.season_number > 0 && s.air_date)
+                  .sort((a, b) => b.season_number - a.season_number)
+                  .slice(0, 2)
+                  .map((s) => s.season_number)
+                seasonsToFetch.push(...airedSeasons)
+              }
 
               const seasonsData = new Map<
                 number,
@@ -163,9 +264,9 @@ export function useWatchProgressEnrichment(
                 }[]
               >()
 
-              // Fetch season details in parallel (limited by outer batch)
+              // Fetch only the targeted seasons
               await Promise.all(
-                seasonNumbers.map(async (seasonNum) => {
+                seasonsToFetch.map(async (seasonNum) => {
                   const episodes = await fetchSeasonEpisodes(
                     item.tvShowId,
                     seasonNum,
@@ -183,26 +284,14 @@ export function useWatchProgressEnrichment(
                 }),
               )
 
-              // Compute next episode
+              // Compute next episode from the fetched seasons
               const nextEpisode = computeNextEpisodeFromWatched(
                 watchedKeys,
                 seasonsData,
                 details.seasons,
               )
 
-              // Count total AIRED episodes (for time remaining calculation)
-              const today = new Date()
-              let totalAiredEpisodes = 0
-              for (const episodes of seasonsData.values()) {
-                for (const ep of episodes) {
-                  if (ep.air_date && new Date(ep.air_date) <= today) {
-                    totalAiredEpisodes++
-                  }
-                }
-              }
-
-              // Use TOTAL episodes for percentage (like mobile app)
-              // Use AIRED episodes for time remaining
+              // Calculate values
               const totalEpisodes = details.totalEpisodes
               const avgRuntime = details.avgRuntime
               const watchedCount = watchedKeys.size
@@ -210,21 +299,32 @@ export function useWatchProgressEnrichment(
                 totalEpisodes > 0
                   ? Math.round((watchedCount / totalEpisodes) * 100)
                   : 0
-              const remainingAiredEpisodes = Math.max(
-                0,
-                totalAiredEpisodes - watchedCount,
-              )
-              const timeRemaining = remainingAiredEpisodes * avgRuntime
 
-              enrichedUpdates.set(item.tvShowId, {
+              // Time remaining: ALL remaining episodes (total - watched), not just fetched seasons
+              // This matches mobile app behavior
+              const remainingEpisodes = Math.max(
+                0,
+                totalEpisodes - watchedCount,
+              )
+              const timeRemaining = remainingEpisodes * avgRuntime
+
+              const enrichmentData: Partial<WatchProgressItem> = {
                 totalEpisodes,
                 avgRuntime,
                 watchedCount,
                 percentage,
                 timeRemaining,
                 nextEpisode,
-              })
+              }
 
+              // Cache the result
+              setCachedEnrichment(
+                item.tvShowId,
+                watchedKeysHash,
+                enrichmentData,
+              )
+
+              enrichedUpdates.set(item.tvShowId, enrichmentData)
               enrichedShowsRef.current.add(item.tvShowId)
             } catch (error) {
               console.error(`Failed to enrich show ${item.tvShowId}:`, error)
