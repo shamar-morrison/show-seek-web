@@ -95,6 +95,8 @@ interface ListsPageClientProps {
   showDynamicHeader?: boolean
   /** Optional action element to render next to the header title */
   headerAction?: React.ReactNode
+  /** Optional action element to render in the empty state */
+  emptyStateAction?: React.ReactNode
 }
 
 /**
@@ -114,28 +116,46 @@ export function ListsPageClient({
   onListSelect,
   showDynamicHeader = false,
   headerAction,
+  emptyStateAction,
 }: ListsPageClientProps) {
-  const [internalSelectedListId, setInternalSelectedListId] = useState<string>("")
+  const [internalSelectedListId, setInternalSelectedListId] =
+    useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
 
   // Use controlled state if provided, otherwise internal state
-  const selectedListId = controlledSelectedListId !== undefined ? controlledSelectedListId : internalSelectedListId
+  const selectedListId =
+    controlledSelectedListId !== undefined
+      ? controlledSelectedListId
+      : internalSelectedListId
 
-  const handleListSelect = useCallback((id: string) => {
-    if (onListSelect) {
-      onListSelect(id)
-    } else {
-      setInternalSelectedListId(id)
-    }
-  }, [onListSelect])
+  const handleListSelect = useCallback(
+    (id: string) => {
+      if (onListSelect) {
+        onListSelect(id)
+      } else {
+        setInternalSelectedListId(id)
+      }
+    },
+    [onListSelect],
+  )
 
   // Set default selection when lists load
   useEffect(() => {
-    if (!loading && lists.length > 0 && !selectedListId && controlledSelectedListId === undefined) {
+    if (
+      !loading &&
+      lists.length > 0 &&
+      !selectedListId &&
+      controlledSelectedListId === undefined
+    ) {
       handleListSelect(lists[0].id)
     }
-  }, [loading, lists, selectedListId, controlledSelectedListId, handleListSelect])
-
+  }, [
+    loading,
+    lists,
+    selectedListId,
+    controlledSelectedListId,
+    handleListSelect,
+  ])
 
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({
@@ -347,6 +367,7 @@ export function ListsPageClient({
           <EmptyTitle>{noListsTitle}</EmptyTitle>
           <EmptyDescription>{noListsMessage}</EmptyDescription>
         </EmptyHeader>
+        {emptyStateAction}
       </Empty>
     )
   }

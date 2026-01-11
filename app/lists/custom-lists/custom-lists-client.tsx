@@ -1,5 +1,6 @@
 "use client"
 
+import { CreateListDialog } from "@/components/create-list-dialog"
 import { ListsPageClient } from "@/components/lists-page-client"
 import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu"
 import {
@@ -26,6 +27,7 @@ import { Label } from "@/components/ui/label"
 import { useLists } from "@/hooks/use-lists"
 import type { Genre } from "@/types/tmdb"
 import {
+  Add01Icon,
   Delete02Icon,
   Edit02Icon,
   FolderLibraryIcon,
@@ -66,6 +68,7 @@ export function CustomListsClient({
   // Dialog states
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newName, setNewName] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
@@ -81,7 +84,10 @@ export function CustomListsClient({
   // Update selected list when lists load or active list is deleted
   useEffect(() => {
     if (!loading && customLists.length > 0) {
-      if (!selectedListId || !customLists.find((l) => l.id === selectedListId)) {
+      if (
+        !selectedListId ||
+        !customLists.find((l) => l.id === selectedListId)
+      ) {
         setSelectedListId(customLists[0].id)
       }
     }
@@ -166,7 +172,27 @@ export function CustomListsClient({
         onListSelect={setSelectedListId}
         showDynamicHeader={true}
         headerAction={
-          activeList ? <ActionMenu items={menuItems} align="start" /> : null
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setIsCreateDialogOpen(true)}
+              aria-label="Create new list"
+            >
+              <HugeiconsIcon icon={Add01Icon} className="size-4" />
+            </Button>
+            {activeList && <ActionMenu items={menuItems} align="start" />}
+          </div>
+        }
+        emptyStateAction={
+          <Button
+            size={"default"}
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="mt-4"
+          >
+            <HugeiconsIcon icon={Add01Icon} className="size-4" />
+            Create New List
+          </Button>
         }
       />
 
@@ -199,7 +225,10 @@ export function CustomListsClient({
             >
               Cancel
             </Button>
-            <Button onClick={handleRename} disabled={isProcessing || !activeList || !newName.trim()}>
+            <Button
+              onClick={handleRename}
+              disabled={isProcessing || !activeList || !newName.trim()}
+            >
               {isProcessing && (
                 <HugeiconsIcon
                   icon={Loading03Icon}
@@ -221,11 +250,14 @@ export function CustomListsClient({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the list &quot;{activeList?.name}&quot; and all items in it. This action cannot be undone.
+              This will permanently delete the list &quot;{activeList?.name}
+              &quot; and all items in it. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isProcessing}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -245,6 +277,12 @@ export function CustomListsClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create List Dialog */}
+      <CreateListDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
     </>
   )
 }
