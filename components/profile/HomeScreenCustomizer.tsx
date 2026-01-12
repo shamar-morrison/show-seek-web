@@ -51,18 +51,39 @@ export function HomeScreenCustomizer({
   const [isSaving, setIsSaving] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
-  // Reset local state when modal opens or saved lists change
-  useEffect(() => {
-    if (open) {
-      setSelectedLists(savedLists)
-    }
-  }, [open, savedLists])
-
   // Get custom lists (non-default)
   const customLists = useMemo(
     () => userLists.filter((list) => !isDefaultList(list.id)),
     [userLists],
   )
+
+  // Get set of valid custom list IDs for quick lookup
+  const customListIds = useMemo(
+    () => new Set(customLists.map((list) => list.id)),
+    [customLists],
+  )
+
+  // Filter saved lists to only include existing lists (TMDB, default, or still-existing custom lists)
+  const validSavedLists = useMemo(() => {
+    const tmdbIds = new Set(
+      AVAILABLE_TMDB_LISTS.map((l) => l.id),
+    ) as Set<string>
+    const defaultIds = new Set(DEFAULT_LISTS.map((l) => l.id)) as Set<string>
+
+    return savedLists.filter((item) => {
+      if (item.type === "tmdb") return tmdbIds.has(item.id)
+      if (item.type === "default") return defaultIds.has(item.id)
+      if (item.type === "custom") return customListIds.has(item.id)
+      return false
+    })
+  }, [savedLists, customListIds])
+
+  // Reset local state when modal opens or saved lists change
+  useEffect(() => {
+    if (open) {
+      setSelectedLists(validSavedLists)
+    }
+  }, [open, validSavedLists])
 
   // Check if a list is selected
   function isSelected(id: string): boolean {
