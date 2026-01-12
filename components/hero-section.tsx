@@ -127,7 +127,12 @@ export function HeroSection({
                   alt={`${currentMedia.title} logo`}
                   width={350}
                   height={150}
-                  className="h-auto max-h-32 w-auto max-w-xs object-contain drop-shadow-2xl sm:max-h-40 sm:max-w-sm lg:max-h-48 lg:max-w-md"
+                  className={cn(
+                    "h-auto max-h-32 w-auto max-w-xs object-contain sm:max-h-40 sm:max-w-sm lg:max-h-48 lg:max-w-md",
+                    currentMedia.isDarkLogo
+                      ? "drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]"
+                      : "drop-shadow-2xl",
+                  )}
                   priority
                 />
               </div>

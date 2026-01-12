@@ -95,6 +95,8 @@ export interface HeroMedia {
   overview: string
   backdropUrl: string
   logoUrl: string | null
+  /** Whether the logo is predominantly dark and needs enhanced visibility (e.g., white glow) */
+  isDarkLogo: boolean
   mediaType: MediaType
   releaseYear: string | null
   voteAverage: number

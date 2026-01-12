@@ -1,4 +1,5 @@
 import { HomePageClient } from "@/components/home-page-client"
+import { enrichHeroMediaWithBrightness } from "@/lib/logo-brightness"
 import {
   getHeroMediaList,
   getLatestTrailers,
@@ -15,7 +16,7 @@ export const revalidate = 3600 // Revalidate every hour
 export default async function Home() {
   // Fetch all required data in parallel
   const [
-    heroMediaList,
+    heroMediaListRaw,
     trendingList,
     popularMovies,
     topRatedMovies,
@@ -33,6 +34,9 @@ export default async function Home() {
     getUpcomingTV(),
     getLatestTrailers(10),
   ])
+
+  // Enrich hero media with logo brightness analysis (server-side only)
+  const heroMediaList = await enrichHeroMediaWithBrightness(heroMediaListRaw)
 
   return (
     <HomePageClient

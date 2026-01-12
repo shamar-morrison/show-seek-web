@@ -1,6 +1,7 @@
 /**
- * TMDB API Utility Functions
- * Server-side functions for fetching trending media and images
+ * TMDB API Client
+ * Handles all interactions with The Movie Database API
+ * Includes data fetching, caching, and URL building utilities
  */
 
 import type {
@@ -524,6 +525,7 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
       overview: featuredMedia.overview || "No description available.",
       backdropUrl: buildImageUrl(featuredMedia.backdrop_path, "original") || "",
       logoUrl,
+      isDarkLogo: false, // Computed at page level via enrichHeroMediaWithBrightness
       mediaType,
       releaseYear: extractYear(
         featuredMedia.release_date || featuredMedia.first_air_date,
@@ -583,6 +585,7 @@ export async function getHeroMediaList(
         overview: media.overview || "No description available.",
         backdropUrl: buildImageUrl(media.backdrop_path, "original") || "",
         logoUrl,
+        isDarkLogo: false, // Computed at page level via enrichHeroMediaWithBrightness
         mediaType,
         releaseYear: extractYear(media.release_date || media.first_air_date),
         voteAverage: Math.round(media.vote_average * 10) / 10,
