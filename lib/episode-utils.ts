@@ -1,5 +1,20 @@
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 
+/**
+ * Parse episode key (e.g., "1_3") to season and episode numbers
+ * Format: {seasonNumber}_{episodeNumber}
+ */
+export function parseEpisodeKey(
+  key: string,
+): { season: number; episode: number } | null {
+  const match = key.match(/^(\d+)_(\d+)$/)
+  if (!match) return null
+  return {
+    season: parseInt(match[1], 10),
+    episode: parseInt(match[2], 10),
+  }
+}
+
 export interface NextEpisodeInfo {
   season: number
   episode: number

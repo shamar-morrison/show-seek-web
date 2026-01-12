@@ -11,6 +11,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { WatchProgressCard } from "@/components/watch-progress-card"
 import { useAuth } from "@/context/auth-context"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
+import { useWatchProgressEnrichment } from "@/hooks/use-watch-progress-enrichment"
 import {
   Loading03Icon,
   PlayCircle02Icon,
@@ -25,17 +26,26 @@ import { useMemo, useState } from "react"
  */
 export function WatchProgressClient() {
   const { user, loading: authLoading } = useAuth()
-  const { watchProgress, loading: trackingLoading } = useEpisodeTracking()
+  const {
+    watchProgress,
+    watchedEpisodesByShow,
+    loading: trackingLoading,
+  } = useEpisodeTracking()
+  const { enrichedProgress, isEnriching } = useWatchProgressEnrichment(
+    watchProgress,
+    watchedEpisodesByShow,
+  )
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Filter progress by search query
+  // Filter progress: exclude 100% complete shows and apply search
   const filteredProgress = useMemo(() => {
-    if (!searchQuery.trim()) return watchProgress
+    // First, filter out fully caught up shows (100% progress)
+    const inProgress = enrichedProgress.filter((p) => p.percentage < 100)
+
+    if (!searchQuery.trim()) return inProgress
     const query = searchQuery.toLowerCase()
-    return watchProgress.filter((p) =>
-      p.tvShowName.toLowerCase().includes(query),
-    )
-  }, [watchProgress, searchQuery])
+    return inProgress.filter((p) => p.tvShowName.toLowerCase().includes(query))
+  }, [enrichedProgress, searchQuery])
 
   const isLoading = authLoading || trackingLoading
 
@@ -52,7 +62,7 @@ export function WatchProgressClient() {
   }
 
   // No progress state
-  if (watchProgress.length === 0) {
+  if (enrichedProgress.length === 0) {
     return (
       <Empty className="py-20">
         <EmptyMedia variant="icon">
@@ -70,13 +80,26 @@ export function WatchProgressClient() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Search Input */}
-      <SearchInput
-        id="watch-progress-search-input"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search TV shows..."
-      />
+      {/* Search Input with Enrichment Indicator */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <SearchInput
+            id="watch-progress-search-input"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search TV shows..."
+          />
+        </div>
+        {isEnriching && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              className="size-4 animate-spin"
+            />
+            <span className="hidden sm:inline">Refreshing...</span>
+          </div>
+        )}
+      </div>
 
       {/* Results */}
       {filteredProgress.length > 0 ? (
