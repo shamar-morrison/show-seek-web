@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { parseEpisodeKey } from "@/lib/episode-utils"
 import { subscribeToAllEpisodeTracking } from "@/lib/firebase/episode-tracking"
 import type {
   InProgressShow,
@@ -8,21 +9,6 @@ import type {
   WatchedEpisode,
 } from "@/types/episode-tracking"
 import { useCallback, useEffect, useState } from "react"
-
-/**
- * Parse episode key (e.g., "1_3") to season and episode numbers
- * Format: {seasonNumber}_{episodeNumber}
- */
-function parseEpisodeKey(
-  key: string,
-): { season: number; episode: number } | null {
-  const match = key.match(/^(\d+)_(\d+)$/)
-  if (!match) return null
-  return {
-    season: parseInt(match[1], 10),
-    episode: parseInt(match[2], 10),
-  }
-}
 
 /** Default average runtime if not cached (typical TV episode length) */
 const DEFAULT_AVG_RUNTIME = 45

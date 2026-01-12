@@ -2,6 +2,7 @@
 
 import { fetchSeasonEpisodes, fetchTVShowDetails } from "@/app/actions"
 import { type WatchProgressItem } from "@/hooks/use-episode-tracking"
+import { parseEpisodeKey } from "@/lib/episode-utils"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 /** Concurrency limit for TMDB fetches */
@@ -24,20 +25,6 @@ interface CachedEnrichment {
  */
 function hashWatchedKeys(keys: Set<string>): string {
   return Array.from(keys).sort().join(",")
-}
-
-/**
- * Parse episode key (e.g., "1_3") to season and episode numbers
- */
-function parseEpisodeKey(
-  key: string,
-): { season: number; episode: number } | null {
-  const match = key.match(/^(\d+)_(\d+)$/)
-  if (!match) return null
-  return {
-    season: parseInt(match[1], 10),
-    episode: parseInt(match[2], 10),
-  }
 }
 
 /**
