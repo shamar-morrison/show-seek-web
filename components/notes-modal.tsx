@@ -1,13 +1,7 @@
 "use client"
 
+import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
@@ -116,63 +110,57 @@ export function NotesModal({
   const canSave = noteContent.trim().length > 0 && hasChanges
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl">
-            {hasExistingNote ? "Edit Note" : "Add Note"}
-          </DialogTitle>
-          <DialogDescription>
-            Personal note for &quot;{title}&quot;
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Note Input */}
-        <div className="py-4">
-          <Textarea
-            value={noteContent}
-            onChange={handleContentChange}
-            placeholder="Write your thoughts, opinions, or reminders about this title..."
-            className="min-h-[120px] resize-none"
-            maxLength={NOTE_MAX_LENGTH}
-          />
-          <div className="mt-2 text-right text-xs text-gray-500">
-            {noteContent.length}/{NOTE_MAX_LENGTH}
-          </div>
+    <BaseMediaModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={hasExistingNote ? "Edit Note" : "Add Note"}
+      description={`Personal note for "${title}"`}
+    >
+      {/* Note Input */}
+      <div className="py-4">
+        <Textarea
+          value={noteContent}
+          onChange={handleContentChange}
+          placeholder="Write your thoughts, opinions, or reminders about this title..."
+          className="min-h-[120px] resize-none"
+          maxLength={NOTE_MAX_LENGTH}
+        />
+        <div className="mt-2 text-right text-xs text-gray-500">
+          {noteContent.length}/{NOTE_MAX_LENGTH}
         </div>
+      </div>
 
-        <div className="flex gap-3">
-          {hasExistingNote && (
-            <Button
-              size={"lg"}
-              variant="secondary"
-              onClick={handleClearNote}
-              disabled={isSaving}
-              className="flex-1"
-            >
-              Clear
-            </Button>
-          )}
+      <div className="flex gap-3">
+        {hasExistingNote && (
           <Button
             size={"lg"}
-            onClick={handleSave}
-            disabled={isSaving || !canSave}
+            variant="secondary"
+            onClick={handleClearNote}
+            disabled={isSaving}
             className="flex-1"
           >
-            {isSaving ? (
-              <>
-                <HugeiconsIcon
-                  icon={Loading03Icon}
-                  className="mr-2 size-4 animate-spin"
-                />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
+            Clear
           </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+        <Button
+          size={"lg"}
+          onClick={handleSave}
+          disabled={isSaving || !canSave}
+          className="flex-1"
+        >
+          {isSaving ? (
+            <>
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="mr-2 size-4 animate-spin"
+              />
+              Saving...
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
+    </BaseMediaModal>
   )
 }

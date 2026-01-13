@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { useFirestoreSubscription } from "@/hooks/use-firestore-subscription"
 import { usePreferences } from "@/hooks/use-preferences"
 import { addToList } from "@/lib/firebase/lists"
 import {
@@ -10,7 +11,7 @@ import {
   subscribeToRatings,
 } from "@/lib/firebase/ratings"
 import type { Rating } from "@/types/rating"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
 /** Sort options for ratings */
@@ -20,35 +21,15 @@ export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
  * Hook for managing user ratings with real-time updates
  */
 export function useRatings() {
-  const { user, loading: authLoading } = useAuth()
+  const { user } = useAuth()
   const { preferences } = usePreferences()
-  const [ratings, setRatings] = useState<Map<string, Rating>>(new Map())
-  const [loading, setLoading] = useState(true)
 
-  // Subscribe to real-time rating updates
-  useEffect(() => {
-    if (authLoading) return
-    if (!user || user.isAnonymous) {
-      setRatings(new Map())
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    const unsubscribe = subscribeToRatings(
-      user.uid,
-      (ratingsMap) => {
-        setRatings(ratingsMap)
-        setLoading(false)
-      },
-      (error) => {
-        console.error("Error loading ratings:", error)
-        setLoading(false)
-      },
-    )
-
-    return () => unsubscribe()
-  }, [user, authLoading])
+  const { data: ratings, loading } = useFirestoreSubscription<
+    Map<string, Rating>
+  >({
+    subscribe: subscribeToRatings,
+    initialValue: new Map(),
+  })
 
   /**
    * Get a rating for a specific media item

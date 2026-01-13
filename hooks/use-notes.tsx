@@ -1,42 +1,21 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { useFirestoreSubscription } from "@/hooks/use-firestore-subscription"
 import { deleteNote, setNote, subscribeToNotes } from "@/lib/firebase/notes"
 import type { Note } from "@/types/note"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 
 /**
  * Hook for managing user notes with real-time updates
  */
 export function useNotes() {
-  const { user, loading: authLoading } = useAuth()
-  const [notes, setNotes] = useState<Map<string, Note>>(new Map())
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
-  // Subscribe to real-time note updates
-  useEffect(() => {
-    if (authLoading) return
-    if (!user || user.isAnonymous) {
-      setNotes(new Map())
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    const unsubscribe = subscribeToNotes(
-      user.uid,
-      (notesMap) => {
-        setNotes(notesMap)
-        setLoading(false)
-      },
-      (error) => {
-        console.error("Error loading notes:", error)
-        setLoading(false)
-      },
-    )
-
-    return () => unsubscribe()
-  }, [user, authLoading])
+  const { data: notes, loading } = useFirestoreSubscription<Map<string, Note>>({
+    subscribe: subscribeToNotes,
+    initialValue: new Map(),
+  })
 
   /**
    * Get a note for a specific media item

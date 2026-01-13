@@ -5,14 +5,13 @@
  */
 
 import "server-only"
-import sharp from "sharp"
 
 /**
  * Luminance threshold below which a logo is considered "dark"
  * Range: 0-255, where 0 is black and 255 is white
  * A threshold of 80 catches most dark/black logos while excluding gray ones
  */
-const DARK_LUMINANCE_THRESHOLD = 80
+const DARK_LUMINANCE_THRESHOLD = 100
 
 /**
  * Minimum opacity threshold to consider a pixel as "visible"
@@ -23,6 +22,7 @@ const MIN_OPACITY_THRESHOLD = 128
 /**
  * Analyze if a logo image is predominantly dark
  * Fetches the image and samples pixels to calculate average luminance
+ * Uses dynamic import of sharp to avoid bundling issues on Vercel
  *
  * @param logoUrl - Full URL to the logo image
  * @returns true if the logo is dark, false otherwise
@@ -43,6 +43,18 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
 
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // Dynamic import of sharp to avoid bundling issues
+    // This works because Next.js includes sharp for image optimization
+    let sharpModule
+    try {
+      sharpModule = await import("sharp")
+    } catch {
+      console.warn("Sharp not available for logo brightness analysis")
+      return false
+    }
+
+    const sharp = sharpModule.default
 
     const { data } = await sharp(buffer)
       .resize(50, 50, { fit: "inside" }) // Resize for faster analysis
