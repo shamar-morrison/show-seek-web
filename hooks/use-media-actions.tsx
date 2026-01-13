@@ -47,13 +47,13 @@ interface UseMediaActionsResult {
   listIds: string[] | undefined
   /** Pre-built dropdown menu items */
   dropdownItems: DropdownMenuItem[]
-  /** Component that renders all modals - must be included in the render tree */
-  ModalsContainer: React.FC
+  /** Memoized JSX element tree of all modals - must be included in the render tree */
+  modals: React.ReactNode
 }
 
 /**
  * Hook for managing media card actions (Add to List, Rate, Notes)
- * Returns handlers, state, and a ModalsContainer component that renders all modals
+ * Returns handlers, state, and a memoized modals element tree
  */
 export function useMediaActions({
   media,
@@ -99,10 +99,7 @@ export function useMediaActions({
 
   // Handlers with auth guard
   const openListModal = useCallback(() => {
-    requireAuth(
-      () => setIsAddToListOpen(true),
-      "Sign in to add to your lists",
-    )
+    requireAuth(() => setIsAddToListOpen(true), "Sign in to add to your lists")
   }, [requireAuth])
 
   const openRatingModal = useCallback(() => {
@@ -156,55 +153,65 @@ export function useMediaActions({
         onClick: openNotesModal,
       },
     ]
-  }, [isInAnyList, userRating, userNote, openListModal, openRatingModal, openNotesModal])
+  }, [
+    isInAnyList,
+    userRating,
+    userNote,
+    openListModal,
+    openRatingModal,
+    openNotesModal,
+  ])
 
   // Convert media to modal-compatible format
   const mediaForModal = media as unknown as TMDBMovieDetails | TMDBTVDetails
 
-  // ModalsContainer component that renders all modals
-  const ModalsContainer = useCallback(() => (
-    <>
-      {/* Add to List Modal */}
-      <AddToListModal
-        isOpen={isAddToListOpen}
-        onClose={() => setIsAddToListOpen(false)}
-        media={mediaForModal}
-        mediaType={mediaType}
-      />
+  // Memoized JSX element tree for all modals (not a component to avoid remounts)
+  const modals = useMemo(
+    () => (
+      <>
+        {/* Add to List Modal */}
+        <AddToListModal
+          isOpen={isAddToListOpen}
+          onClose={() => setIsAddToListOpen(false)}
+          media={mediaForModal}
+          mediaType={mediaType}
+        />
 
-      {/* Rating Modal */}
-      <RatingModal
-        isOpen={isRatingModalOpen}
-        onClose={() => setIsRatingModalOpen(false)}
-        media={mediaForModal}
-        mediaType={mediaType}
-      />
+        {/* Rating Modal */}
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          media={mediaForModal}
+          mediaType={mediaType}
+        />
 
-      {/* Notes Modal */}
-      <NotesModal
-        isOpen={isNotesModalOpen}
-        onClose={() => setIsNotesModalOpen(false)}
-        media={mediaForModal}
-        mediaType={mediaType}
-      />
+        {/* Notes Modal */}
+        <NotesModal
+          isOpen={isNotesModalOpen}
+          onClose={() => setIsNotesModalOpen(false)}
+          media={mediaForModal}
+          mediaType={mediaType}
+        />
 
-      {/* Auth Modal for unauthenticated users */}
-      <AuthModal
-        isOpen={modalVisible}
-        onClose={closeModal}
-        message={modalMessage}
-      />
-    </>
-  ), [
-    isAddToListOpen,
-    isRatingModalOpen,
-    isNotesModalOpen,
-    modalVisible,
-    modalMessage,
-    closeModal,
-    mediaForModal,
-    mediaType,
-  ])
+        {/* Auth Modal for unauthenticated users */}
+        <AuthModal
+          isOpen={modalVisible}
+          onClose={closeModal}
+          message={modalMessage}
+        />
+      </>
+    ),
+    [
+      isAddToListOpen,
+      isRatingModalOpen,
+      isNotesModalOpen,
+      modalVisible,
+      modalMessage,
+      closeModal,
+      mediaForModal,
+      mediaType,
+    ],
+  )
 
   return {
     openListModal,
@@ -215,6 +222,6 @@ export function useMediaActions({
     userNote,
     listIds,
     dropdownItems,
-    ModalsContainer,
+    modals,
   }
 }

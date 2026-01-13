@@ -27,11 +27,10 @@ export function MediaCardWithActions({
   const mediaType = media.media_type === "movie" ? "movie" : "tv"
 
   // Use consolidated media actions hook
-  const { dropdownItems, userRating, listIds, ModalsContainer } =
-    useMediaActions({
-      media,
-      mediaType,
-    })
+  const { dropdownItems, userRating, listIds, modals } = useMediaActions({
+    media,
+    mediaType,
+  })
 
   return (
     <>
@@ -46,7 +45,7 @@ export function MediaCardWithActions({
         listIds={listIds}
       />
 
-      <ModalsContainer />
+      {modals}
     </>
   )
 }
