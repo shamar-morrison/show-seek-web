@@ -11,7 +11,7 @@ import "server-only"
  * Range: 0-255, where 0 is black and 255 is white
  * A threshold of 80 catches most dark/black logos while excluding gray ones
  */
-const DARK_LUMINANCE_THRESHOLD = 80
+const DARK_LUMINANCE_THRESHOLD = 100
 
 /**
  * Minimum opacity threshold to consider a pixel as "visible"
