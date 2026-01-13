@@ -9,6 +9,7 @@ import type {
 import type { TMDBEpisode as Episode } from "@/types/tmdb"
 import {
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDocs,
@@ -418,6 +419,21 @@ class EpisodeTrackingService {
   ): boolean {
     const episodeKey = this.getEpisodeKey(seasonNumber, episodeNumber)
     return episodeKey in watchedEpisodes
+  }
+
+  /**
+   * Clear all watched episodes for a show (removes from watch progress)
+   */
+  async clearAllEpisodes(tvShowId: number): Promise<void> {
+    try {
+      const user = auth.currentUser
+      if (!user) throw new Error("Please sign in to continue")
+
+      const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+      await this.withTimeout(deleteDoc(trackingRef))
+    } catch (error) {
+      throw new Error(getFirestoreErrorMessage(error))
+    }
   }
 }
 
