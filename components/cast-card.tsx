@@ -1,17 +1,15 @@
 "use client"
 
 import { AuthModal } from "@/components/auth-modal"
-import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import { PersonCard } from "@/components/person-card"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import {
   useFavoritePersonActions,
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
-import { buildImageUrl } from "@/lib/tmdb"
 import type { CastMember } from "@/types/tmdb"
 import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Link from "next/link"
 import { toast } from "sonner"
 
 interface CastCardProps {
@@ -25,16 +23,13 @@ interface CastCardProps {
 
 /**
  * CastCard Component
- * Displays a cast member's photo, name, and character
- * Links to the person detail page
- * Shows a favorite heart icon on hover to add/remove from favorites
+ * Displays a cast member using PersonCard with favorite action
  */
 export function CastCard({
   cast,
   priority = false,
   fullWidth = false,
 }: CastCardProps) {
-  const profileUrl = buildImageUrl(cast.profile_path, "w500")
   const { requireAuth, modalVisible, closeModal } = useAuthGuard()
   const { isFavorited, loading: favLoading } = useIsPersonFavorited(cast.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
@@ -71,68 +66,45 @@ export function CastCard({
     })
   }
 
+  const renderFavoriteAction = () => (
+    <button
+      onClick={handleFavoriteClick}
+      disabled={isProcessing || favLoading}
+      className={`flex items-center justify-center w-8 h-8 rounded-full bg-black/70 text-white transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed ${
+        isFavorited || isProcessing
+          ? "opacity-100"
+          : "opacity-0 group-hover:opacity-100"
+      }`}
+      aria-label={
+        isFavorited
+          ? `Remove ${cast.name} from favorites`
+          : `Add ${cast.name} to favorites`
+      }
+    >
+      {isProcessing ? (
+        <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+      ) : (
+        <HugeiconsIcon
+          icon={FavouriteIcon}
+          className={`size-4 transition-colors ${
+            isFavorited ? "text-red-500 fill-red-500" : "text-white"
+          }`}
+        />
+      )}
+    </button>
+  )
+
   return (
     <>
-      <Link href={`/person/${cast.id}`} className="block shrink-0">
-        <div
-          className={`group relative overflow-hidden rounded-xl bg-card shadow-md transition-all duration-300 cursor-pointer ${fullWidth ? "w-full" : "w-36 sm:w-40"}`}
-        >
-          {/* Profile Image */}
-          <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
-            <ImageWithFallback
-              src={profileUrl}
-              alt={cast.name}
-              fallbackText="No Photo"
-              sizes={
-                fullWidth
-                  ? "(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 14vw"
-                  : "160px"
-              }
-              priority={priority}
-            />
-
-            {/* Favorite Heart Icon - appears on hover or when favorited/processing */}
-            <button
-              onClick={handleFavoriteClick}
-              disabled={isProcessing || favLoading}
-              className={`absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/70 text-white transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed z-10 ${
-                isFavorited || isProcessing
-                  ? "opacity-100"
-                  : "opacity-0 group-hover:opacity-100"
-              }`}
-              aria-label={
-                isFavorited
-                  ? `Remove ${cast.name} from favorites`
-                  : `Add ${cast.name} to favorites`
-              }
-            >
-              {isProcessing ? (
-                <HugeiconsIcon
-                  icon={Loading03Icon}
-                  className="size-4 animate-spin"
-                />
-              ) : (
-                <HugeiconsIcon
-                  icon={FavouriteIcon}
-                  className={`size-4 transition-colors ${
-                    isFavorited ? "text-red-500 fill-red-500" : "text-white"
-                  }`}
-                />
-              )}
-            </button>
-          </div>
-
-          {/* Info Content */}
-          <div className="flex flex-col gap-1 p-3">
-            <h3 className="line-clamp-1 text-sm font-bold text-white">
-              {cast.name}
-            </h3>
-            <p className="line-clamp-1 text-xs text-gray-400 font-medium">
-              {cast.character}
-            </p>
-          </div>
-        </div>
-      </Link>
+      <PersonCard
+        id={cast.id}
+        name={cast.name}
+        profilePath={cast.profile_path}
+        subtext={cast.character}
+        priority={priority}
+        fullWidth={fullWidth}
+        renderAction={renderFavoriteAction}
+      />
 
       {/* Auth modal for unauthenticated users */}
       <AuthModal isOpen={modalVisible} onClose={closeModal} />
