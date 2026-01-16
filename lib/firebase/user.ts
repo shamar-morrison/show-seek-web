@@ -17,6 +17,7 @@ export interface UserPreferences {
   autoAddToAlreadyWatched: boolean
   showListIndicators: boolean
   blurPlotSpoilers: boolean
+  showMediaPreviewCards: boolean
   homeScreenLists?: HomeScreenListItem[]
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   autoAddToAlreadyWatched: false,
   showListIndicators: false,
   blurPlotSpoilers: false,
+  showMediaPreviewCards: false,
 }
 
 export interface UserDocument {

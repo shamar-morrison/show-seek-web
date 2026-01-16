@@ -1,7 +1,9 @@
 "use client"
 
 import { MediaCard } from "@/components/media-card"
+import { MediaPreviewCardWrapper } from "@/components/media-preview-card-wrapper"
 import { useMediaActions } from "@/hooks/use-media-actions"
+import { usePreferences } from "@/hooks/use-preferences"
 import type { TMDBMedia } from "@/types/tmdb"
 
 interface MediaCardWithActionsProps {
@@ -15,6 +17,7 @@ interface MediaCardWithActionsProps {
 /**
  * MediaCard wrapper that adds dropdown actions for Add to List, Rate, and Notes.
  * Handles auth guard and modals internally via useMediaActions hook.
+ * Optionally wraps with hover preview card when preference is enabled.
  */
 export function MediaCardWithActions({
   media,
@@ -26,24 +29,45 @@ export function MediaCardWithActions({
   // Determine media type
   const mediaType = media.media_type === "movie" ? "movie" : "tv"
 
+  // Get user preferences
+  const { preferences } = usePreferences()
+
   // Use consolidated media actions hook
   const { dropdownItems, userRating, listIds, modals } = useMediaActions({
     media,
     mediaType,
   })
 
+  const cardContent = (
+    <MediaCard
+      media={media}
+      onWatchTrailer={onWatchTrailer}
+      isLoading={isLoading}
+      priority={priority}
+      buttonText={buttonText}
+      dropdownItems={dropdownItems}
+      userRating={userRating?.rating}
+      listIds={listIds}
+    />
+  )
+
   return (
     <>
-      <MediaCard
-        media={media}
-        onWatchTrailer={onWatchTrailer}
-        isLoading={isLoading}
-        priority={priority}
-        buttonText={buttonText}
-        dropdownItems={dropdownItems}
-        userRating={userRating?.rating}
-        listIds={listIds}
-      />
+      {preferences.showMediaPreviewCards ? (
+        <MediaPreviewCardWrapper
+          media={media}
+          mediaType={mediaType}
+          onWatchTrailer={onWatchTrailer}
+          isLoading={isLoading}
+          priority={priority}
+          buttonText={buttonText}
+          dropdownItems={dropdownItems}
+          userRating={userRating?.rating}
+          listIds={listIds}
+        />
+      ) : (
+        cardContent
+      )}
 
       {modals}
     </>

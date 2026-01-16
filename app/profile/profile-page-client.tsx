@@ -139,6 +139,16 @@ export function ProfilePageClient() {
             premiumRequired
             isPremium={isPremium}
           />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
+            label="Show media preview on hover"
+            description="Display a preview card with details when hovering over movies and TV shows (desktop only)"
+            checked={preferences.showMediaPreviewCards}
+            onChange={(value) =>
+              updatePreference("showMediaPreviewCards", value)
+            }
+            isPremium={isPremium}
+          />
         </div>
       </section>
 
