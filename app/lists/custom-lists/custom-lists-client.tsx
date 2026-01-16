@@ -34,6 +34,7 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -56,6 +57,8 @@ export function CustomListsClient({
   genreFetchError,
 }: CustomListsClientProps) {
   const { lists, loading, error, removeList, updateList } = useLists()
+  const searchParams = useSearchParams()
+  const listIdFromUrl = searchParams.get("listId")
   const [selectedListId, setSelectedListId] = useState<string>("")
 
   // Show toast if genre fetch failed
@@ -82,8 +85,15 @@ export function CustomListsClient({
   )
 
   // Update selected list when lists load or active list is deleted
+  // Prioritize URL param if provided and valid
   useEffect(() => {
     if (!loading && customLists.length > 0) {
+      // Prioritize URL param if provided and valid
+      if (listIdFromUrl && customLists.find((l) => l.id === listIdFromUrl)) {
+        setSelectedListId(listIdFromUrl)
+        return
+      }
+      // Fallback to existing logic
       if (
         !selectedListId ||
         !customLists.find((l) => l.id === selectedListId)
@@ -91,7 +101,7 @@ export function CustomListsClient({
         setSelectedListId(customLists[0].id)
       }
     }
-  }, [loading, customLists, selectedListId])
+  }, [loading, customLists, selectedListId, listIdFromUrl])
 
   // Action Menu Items
   const menuItems: ActionMenuItem[] = useMemo(

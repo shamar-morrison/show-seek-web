@@ -32,3 +32,15 @@ export const DEFAULT_HOME_LISTS: HomeScreenListItem[] = [
 
 /** ID of the premium-only list */
 export const PREMIUM_LIST_ID = "latest-trailers"
+
+/** Mapping of TMDB list IDs to their dedicated browse page URLs */
+export const LIST_BROWSE_URLS: Record<string, string> = {
+  "trending-movies": "/trending-movies",
+  "trending-tv": "/trending-tv",
+  "popular-movies": "/popular-movies",
+  "top-rated-movies": "/top-rated-movies",
+  "top-rated-tv": "/top-rated-tv",
+  "upcoming-movies": "/upcoming-movies",
+  "upcoming-tv": "/upcoming-tv",
+  // Note: "latest-trailers" is intentionally excluded (no View All)
+}

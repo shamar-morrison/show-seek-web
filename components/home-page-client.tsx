@@ -8,9 +8,14 @@ import { TrailerRow } from "@/components/trailer-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
-import { DEFAULT_HOME_LISTS, PREMIUM_LIST_ID } from "@/lib/home-screen-lists"
+import {
+  DEFAULT_HOME_LISTS,
+  LIST_BROWSE_URLS,
+  PREMIUM_LIST_ID,
+} from "@/lib/home-screen-lists"
 import type { TrailerItem } from "@/lib/tmdb"
 import type { ListMediaItem } from "@/types/list"
+import { isDefaultList } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -103,6 +108,7 @@ export function HomePageClient({
             id: item.id,
             title: config.title,
             data: config.data,
+            href: LIST_BROWSE_URLS[item.id], // Browse page URL for View All
           }
         }
 
@@ -133,16 +139,23 @@ export function HomePageClient({
             }),
           )
 
+        // Determine the correct page based on list type
+        const listHref = isDefaultList(item.id)
+          ? `/lists/watch-lists?listId=${item.id}` // Default lists page
+          : `/lists/custom-lists?listId=${item.id}` // Custom lists page
+
         return {
           id: item.id,
           title: item.label || userList.name,
           data: items,
+          href: listHref,
         }
       })
       .filter((list) => list !== null) as {
       id: string
       title: string
       data: TMDBMedia[]
+      href?: string
     }[]
 
     return { showTrailers, visibleMediaLists: mediaLists }
@@ -236,6 +249,7 @@ export function HomePageClient({
               key={list.id}
               title={list.title}
               items={list.data}
+              href={list.href}
               onWatchTrailer={handleCardWatchTrailer}
               loadingMediaId={loadingMediaId}
               showActions

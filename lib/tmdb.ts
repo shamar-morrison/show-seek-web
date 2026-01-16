@@ -229,6 +229,227 @@ export async function getUpcomingTV(): Promise<TMDBMedia[]> {
   )
 }
 
+// ========================================
+// Paginated API Functions for Browse Pages
+// ========================================
+
+/** Paginated response with metadata */
+export interface PaginatedMediaResponse {
+  results: TMDBMedia[]
+  page: number
+  totalPages: number
+  totalResults: number
+}
+
+/**
+ * Helper function to fetch a paginated list of media items
+ * @param endpoint - API endpoint path (e.g., "/movie/popular")
+ * @param mediaType - "movie" or "tv" to inject into results
+ * @param page - Page number (1-indexed)
+ * @param errorMessage - Error message to log on failure
+ * @returns Paginated response with results and metadata
+ */
+async function fetchMediaListPaginated(
+  endpoint: string,
+  mediaType: "movie" | "tv",
+  page: number,
+  errorMessage: string,
+): Promise<PaginatedMediaResponse> {
+  const emptyResponse: PaginatedMediaResponse = {
+    results: [],
+    page: 1,
+    totalPages: 0,
+    totalResults: 0,
+  }
+
+  if (!TMDB_BEARER_TOKEN) return emptyResponse
+
+  try {
+    const response = await tmdbFetch(
+      endpoint,
+      { next: { revalidate: 3600 } },
+      { page: String(page) },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    return {
+      results: data.results.map((item) => ({ ...item, media_type: mediaType })),
+      page: data.page,
+      totalPages: Math.min(data.total_pages, 500), // TMDB limits to 500 pages
+      totalResults: data.total_results,
+    }
+  } catch (error) {
+    console.error(errorMessage, error)
+    return emptyResponse
+  }
+}
+
+/**
+ * Fetch paginated trending movies
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with trending movies
+ */
+export async function getTrendingMoviesPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  const emptyResponse: PaginatedMediaResponse = {
+    results: [],
+    page: 1,
+    totalPages: 0,
+    totalResults: 0,
+  }
+
+  if (!TMDB_BEARER_TOKEN) return emptyResponse
+
+  try {
+    const response = await tmdbFetch(
+      "/trending/movie/day",
+      { next: { revalidate: 3600 } },
+      { page: String(page) },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    return {
+      results: data.results.map((item) => ({
+        ...item,
+        media_type: "movie" as const,
+      })),
+      page: data.page,
+      totalPages: Math.min(data.total_pages, 500),
+      totalResults: data.total_results,
+    }
+  } catch (error) {
+    console.error("Failed to fetch trending movies:", error)
+    return emptyResponse
+  }
+}
+
+/**
+ * Fetch paginated trending TV shows
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with trending TV shows
+ */
+export async function getTrendingTVPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  const emptyResponse: PaginatedMediaResponse = {
+    results: [],
+    page: 1,
+    totalPages: 0,
+    totalResults: 0,
+  }
+
+  if (!TMDB_BEARER_TOKEN) return emptyResponse
+
+  try {
+    const response = await tmdbFetch(
+      "/trending/tv/day",
+      { next: { revalidate: 3600 } },
+      { page: String(page) },
+    )
+
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
+
+    const data: TMDBTrendingResponse = await response.json()
+    return {
+      results: data.results.map((item) => ({
+        ...item,
+        media_type: "tv" as const,
+      })),
+      page: data.page,
+      totalPages: Math.min(data.total_pages, 500),
+      totalResults: data.total_results,
+    }
+  } catch (error) {
+    console.error("Failed to fetch trending TV:", error)
+    return emptyResponse
+  }
+}
+
+/**
+ * Fetch paginated popular movies
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with popular movies
+ */
+export async function getPopularMoviesPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  return fetchMediaListPaginated(
+    "/movie/popular",
+    "movie",
+    page,
+    "Failed to fetch popular movies:",
+  )
+}
+
+/**
+ * Fetch paginated top rated movies
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with top rated movies
+ */
+export async function getTopRatedMoviesPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  return fetchMediaListPaginated(
+    "/movie/top_rated",
+    "movie",
+    page,
+    "Failed to fetch top rated movies:",
+  )
+}
+
+/**
+ * Fetch paginated top rated TV shows
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with top rated TV shows
+ */
+export async function getTopRatedTVPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  return fetchMediaListPaginated(
+    "/tv/top_rated",
+    "tv",
+    page,
+    "Failed to fetch top rated TV:",
+  )
+}
+
+/**
+ * Fetch paginated upcoming movies
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with upcoming movies
+ */
+export async function getUpcomingMoviesPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  return fetchMediaListPaginated(
+    "/movie/upcoming",
+    "movie",
+    page,
+    "Failed to fetch upcoming movies:",
+  )
+}
+
+/**
+ * Fetch paginated upcoming TV shows
+ * @param page - Page number (1-indexed)
+ * @returns Paginated response with upcoming TV shows
+ */
+export async function getUpcomingTVPaginated(
+  page: number = 1,
+): Promise<PaginatedMediaResponse> {
+  return fetchMediaListPaginated(
+    "/tv/on_the_air",
+    "tv",
+    page,
+    "Failed to fetch upcoming TV shows:",
+  )
+}
+
 /** Trailer item with media info and YouTube key */
 export interface TrailerItem {
   id: number
