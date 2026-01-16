@@ -2,7 +2,7 @@ import { Footer } from "@/components/footer"
 import { Navbar } from "@/components/navbar"
 import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import NextTopLoader from "nextjs-toploader"
 import { Toaster } from "sonner"
@@ -14,9 +14,22 @@ const inter = Inter({
   weight: ["400", "500", "600", "700"],
 })
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#E50914",
+}
+
 export const metadata: Metadata = {
   title: "ShowSeek",
   description: "Discover, Track, and Share your favorite movies and TV shows",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ShowSeek",
+  },
 }
 
 export default function RootLayout({
