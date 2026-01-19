@@ -40,7 +40,7 @@ export function WatchTrailerButton({
       <Tooltip>
         <TooltipTrigger
           className={cn(
-            "inline-flex cursor-not-allowed items-center gap-2 rounded-full bg-primary/50 font-semibold text-white/70 shadow-lg shadow-primary/30",
+            "inline-flex cursor-not-allowed items-center gap-2 rounded-md bg-primary/50 font-semibold text-white/70 shadow-lg shadow-primary/30",
             size === "lg" && "h-10 px-6",
             size === "default" && "h-9 px-4",
             size === "sm" && "h-8 px-3 text-sm",
