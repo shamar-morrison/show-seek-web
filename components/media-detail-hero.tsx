@@ -23,8 +23,8 @@ import {
   CalendarIcon,
   Clock,
   InformationCircleIcon,
-  LanguageCircleIcon,
   LanguageSkillIcon,
+  Loading03Icon,
   Note01Icon,
   NoteDoneIcon,
   PlusSignIcon,
@@ -178,9 +178,9 @@ export function MediaDetailHero({
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [isMarkAsWatchedOpen, setIsMarkAsWatchedOpen] = useState(false)
   const [isQuickMarkLoading, setIsQuickMarkLoading] = useState(false)
-  const { lists } = useLists()
-  const { getRating } = useRatings()
-  const { getNote } = useNotes()
+  const { lists, loading: listsLoading } = useLists()
+  const { getRating, loading: ratingsLoading } = useRatings()
+  const { getNote, loading: notesLoading } = useNotes()
   const { preferences } = usePreferences()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
@@ -189,6 +189,7 @@ export function MediaDetailHero({
     count: watchCount,
     addWatchInstance,
     clearAllWatches,
+    isLoading: watchedLoading,
   } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
 
   // Get user's rating for this media
@@ -476,19 +477,31 @@ export function MediaDetailHero({
                         "Sign in to add to your lists",
                       )
                     }
+                    disabled={listsLoading}
                   >
-                    <HugeiconsIcon
-                      icon={isInAnyList ? Tick02Icon : PlusSignIcon}
-                      className="size-5"
-                    />
-                    {isInAnyList ? "Added" : "Add"}
+                    {listsLoading ? (
+                      <HugeiconsIcon
+                        icon={Loading03Icon}
+                        className="size-5 animate-spin"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={isInAnyList ? Tick02Icon : PlusSignIcon}
+                        className="size-5"
+                      />
+                    )}
+                    {listsLoading
+                      ? "Loading..."
+                      : isInAnyList
+                        ? "Added"
+                        : "Add"}
                   </Button>
 
                   {/* Mark as Watched - Movies only */}
                   {mediaType === "movie" && (
                     <MarkAsWatchedButton
                       watchCount={watchCount}
-                      isLoading={isQuickMarkLoading}
+                      isLoading={isQuickMarkLoading || watchedLoading}
                       onClick={() =>
                         requireAuth(
                           handleMarkAsWatched,
@@ -502,6 +515,7 @@ export function MediaDetailHero({
                   <RateButton
                     hasRating={!!userRating}
                     rating={userRating?.rating}
+                    isLoading={ratingsLoading}
                     onClick={() =>
                       requireAuth(
                         () => setIsRatingModalOpen(true),
@@ -521,12 +535,24 @@ export function MediaDetailHero({
                         "Sign in to add personal notes",
                       )
                     }
+                    disabled={notesLoading}
                   >
-                    <HugeiconsIcon
-                      icon={userNote ? NoteDoneIcon : Note01Icon}
-                      className={`size-5 ${userNote ? "text-primary" : ""}`}
-                    />
-                    {userNote ? "View Note" : "Notes"}
+                    {notesLoading ? (
+                      <HugeiconsIcon
+                        icon={Loading03Icon}
+                        className="size-5 animate-spin"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={userNote ? NoteDoneIcon : Note01Icon}
+                        className={`size-5 ${userNote ? "text-primary" : ""}`}
+                      />
+                    )}
+                    {notesLoading
+                      ? "Loading..."
+                      : userNote
+                        ? "View Note"
+                        : "Notes"}
                   </Button>
                 </div>
               </div>
