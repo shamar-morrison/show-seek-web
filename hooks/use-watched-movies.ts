@@ -41,14 +41,17 @@ interface UseWatchedMoviesReturn {
  * Hook for managing watch history for a specific movie
  * Provides real-time updates via Firestore subscription
  */
-export function useWatchedMovies(movieId: number): UseWatchedMoviesReturn {
+export function useWatchedMovies(
+  movieId: number,
+  options: { enabled?: boolean } = { enabled: true },
+): UseWatchedMoviesReturn {
   const { user } = useAuth()
   const [instances, setInstances] = useState<WatchInstance[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Subscribe to watch instances
   useEffect(() => {
-    if (!user || user.isAnonymous) {
+    if (!options.enabled || !user || user.isAnonymous) {
       setInstances([])
       setIsLoading(false)
       return
@@ -70,7 +73,7 @@ export function useWatchedMovies(movieId: number): UseWatchedMoviesReturn {
     )
 
     return unsubscribe
-  }, [user, movieId])
+  }, [user, movieId, options.enabled])
 
   // Add a new watch instance
   const addWatchInstance = useCallback(

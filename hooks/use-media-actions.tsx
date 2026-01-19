@@ -1,11 +1,6 @@
 "use client"
 
-import { AddToListModal } from "@/components/add-to-list-modal"
-import { AuthModal } from "@/components/auth-modal"
-import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import type { DropdownMenuItem } from "@/components/media-card-dropdown-menu"
-import { NotesModal } from "@/components/notes-modal"
-import { RatingModal } from "@/components/rating-modal"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
@@ -24,7 +19,33 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import dynamic from "next/dynamic"
 import { useCallback, useMemo, useState } from "react"
+
+const AddToListModal = dynamic(
+  () =>
+    import("@/components/add-to-list-modal").then((mod) => mod.AddToListModal),
+  { ssr: false },
+)
+const AuthModal = dynamic(
+  () => import("@/components/auth-modal").then((mod) => mod.AuthModal),
+  { ssr: false },
+)
+const MarkAsWatchedModal = dynamic(
+  () =>
+    import("@/components/mark-as-watched-modal").then(
+      (mod) => mod.MarkAsWatchedModal,
+    ),
+  { ssr: false },
+)
+const NotesModal = dynamic(
+  () => import("@/components/notes-modal").then((mod) => mod.NotesModal),
+  { ssr: false },
+)
+const RatingModal = dynamic(
+  () => import("@/components/rating-modal").then((mod) => mod.RatingModal),
+  { ssr: false },
+)
 
 interface UseMediaActionsOptions {
   /** Media item to perform actions on */
@@ -77,11 +98,23 @@ export function useMediaActions({
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
   // Watch history for movies only
+  // Watch history for movies only - Disable subscription for performance
   const {
     count: watchCount,
     addWatchInstance,
     clearAllWatches,
-  } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
+  } = useWatchedMovies(mediaType === "movie" ? media.id : 0, { enabled: false })
+
+  // Check if media is in "already-watched" list (alternative to real-time subscription)
+  const isWatched = useMemo(() => {
+    if (mediaType !== "movie") return false
+    const list = lists.find((l) => l.id === "already-watched")
+    if (!list?.items) return false
+    const numericKey = String(media.id)
+    // Keys in lists are stored as numeric ID strings (from mobile) or sometimes other formats
+    // We check the numeric ID which handles most cases
+    return !!list.items[numericKey]
+  }, [lists, media.id, mediaType])
 
   // Get user's rating for this media
   const userRating = useMemo(() => {
@@ -236,15 +269,14 @@ export function useMediaActions({
 
     // Add Mark as Watched for movies only
     if (mediaType === "movie") {
-      const watchedLabel =
-        watchCount > 0 ? `Watched (${watchCount})` : "Mark as Watched"
+      const watchedLabel = isWatched ? "Watched" : "Mark as Watched"
       items.push({
         id: "mark-as-watched",
         label: isQuickMarkLoading ? "Marking..." : watchedLabel,
         icon: ({ className }) => (
           <HugeiconsIcon
             icon={CheckmarkCircle02Icon}
-            className={`${className} ${watchCount > 0 ? "fill-green-500 text-green-500" : ""}`}
+            className={`${className} ${isWatched ? "fill-green-500 text-green-500" : ""}`}
           />
         ),
         onClick: openMarkAsWatchedModal,
@@ -273,55 +305,65 @@ export function useMediaActions({
   const modals = useMemo(
     () => (
       <>
-        {/* Add to List Modal */}
-        <AddToListModal
-          isOpen={isAddToListOpen}
-          onClose={() => setIsAddToListOpen(false)}
-          media={mediaForModal}
-          mediaType={mediaType}
-        />
+        <>
+          {/* Add to List Modal */}
+          {isAddToListOpen && (
+            <AddToListModal
+              isOpen={isAddToListOpen}
+              onClose={() => setIsAddToListOpen(false)}
+              media={mediaForModal}
+              mediaType={mediaType}
+            />
+          )}
 
-        {/* Rating Modal */}
-        <RatingModal
-          isOpen={isRatingModalOpen}
-          onClose={() => setIsRatingModalOpen(false)}
-          media={mediaForModal}
-          mediaType={mediaType}
-        />
+          {/* Rating Modal */}
+          {isRatingModalOpen && (
+            <RatingModal
+              isOpen={isRatingModalOpen}
+              onClose={() => setIsRatingModalOpen(false)}
+              media={mediaForModal}
+              mediaType={mediaType}
+            />
+          )}
 
-        {/* Notes Modal */}
-        <NotesModal
-          isOpen={isNotesModalOpen}
-          onClose={() => setIsNotesModalOpen(false)}
-          media={mediaForModal}
-          mediaType={mediaType}
-        />
+          {/* Notes Modal */}
+          {isNotesModalOpen && (
+            <NotesModal
+              isOpen={isNotesModalOpen}
+              onClose={() => setIsNotesModalOpen(false)}
+              media={mediaForModal}
+              mediaType={mediaType}
+            />
+          )}
 
-        {/* Mark as Watched Modal - Movies only */}
-        {mediaType === "movie" && (
-          <MarkAsWatchedModal
-            isOpen={isMarkAsWatchedOpen}
-            onClose={() => setIsMarkAsWatchedOpen(false)}
-            movieTitle={
-              "title" in mediaForModal
-                ? mediaForModal.title
-                : "name" in mediaForModal
-                  ? mediaForModal.name
-                  : "Movie"
-            }
-            releaseDate={(mediaForModal as TMDBMovieDetails).release_date}
-            watchCount={watchCount}
-            onMarkAsWatched={handleModalMarkAsWatched}
-            onClearAll={clearAllWatches}
-          />
-        )}
+          {/* Mark as Watched Modal - Movies only */}
+          {mediaType === "movie" && isMarkAsWatchedOpen && (
+            <MarkAsWatchedModal
+              isOpen={isMarkAsWatchedOpen}
+              onClose={() => setIsMarkAsWatchedOpen(false)}
+              movieTitle={
+                "title" in mediaForModal
+                  ? mediaForModal.title
+                  : "name" in mediaForModal
+                    ? mediaForModal.name
+                    : "Movie"
+              }
+              releaseDate={(mediaForModal as TMDBMovieDetails).release_date}
+              watchCount={watchCount}
+              onMarkAsWatched={handleModalMarkAsWatched}
+              onClearAll={clearAllWatches}
+            />
+          )}
 
-        {/* Auth Modal for unauthenticated users */}
-        <AuthModal
-          isOpen={modalVisible}
-          onClose={closeModal}
-          message={modalMessage}
-        />
+          {/* Auth Modal for unauthenticated users */}
+          {modalVisible && (
+            <AuthModal
+              isOpen={modalVisible}
+              onClose={closeModal}
+              message={modalMessage}
+            />
+          )}
+        </>
       </>
     ),
     [

@@ -3,7 +3,6 @@
 import { fetchTrailerKey } from "@/app/actions"
 import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
-import { TrailerModal } from "@/components/trailer-modal"
 import { TrailerRow } from "@/components/trailer-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useLists } from "@/hooks/use-lists"
@@ -17,8 +16,14 @@ import type { TrailerItem } from "@/lib/tmdb"
 import type { ListMediaItem } from "@/types/list"
 import { isDefaultList } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
+import dynamic from "next/dynamic"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+
+const TrailerModal = dynamic(
+  () => import("@/components/trailer-modal").then((mod) => mod.TrailerModal),
+  { ssr: false },
+)
 
 interface HomePageClientProps {
   heroMediaList: HeroMedia[]
