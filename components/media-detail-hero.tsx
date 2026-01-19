@@ -164,13 +164,17 @@ export function MediaDetailHero({
       // Quick mark - immediately mark as watched with current time
       setIsQuickMarkLoading(true)
       try {
-        await addWatchInstance(new Date(), {
-          title: movieMedia.title,
-          posterPath: movieMedia.poster_path,
-          voteAverage: movieMedia.vote_average,
-          releaseDate: movieMedia.release_date,
-          genreIds: movieMedia.genres?.map((g) => g.id),
-        })
+        await addWatchInstance(
+          new Date(),
+          {
+            title: movieMedia.title,
+            posterPath: movieMedia.poster_path,
+            voteAverage: movieMedia.vote_average,
+            releaseDate: movieMedia.release_date,
+            genreIds: movieMedia.genres?.map((g) => g.id),
+          },
+          preferences.autoAddToAlreadyWatched,
+        )
       } catch (error) {
         console.error("Error quick marking as watched:", error)
       } finally {
@@ -180,22 +184,32 @@ export function MediaDetailHero({
       // Open modal to select date
       setIsMarkAsWatchedOpen(true)
     }
-  }, [mediaType, media, preferences.quickMarkAsWatched, addWatchInstance])
+  }, [
+    mediaType,
+    media,
+    preferences.quickMarkAsWatched,
+    preferences.autoAddToAlreadyWatched,
+    addWatchInstance,
+  ])
 
   // Handle mark as watched from modal
   const handleModalMarkAsWatched = useCallback(
     async (date: Date) => {
       if (mediaType !== "movie") return
       const movieMedia = media as TMDBMovieDetails
-      await addWatchInstance(date, {
-        title: movieMedia.title,
-        posterPath: movieMedia.poster_path,
-        voteAverage: movieMedia.vote_average,
-        releaseDate: movieMedia.release_date,
-        genreIds: movieMedia.genres?.map((g) => g.id),
-      })
+      await addWatchInstance(
+        date,
+        {
+          title: movieMedia.title,
+          posterPath: movieMedia.poster_path,
+          voteAverage: movieMedia.vote_average,
+          releaseDate: movieMedia.release_date,
+          genreIds: movieMedia.genres?.map((g) => g.id),
+        },
+        preferences.autoAddToAlreadyWatched,
+      )
     },
-    [mediaType, media, addWatchInstance],
+    [mediaType, media, preferences.autoAddToAlreadyWatched, addWatchInstance],
   )
 
   // Extract common properties

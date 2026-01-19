@@ -31,6 +31,7 @@ interface UseWatchedMoviesReturn {
       releaseDate?: string
       genreIds?: number[]
     },
+    autoAddToAlreadyWatched?: boolean,
   ) => Promise<void>
   /** Clear all watch history for this movie */
   clearAllWatches: () => Promise<void>
@@ -82,6 +83,7 @@ export function useWatchedMovies(movieId: number): UseWatchedMoviesReturn {
         releaseDate?: string
         genreIds?: number[]
       },
+      autoAddToAlreadyWatched: boolean = false,
     ): Promise<void> => {
       if (!user || user.isAnonymous) {
         throw new Error("User must be authenticated to mark as watched")
@@ -94,8 +96,8 @@ export function useWatchedMovies(movieId: number): UseWatchedMoviesReturn {
       // Add the watch instance
       await addWatch(user.uid, movieId, watchedAt)
 
-      // Auto-add to "Already Watched" list on first watch
-      if (isFirstWatch) {
+      // Auto-add to "Already Watched" list on first watch (if preference enabled)
+      if (isFirstWatch && autoAddToAlreadyWatched) {
         try {
           await addToList(user.uid, "already-watched", {
             id: movieId,

@@ -115,11 +115,19 @@ export function ProfilePageClient() {
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
             label="Auto-add to Already Watched"
-            description="Automatically add movies to your Already Watched list when you rate them"
+            description="Automatically add movies to your Already Watched list when you rate or mark them as watched"
             checked={preferences.autoAddToAlreadyWatched}
             onChange={(value) =>
               updatePreference("autoAddToAlreadyWatched", value)
             }
+            isPremium={isPremium}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
+            label="Quick Mark as Watched"
+            description="Skip the date selection modal and use the current time when marking movies as watched"
+            checked={preferences.quickMarkAsWatched}
+            onChange={(value) => updatePreference("quickMarkAsWatched", value)}
             isPremium={isPremium}
           />
           <div className="mx-4 border-t border-white/10" />
