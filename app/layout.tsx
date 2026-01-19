@@ -30,6 +30,28 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "ShowSeek",
   },
+  openGraph: {
+    title: "ShowSeek",
+    description: "Discover, Track, and Share your favorite movies and TV shows",
+    url: "https://showseek.com",
+    siteName: "ShowSeek",
+    images: [
+      {
+        url: "/showseek_og.png",
+        width: 1200,
+        height: 630,
+        alt: "ShowSeek - Discover, Track, Share Movies & TV Shows",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ShowSeek",
+    description: "Discover, Track, and Share your favorite movies and TV shows",
+    images: ["/showseek_og.png"],
+  },
 }
 
 export default function RootLayout({
