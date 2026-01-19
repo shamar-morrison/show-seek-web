@@ -148,8 +148,7 @@ export function useMediaActions({
             posterPath: movieMedia.poster_path,
             voteAverage: movieMedia.vote_average,
             releaseDate: movieMedia.release_date,
-            genreIds:
-              movieMedia.genres?.map((g) => g.id) || movieMedia.genre_ids,
+            genreIds: movieMedia.genres?.map((g) => g.id),
           },
           preferences.autoAddToAlreadyWatched,
         )
@@ -189,7 +188,7 @@ export function useMediaActions({
           posterPath: movieMedia.poster_path,
           voteAverage: movieMedia.vote_average,
           releaseDate: movieMedia.release_date,
-          genreIds: movieMedia.genres?.map((g) => g.id) || movieMedia.genre_ids,
+          genreIds: movieMedia.genres?.map((g) => g.id),
         },
         preferences.autoAddToAlreadyWatched,
       )
