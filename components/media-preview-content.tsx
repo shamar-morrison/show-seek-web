@@ -144,7 +144,7 @@ export function MediaPreviewContent({
         {rating > 0 && (
           <span className="flex items-center gap-1 font-medium text-yellow-500">
             <HugeiconsIcon icon={StarIcon} className="size-3 fill-yellow-500" />
-            <span className="text-gray-300">{rating} / 10</span>
+            <span className="text-gray-300">{rating}</span>
           </span>
         )}
         {/* Release Date */}
