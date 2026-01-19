@@ -23,6 +23,8 @@ import {
   CalendarIcon,
   Clock,
   InformationCircleIcon,
+  LanguageCircleIcon,
+  LanguageSkillIcon,
   Note01Icon,
   NoteDoneIcon,
   PlusSignIcon,
@@ -106,6 +108,58 @@ function formatDate(dateString: string | null | undefined): string | null {
     day: "numeric",
     year: "numeric",
   })
+}
+
+/**
+ * Language code to human-readable name mapping
+ * Covers common languages found on TMDB
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+  ja: "Japanese",
+  ko: "Korean",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese",
+  hi: "Hindi",
+  ar: "Arabic",
+  th: "Thai",
+  tr: "Turkish",
+  pl: "Polish",
+  nl: "Dutch",
+  sv: "Swedish",
+  da: "Danish",
+  no: "Norwegian",
+  fi: "Finnish",
+  cs: "Czech",
+  hu: "Hungarian",
+  el: "Greek",
+  he: "Hebrew",
+  id: "Indonesian",
+  ms: "Malay",
+  vi: "Vietnamese",
+  tl: "Filipino",
+  uk: "Ukrainian",
+  ro: "Romanian",
+  bg: "Bulgarian",
+  hr: "Croatian",
+  sk: "Slovak",
+  sl: "Slovenian",
+  sr: "Serbian",
+  ta: "Tamil",
+  te: "Telugu",
+  ml: "Malayalam",
+  kn: "Kannada",
+  bn: "Bengali",
+  mr: "Marathi",
+  gu: "Gujarati",
+  pa: "Punjabi",
+  fa: "Persian",
+  cn: "Cantonese",
+  nb: "Norwegian",
 }
 
 /**
@@ -355,6 +409,18 @@ export function MediaDetailHero({
                           className="size-4 text-gray-500"
                         />
                         {(media as TMDBTVDetails).status}
+                      </span>
+                    )}
+                  {/* Language (non-English only) */}
+                  {media.original_language &&
+                    media.original_language !== "en" &&
+                    LANGUAGE_NAMES[media.original_language] && (
+                      <span className="flex items-center gap-1">
+                        <HugeiconsIcon
+                          icon={LanguageSkillIcon}
+                          className="size-4 text-gray-500"
+                        />
+                        {LANGUAGE_NAMES[media.original_language]}
                       </span>
                     )}
                 </div>

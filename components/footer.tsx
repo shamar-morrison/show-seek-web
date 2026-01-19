@@ -68,7 +68,7 @@ export function Footer() {
           <h3 className="font-semibold text-white">Get the App</h3>
           <Link
             target="_blank"
-            href="https://play.google.com/store/apps/details?id=com.shamarmorrison.showseek"
+            href="https://play.google.com/store/apps/details?id=app.horizon.showseek"
           >
             <Image
               src="/google_play.png"
