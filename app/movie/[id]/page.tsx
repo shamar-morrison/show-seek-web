@@ -6,6 +6,7 @@ import { PhotosSection } from "@/components/photos-section"
 import { RecommendationsSection } from "@/components/recommendations-section"
 import { ReviewsSection } from "@/components/reviews-section"
 import { SimilarMedia } from "@/components/similar-media"
+import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
 import {
@@ -79,6 +80,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
         <CollectionSection collectionId={movie.belongs_to_collection.id} />
       )}
 
+      <TraktReviewsSection mediaId={movieId} mediaType="movie" />
       <ReviewsSection mediaId={movieId} mediaType="movie" />
       <MediaDetails media={movie} mediaType="movie" />
     </main>

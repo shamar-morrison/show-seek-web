@@ -6,6 +6,7 @@ import { RecommendationsSection } from "@/components/recommendations-section"
 import { ReviewsSection } from "@/components/reviews-section"
 import { SeasonsRow } from "@/components/seasons-row"
 import { SimilarMedia } from "@/components/similar-media"
+import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
 import {
@@ -67,6 +68,7 @@ export default async function TVPage({ params }: TVPageProps) {
       <PhotosSection mediaId={tvId} mediaType="tv" />
       <VideosSection mediaId={tvId} mediaType="tv" />
       <RecommendationsSection mediaId={tvId} mediaType="tv" />
+      <TraktReviewsSection mediaId={tvId} mediaType="tv" />
       <ReviewsSection mediaId={tvId} mediaType="tv" />
       <MediaDetails media={tvShow} mediaType="tv" />
     </main>

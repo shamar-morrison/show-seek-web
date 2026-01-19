@@ -81,7 +81,7 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
           {/* Section Header */}
           <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
             <h2 className="text-xl font-bold text-white sm:text-2xl">
-              Reviews
+              TMDB Reviews
             </h2>
           </div>
 
