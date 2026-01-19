@@ -1,5 +1,6 @@
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
+import Image from "next/image"
 import Link from "next/link"
 
 export function Footer() {
@@ -61,15 +62,22 @@ export function Footer() {
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* Attribution */}
-      <div className="mx-auto mt-12 max-w-[1800px] border-t border-white/10 px-4 pt-8 sm:px-8 lg:px-12">
-        <div className="flex flex-col items-center justify-center gap-2 text-center">
-          <p className="text-xs text-gray-500">
-            This product uses the TMDb API but is not endorsed or certified by
-            TMDb.
-          </p>
+        {/* Get the App Column */}
+        <div className="flex flex-col gap-4">
+          <h3 className="font-semibold text-white">Get the App</h3>
+          <Link
+            target="_blank"
+            href="https://play.google.com/store/apps/details?id=com.shamarmorrison.showseek"
+          >
+            <Image
+              src="/google_play.png"
+              alt="Get it on Google Play"
+              width={165}
+              height={40}
+              className="relative -left-2"
+            />
+          </Link>
         </div>
       </div>
     </footer>
