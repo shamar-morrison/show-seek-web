@@ -1,6 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { cn } from "@/lib/utils"
 import type { HeroMedia } from "@/types/tmdb"
@@ -168,16 +169,15 @@ export function HeroSection({
               />
 
               {/* More Info Button - Secondary/Outline */}
-              <Link
-                href={`/${currentMedia.mediaType}/${currentMedia.id}`}
-                className="inline-flex h-10 items-center justify-center gap-1.5 border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-              >
-                <HugeiconsIcon
-                  icon={InformationCircleIcon}
-                  className="size-5"
-                />
-                More Info
-              </Link>
+              <Button asChild variant={"outline"} size={"lg"} className="px-6">
+                <Link href={`/${currentMedia.mediaType}/${currentMedia.id}`}>
+                  <HugeiconsIcon
+                    icon={InformationCircleIcon}
+                    className="size-5"
+                  />
+                  More Info
+                </Link>
+              </Button>
             </div>
           </div>
 
