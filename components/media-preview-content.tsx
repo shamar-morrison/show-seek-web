@@ -1,5 +1,6 @@
 "use client"
 
+import { MarkAsWatchedButton } from "@/components/mark-as-watched-button"
 import { RateButton } from "@/components/rate-button"
 import { Button } from "@/components/ui/button"
 import { useLists } from "@/hooks/use-lists"
@@ -30,6 +31,12 @@ interface MediaPreviewContentProps {
   onRate: () => void
   /** Callback when Notes button is clicked */
   onNotes: () => void
+  /** Callback when Mark as Watched button is clicked (movies only) */
+  onMarkAsWatched?: () => void
+  /** Watch count for the movie (movies only) */
+  watchCount?: number
+  /** Whether mark as watched is loading (movies only) */
+  isMarkAsWatchedLoading?: boolean
 }
 
 interface Creator {
@@ -80,6 +87,9 @@ export function MediaPreviewContent({
   onAddToList,
   onRate,
   onNotes,
+  onMarkAsWatched,
+  watchCount = 0,
+  isMarkAsWatchedLoading = false,
 }: MediaPreviewContentProps) {
   const { lists } = useLists()
   const { getRating } = useRatings()
@@ -251,6 +261,20 @@ export function MediaPreviewContent({
           />
           {userNote ? "Note" : "Notes"}
         </Button>
+
+        {/* Mark as Watched - Movies only */}
+        {mediaType === "movie" && onMarkAsWatched && (
+          <MarkAsWatchedButton
+            watchCount={watchCount}
+            isLoading={isMarkAsWatchedLoading}
+            size="sm"
+            onClick={(e) => {
+              e?.preventDefault()
+              e?.stopPropagation()
+              onMarkAsWatched()
+            }}
+          />
+        )}
       </div>
     </div>
   )

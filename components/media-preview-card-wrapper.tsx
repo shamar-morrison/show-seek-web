@@ -2,6 +2,7 @@
 
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
+import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import { MediaCard } from "@/components/media-card"
 import type { DropdownMenuItem } from "@/components/media-card-dropdown-menu"
 import {
@@ -12,9 +13,11 @@ import { NotesModal } from "@/components/notes-modal"
 import { RatingModal } from "@/components/rating-modal"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useMediaDetails } from "@/hooks/use-media-details"
+import { usePreferences } from "@/hooks/use-preferences"
+import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { PreviewCard } from "@base-ui/react/preview-card"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 
 interface MediaPreviewCardWrapperProps {
   /** The media item */
@@ -60,9 +63,21 @@ export function MediaPreviewCardWrapper({
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
+  const [isMarkAsWatchedOpen, setIsMarkAsWatchedOpen] = useState(false)
+  const [isQuickMarkLoading, setIsQuickMarkLoading] = useState(false)
 
   // Auth guard for protected actions
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+
+  // Preferences for quick mark
+  const { preferences } = usePreferences()
+
+  // Watch history for movies only
+  const {
+    count: watchCount,
+    addWatchInstance,
+    clearAllWatches,
+  } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
 
   // Only fetch when preview card is opened (lazy loading)
   const { data: detailedMedia, isLoading: isLoadingDetails } = useMediaDetails(
@@ -106,6 +121,76 @@ export function MediaPreviewCardWrapper({
     )
   }
 
+  // Handle Mark as Watched button click
+  // Respects Quick Mark preference - if enabled, immediately marks without modal
+  const handleMarkAsWatched = useCallback(async () => {
+    if (mediaType !== "movie" || !detailedMedia) return
+
+    setIsOpen(false)
+
+    const movieMedia = detailedMedia as TMDBMovieDetails
+
+    if (preferences.quickMarkAsWatched) {
+      // Quick mark - immediately mark as watched with current time
+      setIsQuickMarkLoading(true)
+      try {
+        await addWatchInstance(
+          new Date(),
+          {
+            title: movieMedia.title,
+            posterPath: movieMedia.poster_path,
+            voteAverage: movieMedia.vote_average,
+            releaseDate: movieMedia.release_date,
+            genreIds: movieMedia.genres?.map((g) => g.id),
+          },
+          preferences.autoAddToAlreadyWatched,
+        )
+      } catch (error) {
+        console.error("Error quick marking as watched:", error)
+      } finally {
+        setIsQuickMarkLoading(false)
+      }
+    } else {
+      // Open modal to select date
+      requireAuth(
+        () => setIsMarkAsWatchedOpen(true),
+        "Sign in to mark movies as watched",
+      )
+    }
+  }, [
+    mediaType,
+    detailedMedia,
+    preferences.quickMarkAsWatched,
+    preferences.autoAddToAlreadyWatched,
+    addWatchInstance,
+    requireAuth,
+  ])
+
+  // Handle mark as watched from modal
+  const handleModalMarkAsWatched = useCallback(
+    async (date: Date) => {
+      if (mediaType !== "movie" || !detailedMedia) return
+      const movieMedia = detailedMedia as TMDBMovieDetails
+      await addWatchInstance(
+        date,
+        {
+          title: movieMedia.title,
+          posterPath: movieMedia.poster_path,
+          voteAverage: movieMedia.vote_average,
+          releaseDate: movieMedia.release_date,
+          genreIds: movieMedia.genres?.map((g) => g.id),
+        },
+        preferences.autoAddToAlreadyWatched,
+      )
+    },
+    [
+      mediaType,
+      detailedMedia,
+      preferences.autoAddToAlreadyWatched,
+      addWatchInstance,
+    ],
+  )
+
   return (
     <>
       {/* Desktop: show with preview card */}
@@ -134,6 +219,17 @@ export function MediaPreviewCardWrapper({
                     onAddToList={handleAddToList}
                     onRate={handleRate}
                     onNotes={handleNotes}
+                    onMarkAsWatched={
+                      mediaType === "movie"
+                        ? () =>
+                            requireAuth(
+                              handleMarkAsWatched,
+                              "Sign in to mark movies as watched",
+                            )
+                        : undefined
+                    }
+                    watchCount={watchCount}
+                    isMarkAsWatchedLoading={isQuickMarkLoading}
                   />
                 )}
               </PreviewCard.Popup>
@@ -168,6 +264,24 @@ export function MediaPreviewCardWrapper({
             media={detailedMedia}
             mediaType={mediaType}
           />
+
+          {mediaType === "movie" && (
+            <MarkAsWatchedModal
+              isOpen={isMarkAsWatchedOpen}
+              onClose={() => setIsMarkAsWatchedOpen(false)}
+              movieTitle={
+                "title" in detailedMedia
+                  ? detailedMedia.title
+                  : "name" in detailedMedia
+                    ? detailedMedia.name
+                    : "Movie"
+              }
+              releaseDate={(detailedMedia as TMDBMovieDetails).release_date}
+              watchCount={watchCount}
+              onMarkAsWatched={handleModalMarkAsWatched}
+              onClearAll={clearAllWatches}
+            />
+          )}
         </>
       )}
 
