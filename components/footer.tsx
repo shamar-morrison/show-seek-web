@@ -62,6 +62,16 @@ export function Footer() {
           </div>
         </div>
       </div>
+
+      {/* Attribution */}
+      <div className="mx-auto mt-12 max-w-[1800px] border-t border-white/10 px-4 pt-8 sm:px-8 lg:px-12">
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
+          <p className="text-xs text-gray-500">
+            This product uses the TMDb API but is not endorsed or certified by
+            TMDb.
+          </p>
+        </div>
+      </div>
     </footer>
   )
 }
