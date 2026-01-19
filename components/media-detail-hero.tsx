@@ -2,6 +2,8 @@
 
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
+import { MarkAsWatchedButton } from "@/components/mark-as-watched-button"
+import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import { NotesModal } from "@/components/notes-modal"
 import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
@@ -14,6 +16,7 @@ import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -30,7 +33,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Image from "next/image"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 interface MediaDetailHeroProps {
   /** Movie or TV show details */
@@ -119,11 +122,20 @@ export function MediaDetailHero({
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
+  const [isMarkAsWatchedOpen, setIsMarkAsWatchedOpen] = useState(false)
+  const [isQuickMarkLoading, setIsQuickMarkLoading] = useState(false)
   const { lists } = useLists()
   const { getRating } = useRatings()
   const { getNote } = useNotes()
   const { preferences } = usePreferences()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+
+  // Watch history for movies only
+  const {
+    count: watchCount,
+    addWatchInstance,
+    clearAllWatches,
+  } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
 
   // Get user's rating for this media
   const userRating = useMemo(() => {
@@ -140,6 +152,51 @@ export function MediaDetailHero({
     const numericKey = String(media.id)
     return lists.some((list) => list.items && list.items[numericKey])
   }, [lists, media.id])
+
+  // Handle Mark as Watched button click
+  // Respects Quick Mark preference - if enabled, immediately marks without modal
+  const handleMarkAsWatched = useCallback(async () => {
+    if (mediaType !== "movie") return
+
+    const movieMedia = media as TMDBMovieDetails
+
+    if (preferences.quickMarkAsWatched) {
+      // Quick mark - immediately mark as watched with current time
+      setIsQuickMarkLoading(true)
+      try {
+        await addWatchInstance(new Date(), {
+          title: movieMedia.title,
+          posterPath: movieMedia.poster_path,
+          voteAverage: movieMedia.vote_average,
+          releaseDate: movieMedia.release_date,
+          genreIds: movieMedia.genres?.map((g) => g.id),
+        })
+      } catch (error) {
+        console.error("Error quick marking as watched:", error)
+      } finally {
+        setIsQuickMarkLoading(false)
+      }
+    } else {
+      // Open modal to select date
+      setIsMarkAsWatchedOpen(true)
+    }
+  }, [mediaType, media, preferences.quickMarkAsWatched, addWatchInstance])
+
+  // Handle mark as watched from modal
+  const handleModalMarkAsWatched = useCallback(
+    async (date: Date) => {
+      if (mediaType !== "movie") return
+      const movieMedia = media as TMDBMovieDetails
+      await addWatchInstance(date, {
+        title: movieMedia.title,
+        posterPath: movieMedia.poster_path,
+        voteAverage: movieMedia.vote_average,
+        releaseDate: movieMedia.release_date,
+        genreIds: movieMedia.genres?.map((g) => g.id),
+      })
+    },
+    [mediaType, media, addWatchInstance],
+  )
 
   // Extract common properties
   const title =
@@ -347,6 +404,20 @@ export function MediaDetailHero({
                     {isInAnyList ? "Added" : "Add"}
                   </Button>
 
+                  {/* Mark as Watched - Movies only */}
+                  {mediaType === "movie" && (
+                    <MarkAsWatchedButton
+                      watchCount={watchCount}
+                      isLoading={isQuickMarkLoading}
+                      onClick={() =>
+                        requireAuth(
+                          handleMarkAsWatched,
+                          "Sign in to mark movies as watched",
+                        )
+                      }
+                    />
+                  )}
+
                   {/* Rate - Secondary */}
                   <RateButton
                     hasRating={!!userRating}
@@ -415,6 +486,19 @@ export function MediaDetailHero({
         media={media}
         mediaType={mediaType}
       />
+
+      {/* Mark as Watched Modal - Movies only */}
+      {mediaType === "movie" && (
+        <MarkAsWatchedModal
+          isOpen={isMarkAsWatchedOpen}
+          onClose={() => setIsMarkAsWatchedOpen(false)}
+          movieTitle={title}
+          releaseDate={(media as TMDBMovieDetails).release_date}
+          watchCount={watchCount}
+          onMarkAsWatched={handleModalMarkAsWatched}
+          onClearAll={clearAllWatches}
+        />
+      )}
 
       {/* Auth Modal for unauthenticated users */}
       <AuthModal

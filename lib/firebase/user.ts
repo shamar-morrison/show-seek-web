@@ -18,6 +18,7 @@ export interface UserPreferences {
   showListIndicators: boolean
   blurPlotSpoilers: boolean
   showMediaPreviewCards: boolean
+  quickMarkAsWatched: boolean
   homeScreenLists?: HomeScreenListItem[]
 }
 
@@ -27,6 +28,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   showListIndicators: false,
   blurPlotSpoilers: false,
   showMediaPreviewCards: false,
+  quickMarkAsWatched: false,
 }
 
 export interface UserDocument {
