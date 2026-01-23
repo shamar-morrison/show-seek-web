@@ -24,34 +24,65 @@ export default function ForYouPage() {
     hiddenGems,
     trendingMovies,
     isLoading,
+    isAuthLoading,
     hasEnoughData,
     needsFallback,
     isGuest,
   } = useForYouRecommendations()
 
+  // Auth Loading State - show loading while auth is being determined
+  if (isAuthLoading) {
+    return (
+      <main className="min-h-screen bg-black pt-32 pb-16">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
+          <div className="mb-8">
+            <Skeleton className="h-10 w-48" />
+          </div>
+          <div className="space-y-12">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-6 w-64" />
+                <div className="flex gap-4 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <Skeleton
+                      key={j}
+                      className="h-[240px] w-[160px] shrink-0 rounded-xl"
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   // Guest State - prompt to sign in
   if (isGuest) {
     return (
-      <main className="container mx-auto px-4 pt-24 pb-16">
-        <div className="flex min-h-[50vh] flex-col items-center justify-center space-y-6 text-center">
-          <div className="flex size-20 items-center justify-center rounded-full bg-primary/10">
-            <HugeiconsIcon
-              icon={SparklesIcon}
-              className="size-10 text-primary"
-            />
+      <main className="min-h-screen bg-black pt-32 pb-16">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
+          <div className="flex min-h-[50vh] flex-col items-center justify-center space-y-6 text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-primary/10">
+              <HugeiconsIcon
+                icon={SparklesIcon}
+                className="size-10 text-primary"
+              />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-white">
+                Sign in for personalized picks
+              </h1>
+              <p className="max-w-md text-muted-foreground">
+                Get recommendations tailored to your taste based on the movies
+                and TV shows you love.
+              </p>
+            </div>
+            <Button asChild size="lg" className="mt-4">
+              <Link href="/">Sign In</Link>
+            </Button>
           </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-white">
-              Sign in for personalized picks
-            </h1>
-            <p className="max-w-md text-muted-foreground">
-              Get recommendations tailored to your taste based on the movies and
-              TV shows you love.
-            </p>
-          </div>
-          <Button asChild size="lg" className="mt-4">
-            <Link href="/">Sign In</Link>
-          </Button>
         </div>
       </main>
     )
@@ -60,24 +91,26 @@ export default function ForYouPage() {
   // Loading State
   if (isLoading && sections.length === 0) {
     return (
-      <main className="container mx-auto px-4 pt-24 pb-16">
-        <div className="mb-8">
-          <Skeleton className="h-10 w-48" />
-        </div>
-        <div className="space-y-12">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-4">
-              <Skeleton className="h-6 w-64" />
-              <div className="flex gap-4 overflow-hidden">
-                {[1, 2, 3, 4, 5].map((j) => (
-                  <Skeleton
-                    key={j}
-                    className="h-[240px] w-[160px] shrink-0 rounded-xl"
-                  />
-                ))}
+      <main className="min-h-screen bg-black pt-24 pb-16">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
+          <div className="mb-8">
+            <Skeleton className="h-10 w-48" />
+          </div>
+          <div className="space-y-12">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-6 w-64" />
+                <div className="flex gap-4 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <Skeleton
+                      key={j}
+                      className="h-[240px] w-[160px] shrink-0 rounded-xl"
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </main>
     )
@@ -86,35 +119,37 @@ export default function ForYouPage() {
   // Empty State - not enough ratings
   if (!hasEnoughData && !needsFallback) {
     return (
-      <main className="container mx-auto px-4 pt-24 pb-16">
-        <div className="flex min-h-[50vh] flex-col items-center justify-center space-y-6 text-center">
-          <div className="flex size-20 items-center justify-center rounded-full bg-yellow-500/10">
-            <HugeiconsIcon
-              icon={StarIcon}
-              className="size-10 fill-yellow-500 text-yellow-500"
-            />
+      <main className="min-h-screen bg-black pt-24 pb-16">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
+          <div className="flex min-h-[50vh] flex-col items-center justify-center space-y-6 text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-yellow-500/10">
+              <HugeiconsIcon
+                icon={StarIcon}
+                className="size-10 fill-yellow-500 text-yellow-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-white">
+                Not enough data yet
+              </h1>
+              <p className="max-w-md text-muted-foreground">
+                Rate 3+ movies or shows you love (8/10 or higher) to unlock
+                personalized recommendations here!
+              </p>
+            </div>
+            <Button asChild size="lg" variant="secondary" className="mt-4">
+              <Link href="/discover">Explore & Rate</Link>
+            </Button>
           </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">
-              Not enough data yet
-            </h1>
-            <p className="max-w-md text-muted-foreground">
-              Rate 3+ movies or shows you love (8/10 or higher) to unlock
-              personalized recommendations here!
-            </p>
-          </div>
-          <Button asChild size="lg" variant="secondary" className="mt-4">
-            <Link href="/discover">Explore & Rate</Link>
-          </Button>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="container mx-auto px-4 pt-24 pb-16">
+    <main className="min-h-screen bg-black pt-32 pb-16">
       {/* Page Header */}
-      <div className="mb-10">
+      <div className="mx-auto mb-10 max-w-[1800px] px-4 sm:px-8 lg:px-12">
         <div className="flex items-center gap-3">
           <HugeiconsIcon icon={SparklesIcon} className="size-8 text-primary" />
           <h1 className="text-3xl font-bold text-white">Just For You</h1>
@@ -124,35 +159,45 @@ export default function ForYouPage() {
         </p>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-4">
         {/* Personalized Sections - "Because you loved X" */}
         {sections.map((section) => (
-          <Section
+          <section
             key={`${section.seed.mediaType}-${section.seed.id}`}
-            title={`Because you loved ${section.seed.title}`}
+            className="py-8"
           >
-            {section.isLoading ? (
-              <div className="flex gap-4 overflow-hidden">
-                {[1, 2, 3, 4, 5].map((j) => (
-                  <Skeleton
-                    key={j}
-                    className="h-[240px] w-[160px] shrink-0 rounded-xl"
-                  />
-                ))}
-              </div>
-            ) : (
-              <ScrollableRow className="pb-2">
-                {section.recommendations.slice(0, 15).map((item) => (
-                  <div
-                    key={`${item.media_type}-${item.id}`}
-                    className="w-[140px] shrink-0 sm:w-[160px]"
-                  >
-                    <MediaCardWithActions media={item} />
-                  </div>
-                ))}
-              </ScrollableRow>
-            )}
-          </Section>
+            {/* Custom header with highlighted title */}
+            <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
+              <h2 className="text-xl font-bold text-white sm:text-2xl">
+                Because you loved{" "}
+                <span className="text-primary">{section.seed.title}</span>
+              </h2>
+            </div>
+            {/* Content */}
+            <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
+              {section.isLoading ? (
+                <div className="flex gap-4 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <Skeleton
+                      key={j}
+                      className="h-[240px] w-[160px] shrink-0 rounded-xl"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <ScrollableRow className="pb-2">
+                  {section.recommendations.slice(0, 20).map((item) => (
+                    <div
+                      key={`${item.media_type}-${item.id}`}
+                      className="w-[140px] shrink-0 sm:w-[160px]"
+                    >
+                      <MediaCardWithActions media={item} />
+                    </div>
+                  ))}
+                </ScrollableRow>
+              )}
+            </div>
+          </section>
         ))}
 
         {/* Hidden Gems Section */}

@@ -17,9 +17,6 @@ const MIN_RATING_THRESHOLD = 8
 /** Maximum number of seed items to use for recommendations */
 const MAX_SEEDS = 5
 
-/** Maximum popularity score for hidden gems */
-const HIDDEN_GEMS_MAX_POPULARITY = 50
-
 /** Seed item extracted from user ratings */
 interface Seed {
   id: number
@@ -40,10 +37,10 @@ export interface RecommendationSection {
  * Includes hidden gems and trending fallback for users with limited data.
  */
 export function useForYouRecommendations() {
-  const { user } = useAuth()
+  const { user, loading: isAuthLoading } = useAuth()
   const { ratings, loading: isLoadingRatings } = useRatings()
 
-  const isGuest = !user || user.isAnonymous
+  const isGuest = !isAuthLoading && (!user || user.isAnonymous)
 
   // Extract seeds from highly-rated movies/TV shows
   const seeds = useMemo((): Seed[] => {
@@ -76,18 +73,12 @@ export function useForYouRecommendations() {
   })
 
   // Build sections from seeds and their recommendations
+  // No filtering applied to recommendation results (matches mobile behavior)
   const sections = useMemo((): RecommendationSection[] => {
     return seeds
       .map((seed, i) => ({
         seed,
-        recommendations: (recommendationQueries[i]?.data || []).filter(
-          (item): item is TMDBMedia =>
-            item !== null &&
-            typeof item === "object" &&
-            "id" in item &&
-            item.popularity !== undefined &&
-            item.popularity < HIDDEN_GEMS_MAX_POPULARITY === false,
-        ),
+        recommendations: (recommendationQueries[i]?.data || []) as TMDBMedia[],
         isLoading: recommendationQueries[i]?.isLoading ?? false,
       }))
       .filter((s) => s.recommendations.length > 0 || s.isLoading)
@@ -124,6 +115,8 @@ export function useForYouRecommendations() {
     trendingMovies: trendingData || [],
     /** Overall loading state */
     isLoading,
+    /** Whether auth is still loading */
+    isAuthLoading,
     /** Whether user has rated enough content */
     hasEnoughData,
     /** Whether trending fallback should be shown */
