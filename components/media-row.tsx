@@ -5,6 +5,7 @@ import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { ViewAllLink } from "@/components/ui/view-all-link"
+import { useContentFilter } from "@/hooks/use-content-filter"
 import type { TMDBMedia } from "@/types/tmdb"
 
 interface MediaRowProps {
@@ -31,11 +32,12 @@ export function MediaRow({
   limit,
   showActions = false,
 }: MediaRowProps) {
-  if (!items) return null
+  // Filter out watched content
+  const filteredItems = useContentFilter(items)
 
   // Default limits: 7 for grid, all items for scrollable
-  const displayLimit = limit ?? (scrollable ? items.length : 7)
-  const displayItems = items.slice(0, displayLimit)
+  const displayLimit = limit ?? (scrollable ? filteredItems.length : 7)
+  const displayItems = filteredItems.slice(0, displayLimit)
 
   // Choose which card component to render
   const CardComponent = showActions ? MediaCardWithActions : MediaCard
@@ -45,9 +47,13 @@ export function MediaRow({
       title={title}
       headerExtra={href ? <ViewAllLink href={href} /> : undefined}
     >
-      {items.length === 0 ? (
-        <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 text-gray-400">
-          <p>No items in this list</p>
+      {filteredItems.length === 0 ? (
+        <div className="flex h-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/5 px-4 text-center text-gray-400">
+          <p>
+            {items.length > 0
+              ? "All items in this list are hidden based on your preferences."
+              : "No items in this list"}
+          </p>
         </div>
       ) : scrollable ? (
         /* Horizontal Scroll Layout */

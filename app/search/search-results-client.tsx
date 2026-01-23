@@ -15,6 +15,7 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
 import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
+import { useContentFilter } from "@/hooks/use-content-filter"
 import { debounceWithCancel } from "@/lib/debounce"
 import { cn } from "@/lib/utils"
 import type {
@@ -199,6 +200,15 @@ export function SearchResultsClient({
     [filteredResults, searchResultToMedia],
   )
 
+  // Filter out watched content
+  const filteredTransformedMedia = useContentFilter(
+    transformedMedia.map((item) => ({
+      ...item,
+      // Map to id for filtering
+      id: item.media.id,
+    })),
+  )
+
   // Get count for each tab
   const counts = useMemo(() => {
     const tabCounts: Record<TabType, number> = {
@@ -270,9 +280,9 @@ export function SearchResultsClient({
             className="size-8 animate-spin text-primary"
           />
         </div>
-      ) : transformedMedia.length > 0 ? (
+      ) : filteredTransformedMedia.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {transformedMedia.map(({ result, media }, index) =>
+          {filteredTransformedMedia.map(({ result, media }, index) =>
             result.media_type === "person" ? (
               <PersonSearchCard
                 key={`person-${result.id}`}
