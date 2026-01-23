@@ -2,6 +2,8 @@
 
 import {
   fetchDiscoverHiddenGems,
+  fetchFullTVDetails,
+  fetchMovieDetails,
   fetchRecommendations,
   fetchTrendingWeek,
 } from "@/app/actions"
@@ -17,7 +19,14 @@ const MIN_RATING_THRESHOLD = 8
 /** Maximum number of seed items to use for recommendations */
 const MAX_SEEDS = 5
 
-/** Seed item extracted from user ratings */
+/** Preliminary seed with nullable title (null = needs TMDB fetch) */
+interface PreliminarySeed {
+  id: number
+  mediaType: "movie" | "tv"
+  title: string | null
+}
+
+/** Seed item with resolved title */
 interface Seed {
   id: number
   mediaType: "movie" | "tv"
@@ -42,8 +51,8 @@ export function useForYouRecommendations() {
 
   const isGuest = !isAuthLoading && (!user || user.isAnonymous)
 
-  // Extract seeds from highly-rated movies/TV shows
-  const seeds = useMemo((): Seed[] => {
+  // Step 1: Extract preliminary seeds (title may be null if missing from rating)
+  const preliminarySeeds = useMemo((): PreliminarySeed[] => {
     if (isGuest || ratings.size === 0) return []
 
     return Array.from(ratings.values())
@@ -55,25 +64,69 @@ export function useForYouRecommendations() {
       .map((r) => ({
         id: Number(r.mediaId),
         mediaType: r.mediaType as "movie" | "tv",
-        title: r.title || "Unknown",
+        title: r.title || null, // null indicates title needs fetching
       }))
   }, [ratings, isGuest])
 
-  const hasEnoughData = seeds.length > 0
-  const needsFallback = seeds.length < 3
+  // Step 2: Fetch missing titles from TMDB
+  const seedsNeedingTitles = preliminarySeeds.filter((s) => s.title === null)
+
+  const titleQueries = useQueries({
+    queries: seedsNeedingTitles.map((seed) => ({
+      queryKey: ["seed-title", seed.mediaType, seed.id],
+      queryFn: async (): Promise<{ id: number; title: string } | null> => {
+        if (seed.mediaType === "movie") {
+          const movie = await fetchMovieDetails(seed.id)
+          return movie ? { id: seed.id, title: movie.title } : null
+        } else {
+          const show = await fetchFullTVDetails(seed.id)
+          return show ? { id: seed.id, title: show.name } : null
+        }
+      },
+      enabled: !isGuest && seed.title === null,
+      staleTime: Infinity, // Titles don't change
+    })),
+  })
+
+  const isLoadingTitles = titleQueries.some((q) => q.isLoading)
+
+  // Step 3: Build title lookup map from fetched results
+  const fetchedTitlesMap = useMemo(() => {
+    const map = new Map<number, string>()
+    titleQueries.forEach((query) => {
+      if (query.data) {
+        map.set(query.data.id, query.data.title)
+      }
+    })
+    return map
+  }, [titleQueries])
+
+  // Step 4: Resolve final seeds with proper titles (filter out unresolved)
+  const seeds = useMemo((): Seed[] => {
+    return preliminarySeeds
+      .map((seed) => ({
+        id: seed.id,
+        mediaType: seed.mediaType,
+        // Priority: stored title > fetched title > null (will be filtered)
+        title: seed.title || fetchedTitlesMap.get(seed.id) || null,
+      }))
+      .filter((s): s is Seed => s.title !== null) // Only include seeds with resolved titles
+  }, [preliminarySeeds, fetchedTitlesMap])
+
+  const hasEnoughData = preliminarySeeds.length > 0
+  const needsFallback = preliminarySeeds.length < 3
 
   // Fetch recommendations for each seed in parallel
   const recommendationQueries = useQueries({
     queries: seeds.map((seed) => ({
       queryKey: ["for-you", "recommendations", seed.mediaType, seed.id],
       queryFn: () => fetchRecommendations(seed.id, seed.mediaType),
-      enabled: !isGuest,
+      enabled: !isGuest && seed.title !== null,
       staleTime: 1000 * 60 * 10, // 10 minutes
     })),
   })
 
   // Build sections from seeds and their recommendations
-  // No filtering applied to recommendation results (matches mobile behavior)
   const sections = useMemo((): RecommendationSection[] => {
     return seeds
       .map((seed, i) => ({
@@ -102,6 +155,7 @@ export function useForYouRecommendations() {
 
   const isLoading =
     isLoadingRatings ||
+    isLoadingTitles ||
     recommendationQueries.some((q) => q.isLoading) ||
     isLoadingHiddenGems ||
     isLoadingTrending
