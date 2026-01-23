@@ -140,6 +140,14 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Hide watched content"
+            description="Remove watched movies and shows from search and discovery lists"
+            checked={preferences.hideWatchedContent}
+            onChange={(value) => updatePreference("hideWatchedContent", value)}
+            isPremium={isPremium}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Blur movie and TV plot"
             description="Hide plot summaries by default to avoid spoilers. Hover to reveal."
             checked={preferences.blurPlotSpoilers}

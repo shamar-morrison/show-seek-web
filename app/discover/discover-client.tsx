@@ -19,6 +19,7 @@ import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
 import { useAuth } from "@/context/auth-context"
+import { useContentFilter } from "@/hooks/use-content-filter"
 import { useTrailer } from "@/hooks/use-trailer"
 import type {
   Genre,
@@ -171,6 +172,7 @@ export function DiscoverClient({
 
   // Results come from server via initialResults and update on navigation
   const results = initialResults
+  const filteredResults = useContentFilter(results.results)
 
   // Handle watch trailer for a media item
   const handleWatchTrailer = useCallback(
@@ -400,9 +402,9 @@ export function DiscoverClient({
           )}
 
           {/* Results Grid */}
-          {!isPending && results.results.length > 0 && (
+          {!isPending && filteredResults.length > 0 && (
             <div className="mb-12 grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-              {results.results.map((media) => (
+              {filteredResults.map((media) => (
                 <MediaCardWithActions
                   key={`${media.media_type}-${media.id}`}
                   media={media}
@@ -416,7 +418,7 @@ export function DiscoverClient({
           )}
 
           {/* Empty State */}
-          {!isPending && results.results.length === 0 && (
+          {!isPending && filteredResults.length === 0 && (
             <Empty className="py-20">
               <EmptyMedia variant="icon">
                 <HugeiconsIcon icon={Search01Icon} className="size-6" />

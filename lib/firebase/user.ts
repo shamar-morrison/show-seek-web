@@ -19,6 +19,7 @@ export interface UserPreferences {
   blurPlotSpoilers: boolean
   showMediaPreviewCards: boolean
   quickMarkAsWatched: boolean
+  hideWatchedContent: boolean
   homeScreenLists?: HomeScreenListItem[]
 }
 
@@ -29,6 +30,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   blurPlotSpoilers: false,
   showMediaPreviewCards: false,
   quickMarkAsWatched: false,
+  hideWatchedContent: false,
 }
 
 export interface UserDocument {
