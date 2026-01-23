@@ -1,6 +1,7 @@
 "use server"
 
 import {
+  discoverMedia,
   getBestTrailer,
   getCollectionDetails,
   getMediaImages,
@@ -9,10 +10,12 @@ import {
   getRecommendations,
   getReviews,
   getSeasonDetails,
+  getTrendingMedia,
   getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
 import { getTraktMediaComments } from "@/lib/trakt"
+import type { TMDBMedia } from "@/types/tmdb"
 
 /**
  * Server action to search for media.
@@ -219,6 +222,41 @@ export async function fetchTraktReviews(
     return await getTraktMediaComments(mediaId, mediaType)
   } catch (error) {
     console.error("Server Action: Failed to fetch Trakt reviews", error)
+    return []
+  }
+}
+
+/**
+ * Fetch hidden gems (high-rated, low-popularity movies).
+ * Used for the "Hidden Gems" section in For You recommendations.
+ */
+export async function fetchDiscoverHiddenGems(): Promise<TMDBMedia[]> {
+  try {
+    const res = await discoverMedia({
+      mediaType: "movie",
+      sortBy: "top_rated",
+      rating: 7.5,
+    })
+    // Filter for low popularity (hidden gems)
+    return res.results
+      .filter((m) => m.popularity < 50)
+      .slice(0, 20)
+      .map((m) => ({ ...m, media_type: "movie" as const }))
+  } catch (error) {
+    console.error("Server Action: Failed to fetch hidden gems", error)
+    return []
+  }
+}
+
+/**
+ * Fetch trending content for the week.
+ * Used as fallback in For You recommendations when user has insufficient data.
+ */
+export async function fetchTrendingWeek(): Promise<TMDBMedia[]> {
+  try {
+    return await getTrendingMedia("week")
+  } catch (error) {
+    console.error("Server Action: Failed to fetch weekly trending", error)
     return []
   }
 }
