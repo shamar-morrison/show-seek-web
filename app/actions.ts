@@ -1,6 +1,7 @@
 "use server"
 
 import {
+  discoverMedia,
   getBestTrailer,
   getCollectionDetails,
   getMediaImages,
@@ -9,10 +10,12 @@ import {
   getRecommendations,
   getReviews,
   getSeasonDetails,
+  getTrendingMedia,
   getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
 import { getTraktMediaComments } from "@/lib/trakt"
+import type { TMDBMedia } from "@/types/tmdb"
 
 /**
  * Server action to search for media.
@@ -227,11 +230,7 @@ export async function fetchTraktReviews(
  * Fetch hidden gems (high-rated, low-popularity movies).
  * Used for the "Hidden Gems" section in For You recommendations.
  */
-export async function fetchDiscoverHiddenGems(): Promise<
-  import("@/types/tmdb").TMDBMedia[]
-> {
-  const { discoverMedia } = await import("@/lib/tmdb")
-
+export async function fetchDiscoverHiddenGems(): Promise<TMDBMedia[]> {
   try {
     const res = await discoverMedia({
       mediaType: "movie",
@@ -253,11 +252,7 @@ export async function fetchDiscoverHiddenGems(): Promise<
  * Fetch trending content for the week.
  * Used as fallback in For You recommendations when user has insufficient data.
  */
-export async function fetchTrendingWeek(): Promise<
-  import("@/types/tmdb").TMDBMedia[]
-> {
-  const { getTrendingMedia } = await import("@/lib/tmdb")
-
+export async function fetchTrendingWeek(): Promise<TMDBMedia[]> {
   try {
     return await getTrendingMedia("week")
   } catch (error) {

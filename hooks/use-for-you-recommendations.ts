@@ -91,15 +91,17 @@ export function useForYouRecommendations() {
   const isLoadingTitles = titleQueries.some((q) => q.isLoading)
 
   // Step 3: Build title lookup map from fetched results
+  // Extract just the data values to stabilize the dependency
+  const queryDataValues = titleQueries.map((q) => q.data)
   const fetchedTitlesMap = useMemo(() => {
     const map = new Map<number, string>()
-    titleQueries.forEach((query) => {
-      if (query.data) {
-        map.set(query.data.id, query.data.title)
+    queryDataValues.forEach((data) => {
+      if (data) {
+        map.set(data.id, data.title)
       }
     })
     return map
-  }, [titleQueries])
+  }, [queryDataValues])
 
   // Step 4: Resolve final seeds with proper titles (filter out unresolved)
   const seeds = useMemo((): Seed[] => {
@@ -123,7 +125,7 @@ export function useForYouRecommendations() {
     queries: seeds.map((seed) => ({
       queryKey: ["for-you", "recommendations", seed.mediaType, seed.id],
       queryFn: () => fetchRecommendations(seed.id, seed.mediaType),
-      enabled: !isGuest && seed.title !== null,
+      enabled: !isGuest,
       staleTime: 1000 * 60 * 10, // 10 minutes
     })),
   })
