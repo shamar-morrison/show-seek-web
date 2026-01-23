@@ -25,7 +25,7 @@ export default function ForYouPage() {
     trendingMovies,
     isLoading,
     isAuthLoading,
-    hasEnoughData,
+    hasNoQualifyingRatings,
     needsFallback,
     isGuest,
   } = useForYouRecommendations()
@@ -91,7 +91,7 @@ export default function ForYouPage() {
   // Loading State
   if (isLoading && sections.length === 0) {
     return (
-      <main className="min-h-screen bg-black pt-24 pb-16">
+      <main className="min-h-screen bg-black pt-32 pb-16">
         <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
           <div className="mb-8">
             <Skeleton className="h-10 w-48" />
@@ -116,8 +116,8 @@ export default function ForYouPage() {
     )
   }
 
-  // Empty State - not enough ratings
-  if (!hasEnoughData && !needsFallback) {
+  // Empty State - user has no qualifying high-rated items
+  if (hasNoQualifyingRatings) {
     return (
       <main className="min-h-screen bg-black pt-24 pb-16">
         <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">

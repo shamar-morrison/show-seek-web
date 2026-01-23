@@ -113,8 +113,10 @@ export function useForYouRecommendations() {
       .filter((s): s is Seed => s.title !== null) // Only include seeds with resolved titles
   }, [preliminarySeeds, fetchedTitlesMap])
 
-  const hasEnoughData = preliminarySeeds.length > 0
-  const needsFallback = preliminarySeeds.length < 3
+  // Detect empty state (no qualifying high-rated items)
+  const hasNoQualifyingRatings = preliminarySeeds.length === 0
+  const needsFallback =
+    preliminarySeeds.length > 0 && preliminarySeeds.length < 3
 
   // Fetch recommendations for each seed in parallel
   const recommendationQueries = useQueries({
@@ -141,7 +143,7 @@ export function useForYouRecommendations() {
   const { data: hiddenGemsData, isLoading: isLoadingHiddenGems } = useQuery({
     queryKey: ["for-you", "hidden-gems"],
     queryFn: fetchDiscoverHiddenGems,
-    enabled: !isGuest && hasEnoughData,
+    enabled: !isGuest && !hasNoQualifyingRatings,
     staleTime: 1000 * 60 * 30, // 30 minutes
   })
 
@@ -171,8 +173,8 @@ export function useForYouRecommendations() {
     isLoading,
     /** Whether auth is still loading */
     isAuthLoading,
-    /** Whether user has rated enough content */
-    hasEnoughData,
+    /** Whether user has no qualifying high-rated items */
+    hasNoQualifyingRatings,
     /** Whether trending fallback should be shown */
     needsFallback,
     /** Whether user is a guest */
