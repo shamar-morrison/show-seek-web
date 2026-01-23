@@ -15,12 +15,15 @@ export const useContentFilter = <T extends MediaItem>(
 ): T[] => {
   const { preferences } = usePreferences()
   const { lists } = useLists()
-  const { user } = useAuth()
+  const { user, isPremium } = useAuth()
 
   return useMemo(() => {
     // 1. Safety checks
     if (!items || !items.length) return []
     if (!user) return items // Don't filter for guests
+    
+    // Premium feature check
+    if (!isPremium) return items
 
     // 2. Check preference
     if (!preferences.hideWatchedContent) return items

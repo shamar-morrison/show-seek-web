@@ -144,6 +144,7 @@ export function ProfilePageClient() {
             description="Remove watched movies and shows from search and discovery lists"
             checked={preferences.hideWatchedContent}
             onChange={(value) => updatePreference("hideWatchedContent", value)}
+            premiumRequired
             isPremium={isPremium}
           />
           <div className="mx-4 border-t border-white/10" />
