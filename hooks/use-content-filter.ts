@@ -41,5 +41,5 @@ export const useContentFilter = <T extends MediaItem>(
 
     // 5. Filter
     return items.filter((item) => !watchedIds.has(item.id))
-  }, [items, preferences.hideWatchedContent, lists, user])
+  }, [items, preferences.hideWatchedContent, lists, user, isPremium])
 }
