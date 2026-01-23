@@ -55,6 +55,11 @@ const discoverLink: SimpleNavItem = {
   href: "/discover",
 }
 
+const forYouLink: SimpleNavItem = {
+  label: "For You",
+  href: "/for-you",
+}
+
 /** Chevron icon for dropdown indicators */
 function ChevronDownIcon(props: React.ComponentProps<"svg">) {
   return (
@@ -239,6 +244,18 @@ export function Navbar() {
                   </NavLink>
                 </NavigationMenu.Item>
 
+                {/* For You - Authenticated Only */}
+                {isAuthenticated && (
+                  <NavigationMenu.Item>
+                    <NavLink
+                      href={forYouLink.href}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                    >
+                      {forYouLink.label}
+                    </NavLink>
+                  </NavigationMenu.Item>
+                )}
+
                 {isAuthenticated && (
                   <>
                     {/* Lists - Dropdown */}
@@ -336,6 +353,17 @@ export function Navbar() {
             >
               {discoverLink.label}
             </Link>
+
+            {/* For You - Mobile (Authenticated Only) */}
+            {isAuthenticated && (
+              <Link
+                href={forYouLink.href}
+                onClick={closeMobileMenu}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {forYouLink.label}
+              </Link>
+            )}
 
             {isAuthenticated && (
               <>
