@@ -152,34 +152,75 @@ export function EpisodeRatingModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Star Rating */}
+        {/* Star Rating - 10 stars with half-star support */}
         <div className="py-6">
           <div
-            className="flex items-center justify-center gap-1"
+            className="flex items-center justify-center gap-0.5"
             onMouseLeave={handleMouseLeave}
           >
             {Array.from({ length: 10 }, (_, i) => {
-              const starValue = i + 1
-              const isFilled = starValue <= displayRating
+              const starIndex = i + 1
+              // Left half = x.5 rating (minimum 1), Right half = whole rating
+              // Star 1: left=1, right=1 | Star 2: left=1.5, right=2 | Star 3: left=2.5, right=3 | etc.
+              const halfValue = Math.max(1, starIndex - 0.5) // 1, 1.5, 2.5, 3.5, ..., 9.5
+              const fullValue = starIndex // 1, 2, 3, ..., 10
+
+              // Determine fill state based on displayRating
+              const isFull = displayRating >= fullValue
+              const isHalf =
+                !isFull &&
+                displayRating >= halfValue &&
+                displayRating < fullValue
 
               return (
-                <button
-                  key={starValue}
-                  type="button"
-                  className="group p-1 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
-                  onClick={() => handleStarClick(starValue)}
-                  onMouseEnter={() => handleStarHover(starValue)}
-                  aria-label={`Rate ${starValue} out of 10`}
-                >
+                <div key={starIndex} className="relative">
+                  {/* Base empty star */}
                   <HugeiconsIcon
                     icon={StarIcon}
-                    className={`size-7 transition-colors ${
-                      isFilled
-                        ? "fill-yellow-500 text-yellow-500"
-                        : "text-gray-500 group-hover:text-yellow-500/50"
-                    }`}
+                    className="size-7 text-gray-600 transition-colors"
                   />
-                </button>
+
+                  {/* Half-filled overlay (left side) */}
+                  {isHalf && (
+                    <div
+                      className="absolute inset-0 overflow-hidden"
+                      style={{ clipPath: "inset(0 50% 0 0)" }}
+                    >
+                      <HugeiconsIcon
+                        icon={StarIcon}
+                        className="size-7 fill-yellow-500 text-yellow-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Full-filled overlay */}
+                  {isFull && (
+                    <div className="absolute inset-0">
+                      <HugeiconsIcon
+                        icon={StarIcon}
+                        className="size-7 fill-yellow-500 text-yellow-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Clickable left half (half rating) */}
+                  <button
+                    type="button"
+                    className="absolute inset-0 w-1/2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-l-sm"
+                    onClick={() => handleStarClick(halfValue)}
+                    onMouseEnter={() => handleStarHover(halfValue)}
+                    aria-label={`Rate ${halfValue} out of 10`}
+                  />
+
+                  {/* Clickable right half (full rating) */}
+                  <button
+                    type="button"
+                    className="absolute inset-0 left-1/2 w-1/2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-r-sm"
+                    onClick={() => handleStarClick(fullValue)}
+                    onMouseEnter={() => handleStarHover(fullValue)}
+                    aria-label={`Rate ${fullValue} out of 10`}
+                  />
+                </div>
               )
             })}
           </div>
