@@ -353,7 +353,12 @@ export function MediaDetailHero({
                 <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                   {/* Genres */}
                   {genres.slice(0, 3).map((genre: Genre) => (
-                    <Badge key={genre.id}>{genre.name}</Badge>
+                    <Link
+                      key={genre.id}
+                      href={`/discover?type=${mediaType}&genre=${genre.id}`}
+                    >
+                      <Badge>{genre.name}</Badge>
+                    </Link>
                   ))}
                 </div>
 
