@@ -33,7 +33,6 @@ import {
   Tv01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useMemo, useState } from "react"
 
@@ -302,12 +301,10 @@ export function MediaDetailHero({
         {/* Background Backdrop Image */}
         {backdropUrl && (
           <div className="absolute inset-0">
-            <Image
+            <img
               src={backdropUrl}
               alt={title}
-              fill
-              priority
-              className="object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               sizes="100vw"
             />
           </div>
@@ -326,12 +323,10 @@ export function MediaDetailHero({
               <div className="mx-auto shrink-0 lg:mx-0">
                 {posterUrl ? (
                   <div className="relative aspect-2/3 w-48 overflow-hidden rounded-xl shadow-2xl sm:w-56 lg:w-64">
-                    <Image
+                    <img
                       src={posterUrl}
                       alt={`${title} poster`}
-                      fill
-                      priority
-                      className="object-cover"
+                      className="absolute inset-0 h-full w-full object-cover"
                       sizes="(max-width: 1024px) 224px, 256px"
                     />
                   </div>

@@ -34,7 +34,6 @@ import {
   Time01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -210,12 +209,10 @@ export function EpisodeDetailClient({
         {/* Background Backdrop Image */}
         {stillUrl && (
           <div className="absolute inset-0">
-            <Image
+            <img
               src={stillUrl}
               alt={episode.name}
-              fill
-              priority
-              className="object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               sizes="100vw"
             />
           </div>
@@ -244,12 +241,10 @@ export function EpisodeDetailClient({
                 {posterUrl ? (
                   <Link href={`/tv/${tvShowId}`}>
                     <div className="relative aspect-2/3 w-48 overflow-hidden rounded-xl shadow-2xl sm:w-56 lg:w-64">
-                      <Image
+                      <img
                         src={posterUrl}
                         alt={tvShow.name}
-                        fill
-                        priority
-                        className="object-cover transition-transform duration-300 hover:scale-105"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                         sizes="(max-width: 1024px) 224px, 256px"
                       />
                     </div>
@@ -463,11 +458,10 @@ export function EpisodeDetailClient({
                     }}
                     className="relative aspect-video overflow-hidden rounded-lg transition-transform hover:scale-105"
                   >
-                    <Image
+                    <img
                       src={imgUrl}
                       alt={`Still ${index + 1}`}
-                      fill
-                      className="object-cover"
+                      className="absolute inset-0 h-full w-full object-cover"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     />
                   </button>

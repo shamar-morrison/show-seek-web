@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 
 interface ImageWithFallbackProps {
   /** Image URL (already processed via buildImageUrl) */
@@ -33,16 +32,14 @@ export function ImageWithFallback({
 }: ImageWithFallbackProps) {
   if (src) {
     return (
-      <Image
+      <img
         src={src}
         alt={alt}
-        fill
         className={cn(
-          "object-cover transition-transform duration-300 group-hover:scale-105",
+          "absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105",
           imageClassName,
         )}
         sizes={sizes}
-        priority={priority}
       />
     )
   }

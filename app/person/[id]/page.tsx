@@ -3,7 +3,6 @@ import { PageContainer } from "@/components/page-container"
 import { PersonContent } from "@/components/person-content"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
 import { Metadata } from "next"
-import Image from "next/image"
 import { notFound } from "next/navigation"
 
 interface PersonPageProps {
@@ -86,12 +85,10 @@ export default async function PersonPage({ params }: PersonPageProps) {
               {/* Profile Image */}
               <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-gray-900 shadow-lg">
                 {profileUrl ? (
-                  <Image
+                  <img
                     src={profileUrl}
                     alt={person.name}
-                    fill
-                    className="object-cover"
-                    priority
+                    className="absolute inset-0 h-full w-full object-cover"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 25vw, 20vw"
                   />
                 ) : (

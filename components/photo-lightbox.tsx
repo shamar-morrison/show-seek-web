@@ -8,7 +8,6 @@ import {
   Cancel01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 // Number of thumbnails to show on each side of current
@@ -174,7 +173,7 @@ export function PhotoLightbox({
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
               </div>
             )}
-            <Image
+            <img
               key={imageUrl}
               src={imageUrl}
               alt={`Photo ${currentIndex + 1}`}
@@ -183,7 +182,6 @@ export function PhotoLightbox({
               className={`max-h-[70vh] w-auto object-contain transition-opacity duration-300 ${
                 isImageLoading ? "opacity-0" : "opacity-100"
               }`}
-              priority
               onLoad={() => setLoadedIndex(currentIndex)}
             />
           </div>

@@ -6,7 +6,6 @@ import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useMediaImages } from "@/hooks/use-tmdb-queries"
 import { buildImageUrl } from "@/lib/tmdb"
-import Image from "next/image"
 import { useRef, useState } from "react"
 
 interface PhotosSectionProps {
@@ -87,7 +86,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
                   onClick={() => setLightboxIndex(index)}
                   className="group relative shrink-0 overflow-hidden rounded-lg transition-transform hover:opacity-80"
                 >
-                  <Image
+                  <img
                     src={imageUrl}
                     alt={`Photo ${index + 1}`}
                     width={width}

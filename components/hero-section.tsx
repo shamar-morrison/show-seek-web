@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import type { HeroMedia } from "@/types/tmdb"
 import { InformationCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -88,12 +87,10 @@ export function HeroSection({
             index === displayIndex ? "opacity-100" : "opacity-0",
           )}
         >
-          <Image
+          <img
             src={media.backdropUrl}
             alt={media.title}
-            fill
-            priority={index === 0}
-            className="object-cover object-center"
+            className="absolute inset-0 h-full w-full object-cover object-center"
             sizes="100vw"
           />
         </div>
@@ -123,7 +120,7 @@ export function HeroSection({
             {/* Logo or Title */}
             {currentMedia.logoUrl ? (
               <div className="mb-6">
-                <Image
+                <img
                   src={currentMedia.logoUrl}
                   alt={`${currentMedia.title} logo`}
                   width={350}
@@ -134,7 +131,6 @@ export function HeroSection({
                       ? "drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]"
                       : "drop-shadow-2xl",
                   )}
-                  priority
                 />
               </div>
             ) : (

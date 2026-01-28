@@ -3,7 +3,6 @@
 import type { TraktComment } from "@/types/trakt"
 import { Alert02Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 
 interface TraktReviewCardProps {
   /** Trakt review/comment data */
@@ -32,11 +31,10 @@ export function TraktReviewCard({ review, onClick }: TraktReviewCardProps) {
           {/* Profile Image */}
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-800">
             {avatarUrl ? (
-              <Image
+              <img
                 src={avatarUrl}
                 alt={review.user.username}
-                fill
-                className="object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
                 sizes="40px"
               />
             ) : (

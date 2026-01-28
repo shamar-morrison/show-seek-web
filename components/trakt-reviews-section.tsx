@@ -6,7 +6,6 @@ import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useTraktReviews } from "@/hooks/use-trakt-queries"
 import type { TraktComment } from "@/types/trakt"
-import Image from "next/image"
 import { useRef, useState } from "react"
 
 interface TraktReviewsSectionProps {
@@ -94,7 +93,7 @@ export function TraktReviewsSection({
           {/* Section Header with Trakt Logo */}
           <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
             <div className="flex items-center gap-2">
-              <Image
+              <img
                 src="/trakt-logo.svg"
                 alt="Trakt"
                 width={24}

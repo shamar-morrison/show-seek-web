@@ -1,6 +1,5 @@
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 
 export function Footer() {
@@ -70,7 +69,7 @@ export function Footer() {
             target="_blank"
             href="https://play.google.com/store/apps/details?id=app.horizon.showseek"
           >
-            <Image
+            <img
               src="/google_play.png"
               alt="Get it on Google Play"
               width={165}

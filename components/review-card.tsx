@@ -4,7 +4,6 @@ import { buildAvatarUrl } from "@/lib/tmdb"
 import type { TMDBReview } from "@/types/tmdb"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 
 interface ReviewCardProps {
   /** Review data */
@@ -33,11 +32,10 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
           {/* Profile Image */}
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-800">
             {avatarUrl ? (
-              <Image
+              <img
                 src={avatarUrl}
                 alt={review.author}
-                fill
-                className="object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
                 sizes="40px"
               />
             ) : (

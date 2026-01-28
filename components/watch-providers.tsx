@@ -3,7 +3,6 @@ import type {
   WatchProvider,
   WatchProviders as WatchProvidersType,
 } from "@/types/tmdb"
-import Image from "next/image"
 
 interface WatchProvidersProps {
   /** Watch providers data from TMDB */
@@ -33,7 +32,7 @@ function ProviderLogo({
       title={provider.provider_name}
       className="group relative shrink-0"
     >
-      <Image
+      <img
         src={logoUrl}
         alt={provider.provider_name}
         width={45}

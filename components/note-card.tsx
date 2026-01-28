@@ -17,7 +17,6 @@ import type { Note } from "@/types/note"
 import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { Timestamp } from "firebase/firestore"
-import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useState } from "react"
 
@@ -66,11 +65,10 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
         <Link href={mediaUrl} className="shrink-0">
           <div className="relative aspect-[2/3] w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
             {posterUrl ? (
-              <Image
+              <img
                 src={posterUrl}
                 alt={note.mediaTitle}
-                fill
-                className="object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
                 sizes="80px"
               />
             ) : (

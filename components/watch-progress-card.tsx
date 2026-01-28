@@ -19,7 +19,6 @@ import { buildImageUrl } from "@/lib/tmdb"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import { Delete02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -120,11 +119,10 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
       <Link href={tvUrl} className="shrink-0">
         <div className="relative aspect-2/3 w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
           {posterUrl ? (
-            <Image
+            <img
               src={posterUrl}
               alt={progress.tvShowName}
-              fill
-              className="object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
               sizes="80px"
             />
           ) : (

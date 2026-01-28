@@ -3,7 +3,6 @@ import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBSearchResult } from "@/types/tmdb"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 
 interface SearchResultItemProps {
   result: TMDBSearchResult
@@ -29,11 +28,10 @@ export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
       {/* Image */}
       <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md bg-gray-800">
         {imageUrl ? (
-          <Image
+          <img
             src={imageUrl}
             alt={title}
-            fill
-            className="object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
             sizes="44px"
           />
         ) : (

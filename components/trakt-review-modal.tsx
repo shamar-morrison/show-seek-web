@@ -7,7 +7,6 @@ import {
 import type { TraktComment } from "@/types/trakt"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 
 interface TraktReviewModalProps {
   /** Review to display */
@@ -41,11 +40,10 @@ export function TraktReviewModal({
             {/* Profile Image */}
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-800">
               {avatarUrl ? (
-                <Image
+                <img
                   src={avatarUrl}
                   alt={review.user.username}
-                  fill
-                  className="object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                   sizes="48px"
                 />
               ) : (

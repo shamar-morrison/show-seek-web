@@ -5,7 +5,6 @@ import type { Rating } from "@/types/rating"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 
 interface RatingCardProps {
@@ -53,11 +52,10 @@ export function RatingCard({ rating, media, mediaType }: RatingCardProps) {
         {/* Poster Image */}
         <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
           {posterUrl ? (
-            <Image
+            <img
               src={posterUrl}
               alt={title}
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
             />
           ) : (

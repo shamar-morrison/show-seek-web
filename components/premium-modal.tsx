@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog"
 import { CrownIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import Image from "next/image"
 import Link from "next/link"
 
 interface PremiumModalProps {
@@ -45,13 +44,12 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
               rel="noopener noreferrer"
               className="transition-transform hover:scale-105 active:scale-95"
             >
-              <Image
+              <img
                 src="/google_play.png"
                 alt="Get it on Google Play"
                 width={200}
                 height={59}
                 className="h-auto w-[200px]"
-                priority
               />
             </Link>
 
