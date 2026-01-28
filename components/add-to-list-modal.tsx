@@ -174,6 +174,11 @@ export function AddToListModal({
 
     try {
       const promises: Promise<void | boolean>[] = []
+      // Track operations for undo
+      type UndoOperation =
+        | { type: "add"; listId: string }
+        | { type: "remove"; listId: string }
+      const undoOps: UndoOperation[] = []
 
       // Build media item for adding - only include defined values
       const mediaItem: Record<string, unknown> = {
@@ -220,14 +225,52 @@ export function AddToListModal({
               >,
             ),
           )
+          undoOps.push({ type: "remove", listId: list.id })
         } else if (wasInList && !isNowSelected) {
           // Remove from list
           promises.push(removeFromList(user.uid, list.id, String(mediaId)))
+          undoOps.push({ type: "add", listId: list.id })
         }
       })
 
       await Promise.all(promises)
-      toast.success(`Updated lists for ${title}`)
+      toast.success(`Updated lists for ${title}`, {
+        action:
+          undoOps.length > 0
+            ? {
+                label: "Undo",
+                onClick: async () => {
+                  try {
+                    const undoPromises = undoOps.map((op) => {
+                      if (op.type === "add") {
+                        // Re-add the item
+                        return addToList(
+                          user.uid,
+                          op.listId,
+                          mediaItem as Omit<
+                            import("@/types/list").ListMediaItem,
+                            "addedAt"
+                          >,
+                        )
+                      } else {
+                        // Remove the item
+                        return removeFromList(
+                          user.uid,
+                          op.listId,
+                          String(mediaId),
+                        )
+                      }
+                    })
+                    await Promise.all(undoPromises)
+                    toast.success("Changes undone")
+                  } catch (err) {
+                    console.error("Undo failed", err)
+                    toast.error("Failed to undo changes")
+                  }
+                },
+              }
+            : undefined,
+      })
       handleClose()
     } catch (error) {
       console.error("Error saving lists:", error)
