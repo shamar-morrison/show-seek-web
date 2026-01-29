@@ -1,18 +1,18 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import {
   CrownIcon,
-  Playlist01Icon,
-  ViewOffIcon,
   FilterHorizontalIcon,
+  Playlist01Icon,
   StarIcon,
+  ViewOffIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
@@ -95,7 +95,7 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
               className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold h-12 rounded-full"
             >
               <Link
-                href="https://showseek.app/upgrade-dummy"
+                href="https://buy.polar.sh/polar_cl_zFsOCMhpAienmjTBDYouKHSQZpfZPb3JMFsxy1cxSoI"
                 target="_blank"
                 rel="noopener noreferrer"
               >
