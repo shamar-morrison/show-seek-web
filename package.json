@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NEXT_PRIVATE_WORKER_THREADS=1 NODE_OPTIONS=\"--max-old-space-size=4096\" next dev --webpack",
+    "dev:https": "NEXT_PRIVATE_WORKER_THREADS=1 NODE_OPTIONS=\"--max-old-space-size=4096\" next dev --experimental-https --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
