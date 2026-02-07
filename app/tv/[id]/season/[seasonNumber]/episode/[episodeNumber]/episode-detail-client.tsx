@@ -135,6 +135,8 @@ export function EpisodeDetailClient({
             avgRuntime: tvShow.episode_run_time?.[0] || 45,
           },
           nextEpisode,
+          preferences.markPreviousEpisodesWatched,
+          season.episodes,
         )
       }
     } catch (error) {
@@ -149,8 +151,10 @@ export function EpisodeDetailClient({
     isWatched,
     tvShowId,
     episode,
+    season.episodes,
     tvShow,
     getNextEpisode,
+    preferences.markPreviousEpisodesWatched,
   ])
 
   // Build image URLs

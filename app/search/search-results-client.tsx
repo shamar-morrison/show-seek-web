@@ -190,23 +190,19 @@ export function SearchResultsClient({
     [results.results, activeTab],
   )
 
+  // Filter out watched + unreleased content
+  const filteredSearchResults = useContentFilter(filteredResults, {
+    applyHideUnreleasedContent: true,
+  })
+
   // Memoize transformed media objects to prevent re-renders
   const transformedMedia = useMemo(
     () =>
-      filteredResults.map((result) => ({
+      filteredSearchResults.map((result) => ({
         result,
         media: searchResultToMedia(result),
       })),
-    [filteredResults, searchResultToMedia],
-  )
-
-  // Filter out watched content
-  const filteredTransformedMedia = useContentFilter(
-    transformedMedia.map((item) => ({
-      ...item,
-      // Map to id for filtering
-      id: item.media.id,
-    })),
+    [filteredSearchResults, searchResultToMedia],
   )
 
   // Get count for each tab
@@ -280,9 +276,9 @@ export function SearchResultsClient({
             className="size-8 animate-spin text-primary"
           />
         </div>
-      ) : filteredTransformedMedia.length > 0 ? (
+      ) : transformedMedia.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {filteredTransformedMedia.map(({ result, media }, index) =>
+          {transformedMedia.map(({ result, media }, index) =>
             result.media_type === "person" ? (
               <PersonSearchCard
                 key={`person-${result.id}`}

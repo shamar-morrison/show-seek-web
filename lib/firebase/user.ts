@@ -15,22 +15,26 @@ export interface HomeScreenListItem {
 export interface UserPreferences {
   autoAddToWatching: boolean
   autoAddToAlreadyWatched: boolean
+  markPreviousEpisodesWatched: boolean
   showListIndicators: boolean
   blurPlotSpoilers: boolean
   showMediaPreviewCards: boolean
   quickMarkAsWatched: boolean
   hideWatchedContent: boolean
+  hideUnreleasedContent: boolean
   homeScreenLists?: HomeScreenListItem[]
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   autoAddToWatching: false,
   autoAddToAlreadyWatched: false,
+  markPreviousEpisodesWatched: false,
   showListIndicators: false,
   blurPlotSpoilers: false,
   showMediaPreviewCards: false,
   quickMarkAsWatched: false,
   hideWatchedContent: false,
+  hideUnreleasedContent: false,
 }
 
 export interface UserDocument {

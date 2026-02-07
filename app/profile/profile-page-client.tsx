@@ -132,6 +132,16 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Mark previous episodes"
+            description="Automatically mark earlier episodes in a season as watched"
+            checked={preferences.markPreviousEpisodesWatched}
+            onChange={(value) =>
+              updatePreference("markPreviousEpisodesWatched", value)
+            }
+            isPremium={isPremium}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Show list indicators"
             description="Display a bookmark badge on cards when an item is in any of your lists"
             checked={preferences.showListIndicators}
@@ -145,6 +155,16 @@ export function ProfilePageClient() {
             checked={preferences.hideWatchedContent}
             onChange={(value) => updatePreference("hideWatchedContent", value)}
             premiumRequired
+            isPremium={isPremium}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
+            label="Hide unreleased content"
+            description="Filter out movies and TV shows that haven't aired yet"
+            checked={preferences.hideUnreleasedContent}
+            onChange={(value) =>
+              updatePreference("hideUnreleasedContent", value)
+            }
             isPremium={isPremium}
           />
           <div className="mx-4 border-t border-white/10" />

@@ -12,6 +12,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   setDoc,
@@ -21,6 +22,10 @@ import {
 // Season type for progress calculation
 interface Season {
   season_number: number
+}
+
+type SeasonEpisodeInput = Pick<Episode, "id" | "episode_number" | "name"> & {
+  air_date: string | null
 }
 
 // Inline helper to extract error message
@@ -123,6 +128,10 @@ class EpisodeTrackingService {
       title: string
       airDate: string | null
     } | null,
+    /** Auto-mark previous episodes in this season (missing ones only) */
+    markPreviousEpisodesWatched = false,
+    /** All episodes in current season for previous-episode auto-marking */
+    seasonEpisodes?: SeasonEpisodeInput[],
   ): Promise<void> {
     try {
       const user = auth.currentUser
@@ -130,21 +139,62 @@ class EpisodeTrackingService {
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
       const episodeKey = this.getEpisodeKey(seasonNumber, episodeNumber)
+      const now = Date.now()
 
       const watchedEpisode: WatchedEpisode = {
         episodeId: episodeData.episodeId,
         tvShowId,
         seasonNumber,
         episodeNumber,
-        watchedAt: Date.now(),
+        watchedAt: now,
         episodeName: episodeData.episodeName,
         episodeAirDate: episodeData.episodeAirDate,
+      }
+
+      const episodesMap: Record<string, WatchedEpisode> = {
+        [episodeKey]: watchedEpisode,
+      }
+
+      if (markPreviousEpisodesWatched && seasonEpisodes?.length) {
+        const snapshot = await this.withTimeout(getDoc(trackingRef))
+        const existingEpisodes: Record<string, unknown> = snapshot.exists()
+          ? ((snapshot.data() as Partial<TVShowEpisodeTracking>).episodes ?? {})
+          : {}
+
+        seasonEpisodes.forEach((seasonEpisode) => {
+          if (seasonEpisode.episode_number >= episodeNumber) return
+
+          const previousEpisodeKey = this.getEpisodeKey(
+            seasonNumber,
+            seasonEpisode.episode_number,
+          )
+
+          if (
+            Object.prototype.hasOwnProperty.call(
+              existingEpisodes,
+              previousEpisodeKey,
+            ) ||
+            Object.prototype.hasOwnProperty.call(episodesMap, previousEpisodeKey)
+          ) {
+            return
+          }
+
+          episodesMap[previousEpisodeKey] = {
+            episodeId: seasonEpisode.id,
+            tvShowId,
+            seasonNumber,
+            episodeNumber: seasonEpisode.episode_number,
+            watchedAt: now,
+            episodeName: seasonEpisode.name,
+            episodeAirDate: seasonEpisode.air_date,
+          }
+        })
       }
 
       const metadata: EpisodeTrackingMetadata = {
         tvShowName: showMetadata.tvShowName,
         posterPath: showMetadata.posterPath,
-        lastUpdated: Date.now(),
+        lastUpdated: now,
         // Include cached stats if provided (undefined values are excluded by Firestore)
         ...(showStats && {
           totalEpisodes: showStats.totalEpisodes,
@@ -158,9 +208,7 @@ class EpisodeTrackingService {
         setDoc(
           trackingRef,
           {
-            episodes: {
-              [episodeKey]: watchedEpisode,
-            },
+            episodes: episodesMap,
             metadata,
           },
           { merge: true },
@@ -218,9 +266,7 @@ class EpisodeTrackingService {
   async markAllEpisodesWatched(
     tvShowId: number,
     seasonNumber: number,
-    episodes: (Pick<Episode, "id" | "episode_number" | "name"> & {
-      air_date: string | null
-    })[],
+    episodes: SeasonEpisodeInput[],
     showMetadata: {
       tvShowName: string
       posterPath: string | null

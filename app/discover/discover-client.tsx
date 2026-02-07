@@ -172,7 +172,9 @@ export function DiscoverClient({
 
   // Results come from server via initialResults and update on navigation
   const results = initialResults
-  const filteredResults = useContentFilter(results.results)
+  const filteredResults = useContentFilter(results.results, {
+    applyHideUnreleasedContent: true,
+  })
 
   // Handle watch trailer for a media item
   const handleWatchTrailer = useCallback(

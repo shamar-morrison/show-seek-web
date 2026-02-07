@@ -113,6 +113,8 @@ export function EpisodeCard({
           },
           showStats,
           nextEpisode,
+          preferences.markPreviousEpisodesWatched,
+          allSeasonEpisodes,
         )
 
         // Auto-add to "Watching" list if preference is enabled
@@ -152,7 +154,9 @@ export function EpisodeCard({
     tvShowPosterPath,
     showStats,
     getNextEpisode,
+    allSeasonEpisodes,
     preferences.autoAddToWatching,
+    preferences.markPreviousEpisodesWatched,
     tvShowVoteAverage,
     tvShowFirstAirDate,
   ])

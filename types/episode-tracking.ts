@@ -21,7 +21,7 @@ export interface WatchedEpisode {
   watchedAt: number
   /** Episode name/title */
   episodeName: string
-  /** Original air date of the episode (ISO string) */
+  /** Original air date of the episode (YYYY-MM-DD) */
   episodeAirDate: string | null
 }
 
