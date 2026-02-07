@@ -10,7 +10,6 @@ interface MediaItem {
   media_type?: "movie" | "tv" | "person" | string
   release_date?: string
   first_air_date?: string
-  [key: string]: unknown
 }
 
 interface ContentFilterOptions {
