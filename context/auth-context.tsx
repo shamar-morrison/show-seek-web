@@ -36,6 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
       setLoading(false)
+
+      // Log user ID in development mode
+      if (process.env.NODE_ENV === "development" && currentUser) {
+        console.log("[Auth] User logged in:", currentUser.uid)
+      }
     })
 
     return unsubscribe
