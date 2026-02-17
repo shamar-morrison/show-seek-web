@@ -107,7 +107,13 @@ export function useWatchedMovies(
             genre_ids: variables.movieData.genreIds,
           })
         } catch (listError) {
-          console.error("Failed to auto-add to Already Watched list:", listError)
+          const movieLabel =
+            variables.movieData.title?.trim() || `movie #${movieId}`
+          const errorDetail =
+            listError instanceof Error ? `: ${listError.message}` : ""
+          toast.error(
+            `Failed to auto-add "${movieLabel}" to Already Watched list${errorDetail}`,
+          )
         }
       }
     },

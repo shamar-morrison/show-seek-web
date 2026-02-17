@@ -28,6 +28,23 @@ function getFirestoreErrorMessage(error: unknown): string {
   return String(error)
 }
 
+function isNotFoundUpdateError(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined
+
+  if (typeof code === "string") {
+    return code === "not-found" || code === "firestore/not-found"
+  }
+
+  const errorMessage = getFirestoreErrorMessage(error)
+  return (
+    errorMessage.includes("No document to update") ||
+    errorMessage.includes("not-found")
+  )
+}
+
 class EpisodeTrackingService {
   /**
    * Get reference to a TV show's episode tracking document
@@ -237,11 +254,7 @@ class EpisodeTrackingService {
       } catch (updateError) {
         // Handle Firestore "not-found" error as a no-op
         // This can happen if the document doesn't exist or was deleted between check and update
-        const errorMessage = getFirestoreErrorMessage(updateError)
-        if (
-          errorMessage.includes("No document to update") ||
-          errorMessage.includes("not-found")
-        ) {
+        if (isNotFoundUpdateError(updateError)) {
           // No tracking data exists, nothing to unwatch - treat as success
           return
         }
@@ -284,11 +297,7 @@ class EpisodeTrackingService {
       try {
         await this.withTimeout(updateDoc(trackingRef, updates))
       } catch (updateError) {
-        const errorMessage = getFirestoreErrorMessage(updateError)
-        if (
-          errorMessage.includes("No document to update") ||
-          errorMessage.includes("not-found")
-        ) {
+        if (isNotFoundUpdateError(updateError)) {
           return
         }
         throw updateError
