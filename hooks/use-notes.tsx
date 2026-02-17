@@ -130,6 +130,9 @@ export function useNotes() {
     [notes],
   )
 
+  const { mutateAsync: saveNoteMutateAsync } = saveNoteMutation
+  const { mutateAsync: removeNoteMutateAsync } = removeNoteMutation
+
   const saveNote = useCallback(
     async (
       mediaType: "movie" | "tv",
@@ -138,7 +141,7 @@ export function useNotes() {
       mediaTitle: string,
       posterPath: string | null,
     ): Promise<void> => {
-      await saveNoteMutation.mutateAsync({
+      await saveNoteMutateAsync({
         mediaType,
         mediaId,
         content,
@@ -146,14 +149,14 @@ export function useNotes() {
         posterPath,
       })
     },
-    [saveNoteMutation],
+    [saveNoteMutateAsync],
   )
 
   const removeNote = useCallback(
     async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
-      await removeNoteMutation.mutateAsync({ mediaType, mediaId })
+      await removeNoteMutateAsync({ mediaType, mediaId })
     },
-    [removeNoteMutation],
+    [removeNoteMutateAsync],
   )
 
   const loading = authLoading || (!!userId && isLoading)

@@ -20,13 +20,10 @@ import { toast } from "sonner"
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
 
 /**
- * Hook for managing user ratings using React Query cached reads.
+ * Read-only ratings data hook used by both list views and full mutation hooks.
  */
-export function useRatings() {
+export function useRatingsData() {
   const { user, loading: authLoading } = useAuth()
-  const { preferences } = usePreferences()
-  const { addToList } = useListMutations()
-  const queryClient = useQueryClient()
 
   const userId = user && !user.isAnonymous ? user.uid : null
   const ratingsQueryKey = userId ? queryKeys.firestore.ratings(userId) : null
@@ -40,6 +37,23 @@ export function useRatings() {
     },
     enabled: !!userId,
   })
+
+  return {
+    ratings,
+    loading: authLoading || (!!userId && isLoading),
+    userId,
+    ratingsQueryKey,
+  }
+}
+
+/**
+ * Hook for managing user ratings using React Query cached reads and mutations.
+ */
+export function useRatings() {
+  const { preferences } = usePreferences()
+  const { addToList } = useListMutations()
+  const queryClient = useQueryClient()
+  const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
 
   const saveRatingMutation = useMutation({
     mutationFn: async (variables: {
@@ -280,7 +294,10 @@ export function useRatings() {
     },
   })
 
-  const loading = authLoading || (!!userId && isLoading)
+  const { mutateAsync: saveRatingAsync } = saveRatingMutation
+  const { mutateAsync: removeRatingAsync } = removeRatingMutation
+  const { mutateAsync: saveEpisodeRatingAsync } = saveEpisodeRatingMutation
+  const { mutateAsync: removeEpisodeRatingAsync } = removeEpisodeRatingMutation
 
   const getRating = useCallback(
     (mediaType: "movie" | "tv", mediaId: number): Rating | null => {
@@ -300,7 +317,7 @@ export function useRatings() {
       releaseDate: string | null = null,
       voteAverage?: number,
     ): Promise<void> => {
-      await saveRatingMutation.mutateAsync({
+      await saveRatingAsync({
         mediaType,
         mediaId,
         rating,
@@ -310,14 +327,14 @@ export function useRatings() {
         voteAverage,
       })
     },
-    [saveRatingMutation],
+    [saveRatingAsync],
   )
 
   const removeRating = useCallback(
     async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
-      await removeRatingMutation.mutateAsync({ mediaType, mediaId })
+      await removeRatingAsync({ mediaType, mediaId })
     },
-    [removeRatingMutation],
+    [removeRatingAsync],
   )
 
   const getEpisodeRating = useCallback(
@@ -343,7 +360,7 @@ export function useRatings() {
       posterPath: string | null,
       episodeAirDate: string | null = null,
     ): Promise<void> => {
-      await saveEpisodeRatingMutation.mutateAsync({
+      await saveEpisodeRatingAsync({
         tvShowId,
         seasonNumber,
         episodeNumber,
@@ -354,7 +371,7 @@ export function useRatings() {
         episodeAirDate,
       })
     },
-    [saveEpisodeRatingMutation],
+    [saveEpisodeRatingAsync],
   )
 
   const removeEpisodeRating = useCallback(
@@ -363,13 +380,13 @@ export function useRatings() {
       seasonNumber: number,
       episodeNumber: number,
     ): Promise<void> => {
-      await removeEpisodeRatingMutation.mutateAsync({
+      await removeEpisodeRatingAsync({
         tvShowId,
         seasonNumber,
         episodeNumber,
       })
     },
-    [removeEpisodeRatingMutation],
+    [removeEpisodeRatingAsync],
   )
 
   return {
@@ -439,7 +456,7 @@ export function useMovieRatings(
   sortBy: RatingSortOption = "ratedAt",
   enabled: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort movie ratings
   const movieRatings = useMemo(() => {
@@ -464,7 +481,7 @@ export function useTVRatings(
   sortBy: RatingSortOption = "ratedAt",
   enabled: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort TV ratings
   const tvRatings = useMemo(() => {
@@ -489,7 +506,7 @@ export function useEpisodeRatings(
   sortBy: RatingSortOption = "ratedAt",
   enabled: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort episode ratings
   const episodeRatings = useMemo(() => {

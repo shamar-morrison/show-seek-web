@@ -36,9 +36,7 @@ export function useLists() {
     error,
   } = useQuery({
     ...queryCacheProfiles.status,
-    queryKey: userId
-      ? queryKeys.firestore.lists(userId)
-      : ["firestore", "lists", "guest"],
+    queryKey: queryKeys.firestore.lists(userId ?? "guest"),
     queryFn: async () => {
       if (!userId) return []
       return fetchUserLists(userId)

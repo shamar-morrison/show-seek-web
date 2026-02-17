@@ -77,7 +77,7 @@ function removeItemFromCachedLists(
   })
 }
 
-function assertUserId(userId: string | undefined): string {
+function assertUserId(userId: string | null): string {
   if (!userId) {
     throw new Error("User must be authenticated")
   }
@@ -87,7 +87,7 @@ function assertUserId(userId: string | undefined): string {
 export function useListMutations() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const userId = user?.isAnonymous ? undefined : user?.uid
+  const userId = user && !user.isAnonymous ? user.uid : null
   const listQueryKey = userId ? queryKeys.firestore.lists(userId) : null
 
   const addToListMutation = useMutation({

@@ -68,6 +68,7 @@ export function useWatchedMovies(
   const addWatchMutation = useMutation({
     mutationFn: async (variables: {
       watchedAt: Date
+      isFirstWatch?: boolean
       movieData: {
         title: string
         posterPath: string | null
@@ -81,8 +82,9 @@ export function useWatchedMovies(
         throw new Error("User must be authenticated to mark as watched")
       }
 
-      const currentCount = await getWatchCount(userId, movieId)
-      const isFirstWatch = currentCount === 0
+      const isFirstWatch =
+        variables.isFirstWatch ??
+        ((await getWatchCount(userId, movieId)) === 0)
 
       await addWatch(userId, movieId, variables.watchedAt)
 
@@ -184,12 +186,13 @@ export function useWatchedMovies(
     ): Promise<void> => {
       await addWatchMutation.mutateAsync({
         watchedAt,
+        isFirstWatch: instances.length === 0,
         movieData,
         autoAddToAlreadyWatched,
       })
       toast.success("Marked as watched")
     },
-    [addWatchMutation],
+    [addWatchMutation, instances.length],
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {

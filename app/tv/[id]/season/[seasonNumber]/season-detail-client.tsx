@@ -49,7 +49,7 @@ export function SeasonDetailClient({
   const { user } = useAuth()
   const { preferences } = usePreferences()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
-  const { markAllEpisodesWatched, markEpisodeUnwatched } =
+  const { markAllEpisodesWatched, markAllEpisodesUnwatched } =
     useEpisodeTrackingMutations()
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const [isUnmarking, setIsUnmarking] = useState(false)
@@ -82,10 +82,13 @@ export function SeasonDetailClient({
   ).length
 
   // Calculate show stats for caching
-  const showStats = {
-    totalEpisodes: tvShow.number_of_episodes,
-    avgRuntime: tvShow.episode_run_time?.[0] || 45,
-  }
+  const showStats = useMemo(
+    () => ({
+      totalEpisodes: tvShow.number_of_episodes,
+      avgRuntime: tvShow.episode_run_time?.[0] || 45,
+    }),
+    [tvShow.number_of_episodes, tvShow.episode_run_time?.[0]],
+  )
 
   // Mark all episodes as watched
   const handleMarkAllWatched = useCallback(async () => {
@@ -166,16 +169,11 @@ export function SeasonDetailClient({
     setShowConfirmDialog(false)
 
     try {
-      // Unmark all aired episodes in parallel
-      await Promise.all(
-        airedEpisodes.map((ep) =>
-          markEpisodeUnwatched({
-            tvShowId,
-            seasonNumber: season.season_number,
-            episodeNumber: ep.episode_number,
-          }),
-        ),
-      )
+      await markAllEpisodesUnwatched({
+        tvShowId,
+        seasonNumber: season.season_number,
+        episodeNumbers: airedEpisodes.map((ep) => ep.episode_number),
+      })
     } catch (error) {
       console.error("Failed to unmark all episodes:", error)
       toast.error("Failed to unmark all episodes. Please try again.")
@@ -186,7 +184,7 @@ export function SeasonDetailClient({
   }, [
     user,
     airedEpisodes,
-    markEpisodeUnwatched,
+    markAllEpisodesUnwatched,
     tvShowId,
     season.season_number,
   ])

@@ -68,6 +68,7 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
       setDialogOpen(false)
     } catch (error) {
       console.error("Failed to remove watch progress:", error)
+    } finally {
       setIsRemoving(false)
     }
   }

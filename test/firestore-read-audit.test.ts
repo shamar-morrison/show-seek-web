@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
+import { pathToFileURL } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 const tempDirs: string[] = []
@@ -82,5 +83,57 @@ describe("firestore-read-audit", () => {
     const payload = JSON.parse(result.stdout)
     expect(payload.policy.pass).toBe(false)
     expect(payload.policy.violations.length).toBeGreaterThan(0)
+  })
+
+  it("ignores operation names inside comments and strings", () => {
+    const tempDir = createTempProject()
+
+    writeFileSync(
+      path.join(tempDir, "context/auth-context.tsx"),
+      "export const x = onSnapshot(docRef, () => {})\n",
+    )
+    writeFileSync(
+      path.join(tempDir, "hooks/use-preferences.ts"),
+      "export const y = onSnapshot(docRef, () => {})\n",
+    )
+    writeFileSync(
+      path.join(tempDir, "hooks/use-fake.ts"),
+      [
+        "// onSnapshot(fakeRef, () => {})",
+        "const msg = \"getDoc(fakeRef)\"",
+        "const template = `getDocs(fakeRef)`",
+      ].join("\n"),
+    )
+
+    const result = runAudit(tempDir)
+    expect(result.status).toBe(0)
+
+    const payload = JSON.parse(result.stdout)
+    expect(payload.totalCallsites).toBe(2)
+    expect(payload.byOperation.getDoc).toBe(0)
+    expect(payload.byOperation.getDocs).toBe(0)
+    expect(payload.byOperation.onSnapshot).toBe(2)
+  })
+
+  it("exports main for import-driven execution", async () => {
+    const scriptPath = path.resolve(process.cwd(), "scripts/firestore-read-audit.mjs")
+    const modulePath = pathToFileURL(scriptPath).href
+    const module = await import(modulePath)
+
+    expect(typeof module.main).toBe("function")
+
+    const tempDir = createTempProject()
+    writeFileSync(
+      path.join(tempDir, "context/auth-context.tsx"),
+      "export const x = onSnapshot(docRef, () => {})\n",
+    )
+    writeFileSync(
+      path.join(tempDir, "hooks/use-preferences.ts"),
+      "export const y = onSnapshot(docRef, () => {})\n",
+    )
+
+    const result = await module.main({ root: tempDir })
+    expect(result.policy.pass).toBe(true)
+    expect(result.output.policy.totalSnapshotListeners).toBe(2)
   })
 })

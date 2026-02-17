@@ -8,12 +8,10 @@ import type {
 } from "@/types/episode-tracking"
 import type { TMDBEpisode as Episode } from "@/types/tmdb"
 import {
-  collection,
   deleteDoc,
   deleteField,
   doc,
   getDoc,
-  getDocs,
   setDoc,
   updateDoc,
 } from "firebase/firestore"
@@ -57,10 +55,15 @@ class EpisodeTrackingService {
     timeoutMs = 10000,
     errorMessage = "Request timed out",
   ): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+      timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
     })
-    return Promise.race([operation, timeoutPromise])
+    return Promise.race([operation, timeoutPromise]).finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    })
   }
 
   /**
@@ -83,8 +86,7 @@ class EpisodeTrackingService {
 
       return snapshot.data() as TVShowEpisodeTracking
     } catch (error) {
-      console.error("[EpisodeTrackingService] Fetch error:", error)
-      return null
+      throw new Error(getFirestoreErrorMessage(error))
     }
   }
 
@@ -241,6 +243,48 @@ class EpisodeTrackingService {
           return
         }
         // Re-throw other errors
+        throw updateError
+      }
+    } catch (error) {
+      throw new Error(getFirestoreErrorMessage(error))
+    }
+  }
+
+  /**
+   * Mark all episodes in a season as unwatched in a single update operation.
+   */
+  async markAllEpisodesUnwatched(
+    tvShowId: number,
+    seasonNumber: number,
+    episodeNumbers: number[],
+  ): Promise<void> {
+    if (episodeNumbers.length === 0) return
+
+    try {
+      const user = auth.currentUser
+      if (!user) throw new Error("Please sign in to continue")
+
+      const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+
+      const updates: Record<string, unknown> = {
+        "metadata.lastUpdated": Date.now(),
+      }
+
+      episodeNumbers.forEach((episodeNumber) => {
+        const key = this.getEpisodeKey(seasonNumber, episodeNumber)
+        updates[`episodes.${key}`] = deleteField()
+      })
+
+      try {
+        await this.withTimeout(updateDoc(trackingRef, updates))
+      } catch (updateError) {
+        const errorMessage = getFirestoreErrorMessage(updateError)
+        if (
+          errorMessage.includes("No document to update") ||
+          errorMessage.includes("not-found")
+        ) {
+          return
+        }
         throw updateError
       }
     } catch (error) {
@@ -412,34 +456,6 @@ class EpisodeTrackingService {
       totalAiredEpisodes,
       percentage,
       seasonProgress,
-    }
-  }
-
-  /**
-   * Get all watched shows for a user
-   */
-  async getAllWatchedShows(userId: string): Promise<TVShowEpisodeTracking[]> {
-    try {
-      const trackingCollectionRef = collection(
-        db,
-        "users",
-        userId,
-        "episode_tracking",
-      )
-
-      const snapshot = await this.withTimeout(getDocs(trackingCollectionRef))
-
-      return snapshot.docs.map((doc) => {
-        const data = doc.data() as TVShowEpisodeTracking
-        // Ensure the ID is included or available if needed, though usually it's in metadata or derived
-        return data
-      })
-    } catch (error) {
-      console.error(
-        "[EpisodeTrackingService] Error fetching all watched shows:",
-        error,
-      )
-      throw new Error(getFirestoreErrorMessage(error))
     }
   }
 

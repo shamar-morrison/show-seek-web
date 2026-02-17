@@ -17,12 +17,18 @@ import { useQuery } from "@tanstack/react-query"
 
 export { tmdbQueryKeys }
 
+const tmdbRefetchOptions = {
+  refetchOnWindowFocus: true,
+  refetchOnMount: true,
+} as const
+
 /**
  * Hook to fetch TV show details for progress calculation
  */
 export function useTVShowDetails(tvShowId: number, enabled = true) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.tvShowDetails(tvShowId),
     queryFn: async (): Promise<TVShowDetailsData | null> => {
       return await fetchTVShowDetails(tvShowId)
@@ -41,6 +47,7 @@ export function useSeasonEpisodes(
 ) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.seasonEpisodes(tvShowId, seasonNumber),
     queryFn: async (): Promise<SeasonEpisodeData[]> => {
       return await fetchSeasonEpisodes(tvShowId, seasonNumber)
@@ -59,6 +66,7 @@ export function useMediaImages(
 ) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.mediaImages(mediaId, mediaType),
     queryFn: async (): Promise<TMDBLogo[]> => {
       const data = await fetchMediaImages(mediaId, mediaType)
@@ -79,6 +87,7 @@ export function useMediaVideos(
 ) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.mediaVideos(mediaId, mediaType),
     queryFn: async (): Promise<TMDBVideo[]> => {
       const data = await fetchMediaVideos(mediaId, mediaType)
@@ -98,6 +107,7 @@ export function useMediaReviews(
 ) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.mediaReviews(mediaId, mediaType),
     queryFn: async (): Promise<TMDBReview[]> => {
       const data = await fetchReviews(mediaId, mediaType)
@@ -117,6 +127,7 @@ export function useRecommendations(
 ) {
   return useQuery({
     ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.recommendations(mediaId, mediaType),
     queryFn: async (): Promise<TMDBMedia[]> => {
       const data = await fetchRecommendations(mediaId, mediaType)

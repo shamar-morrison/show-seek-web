@@ -73,12 +73,11 @@ function computeProgressFromCache(
   )
   const lastWatched = sortedByTime[0]
 
-  const totalEpisodes = metadata.totalEpisodes ?? 0
-  const avgRuntime = metadata.avgRuntime ?? DEFAULT_AVG_RUNTIME
   const watchedCount = parsedEpisodes.length
+  const totalEpisodes = metadata.totalEpisodes ?? Math.max(watchedCount, 1)
+  const avgRuntime = metadata.avgRuntime ?? DEFAULT_AVG_RUNTIME
 
-  const percentage =
-    totalEpisodes > 0 ? Math.round((watchedCount / totalEpisodes) * 100) : 0
+  const percentage = Math.round((watchedCount / totalEpisodes) * 100)
 
   const remainingEpisodes = Math.max(0, totalEpisodes - watchedCount)
   const timeRemaining = remainingEpisodes * avgRuntime

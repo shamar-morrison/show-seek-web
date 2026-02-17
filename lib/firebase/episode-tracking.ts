@@ -4,7 +4,7 @@
  */
 
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
-import { collection, doc, getDoc, getDocs } from "firebase/firestore"
+import { collection, getDocs } from "firebase/firestore"
 import { db } from "./config"
 
 /**
@@ -12,10 +12,6 @@ import { db } from "./config"
  */
 function getEpisodeTrackingCollectionRef(userId: string) {
   return collection(db, "users", userId, "episode_tracking")
-}
-
-function getEpisodeTrackingRef(userId: string, tvShowId: number) {
-  return doc(db, "users", userId, "episode_tracking", tvShowId.toString())
 }
 
 /**
@@ -34,21 +30,4 @@ export async function fetchAllEpisodeTracking(
   })
 
   return trackingMap
-}
-
-/**
- * Fetch tracking data for a single show with a one-time read.
- */
-export async function fetchEpisodeTrackingShow(
-  userId: string,
-  tvShowId: number,
-): Promise<TVShowEpisodeTracking | null> {
-  const trackingRef = getEpisodeTrackingRef(userId, tvShowId)
-  const snapshot = await getDoc(trackingRef)
-
-  if (!snapshot.exists()) {
-    return null
-  }
-
-  return snapshot.data() as TVShowEpisodeTracking
 }

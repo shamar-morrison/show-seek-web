@@ -16,32 +16,11 @@ import {
 } from "@tanstack/react-query"
 import { useCallback, useMemo, useState } from "react"
 
-/**
- * Hook for managing favorite persons with React Query caching and search.
- */
-export function useFavoritePersons() {
-  const { user, loading: authLoading } = useAuth()
+function useFavoritePersonMutations(
+  userId: string | null,
+  favoritePersonsQueryKey: readonly unknown[] | null,
+) {
   const queryClient = useQueryClient()
-  const [searchQuery, setSearchQuery] = useState("")
-
-  const userId = user && !user.isAnonymous ? user.uid : null
-  const favoritePersonsQueryKey = userId
-    ? queryKeys.firestore.favoritePersons(userId)
-    : null
-
-  const {
-    data: persons = [],
-    isLoading,
-    error,
-  } = useQuery({
-    ...queryCacheProfiles.profile,
-    queryKey: favoritePersonsQueryKey ?? ["firestore", "favorite-persons", "guest"],
-    queryFn: async () => {
-      if (!userId) return []
-      return fetchFavoritePersons(userId)
-    },
-    enabled: !!userId,
-  })
 
   const addPersonMutation = useMutation({
     mutationFn: async (personData: Omit<FavoritePerson, "addedAt">) => {
@@ -123,6 +102,39 @@ export function useFavoritePersons() {
     },
   })
 
+  return { addPersonMutation, removePersonMutation }
+}
+
+/**
+ * Hook for managing favorite persons with React Query caching and search.
+ */
+export function useFavoritePersons() {
+  const { user, loading: authLoading } = useAuth()
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const userId = user && !user.isAnonymous ? user.uid : null
+  const favoritePersonsQueryKey = userId
+    ? queryKeys.firestore.favoritePersons(userId)
+    : null
+  const { addPersonMutation, removePersonMutation } = useFavoritePersonMutations(
+    userId,
+    favoritePersonsQueryKey,
+  )
+
+  const {
+    data: persons = [],
+    isLoading,
+    error,
+  } = useQuery({
+    ...queryCacheProfiles.profile,
+    queryKey: favoritePersonsQueryKey ?? ["firestore", "favorite-persons", "guest"],
+    queryFn: async () => {
+      if (!userId) return []
+      return fetchFavoritePersons(userId)
+    },
+    enabled: !!userId,
+  })
+
   const filteredPersons = useMemo(() => {
     if (!searchQuery.trim()) return persons
 
@@ -130,19 +142,8 @@ export function useFavoritePersons() {
     return persons.filter((person) => person.name.toLowerCase().includes(query))
   }, [persons, searchQuery])
 
-  const removePerson = useCallback(
-    async (personId: number) => {
-      await removePersonMutation.mutateAsync(personId)
-    },
-    [removePersonMutation],
-  )
-
-  const addPerson = useCallback(
-    async (personData: Omit<FavoritePerson, "addedAt">) => {
-      await addPersonMutation.mutateAsync(personData)
-    },
-    [addPersonMutation],
-  )
+  const { mutateAsync: removePerson } = removePersonMutation
+  const { mutateAsync: addPerson } = addPersonMutation
 
   const isPersonFavorited = useCallback(
     (personId: number) => persons.some((p) => p.id === personId),
@@ -177,55 +178,20 @@ export function useIsPersonFavorited(personId: number) {
  */
 export function useFavoritePersonActions() {
   const { user } = useAuth()
-  const queryClient = useQueryClient()
-  const [isAdding, setIsAdding] = useState(false)
-  const [isRemoving, setIsRemoving] = useState(false)
-
   const userId = user && !user.isAnonymous ? user.uid : null
-
-  const addPerson = useCallback(
-    async (personData: Omit<FavoritePerson, "addedAt">) => {
-      if (!userId) {
-        throw new Error("Please sign in to add favorites")
-      }
-
-      setIsAdding(true)
-      try {
-        await addFavoritePerson(userId, personData)
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.firestore.favoritePersons(userId),
-        })
-      } finally {
-        setIsAdding(false)
-      }
-    },
-    [queryClient, userId],
-  )
-
-  const removePerson = useCallback(
-    async (personId: number) => {
-      if (!userId) {
-        throw new Error("Please sign in to remove favorites")
-      }
-
-      setIsRemoving(true)
-      try {
-        await removeFavoritePerson(userId, personId)
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.firestore.favoritePersons(userId),
-        })
-      } finally {
-        setIsRemoving(false)
-      }
-    },
-    [queryClient, userId],
+  const favoritePersonsQueryKey = userId
+    ? queryKeys.firestore.favoritePersons(userId)
+    : null
+  const { addPersonMutation, removePersonMutation } = useFavoritePersonMutations(
+    userId,
+    favoritePersonsQueryKey,
   )
 
   return {
-    addPerson,
-    removePerson,
-    isAdding,
-    isRemoving,
+    addPerson: addPersonMutation.mutateAsync,
+    removePerson: removePersonMutation.mutateAsync,
+    isAdding: addPersonMutation.isPending,
+    isRemoving: removePersonMutation.isPending,
     isAuthenticated: !!userId,
   }
 }

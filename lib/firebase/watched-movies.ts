@@ -108,12 +108,15 @@ export async function clearWatches(
 
   if (snapshot.empty) return
 
-  const batch = writeBatch(db)
-  snapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref)
-  })
-
-  await batch.commit()
+  const BATCH_LIMIT = 500
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    const chunk = snapshot.docs.slice(i, i + BATCH_LIMIT)
+    chunk.forEach((watchDoc) => {
+      batch.delete(watchDoc.ref)
+    })
+    await batch.commit()
+  }
   // Note: Do NOT delete parent watched_movies/{movieId} doc - no write permission
 }
 

@@ -164,8 +164,7 @@ export function useEpisodeTrackingMutations() {
         showQueryKey,
       )
 
-      const currentShow = cloneTracking(previousShow ?? null, variables.showMetadata)
-      const nextShow = cloneTracking(currentShow, variables.showMetadata)
+      const nextShow = cloneTracking(previousShow ?? null, variables.showMetadata)
       const now = Date.now()
 
       const key = episodeKey(variables.seasonNumber, variables.episodeNumber)
@@ -427,6 +426,88 @@ export function useEpisodeTrackingMutations() {
     },
   })
 
+  const markAllEpisodesUnwatchedMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+      episodeNumbers: number[]
+    }) => {
+      await episodeTrackingService.markAllEpisodesUnwatched(
+        variables.tvShowId,
+        variables.seasonNumber,
+        variables.episodeNumbers,
+      )
+    },
+    onMutate: async (variables) => {
+      if (!allTrackingQueryKey || !userId) {
+        return {
+          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
+          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
+        }
+      }
+
+      const showQueryKey = getShowQueryKey(variables.tvShowId)
+      if (!showQueryKey) {
+        return {
+          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
+          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
+        }
+      }
+
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
+        queryClient.cancelQueries({ queryKey: showQueryKey }),
+      ])
+
+      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
+        allTrackingQueryKey,
+      )
+      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
+        showQueryKey,
+      )
+
+      const nextShow = cloneTracking(previousShow ?? null)
+      variables.episodeNumbers.forEach((episodeNumber) => {
+        delete nextShow.episodes[episodeKey(variables.seasonNumber, episodeNumber)]
+      })
+      nextShow.metadata.lastUpdated = Date.now()
+
+      const normalizedShow =
+        Object.keys(nextShow.episodes).length > 0 ? nextShow : null
+
+      queryClient.setQueryData(showQueryKey, normalizedShow)
+      if (previousAll) {
+        queryClient.setQueryData(
+          allTrackingQueryKey,
+          setShowInTrackingMap(previousAll, variables.tvShowId, normalizedShow),
+        )
+      }
+
+      return { previousAll, previousShow }
+    },
+    onError: (_error, variables, context) => {
+      if (!userId) return
+      const showQueryKey = getShowQueryKey(variables.tvShowId)
+      if (!showQueryKey || !allTrackingQueryKey) return
+
+      if (context?.previousAll) {
+        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
+      }
+      if (context?.previousShow !== undefined) {
+        queryClient.setQueryData(showQueryKey, context.previousShow)
+      }
+    },
+    onSettled: (_data, _error, variables) => {
+      if (!userId || !allTrackingQueryKey) return
+      const showQueryKey = getShowQueryKey(variables.tvShowId)
+
+      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
+      if (showQueryKey) {
+        queryClient.invalidateQueries({ queryKey: showQueryKey })
+      }
+    },
+  })
+
   const clearAllEpisodesMutation = useMutation({
     mutationFn: async (variables: { tvShowId: number }) => {
       await episodeTrackingService.clearAllEpisodes(variables.tvShowId)
@@ -496,11 +577,13 @@ export function useEpisodeTrackingMutations() {
     markEpisodeWatched: markEpisodeWatchedMutation.mutateAsync,
     markEpisodeUnwatched: markEpisodeUnwatchedMutation.mutateAsync,
     markAllEpisodesWatched: markAllEpisodesWatchedMutation.mutateAsync,
+    markAllEpisodesUnwatched: markAllEpisodesUnwatchedMutation.mutateAsync,
     clearAllEpisodes: clearAllEpisodesMutation.mutateAsync,
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||
       markAllEpisodesWatchedMutation.isPending ||
+      markAllEpisodesUnwatchedMutation.isPending ||
       clearAllEpisodesMutation.isPending,
   }
 }
