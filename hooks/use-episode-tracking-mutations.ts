@@ -31,10 +31,28 @@ interface ShowMetadata {
   posterPath: string | null
 }
 
+interface EpisodeWatchedVariables {
+  tvShowId: number
+  seasonNumber: number
+  episodeNumber: number
+  episodeData: {
+    episodeId: number
+    episodeName: string
+    episodeAirDate: string | null
+  }
+  showMetadata: ShowMetadata
+  showStats?: ShowStats
+  nextEpisode?: NextEpisode | null
+  markPreviousEpisodesWatched?: boolean
+  seasonEpisodes?: SeasonEpisodeInput[]
+}
+
 function episodeKey(seasonNumber: number, episodeNumber: number) {
   return `${seasonNumber}_${episodeNumber}`
 }
 
+// `cloneTracking` intentionally shallow-clones `TVShowEpisodeTracking` fields.
+// Callers must avoid mutating nested values in-place to preserve optimistic cache safety.
 function cloneTracking(
   tracking: TVShowEpisodeTracking | null,
   showMetadata?: ShowMetadata,
@@ -192,22 +210,8 @@ export function useEpisodeTrackingMutations() {
     })
   }
 
-  const markEpisodeWatchedMutation = useTrackingMutation({
-    getTvShowId: (variables: {
-      tvShowId: number
-      seasonNumber: number
-      episodeNumber: number
-      episodeData: {
-        episodeId: number
-        episodeName: string
-        episodeAirDate: string | null
-      }
-      showMetadata: ShowMetadata
-      showStats?: ShowStats
-      nextEpisode?: NextEpisode | null
-      markPreviousEpisodesWatched?: boolean
-      seasonEpisodes?: SeasonEpisodeInput[]
-    }) => variables.tvShowId,
+  const markEpisodeWatchedMutation = useTrackingMutation<EpisodeWatchedVariables>({
+    getTvShowId: (variables) => variables.tvShowId,
     mutationFn: async (variables) => {
       await episodeTrackingService.markEpisodeWatched(
         variables.tvShowId,

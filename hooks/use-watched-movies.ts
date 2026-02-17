@@ -185,6 +185,12 @@ export function useWatchedMovies(
     },
   })
 
+  const clearWatchesMutationRef = useRef(clearWatchesMutation.mutateAsync)
+
+  useEffect(() => {
+    clearWatchesMutationRef.current = clearWatchesMutation.mutateAsync
+  }, [clearWatchesMutation.mutateAsync])
+
   const addWatchInstance = useCallback(
     async (
       watchedAt: Date,
@@ -209,9 +215,9 @@ export function useWatchedMovies(
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {
-    await clearWatchesMutation.mutateAsync()
+    await clearWatchesMutationRef.current()
     toast.success("Watch history cleared")
-  }, [clearWatchesMutation])
+  }, [])
 
   return {
     instances,

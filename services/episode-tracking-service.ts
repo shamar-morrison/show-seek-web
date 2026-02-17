@@ -378,7 +378,10 @@ class EpisodeTrackingService {
         ),
       )
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 
@@ -494,7 +497,10 @@ class EpisodeTrackingService {
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
       await this.withTimeout(deleteDoc(trackingRef))
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 }

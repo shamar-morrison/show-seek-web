@@ -84,6 +84,7 @@ export function useRatingsData() {
   const { user, loading: authLoading } = useAuth()
 
   const userId = user && !user.isAnonymous ? user.uid : null
+  // Nullable key is used by mutation invalidation; read key stays defined for `useQuery`.
   const ratingsQueryKey = userId ? queryKeys.firestore.ratings(userId) : null
   const ratingsReadQueryKey = queryKeys.firestore.ratings(
     userId ?? UNAUTHENTICATED_USER_ID,
@@ -437,7 +438,7 @@ function sortEpisodeRatings(
  */
 export function useMovieRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
   const { ratings, loading: ratingsLoading } = useRatingsData()
 
@@ -446,8 +447,8 @@ export function useMovieRatings(
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "movie",
     )
-    return enabled ? sortRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: movieRatings,
@@ -462,7 +463,7 @@ export function useMovieRatings(
  */
 export function useTVRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
   const { ratings, loading: ratingsLoading } = useRatingsData()
 
@@ -471,8 +472,8 @@ export function useTVRatings(
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "tv",
     )
-    return enabled ? sortRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: tvRatings,
@@ -487,7 +488,7 @@ export function useTVRatings(
  */
 export function useEpisodeRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
   const { ratings, loading: ratingsLoading } = useRatingsData()
 
@@ -496,8 +497,8 @@ export function useEpisodeRatings(
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "episode",
     )
-    return enabled ? sortEpisodeRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortEpisodeRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: episodeRatings,

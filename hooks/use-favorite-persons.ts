@@ -15,6 +15,27 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo, useState } from "react"
 
+function useFavoritePersonsRead(userId: string | null) {
+  const favoritePersonsQueryKey = queryKeys.firestore.favoritePersons(
+    userId ?? UNAUTHENTICATED_USER_ID,
+  )
+
+  const query = useQuery({
+    ...queryCacheProfiles.profile,
+    queryKey: favoritePersonsQueryKey,
+    queryFn: async () => {
+      if (!userId) return []
+      return fetchFavoritePersons(userId)
+    },
+    enabled: !!userId,
+  })
+
+  return {
+    favoritePersonsQueryKey,
+    ...query,
+  }
+}
+
 function useFavoritePersonMutations(
   userId: string | null,
   favoritePersonsQueryKey: readonly unknown[] | null,
@@ -112,27 +133,16 @@ export function useFavoritePersons() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const userId = user && !user.isAnonymous ? user.uid : null
-  const favoritePersonsQueryKey = queryKeys.firestore.favoritePersons(
-    userId ?? UNAUTHENTICATED_USER_ID,
-  )
+  const {
+    favoritePersonsQueryKey,
+    data: persons = [],
+    isLoading,
+    error,
+  } = useFavoritePersonsRead(userId)
   const { addPersonMutation, removePersonMutation } = useFavoritePersonMutations(
     userId,
     userId ? favoritePersonsQueryKey : null,
   )
-
-  const {
-    data: persons = [],
-    isLoading,
-    error,
-  } = useQuery({
-    ...queryCacheProfiles.profile,
-    queryKey: favoritePersonsQueryKey,
-    queryFn: async () => {
-      if (!userId) return []
-      return fetchFavoritePersons(userId)
-    },
-    enabled: !!userId,
-  })
 
   const filteredPersons = useMemo(() => {
     if (!searchQuery.trim()) return persons
@@ -169,19 +179,7 @@ export function useFavoritePersons() {
 export function useIsPersonFavorited(personId: number) {
   const { user, loading: authLoading } = useAuth()
   const userId = user && !user.isAnonymous ? user.uid : null
-  const favoritePersonsQueryKey = queryKeys.firestore.favoritePersons(
-    userId ?? UNAUTHENTICATED_USER_ID,
-  )
-
-  const { data: persons = [], isLoading } = useQuery({
-    ...queryCacheProfiles.profile,
-    queryKey: favoritePersonsQueryKey,
-    queryFn: async () => {
-      if (!userId) return []
-      return fetchFavoritePersons(userId)
-    },
-    enabled: !!userId,
-  })
+  const { data: persons = [], isLoading } = useFavoritePersonsRead(userId)
 
   return {
     isFavorited: persons.some((person) => person.id === personId),

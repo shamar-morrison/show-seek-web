@@ -18,7 +18,6 @@ import { useCallback, useMemo } from "react"
 
 /** Default average runtime if not cached (typical TV episode length) */
 const DEFAULT_AVG_RUNTIME = 45
-const EMPTY_TRACKING = new Map<string, TVShowEpisodeTracking>()
 
 /**
  * Enriched progress with TMDB data
@@ -80,8 +79,9 @@ function computeProgressFromCache(
   const watchedCount = parsedEpisodes.length
   const totalEpisodes = metadata.totalEpisodes ?? Math.max(watchedCount, 1)
   const avgRuntime = metadata.avgRuntime ?? DEFAULT_AVG_RUNTIME
-
-  const percentage = Math.round((watchedCount / totalEpisodes) * 100)
+  const safeTotal = Math.max(totalEpisodes, 1)
+  const rawPercentage = Math.round((watchedCount / safeTotal) * 100)
+  const percentage = Math.min(100, Math.max(0, rawPercentage))
 
   const remainingEpisodes = Math.max(0, totalEpisodes - watchedCount)
   const timeRemaining = remainingEpisodes * avgRuntime
@@ -111,16 +111,17 @@ function computeProgressFromCache(
  */
 export function useEpisodeTracking() {
   const { user, loading: authLoading } = useAuth()
+  const emptyTracking = useMemo(() => new Map<string, TVShowEpisodeTracking>(), [])
 
   const userId = user && !user.isAnonymous ? user.uid : null
 
-  const { data: tracking = EMPTY_TRACKING, isLoading } = useQuery({
+  const { data: tracking = emptyTracking, isLoading } = useQuery({
     ...queryCacheProfiles.status,
     queryKey: queryKeys.firestore.episodeTrackingAll(
       userId ?? UNAUTHENTICATED_USER_ID,
     ),
     queryFn: async () => {
-      if (!userId) return EMPTY_TRACKING
+      if (!userId) return emptyTracking
       return fetchAllEpisodeTracking(userId)
     },
     enabled: !!userId,

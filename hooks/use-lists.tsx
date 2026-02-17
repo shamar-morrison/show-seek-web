@@ -76,8 +76,9 @@ export function useLists() {
       }
     }
 
+    const mergedIds = new Set(mergedLists.map((list) => list.id))
     const customLists = firestoreLists
-      .filter((l) => l.isCustom)
+      .filter((l) => l.isCustom && !mergedIds.has(l.id))
       .sort(
         (a, b) =>
           normalizeTimestamp(a.createdAt) - normalizeTimestamp(b.createdAt),
