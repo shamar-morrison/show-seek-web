@@ -12,14 +12,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
+import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
-import {
-  addToList,
-  createList,
-  deleteList,
-  removeFromList,
-  renameList,
-} from "@/lib/firebase/lists"
 import type { UserList } from "@/types/list"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -75,6 +69,8 @@ export function AddToListModal({
 }: AddToListModalProps) {
   const { user, isPremium } = useAuth()
   const { lists, loading: listsLoading } = useLists()
+  const { addToList, removeFromList, createList, renameList, deleteList } =
+    useListMutations()
   const [activeTab, setActiveTab] = useState<TabType>("default")
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set())
   const [isSaving, setIsSaving] = useState(false)
@@ -217,7 +213,6 @@ export function AddToListModal({
           // Add to list
           promises.push(
             addToList(
-              user.uid,
               list.id,
               mediaItem as Omit<
                 import("@/types/list").ListMediaItem,
@@ -228,7 +223,7 @@ export function AddToListModal({
           undoOps.push({ type: "remove", listId: list.id })
         } else if (wasInList && !isNowSelected) {
           // Remove from list
-          promises.push(removeFromList(user.uid, list.id, String(mediaId)))
+          promises.push(removeFromList(list.id, String(mediaId)))
           undoOps.push({ type: "add", listId: list.id })
         }
       })
@@ -245,7 +240,6 @@ export function AddToListModal({
                       if (op.type === "add") {
                         // Re-add the item
                         return addToList(
-                          user.uid,
                           op.listId,
                           mediaItem as Omit<
                             import("@/types/list").ListMediaItem,
@@ -254,11 +248,7 @@ export function AddToListModal({
                         )
                       } else {
                         // Remove the item
-                        return removeFromList(
-                          user.uid,
-                          op.listId,
-                          String(mediaId),
-                        )
+                        return removeFromList(op.listId, String(mediaId))
                       }
                     })
                     await Promise.all(undoPromises)
@@ -286,6 +276,8 @@ export function AddToListModal({
     mediaId,
     mediaType,
     title,
+    addToList,
+    removeFromList,
     isInList,
     handleClose,
   ])
@@ -323,7 +315,7 @@ export function AddToListModal({
       }
 
       // Create the list
-      const listId = await createList(user.uid, newListName.trim())
+      const listId = await createList(newListName.trim())
 
       // Build media item
       const mediaItem: Record<string, unknown> = {
@@ -352,7 +344,6 @@ export function AddToListModal({
 
       // Add the media to the new list
       await addToList(
-        user.uid,
         listId,
         mediaItem as Omit<import("@/types/list").ListMediaItem, "addedAt">,
       )
@@ -368,7 +359,17 @@ export function AddToListModal({
     } finally {
       setIsCreating(false)
     }
-  }, [user, isPremium, newListName, media, mediaId, mediaType, title])
+  }, [
+    user,
+    isPremium,
+    newListName,
+    media,
+    mediaId,
+    mediaType,
+    title,
+    createList,
+    addToList,
+  ])
 
   // Handle rename list
   const handleRenameList = useCallback(async () => {
@@ -377,7 +378,7 @@ export function AddToListModal({
     setIsRenaming(true)
 
     try {
-      await renameList(user.uid, listToRename.id, renameValue.trim())
+      await renameList(listToRename.id, renameValue.trim())
       toast.success(`Renamed list to "${renameValue.trim()}"`)
       setListToRename(null)
       setRenameValue("")
@@ -387,7 +388,7 @@ export function AddToListModal({
     } finally {
       setIsRenaming(false)
     }
-  }, [user, listToRename, renameValue])
+  }, [user, listToRename, renameValue, renameList])
 
   // Handle delete list
   const handleDeleteList = useCallback(async () => {
@@ -396,7 +397,7 @@ export function AddToListModal({
     setIsDeleting(true)
 
     try {
-      await deleteList(user.uid, listToDelete.id)
+      await deleteList(listToDelete.id)
       toast.success(`Deleted "${listToDelete.name}"`)
       setListToDelete(null)
     } catch (error) {
@@ -405,7 +406,7 @@ export function AddToListModal({
     } finally {
       setIsDeleting(false)
     }
-  }, [user, listToDelete])
+  }, [user, listToDelete, deleteList])
 
   // Open rename modal
   const openRenameModal = useCallback((list: UserList) => {

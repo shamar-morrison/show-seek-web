@@ -4,7 +4,7 @@
  */
 
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
-import { collection, onSnapshot, type Unsubscribe } from "firebase/firestore"
+import { collection, getDocs } from "firebase/firestore"
 import { db } from "./config"
 
 /**
@@ -15,30 +15,19 @@ function getEpisodeTrackingCollectionRef(userId: string) {
 }
 
 /**
- * Subscribe to real-time updates for all user's tracked TV shows
- * Returns an unsubscribe function
+ * Fetch all tracked shows with a one-time read.
  */
-export function subscribeToAllEpisodeTracking(
+export async function fetchAllEpisodeTracking(
   userId: string,
-  onTrackingChange: (tracking: Map<string, TVShowEpisodeTracking>) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
+): Promise<Map<string, TVShowEpisodeTracking>> {
   const trackingRef = getEpisodeTrackingCollectionRef(userId)
+  const snapshot = await getDocs(trackingRef)
+  const trackingMap = new Map<string, TVShowEpisodeTracking>()
 
-  return onSnapshot(
-    trackingRef,
-    (snapshot) => {
-      const trackingMap = new Map<string, TVShowEpisodeTracking>()
-      snapshot.docs.forEach((doc) => {
-        const data = doc.data() as TVShowEpisodeTracking
-        // doc.id is the tvShowId
-        trackingMap.set(doc.id, data)
-      })
-      onTrackingChange(trackingMap)
-    },
-    (error) => {
-      console.error("Error subscribing to episode tracking:", error)
-      onError?.(error)
-    },
-  )
+  snapshot.docs.forEach((trackingDoc) => {
+    const data = trackingDoc.data() as TVShowEpisodeTracking
+    trackingMap.set(trackingDoc.id, data)
+  })
+
+  return trackingMap
 }

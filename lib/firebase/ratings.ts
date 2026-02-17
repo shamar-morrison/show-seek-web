@@ -9,11 +9,10 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
   runTransaction,
   serverTimestamp,
   Timestamp,
-  type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
 
@@ -58,6 +57,22 @@ function getRatingDocId(mediaType: "movie" | "tv", mediaId: number): string {
  */
 function getRatingsCollectionRef(userId: string) {
   return collection(db, "users", userId, "ratings")
+}
+
+/**
+ * Fetch all ratings for a user with a one-time read.
+ */
+export async function fetchRatings(userId: string): Promise<Map<string, Rating>> {
+  const ratingsRef = getRatingsCollectionRef(userId)
+  const snapshot = await getDocs(ratingsRef)
+  const ratingsMap = new Map<string, Rating>()
+
+  snapshot.docs.forEach((docSnapshot) => {
+    const rating = toRating(docSnapshot.id, docSnapshot.data())
+    ratingsMap.set(docSnapshot.id, rating)
+  })
+
+  return ratingsMap
 }
 
 /**
@@ -190,33 +205,4 @@ export async function deleteEpisodeRating(
   const docId = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
   const ratingRef = doc(db, "users", userId, "ratings", docId)
   await deleteDoc(ratingRef)
-}
-
-/**
- * Subscribe to real-time updates for all user ratings
- * Returns an unsubscribe function
- */
-export function subscribeToRatings(
-  userId: string,
-  onRatingsChange: (ratings: Map<string, Rating>) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  const ratingsRef = getRatingsCollectionRef(userId)
-
-  return onSnapshot(
-    ratingsRef,
-    (snapshot) => {
-      const ratingsMap = new Map<string, Rating>()
-      snapshot.docs.forEach((docSnapshot) => {
-        const rating = toRating(docSnapshot.id, docSnapshot.data())
-        // Key by document ID for easy lookup
-        ratingsMap.set(docSnapshot.id, rating)
-      })
-      onRatingsChange(ratingsMap)
-    },
-    (error) => {
-      console.error("Error subscribing to ratings:", error)
-      onError?.(error)
-    },
-  )
 }

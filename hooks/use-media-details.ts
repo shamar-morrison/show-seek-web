@@ -1,5 +1,7 @@
 "use client"
 
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { useQuery } from "@tanstack/react-query"
 
@@ -21,7 +23,7 @@ async function fetchMediaDetails(
 
 /**
  * Hook for fetching and caching media details using React Query.
- * Leverages the app's QueryProvider with 30-min stale time and 1-hour gcTime.
+ * Uses `queryCacheProfiles.profile` (30-min staleTime, 24-hour gcTime).
  *
  * @param mediaType - "movie" or "tv"
  * @param id - TMDB media ID
@@ -33,7 +35,10 @@ export function useMediaDetails(
   options?: { enabled?: boolean },
 ) {
   return useQuery({
-    queryKey: ["media-details", mediaType, id],
+    ...queryCacheProfiles.profile,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    queryKey: queryKeys.mediaDetails(mediaType, id),
     queryFn: () => fetchMediaDetails(mediaType, id),
     enabled: options?.enabled ?? true,
   })

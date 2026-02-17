@@ -4,11 +4,18 @@
  */
 
 import { db } from "@/lib/firebase/config"
-import { DEFAULT_LIST_IDS, DEFAULT_LISTS, ListMediaItem } from "@/types/list"
 import {
+  DEFAULT_LIST_IDS,
+  DEFAULT_LISTS,
+  ListMediaItem,
+  UserList,
+} from "@/types/list"
+import {
+  collection,
   deleteDoc,
   deleteField,
   doc,
+  getDocs,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -53,6 +60,26 @@ function generateSlug(name: string): string {
  */
 function getListRef(userId: string, listId: string) {
   return doc(db, "users", userId, "lists", listId)
+}
+
+function getListsCollectionRef(userId: string) {
+  return collection(db, "users", userId, "lists")
+}
+
+/**
+ * Fetch all user lists with a one-time read.
+ */
+export async function fetchUserLists(userId: string): Promise<UserList[]> {
+  const listsRef = getListsCollectionRef(userId)
+  const snapshot = await getDocs(listsRef)
+
+  return snapshot.docs.map(
+    (listSnapshot) =>
+      ({
+        id: listSnapshot.id,
+        ...listSnapshot.data(),
+      }) as UserList,
+  )
 }
 
 /**

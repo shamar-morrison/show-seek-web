@@ -1,17 +1,12 @@
 "use client"
 
 import { fetchTraktReviews } from "@/app/actions"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { traktQueryKeys } from "@/lib/react-query/query-keys"
 import type { TraktComment } from "@/types/trakt"
 import { useQuery } from "@tanstack/react-query"
 
-/**
- * Query keys for Trakt data
- * Centralized to ensure consistent cache key usage
- */
-export const traktQueryKeys = {
-  reviews: (mediaId: number, mediaType: "movie" | "tv") =>
-    ["trakt", mediaType, mediaId, "reviews"] as const,
-}
+export { traktQueryKeys }
 
 /**
  * Hook to fetch Trakt reviews/comments
@@ -23,6 +18,7 @@ export function useTraktReviews(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: traktQueryKeys.reviews(mediaId, mediaType),
     queryFn: async (): Promise<TraktComment[]> => {
       const data = await fetchTraktReviews(mediaId, mediaType)

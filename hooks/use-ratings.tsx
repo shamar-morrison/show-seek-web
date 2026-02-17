@@ -1,39 +1,296 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
-import { useFirestoreSubscription } from "@/hooks/use-firestore-subscription"
+import { useListMutations } from "@/hooks/use-list-mutations"
 import { usePreferences } from "@/hooks/use-preferences"
-import { addToList } from "@/lib/firebase/lists"
 import {
   deleteEpisodeRating,
   deleteRating,
+  fetchRatings,
   setRating,
-  subscribeToRatings,
 } from "@/lib/firebase/ratings"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import {
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
 import type { Rating } from "@/types/rating"
+import {
+  type QueryClient,
+  type QueryKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
 
-/**
- * Hook for managing user ratings with real-time updates
- */
-export function useRatings() {
-  const { user } = useAuth()
-  const { preferences } = usePreferences()
+const EMPTY_RATINGS = new Map<string, Rating>()
 
-  const { data: ratings, loading } = useFirestoreSubscription<
-    Map<string, Rating>
-  >({
-    subscribe: subscribeToRatings,
-    initialValue: new Map(),
+type RatingsMutationContext = {
+  previousRatings: Map<string, Rating> | undefined
+}
+
+function ratingsOptimisticConfig<TVariables>(
+  queryClient: QueryClient,
+  ratingsQueryKey: QueryKey | null,
+  applyOptimistic: (
+    ratings: Map<string, Rating>,
+    variables: TVariables,
+    now: number,
+  ) => void,
+) {
+  return {
+    onMutate: async (variables: TVariables): Promise<RatingsMutationContext> => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      applyOptimistic(nextRatings, variables, Date.now())
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+
+      return { previousRatings }
+    },
+    onError: (
+      _error: unknown,
+      _variables: TVariables,
+      context: RatingsMutationContext | undefined,
+    ) => {
+      if (!ratingsQueryKey) return
+      if (context !== undefined) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  }
+}
+
+/**
+ * Read-only ratings data hook used by both list views and full mutation hooks.
+ */
+export function useRatingsData() {
+  const { user, loading: authLoading } = useAuth()
+
+  const userId = user && !user.isAnonymous ? user.uid : null
+  // Nullable key is used by mutation invalidation; read key stays defined for `useQuery`.
+  const ratingsQueryKey = userId ? queryKeys.firestore.ratings(userId) : null
+  const ratingsReadQueryKey = queryKeys.firestore.ratings(
+    userId ?? UNAUTHENTICATED_USER_ID,
+  )
+
+  const { data: ratings = EMPTY_RATINGS, isLoading } = useQuery({
+    ...queryCacheProfiles.status,
+    queryKey: ratingsReadQueryKey,
+    queryFn: async () => {
+      if (!userId) return EMPTY_RATINGS
+      return fetchRatings(userId)
+    },
+    enabled: !!userId,
   })
 
-  /**
-   * Get a rating for a specific media item
-   */
+  return {
+    ratings,
+    loading: authLoading || (!!userId && isLoading),
+    userId,
+    ratingsQueryKey,
+  }
+}
+
+/**
+ * Hook for managing user ratings using React Query cached reads and mutations.
+ */
+export function useRatings() {
+  const { preferences } = usePreferences()
+  const { addToList } = useListMutations()
+  const queryClient = useQueryClient()
+  const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
+
+  const saveRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      mediaType: "movie" | "tv"
+      mediaId: number
+      rating: number
+      title: string
+      posterPath: string | null
+      releaseDate: string | null
+      voteAverage?: number
+    }) => {
+      if (!userId) throw new Error("User must be authenticated to rate")
+
+      await setRating(userId, {
+        userId,
+        id: `${variables.mediaType}-${variables.mediaId}`,
+        mediaType: variables.mediaType,
+        mediaId: variables.mediaId.toString(),
+        rating: variables.rating,
+        title: variables.title,
+        posterPath: variables.posterPath,
+        releaseDate: variables.releaseDate,
+      })
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables, now) => {
+        const key = `${variables.mediaType}-${variables.mediaId}`
+        nextRatings.set(key, {
+          id: key,
+          mediaId: variables.mediaId.toString(),
+          mediaType: variables.mediaType,
+          rating: variables.rating,
+          title: variables.title,
+          posterPath: variables.posterPath,
+          releaseDate: variables.releaseDate,
+          ratedAt: now,
+        })
+      },
+    ),
+    onSuccess: (_data, variables) => {
+      if (
+        variables.mediaType !== "movie" ||
+        !preferences.autoAddToAlreadyWatched
+      ) {
+        return
+      }
+
+      void (async () => {
+        try {
+          const wasAdded = await addToList("already-watched", {
+            id: variables.mediaId,
+            title: variables.title,
+            poster_path: variables.posterPath,
+            media_type: "movie",
+            vote_average: variables.voteAverage,
+            release_date: variables.releaseDate || undefined,
+          })
+
+          if (wasAdded) {
+            toast.success("Added to Already Watched list")
+          }
+        } catch (listError) {
+          console.error("Failed to auto-add to Already Watched list:", listError)
+          const errorMessage =
+            listError instanceof Error ? listError.message : "Unknown error"
+          toast.error(`Failed to auto-add to Already Watched list: ${errorMessage}`)
+        }
+      })()
+    },
+  })
+
+  const removeRatingMutation = useMutation({
+    mutationFn: async (variables: { mediaType: "movie" | "tv"; mediaId: number }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      await deleteRating(userId, variables.mediaType, variables.mediaId)
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables) => {
+        nextRatings.delete(`${variables.mediaType}-${variables.mediaId}`)
+      },
+    ),
+  })
+
+  const saveEpisodeRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+      episodeNumber: number
+      rating: number
+      episodeName: string
+      tvShowName: string
+      posterPath: string | null
+      episodeAirDate: string | null
+    }) => {
+      if (!userId) throw new Error("User must be authenticated to rate")
+
+      await setRating(userId, {
+        userId,
+        id: `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
+        mediaType: "episode",
+        mediaId: variables.tvShowId.toString(),
+        rating: variables.rating,
+        title: variables.episodeName,
+        posterPath: variables.posterPath,
+        releaseDate: variables.episodeAirDate,
+        tvShowId: variables.tvShowId,
+        tvShowName: variables.tvShowName,
+        seasonNumber: variables.seasonNumber,
+        episodeNumber: variables.episodeNumber,
+      })
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables, now) => {
+        const key = `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`
+        nextRatings.set(key, {
+          id: key,
+          mediaId: variables.tvShowId.toString(),
+          mediaType: "episode",
+          rating: variables.rating,
+          title: variables.episodeName,
+          posterPath: variables.posterPath,
+          releaseDate: variables.episodeAirDate,
+          ratedAt: now,
+          tvShowId: variables.tvShowId,
+          seasonNumber: variables.seasonNumber,
+          episodeNumber: variables.episodeNumber,
+          episodeName: variables.episodeName,
+          tvShowName: variables.tvShowName,
+        })
+      },
+    ),
+  })
+
+  const removeEpisodeRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+      episodeNumber: number
+    }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      await deleteEpisodeRating(
+        userId,
+        variables.tvShowId,
+        variables.seasonNumber,
+        variables.episodeNumber,
+      )
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables) => {
+        nextRatings.delete(
+          `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
+        )
+      },
+    ),
+  })
+
+  const { mutateAsync: saveRatingAsync } = saveRatingMutation
+  const { mutateAsync: removeRatingAsync } = removeRatingMutation
+  const { mutateAsync: saveEpisodeRatingAsync } = saveEpisodeRatingMutation
+  const { mutateAsync: removeEpisodeRatingAsync } = removeEpisodeRatingMutation
+
   const getRating = useCallback(
     (mediaType: "movie" | "tv", mediaId: number): Rating | null => {
       const key = `${mediaType}-${mediaId}`
@@ -42,9 +299,6 @@ export function useRatings() {
     [ratings],
   )
 
-  /**
-   * Save or update a rating for a media item
-   */
   const saveRating = useCallback(
     async (
       mediaType: "movie" | "tv",
@@ -55,64 +309,26 @@ export function useRatings() {
       releaseDate: string | null = null,
       voteAverage?: number,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to rate")
-      }
-
-      await setRating(user.uid, {
-        userId: user.uid,
-        id: `${mediaType}-${mediaId}`,
+      await saveRatingAsync({
         mediaType,
-        mediaId: mediaId.toString(),
+        mediaId,
         rating,
         title,
         posterPath,
         releaseDate,
+        voteAverage,
       })
-
-      // Auto-add to "Already Watched" list if preference is enabled and it's a movie
-      if (mediaType === "movie" && preferences.autoAddToAlreadyWatched) {
-        try {
-          const wasAdded = await addToList(user.uid, "already-watched", {
-            id: mediaId,
-            title,
-            poster_path: posterPath,
-            media_type: "movie",
-            vote_average: voteAverage,
-            release_date: releaseDate || undefined,
-          })
-
-          if (wasAdded) {
-            toast.success("Added to Already Watched list")
-          }
-        } catch (listError) {
-          console.error(
-            "Failed to auto-add to Already Watched list:",
-            listError,
-          )
-        }
-      }
     },
-    [user, preferences.autoAddToAlreadyWatched],
+    [saveRatingAsync],
   )
 
-  /**
-   * Remove a rating for a media item
-   */
   const removeRating = useCallback(
     async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to remove rating")
-      }
-
-      await deleteRating(user.uid, mediaType, mediaId)
+      await removeRatingAsync({ mediaType, mediaId })
     },
-    [user],
+    [removeRatingAsync],
   )
 
-  /**
-   * Get a rating for a specific episode
-   */
   const getEpisodeRating = useCallback(
     (
       tvShowId: number,
@@ -125,9 +341,6 @@ export function useRatings() {
     [ratings],
   )
 
-  /**
-   * Save or update a rating for an episode
-   */
   const saveEpisodeRating = useCallback(
     async (
       tvShowId: number,
@@ -139,45 +352,33 @@ export function useRatings() {
       posterPath: string | null,
       episodeAirDate: string | null = null,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to rate")
-      }
-
-      await setRating(user.uid, {
-        userId: user.uid,
-        id: `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`,
-        mediaType: "episode",
-        mediaId: tvShowId.toString(),
-        rating,
-        title: episodeName,
-        posterPath,
-        releaseDate: episodeAirDate,
-        // Episode-specific fields
+      await saveEpisodeRatingAsync({
         tvShowId,
-        tvShowName,
         seasonNumber,
         episodeNumber,
+        rating,
+        episodeName,
+        tvShowName,
+        posterPath,
+        episodeAirDate,
       })
     },
-    [user],
+    [saveEpisodeRatingAsync],
   )
 
-  /**
-   * Remove a rating for an episode
-   */
   const removeEpisodeRating = useCallback(
     async (
       tvShowId: number,
       seasonNumber: number,
       episodeNumber: number,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to remove rating")
-      }
-
-      await deleteEpisodeRating(user.uid, tvShowId, seasonNumber, episodeNumber)
+      await removeEpisodeRatingAsync({
+        tvShowId,
+        seasonNumber,
+        episodeNumber,
+      })
     },
-    [user],
+    [removeEpisodeRatingAsync],
   )
 
   return {
@@ -245,17 +446,17 @@ function sortEpisodeRatings(
  */
 export function useMovieRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort movie ratings
   const movieRatings = useMemo(() => {
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "movie",
     )
-    return enabled ? sortRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: movieRatings,
@@ -270,17 +471,17 @@ export function useMovieRatings(
  */
 export function useTVRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort TV ratings
   const tvRatings = useMemo(() => {
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "tv",
     )
-    return enabled ? sortRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: tvRatings,
@@ -295,17 +496,17 @@ export function useTVRatings(
  */
 export function useEpisodeRatings(
   sortBy: RatingSortOption = "ratedAt",
-  enabled: boolean = true,
+  sorted: boolean = true,
 ) {
-  const { ratings, loading: ratingsLoading } = useRatings()
+  const { ratings, loading: ratingsLoading } = useRatingsData()
 
   // Filter and sort episode ratings
   const episodeRatings = useMemo(() => {
     const filtered = Array.from(ratings.values()).filter(
       (r) => r.mediaType === "episode",
     )
-    return enabled ? sortEpisodeRatings(filtered, sortBy) : filtered
-  }, [ratings, sortBy, enabled])
+    return sorted ? sortEpisodeRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
 
   return {
     ratings: episodeRatings,

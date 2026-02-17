@@ -7,8 +7,8 @@ import { db } from "@/lib/firebase/config"
 import {
   collection,
   doc,
+  getCountFromServer,
   getDocs,
-  onSnapshot,
   setDoc,
   Timestamp,
   writeBatch,
@@ -28,15 +28,12 @@ interface WatchInstanceDoc {
 }
 
 /**
- * Subscribe to watch history for a specific movie
- * Returns unsubscribe function
+ * Fetch watch history for a specific movie.
  */
-export function subscribeToWatches(
+export async function fetchWatches(
   userId: string,
   movieId: number,
-  onData: (instances: WatchInstance[]) => void,
-  onError?: (error: Error) => void,
-): () => void {
+): Promise<WatchInstance[]> {
   const watchesRef = collection(
     db,
     "users",
@@ -46,26 +43,19 @@ export function subscribeToWatches(
     "watches",
   )
 
-  return onSnapshot(
-    watchesRef,
-    (snapshot) => {
-      const instances: WatchInstance[] = snapshot.docs.map((doc) => {
-        const data = doc.data() as WatchInstanceDoc
-        return {
-          id: doc.id,
-          movieId: data.movieId,
-          watchedAt: data.watchedAt?.toDate() ?? new Date(),
-        }
-      })
-      // Sort by watchedAt descending (most recent first)
-      instances.sort((a, b) => b.watchedAt.getTime() - a.watchedAt.getTime())
-      onData(instances)
-    },
-    (error) => {
-      console.error("Error subscribing to watches:", error)
-      onError?.(error)
-    },
-  )
+  const snapshot = await getDocs(watchesRef)
+
+  const instances: WatchInstance[] = snapshot.docs.map((watchDoc) => {
+    const data = watchDoc.data() as WatchInstanceDoc
+    return {
+      id: watchDoc.id,
+      movieId: data.movieId,
+      watchedAt: data.watchedAt?.toDate() ?? new Date(),
+    }
+  })
+
+  instances.sort((a, b) => b.watchedAt.getTime() - a.watchedAt.getTime())
+  return instances
 }
 
 /**
@@ -100,7 +90,9 @@ export async function addWatch(
 
 /**
  * Clear all watch history for a movie
- * Uses batch delete for atomicity
+ * Deletes are chunked into Firestore write batches of `BATCH_LIMIT` (500).
+ * Each individual batch is atomic, but clearing across multiple batches is not.
+ * A failure between batches can leave a partially deleted watch history.
  */
 export async function clearWatches(
   userId: string,
@@ -119,12 +111,15 @@ export async function clearWatches(
 
   if (snapshot.empty) return
 
-  const batch = writeBatch(db)
-  snapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref)
-  })
-
-  await batch.commit()
+  const BATCH_LIMIT = 500
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    const chunk = snapshot.docs.slice(i, i + BATCH_LIMIT)
+    chunk.forEach((watchDoc) => {
+      batch.delete(watchDoc.ref)
+    })
+    await batch.commit()
+  }
   // Note: Do NOT delete parent watched_movies/{movieId} doc - no write permission
 }
 
@@ -145,6 +140,6 @@ export async function getWatchCount(
     "watches",
   )
 
-  const snapshot = await getDocs(watchesRef)
-  return snapshot.size
+  const snapshot = await getCountFromServer(watchesRef)
+  return snapshot.data().count
 }
