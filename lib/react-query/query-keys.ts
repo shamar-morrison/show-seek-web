@@ -1,3 +1,5 @@
+export const UNAUTHENTICATED_USER_ID = "__unauthenticated__" as const
+
 export const queryKeys = {
   mediaDetails: (mediaType: "movie" | "tv", id: number) =>
     ["media-details", mediaType, id] as const,

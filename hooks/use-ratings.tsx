@@ -10,14 +10,72 @@ import {
   setRating,
 } from "@/lib/firebase/ratings"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
-import { queryKeys } from "@/lib/react-query/query-keys"
+import {
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
 import type { Rating } from "@/types/rating"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  type QueryClient,
+  type QueryKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
+
+const EMPTY_RATINGS = new Map<string, Rating>()
+
+type RatingsMutationContext = {
+  previousRatings: Map<string, Rating> | undefined
+}
+
+function ratingsOptimisticConfig<TVariables>(
+  queryClient: QueryClient,
+  ratingsQueryKey: QueryKey | null,
+  applyOptimistic: (
+    ratings: Map<string, Rating>,
+    variables: TVariables,
+    now: number,
+  ) => void,
+) {
+  return {
+    onMutate: async (variables: TVariables): Promise<RatingsMutationContext> => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      applyOptimistic(nextRatings, variables, Date.now())
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+
+      return { previousRatings }
+    },
+    onError: (
+      _error: unknown,
+      _variables: TVariables,
+      context: RatingsMutationContext | undefined,
+    ) => {
+      if (!ratingsQueryKey) return
+      if (context !== undefined) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  }
+}
 
 /**
  * Read-only ratings data hook used by both list views and full mutation hooks.
@@ -27,12 +85,15 @@ export function useRatingsData() {
 
   const userId = user && !user.isAnonymous ? user.uid : null
   const ratingsQueryKey = userId ? queryKeys.firestore.ratings(userId) : null
+  const ratingsReadQueryKey = queryKeys.firestore.ratings(
+    userId ?? UNAUTHENTICATED_USER_ID,
+  )
 
-  const { data: ratings = new Map<string, Rating>(), isLoading } = useQuery({
+  const { data: ratings = EMPTY_RATINGS, isLoading } = useQuery({
     ...queryCacheProfiles.status,
-    queryKey: ratingsQueryKey ?? ["firestore", "ratings", "guest"],
+    queryKey: ratingsReadQueryKey,
     queryFn: async () => {
-      if (!userId) return new Map<string, Rating>()
+      if (!userId) return EMPTY_RATINGS
       return fetchRatings(userId)
     },
     enabled: !!userId,
@@ -100,43 +161,23 @@ export function useRatings() {
         }
       }
     },
-    onMutate: async (variables) => {
-      if (!ratingsQueryKey) {
-        return { previousRatings: undefined as Map<string, Rating> | undefined }
-      }
-
-      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
-      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
-        ratingsQueryKey,
-      )
-
-      const nextRatings = new Map(previousRatings ?? [])
-      const key = `${variables.mediaType}-${variables.mediaId}`
-
-      nextRatings.set(key, {
-        id: key,
-        mediaId: variables.mediaId.toString(),
-        mediaType: variables.mediaType,
-        rating: variables.rating,
-        title: variables.title,
-        posterPath: variables.posterPath,
-        releaseDate: variables.releaseDate,
-        ratedAt: Date.now(),
-      })
-
-      queryClient.setQueryData(ratingsQueryKey, nextRatings)
-      return { previousRatings }
-    },
-    onError: (_error, _variables, context) => {
-      if (!ratingsQueryKey) return
-      if (context?.previousRatings) {
-        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
-      }
-    },
-    onSettled: () => {
-      if (!ratingsQueryKey) return
-      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
-    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables, now) => {
+        const key = `${variables.mediaType}-${variables.mediaId}`
+        nextRatings.set(key, {
+          id: key,
+          mediaId: variables.mediaId.toString(),
+          mediaType: variables.mediaType,
+          rating: variables.rating,
+          title: variables.title,
+          posterPath: variables.posterPath,
+          releaseDate: variables.releaseDate,
+          ratedAt: now,
+        })
+      },
+    ),
   })
 
   const removeRatingMutation = useMutation({
@@ -147,32 +188,13 @@ export function useRatings() {
 
       await deleteRating(userId, variables.mediaType, variables.mediaId)
     },
-    onMutate: async (variables) => {
-      if (!ratingsQueryKey) {
-        return { previousRatings: undefined as Map<string, Rating> | undefined }
-      }
-
-      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
-      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
-        ratingsQueryKey,
-      )
-
-      const nextRatings = new Map(previousRatings ?? [])
-      nextRatings.delete(`${variables.mediaType}-${variables.mediaId}`)
-
-      queryClient.setQueryData(ratingsQueryKey, nextRatings)
-      return { previousRatings }
-    },
-    onError: (_error, _variables, context) => {
-      if (!ratingsQueryKey) return
-      if (context?.previousRatings) {
-        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
-      }
-    },
-    onSettled: () => {
-      if (!ratingsQueryKey) return
-      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
-    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables) => {
+        nextRatings.delete(`${variables.mediaType}-${variables.mediaId}`)
+      },
+    ),
   })
 
   const saveEpisodeRatingMutation = useMutation({
@@ -203,48 +225,28 @@ export function useRatings() {
         episodeNumber: variables.episodeNumber,
       })
     },
-    onMutate: async (variables) => {
-      if (!ratingsQueryKey) {
-        return { previousRatings: undefined as Map<string, Rating> | undefined }
-      }
-
-      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
-      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
-        ratingsQueryKey,
-      )
-
-      const nextRatings = new Map(previousRatings ?? [])
-      const key = `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`
-
-      nextRatings.set(key, {
-        id: key,
-        mediaId: variables.tvShowId.toString(),
-        mediaType: "episode",
-        rating: variables.rating,
-        title: variables.episodeName,
-        posterPath: variables.posterPath,
-        releaseDate: variables.episodeAirDate,
-        ratedAt: Date.now(),
-        tvShowId: variables.tvShowId,
-        seasonNumber: variables.seasonNumber,
-        episodeNumber: variables.episodeNumber,
-        episodeName: variables.episodeName,
-        tvShowName: variables.tvShowName,
-      })
-
-      queryClient.setQueryData(ratingsQueryKey, nextRatings)
-      return { previousRatings }
-    },
-    onError: (_error, _variables, context) => {
-      if (!ratingsQueryKey) return
-      if (context?.previousRatings) {
-        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
-      }
-    },
-    onSettled: () => {
-      if (!ratingsQueryKey) return
-      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
-    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables, now) => {
+        const key = `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`
+        nextRatings.set(key, {
+          id: key,
+          mediaId: variables.tvShowId.toString(),
+          mediaType: "episode",
+          rating: variables.rating,
+          title: variables.episodeName,
+          posterPath: variables.posterPath,
+          releaseDate: variables.episodeAirDate,
+          ratedAt: now,
+          tvShowId: variables.tvShowId,
+          seasonNumber: variables.seasonNumber,
+          episodeNumber: variables.episodeNumber,
+          episodeName: variables.episodeName,
+          tvShowName: variables.tvShowName,
+        })
+      },
+    ),
   })
 
   const removeEpisodeRatingMutation = useMutation({
@@ -264,34 +266,15 @@ export function useRatings() {
         variables.episodeNumber,
       )
     },
-    onMutate: async (variables) => {
-      if (!ratingsQueryKey) {
-        return { previousRatings: undefined as Map<string, Rating> | undefined }
-      }
-
-      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
-      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
-        ratingsQueryKey,
-      )
-
-      const nextRatings = new Map(previousRatings ?? [])
-      nextRatings.delete(
-        `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
-      )
-
-      queryClient.setQueryData(ratingsQueryKey, nextRatings)
-      return { previousRatings }
-    },
-    onError: (_error, _variables, context) => {
-      if (!ratingsQueryKey) return
-      if (context?.previousRatings) {
-        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
-      }
-    },
-    onSettled: () => {
-      if (!ratingsQueryKey) return
-      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
-    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables) => {
+        nextRatings.delete(
+          `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
+        )
+      },
+    ),
   })
 
   const { mutateAsync: saveRatingAsync } = saveRatingMutation

@@ -8,12 +8,11 @@ import {
   removeFavoritePerson,
 } from "@/lib/firebase/favorite-persons"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
-import { queryKeys } from "@/lib/react-query/query-keys"
 import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo, useState } from "react"
 
 function useFavoritePersonMutations(
@@ -55,7 +54,7 @@ function useFavoritePersonMutations(
     },
     onError: (_error, _variables, context) => {
       if (!favoritePersonsQueryKey) return
-      if (context?.previousPersons) {
+      if (context !== undefined) {
         queryClient.setQueryData(favoritePersonsQueryKey, context.previousPersons)
       }
     },
@@ -92,7 +91,7 @@ function useFavoritePersonMutations(
     },
     onError: (_error, _variables, context) => {
       if (!favoritePersonsQueryKey) return
-      if (context?.previousPersons) {
+      if (context !== undefined) {
         queryClient.setQueryData(favoritePersonsQueryKey, context.previousPersons)
       }
     },
@@ -113,12 +112,12 @@ export function useFavoritePersons() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const userId = user && !user.isAnonymous ? user.uid : null
-  const favoritePersonsQueryKey = userId
-    ? queryKeys.firestore.favoritePersons(userId)
-    : null
+  const favoritePersonsQueryKey = queryKeys.firestore.favoritePersons(
+    userId ?? UNAUTHENTICATED_USER_ID,
+  )
   const { addPersonMutation, removePersonMutation } = useFavoritePersonMutations(
     userId,
-    favoritePersonsQueryKey,
+    userId ? favoritePersonsQueryKey : null,
   )
 
   const {
@@ -127,7 +126,7 @@ export function useFavoritePersons() {
     error,
   } = useQuery({
     ...queryCacheProfiles.profile,
-    queryKey: favoritePersonsQueryKey ?? ["firestore", "favorite-persons", "guest"],
+    queryKey: favoritePersonsQueryKey,
     queryFn: async () => {
       if (!userId) return []
       return fetchFavoritePersons(userId)
@@ -168,9 +167,26 @@ export function useFavoritePersons() {
  * Hook for checking if a specific person is favorited.
  */
 export function useIsPersonFavorited(personId: number) {
-  const { allPersons, loading } = useFavoritePersons()
-  const isFavorited = allPersons.some((p) => p.id === personId)
-  return { isFavorited, loading }
+  const { user, loading: authLoading } = useAuth()
+  const userId = user && !user.isAnonymous ? user.uid : null
+  const favoritePersonsQueryKey = queryKeys.firestore.favoritePersons(
+    userId ?? UNAUTHENTICATED_USER_ID,
+  )
+
+  const { data: persons = [], isLoading } = useQuery({
+    ...queryCacheProfiles.profile,
+    queryKey: favoritePersonsQueryKey,
+    queryFn: async () => {
+      if (!userId) return []
+      return fetchFavoritePersons(userId)
+    },
+    enabled: !!userId,
+  })
+
+  return {
+    isFavorited: persons.some((person) => person.id === personId),
+    loading: authLoading || (!!userId && isLoading),
+  }
 }
 
 /**

@@ -90,177 +90,148 @@ export function useListMutations() {
   const userId = user && !user.isAnonymous ? user.uid : null
   const listQueryKey = userId ? queryKeys.firestore.lists(userId) : null
 
-  const addToListMutation = useMutation({
+  type ListMutationContext<TExtra extends object = Record<string, never>> = {
+    previousLists: UserList[] | undefined
+  } & TExtra
+
+  function useListOptimisticMutation<TVariables, TResult, TExtra extends object = Record<string, never>>({
+    mutationFn,
+    optimisticUpdate,
+  }: {
+    mutationFn: (variables: TVariables) => Promise<TResult>
+    optimisticUpdate: (params: {
+      previousLists: UserList[] | undefined
+      variables: TVariables
+    }) => { nextLists?: UserList[]; extraContext?: TExtra }
+  }) {
+    return useMutation<TResult, Error, TVariables, ListMutationContext<TExtra>>({
+      mutationFn,
+      onMutate: async (variables) => {
+        let previousLists: UserList[] | undefined
+
+        if (listQueryKey) {
+          await queryClient.cancelQueries({ queryKey: listQueryKey })
+          previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
+        }
+
+        const { nextLists, extraContext } = optimisticUpdate({
+          previousLists,
+          variables,
+        })
+
+        if (listQueryKey && nextLists !== undefined) {
+          queryClient.setQueryData<UserList[]>(listQueryKey, nextLists)
+        }
+
+        return {
+          previousLists,
+          ...(extraContext ?? ({} as TExtra)),
+        }
+      },
+      onError: (_error, _variables, context) => {
+        if (!listQueryKey) return
+        if (context !== undefined) {
+          queryClient.setQueryData(listQueryKey, context.previousLists)
+        }
+      },
+      onSettled: () => {
+        if (!listQueryKey) return
+        queryClient.invalidateQueries({ queryKey: listQueryKey })
+      },
+    })
+  }
+
+  const addToListMutation = useListOptimisticMutation({
     mutationFn: async ({ listId, mediaItem }: { listId: string; mediaItem: ListItemInput }) => {
       const uid = assertUserId(userId)
       return addToListInFirestore(uid, listId, mediaItem)
     },
-    onMutate: async ({ listId, mediaItem }) => {
-      if (!listQueryKey) return { previousLists: undefined as UserList[] | undefined }
-
-      await queryClient.cancelQueries({ queryKey: listQueryKey })
-      const previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
-
-      if (previousLists) {
-        queryClient.setQueryData<UserList[]>(
-          listQueryKey,
-          addItemToCachedLists(previousLists, listId, mediaItem),
-        )
+    optimisticUpdate: ({ previousLists, variables }) => {
+      if (!previousLists) return {}
+      return {
+        nextLists: addItemToCachedLists(
+          previousLists,
+          variables.listId,
+          variables.mediaItem,
+        ),
       }
-
-      return { previousLists }
-    },
-    onError: (_error, _variables, context) => {
-      if (!listQueryKey) return
-      if (context?.previousLists) {
-        queryClient.setQueryData(listQueryKey, context.previousLists)
-      }
-    },
-    onSettled: () => {
-      if (!listQueryKey) return
-      queryClient.invalidateQueries({ queryKey: listQueryKey })
     },
   })
 
-  const removeFromListMutation = useMutation({
+  const removeFromListMutation = useListOptimisticMutation({
     mutationFn: async ({ listId, mediaId }: { listId: string; mediaId: string }) => {
       const uid = assertUserId(userId)
       return removeFromListInFirestore(uid, listId, mediaId)
     },
-    onMutate: async ({ listId, mediaId }) => {
-      if (!listQueryKey) return { previousLists: undefined as UserList[] | undefined }
-
-      await queryClient.cancelQueries({ queryKey: listQueryKey })
-      const previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
-
-      if (previousLists) {
-        queryClient.setQueryData<UserList[]>(
-          listQueryKey,
-          removeItemFromCachedLists(previousLists, listId, mediaId),
-        )
+    optimisticUpdate: ({ previousLists, variables }) => {
+      if (!previousLists) return {}
+      return {
+        nextLists: removeItemFromCachedLists(
+          previousLists,
+          variables.listId,
+          variables.mediaId,
+        ),
       }
-
-      return { previousLists }
-    },
-    onError: (_error, _variables, context) => {
-      if (!listQueryKey) return
-      if (context?.previousLists) {
-        queryClient.setQueryData(listQueryKey, context.previousLists)
-      }
-    },
-    onSettled: () => {
-      if (!listQueryKey) return
-      queryClient.invalidateQueries({ queryKey: listQueryKey })
     },
   })
 
-  const createListMutation = useMutation({
-    mutationFn: async ({ name }: { name: string }) => {
+  const createListMutation = useListOptimisticMutation<
+    { name: string },
+    string,
+    { optimisticId: string }
+  >({
+    mutationFn: async ({ name }) => {
       const uid = assertUserId(userId)
       return createListInFirestore(uid, name)
     },
-    onMutate: async ({ name }) => {
-      if (!listQueryKey) {
-        return {
-          previousLists: undefined as UserList[] | undefined,
-          optimisticId: "",
-        }
-      }
-
-      await queryClient.cancelQueries({ queryKey: listQueryKey })
-      const previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
+    optimisticUpdate: ({ previousLists, variables }) => {
       const optimisticId = `temp-${Date.now()}`
 
-      if (previousLists) {
-        queryClient.setQueryData<UserList[]>(listQueryKey, [
+      if (!previousLists) {
+        return { extraContext: { optimisticId } }
+      }
+
+      return {
+        nextLists: [
           ...previousLists,
           {
             id: optimisticId,
-            name,
+            name: variables.name,
             items: {},
             createdAt: Date.now(),
             isCustom: true,
           },
-        ])
+        ],
+        extraContext: { optimisticId },
       }
-
-      return { previousLists, optimisticId }
-    },
-    onError: (_error, _variables, context) => {
-      if (!listQueryKey) return
-      if (context?.previousLists) {
-        queryClient.setQueryData(listQueryKey, context.previousLists)
-      }
-    },
-    onSettled: () => {
-      if (!listQueryKey) return
-      queryClient.invalidateQueries({ queryKey: listQueryKey })
     },
   })
 
-  const renameListMutation = useMutation({
+  const renameListMutation = useListOptimisticMutation({
     mutationFn: async ({ listId, newName }: { listId: string; newName: string }) => {
       const uid = assertUserId(userId)
       return renameListInFirestore(uid, listId, newName)
     },
-    onMutate: async ({ listId, newName }) => {
-      if (!listQueryKey) return { previousLists: undefined as UserList[] | undefined }
-
-      await queryClient.cancelQueries({ queryKey: listQueryKey })
-      const previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
-
-      if (previousLists) {
-        queryClient.setQueryData<UserList[]>(
-          listQueryKey,
-          previousLists.map((list) =>
-            list.id === listId ? { ...list, name: newName } : list,
-          ),
-        )
+    optimisticUpdate: ({ previousLists, variables }) => {
+      if (!previousLists) return {}
+      return {
+        nextLists: previousLists.map((list) =>
+          list.id === variables.listId ? { ...list, name: variables.newName } : list,
+        ),
       }
-
-      return { previousLists }
-    },
-    onError: (_error, _variables, context) => {
-      if (!listQueryKey) return
-      if (context?.previousLists) {
-        queryClient.setQueryData(listQueryKey, context.previousLists)
-      }
-    },
-    onSettled: () => {
-      if (!listQueryKey) return
-      queryClient.invalidateQueries({ queryKey: listQueryKey })
     },
   })
 
-  const deleteListMutation = useMutation({
+  const deleteListMutation = useListOptimisticMutation({
     mutationFn: async ({ listId }: { listId: string }) => {
       const uid = assertUserId(userId)
       return deleteListInFirestore(uid, listId)
     },
-    onMutate: async ({ listId }) => {
-      if (!listQueryKey) return { previousLists: undefined as UserList[] | undefined }
-
-      await queryClient.cancelQueries({ queryKey: listQueryKey })
-      const previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
-
-      if (previousLists) {
-        queryClient.setQueryData<UserList[]>(
-          listQueryKey,
-          previousLists.filter((list) => list.id !== listId),
-        )
+    optimisticUpdate: ({ previousLists, variables }) => {
+      if (!previousLists) return {}
+      return {
+        nextLists: previousLists.filter((list) => list.id !== variables.listId),
       }
-
-      return { previousLists }
-    },
-    onError: (_error, _variables, context) => {
-      if (!listQueryKey) return
-      if (context?.previousLists) {
-        queryClient.setQueryData(listQueryKey, context.previousLists)
-      }
-    },
-    onSettled: () => {
-      if (!listQueryKey) return
-      queryClient.invalidateQueries({ queryKey: listQueryKey })
     },
   })
 

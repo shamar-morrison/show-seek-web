@@ -118,9 +118,9 @@ describe("firestore-read-audit", () => {
   it("exports main for import-driven execution", async () => {
     const scriptPath = path.resolve(process.cwd(), "scripts/firestore-read-audit.mjs")
     const modulePath = pathToFileURL(scriptPath).href
-    const module = await import(modulePath)
+    const importedModule = await import(modulePath)
 
-    expect(typeof module.main).toBe("function")
+    expect(typeof importedModule.main).toBe("function")
 
     const tempDir = createTempProject()
     writeFileSync(
@@ -132,7 +132,7 @@ describe("firestore-read-audit", () => {
       "export const y = onSnapshot(docRef, () => {})\n",
     )
 
-    const result = await module.main({ root: tempDir })
+    const result = await importedModule.main({ root: tempDir })
     expect(result.policy.pass).toBe(true)
     expect(result.output.policy.totalSnapshotListeners).toBe(2)
   })

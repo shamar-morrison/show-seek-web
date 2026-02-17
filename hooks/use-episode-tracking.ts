@@ -4,7 +4,10 @@ import { useAuth } from "@/context/auth-context"
 import { parseEpisodeKey } from "@/lib/episode-utils"
 import { fetchAllEpisodeTracking } from "@/lib/firebase/episode-tracking"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
-import { queryKeys } from "@/lib/react-query/query-keys"
+import {
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
 import type {
   InProgressShow,
   TVShowEpisodeTracking,
@@ -15,6 +18,7 @@ import { useCallback, useMemo } from "react"
 
 /** Default average runtime if not cached (typical TV episode length) */
 const DEFAULT_AVG_RUNTIME = 45
+const EMPTY_TRACKING = new Map<string, TVShowEpisodeTracking>()
 
 /**
  * Enriched progress with TMDB data
@@ -109,13 +113,14 @@ export function useEpisodeTracking() {
   const { user, loading: authLoading } = useAuth()
 
   const userId = user && !user.isAnonymous ? user.uid : null
-  const trackingQueryKey = userId ? queryKeys.firestore.episodeTrackingAll(userId) : null
 
-  const { data: tracking = new Map<string, TVShowEpisodeTracking>(), isLoading } = useQuery({
+  const { data: tracking = EMPTY_TRACKING, isLoading } = useQuery({
     ...queryCacheProfiles.status,
-    queryKey: trackingQueryKey ?? ["firestore", "episode-tracking", "guest", "all"],
+    queryKey: queryKeys.firestore.episodeTrackingAll(
+      userId ?? UNAUTHENTICATED_USER_ID,
+    ),
     queryFn: async () => {
-      if (!userId) return new Map<string, TVShowEpisodeTracking>()
+      if (!userId) return EMPTY_TRACKING
       return fetchAllEpisodeTracking(userId)
     },
     enabled: !!userId,
@@ -126,6 +131,7 @@ export function useEpisodeTracking() {
 
     for (const [tvShowIdStr, data] of tracking.entries()) {
       const tvShowId = parseInt(tvShowIdStr, 10)
+      if (Number.isNaN(tvShowId)) continue
       const progress = computeProgressFromCache(tvShowId, data)
       if (progress) {
         results.push(progress)
@@ -141,6 +147,7 @@ export function useEpisodeTracking() {
 
     for (const [tvShowIdStr, data] of tracking.entries()) {
       const tvShowId = parseInt(tvShowIdStr, 10)
+      if (Number.isNaN(tvShowId)) continue
       episodesByShow.set(tvShowId, new Set(Object.keys(data.episodes)))
     }
 

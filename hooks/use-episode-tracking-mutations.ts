@@ -6,7 +6,6 @@ import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type {
   EpisodeTrackingMetadata,
   TVShowEpisodeTracking,
-  WatchedEpisode,
 } from "@/types/episode-tracking"
 import type { TMDBEpisode as Episode } from "@/types/tmdb"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -108,8 +107,93 @@ export function useEpisodeTrackingMutations() {
   const getShowQueryKey = (tvShowId: number) =>
     userId ? queryKeys.firestore.episodeTrackingShow(userId, tvShowId) : null
 
-  const markEpisodeWatchedMutation = useMutation({
-    mutationFn: async (variables: {
+  type TrackingMutationContext = {
+    previousAll: Map<string, TVShowEpisodeTracking> | undefined
+    previousShow: TVShowEpisodeTracking | null | undefined
+    showQueryKey: readonly unknown[] | null
+  }
+
+  function useTrackingMutation<TVariables>({
+    getTvShowId,
+    mutationFn,
+    applyOptimistic,
+  }: {
+    getTvShowId: (variables: TVariables) => number
+    mutationFn: (variables: TVariables) => Promise<void>
+    applyOptimistic: (params: {
+      previousShow: TVShowEpisodeTracking | null | undefined
+      variables: TVariables
+    }) => TVShowEpisodeTracking | null
+  }) {
+    return useMutation<void, Error, TVariables, TrackingMutationContext>({
+      mutationFn,
+      onMutate: async (variables) => {
+        if (!allTrackingQueryKey || !userId) {
+          return {
+            previousAll: undefined,
+            previousShow: undefined,
+            showQueryKey: null,
+          }
+        }
+
+        const tvShowId = getTvShowId(variables)
+        const showQueryKey = getShowQueryKey(tvShowId)
+        if (!showQueryKey) {
+          return {
+            previousAll: undefined,
+            previousShow: undefined,
+            showQueryKey: null,
+          }
+        }
+
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
+          queryClient.cancelQueries({ queryKey: showQueryKey }),
+        ])
+
+        const previousAll = queryClient.getQueryData<
+          Map<string, TVShowEpisodeTracking>
+        >(allTrackingQueryKey)
+        const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
+          showQueryKey,
+        )
+        const nextShow = applyOptimistic({ previousShow, variables })
+
+        queryClient.setQueryData(showQueryKey, nextShow)
+        if (previousAll) {
+          queryClient.setQueryData(
+            allTrackingQueryKey,
+            setShowInTrackingMap(previousAll, tvShowId, nextShow),
+          )
+        }
+
+        return { previousAll, previousShow, showQueryKey }
+      },
+      onError: (_error, _variables, context) => {
+        if (!allTrackingQueryKey || !context?.showQueryKey) return
+
+        if (context.previousAll !== undefined) {
+          queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
+        }
+        if (context.previousShow !== undefined) {
+          queryClient.setQueryData(context.showQueryKey, context.previousShow)
+        }
+      },
+      onSettled: (_data, _error, variables, context) => {
+        if (!allTrackingQueryKey || !userId) return
+
+        const showQueryKey =
+          context?.showQueryKey ?? getShowQueryKey(getTvShowId(variables))
+        queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
+        if (showQueryKey) {
+          queryClient.invalidateQueries({ queryKey: showQueryKey })
+        }
+      },
+    })
+  }
+
+  const markEpisodeWatchedMutation = useTrackingMutation({
+    getTvShowId: (variables: {
       tvShowId: number
       seasonNumber: number
       episodeNumber: number
@@ -123,7 +207,8 @@ export function useEpisodeTrackingMutations() {
       nextEpisode?: NextEpisode | null
       markPreviousEpisodesWatched?: boolean
       seasonEpisodes?: SeasonEpisodeInput[]
-    }) => {
+    }) => variables.tvShowId,
+    mutationFn: async (variables) => {
       await episodeTrackingService.markEpisodeWatched(
         variables.tvShowId,
         variables.seasonNumber,
@@ -136,38 +221,11 @@ export function useEpisodeTrackingMutations() {
         variables.seasonEpisodes,
       )
     },
-    onMutate: async (variables) => {
-      if (!allTrackingQueryKey || !userId) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
-        queryClient.cancelQueries({ queryKey: showQueryKey }),
-      ])
-
-      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
-        allTrackingQueryKey,
-      )
-      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-        showQueryKey,
-      )
-
+    applyOptimistic: ({ previousShow, variables }) => {
       const nextShow = cloneTracking(previousShow ?? null, variables.showMetadata)
       const now = Date.now()
-
       const key = episodeKey(variables.seasonNumber, variables.episodeNumber)
+
       nextShow.episodes[key] = {
         episodeId: variables.episodeData.episodeId,
         tvShowId: variables.tvShowId,
@@ -186,7 +244,6 @@ export function useEpisodeTrackingMutations() {
             variables.seasonNumber,
             seasonEpisode.episode_number,
           )
-
           if (nextShow.episodes[previousKey]) return
 
           nextShow.episodes[previousKey] = {
@@ -208,131 +265,43 @@ export function useEpisodeTrackingMutations() {
         variables.nextEpisode,
       )
 
-      queryClient.setQueryData(showQueryKey, nextShow)
-
-      if (previousAll) {
-        queryClient.setQueryData(
-          allTrackingQueryKey,
-          setShowInTrackingMap(previousAll, variables.tvShowId, nextShow),
-        )
-      }
-
-      return { previousAll, previousShow }
-    },
-    onError: (_error, variables, context) => {
-      if (!userId) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey || !allTrackingQueryKey) return
-
-      if (context?.previousAll) {
-        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
-      }
-      if (context?.previousShow !== undefined) {
-        queryClient.setQueryData(showQueryKey, context.previousShow)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (!userId || !allTrackingQueryKey) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-
-      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
-      if (showQueryKey) {
-        queryClient.invalidateQueries({ queryKey: showQueryKey })
-      }
+      return nextShow
     },
   })
 
-  const markEpisodeUnwatchedMutation = useMutation({
-    mutationFn: async (variables: {
+  const markEpisodeUnwatchedMutation = useTrackingMutation({
+    getTvShowId: (variables: {
       tvShowId: number
       seasonNumber: number
       episodeNumber: number
-    }) => {
+    }) => variables.tvShowId,
+    mutationFn: async (variables) => {
       await episodeTrackingService.markEpisodeUnwatched(
         variables.tvShowId,
         variables.seasonNumber,
         variables.episodeNumber,
       )
     },
-    onMutate: async (variables) => {
-      if (!allTrackingQueryKey || !userId) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
-        queryClient.cancelQueries({ queryKey: showQueryKey }),
-      ])
-
-      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
-        allTrackingQueryKey,
-      )
-      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-        showQueryKey,
-      )
-
+    applyOptimistic: ({ previousShow, variables }) => {
       const nextShow = cloneTracking(previousShow ?? null)
       delete nextShow.episodes[
         episodeKey(variables.seasonNumber, variables.episodeNumber)
       ]
       nextShow.metadata.lastUpdated = Date.now()
-
-      const normalizedShow =
-        Object.keys(nextShow.episodes).length > 0 ? nextShow : null
-
-      queryClient.setQueryData(showQueryKey, normalizedShow)
-      if (previousAll) {
-        queryClient.setQueryData(
-          allTrackingQueryKey,
-          setShowInTrackingMap(previousAll, variables.tvShowId, normalizedShow),
-        )
-      }
-
-      return { previousAll, previousShow }
-    },
-    onError: (_error, variables, context) => {
-      if (!userId) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey || !allTrackingQueryKey) return
-
-      if (context?.previousAll) {
-        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
-      }
-      if (context?.previousShow !== undefined) {
-        queryClient.setQueryData(showQueryKey, context.previousShow)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (!userId || !allTrackingQueryKey) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-
-      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
-      if (showQueryKey) {
-        queryClient.invalidateQueries({ queryKey: showQueryKey })
-      }
+      return Object.keys(nextShow.episodes).length > 0 ? nextShow : null
     },
   })
 
-  const markAllEpisodesWatchedMutation = useMutation({
-    mutationFn: async (variables: {
+  const markAllEpisodesWatchedMutation = useTrackingMutation({
+    getTvShowId: (variables: {
       tvShowId: number
       seasonNumber: number
       episodes: SeasonEpisodeInput[]
       showMetadata: ShowMetadata
       showStats?: ShowStats
       nextEpisode?: NextEpisode | null
-    }) => {
+    }) => variables.tvShowId,
+    mutationFn: async (variables) => {
       await episodeTrackingService.markAllEpisodesWatched(
         variables.tvShowId,
         variables.seasonNumber,
@@ -342,34 +311,7 @@ export function useEpisodeTrackingMutations() {
         variables.nextEpisode,
       )
     },
-    onMutate: async (variables) => {
-      if (!allTrackingQueryKey || !userId) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
-        queryClient.cancelQueries({ queryKey: showQueryKey }),
-      ])
-
-      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
-        allTrackingQueryKey,
-      )
-      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-        showQueryKey,
-      )
-
+    applyOptimistic: ({ previousShow, variables }) => {
       const nextShow = cloneTracking(previousShow ?? null, variables.showMetadata)
       const now = Date.now()
 
@@ -392,185 +334,39 @@ export function useEpisodeTrackingMutations() {
         variables.nextEpisode,
       )
 
-      queryClient.setQueryData(showQueryKey, nextShow)
-
-      if (previousAll) {
-        queryClient.setQueryData(
-          allTrackingQueryKey,
-          setShowInTrackingMap(previousAll, variables.tvShowId, nextShow),
-        )
-      }
-
-      return { previousAll, previousShow }
-    },
-    onError: (_error, variables, context) => {
-      if (!userId) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey || !allTrackingQueryKey) return
-
-      if (context?.previousAll) {
-        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
-      }
-      if (context?.previousShow !== undefined) {
-        queryClient.setQueryData(showQueryKey, context.previousShow)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (!userId || !allTrackingQueryKey) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-
-      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
-      if (showQueryKey) {
-        queryClient.invalidateQueries({ queryKey: showQueryKey })
-      }
+      return nextShow
     },
   })
 
-  const markAllEpisodesUnwatchedMutation = useMutation({
-    mutationFn: async (variables: {
+  const markAllEpisodesUnwatchedMutation = useTrackingMutation({
+    getTvShowId: (variables: {
       tvShowId: number
       seasonNumber: number
       episodeNumbers: number[]
-    }) => {
+    }) => variables.tvShowId,
+    mutationFn: async (variables) => {
       await episodeTrackingService.markAllEpisodesUnwatched(
         variables.tvShowId,
         variables.seasonNumber,
         variables.episodeNumbers,
       )
     },
-    onMutate: async (variables) => {
-      if (!allTrackingQueryKey || !userId) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
-        queryClient.cancelQueries({ queryKey: showQueryKey }),
-      ])
-
-      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
-        allTrackingQueryKey,
-      )
-      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-        showQueryKey,
-      )
-
+    applyOptimistic: ({ previousShow, variables }) => {
       const nextShow = cloneTracking(previousShow ?? null)
       variables.episodeNumbers.forEach((episodeNumber) => {
         delete nextShow.episodes[episodeKey(variables.seasonNumber, episodeNumber)]
       })
       nextShow.metadata.lastUpdated = Date.now()
-
-      const normalizedShow =
-        Object.keys(nextShow.episodes).length > 0 ? nextShow : null
-
-      queryClient.setQueryData(showQueryKey, normalizedShow)
-      if (previousAll) {
-        queryClient.setQueryData(
-          allTrackingQueryKey,
-          setShowInTrackingMap(previousAll, variables.tvShowId, normalizedShow),
-        )
-      }
-
-      return { previousAll, previousShow }
-    },
-    onError: (_error, variables, context) => {
-      if (!userId) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey || !allTrackingQueryKey) return
-
-      if (context?.previousAll) {
-        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
-      }
-      if (context?.previousShow !== undefined) {
-        queryClient.setQueryData(showQueryKey, context.previousShow)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (!userId || !allTrackingQueryKey) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-
-      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
-      if (showQueryKey) {
-        queryClient.invalidateQueries({ queryKey: showQueryKey })
-      }
+      return Object.keys(nextShow.episodes).length > 0 ? nextShow : null
     },
   })
 
-  const clearAllEpisodesMutation = useMutation({
-    mutationFn: async (variables: { tvShowId: number }) => {
+  const clearAllEpisodesMutation = useTrackingMutation({
+    getTvShowId: (variables: { tvShowId: number }) => variables.tvShowId,
+    mutationFn: async (variables) => {
       await episodeTrackingService.clearAllEpisodes(variables.tvShowId)
     },
-    onMutate: async (variables) => {
-      if (!allTrackingQueryKey || !userId) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey) {
-        return {
-          previousAll: undefined as Map<string, TVShowEpisodeTracking> | undefined,
-          previousShow: undefined as TVShowEpisodeTracking | null | undefined,
-        }
-      }
-
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: allTrackingQueryKey }),
-        queryClient.cancelQueries({ queryKey: showQueryKey }),
-      ])
-
-      const previousAll = queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
-        allTrackingQueryKey,
-      )
-      const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-        showQueryKey,
-      )
-
-      queryClient.setQueryData(showQueryKey, null)
-      if (previousAll) {
-        queryClient.setQueryData(
-          allTrackingQueryKey,
-          setShowInTrackingMap(previousAll, variables.tvShowId, null),
-        )
-      }
-
-      return { previousAll, previousShow }
-    },
-    onError: (_error, variables, context) => {
-      if (!userId) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-      if (!showQueryKey || !allTrackingQueryKey) return
-
-      if (context?.previousAll) {
-        queryClient.setQueryData(allTrackingQueryKey, context.previousAll)
-      }
-      if (context?.previousShow !== undefined) {
-        queryClient.setQueryData(showQueryKey, context.previousShow)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (!userId || !allTrackingQueryKey) return
-      const showQueryKey = getShowQueryKey(variables.tvShowId)
-
-      queryClient.invalidateQueries({ queryKey: allTrackingQueryKey })
-      if (showQueryKey) {
-        queryClient.invalidateQueries({ queryKey: showQueryKey })
-      }
-    },
+    applyOptimistic: () => null,
   })
 
   return {

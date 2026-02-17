@@ -10,13 +10,16 @@ import {
   WatchInstance,
 } from "@/lib/firebase/watched-movies"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
-import { queryKeys } from "@/lib/react-query/query-keys"
+import {
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
 import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 
 interface UseWatchedMoviesReturn {
@@ -51,13 +54,17 @@ export function useWatchedMovies(
 
   const userId = user && !user.isAnonymous ? user.uid : null
   const enabled = !!options.enabled && !!userId
+  const watchesReadQueryKey = queryKeys.firestore.watchedMovies(
+    userId ?? UNAUTHENTICATED_USER_ID,
+    movieId,
+  )
   const watchesQueryKey = userId
     ? queryKeys.firestore.watchedMovies(userId, movieId)
     : null
 
   const { data: instances = [], isLoading } = useQuery({
     ...queryCacheProfiles.status,
-    queryKey: watchesQueryKey ?? ["firestore", "watched-movies", "guest", movieId],
+    queryKey: watchesReadQueryKey,
     queryFn: async () => {
       if (!userId) return []
       return fetchWatches(userId, movieId)
@@ -139,6 +146,12 @@ export function useWatchedMovies(
     },
   })
 
+  const addWatchMutationRef = useRef(addWatchMutation.mutateAsync)
+
+  useEffect(() => {
+    addWatchMutationRef.current = addWatchMutation.mutateAsync
+  }, [addWatchMutation.mutateAsync])
+
   const clearWatchesMutation = useMutation({
     mutationFn: async () => {
       if (!userId) {
@@ -184,7 +197,7 @@ export function useWatchedMovies(
       },
       autoAddToAlreadyWatched: boolean = false,
     ): Promise<void> => {
-      await addWatchMutation.mutateAsync({
+      await addWatchMutationRef.current({
         watchedAt,
         isFirstWatch: instances.length === 0,
         movieData,
@@ -192,7 +205,7 @@ export function useWatchedMovies(
       })
       toast.success("Marked as watched")
     },
-    [addWatchMutation, instances.length],
+    [instances.length],
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {

@@ -17,6 +17,8 @@ import { useQuery } from "@tanstack/react-query"
 
 export { tmdbQueryKeys }
 
+// QueryProvider defaults disable automatic refetching for Firestore-centric flows.
+// Keep explicit TMDB overrides so public metadata refreshes on mount/focus.
 const tmdbRefetchOptions = {
   refetchOnWindowFocus: true,
   refetchOnMount: true,

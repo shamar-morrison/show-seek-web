@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/config"
 import {
   collection,
   doc,
+  getCountFromServer,
   getDocs,
   setDoc,
   Timestamp,
@@ -89,7 +90,9 @@ export async function addWatch(
 
 /**
  * Clear all watch history for a movie
- * Uses batch delete for atomicity
+ * Deletes are chunked into Firestore write batches of `BATCH_LIMIT` (500).
+ * Each individual batch is atomic, but clearing across multiple batches is not.
+ * A failure between batches can leave a partially deleted watch history.
  */
 export async function clearWatches(
   userId: string,
@@ -137,6 +140,6 @@ export async function getWatchCount(
     "watches",
   )
 
-  const snapshot = await getDocs(watchesRef)
-  return snapshot.size
+  const snapshot = await getCountFromServer(watchesRef)
+  return snapshot.data().count
 }

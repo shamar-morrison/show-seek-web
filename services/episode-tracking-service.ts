@@ -86,7 +86,10 @@ class EpisodeTrackingService {
 
       return snapshot.data() as TVShowEpisodeTracking
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 
@@ -205,7 +208,10 @@ class EpisodeTrackingService {
         ),
       )
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 
@@ -246,7 +252,10 @@ class EpisodeTrackingService {
         throw updateError
       }
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 
@@ -288,7 +297,10 @@ class EpisodeTrackingService {
         throw updateError
       }
     } catch (error) {
-      throw new Error(getFirestoreErrorMessage(error))
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
 

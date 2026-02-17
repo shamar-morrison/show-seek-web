@@ -4,7 +4,10 @@ import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { fetchUserLists } from "@/lib/firebase/lists"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
-import { queryKeys } from "@/lib/react-query/query-keys"
+import {
+  queryKeys,
+  UNAUTHENTICATED_USER_ID,
+} from "@/lib/react-query/query-keys"
 import { DEFAULT_LISTS, UserList } from "@/types/list"
 import { Timestamp } from "firebase/firestore"
 import { useMemo } from "react"
@@ -36,7 +39,7 @@ export function useLists() {
     error,
   } = useQuery({
     ...queryCacheProfiles.status,
-    queryKey: queryKeys.firestore.lists(userId ?? "guest"),
+    queryKey: queryKeys.firestore.lists(userId ?? UNAUTHENTICATED_USER_ID),
     queryFn: async () => {
       if (!userId) return []
       return fetchUserLists(userId)

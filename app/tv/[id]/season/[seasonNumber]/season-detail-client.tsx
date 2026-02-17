@@ -61,6 +61,10 @@ export function SeasonDetailClient({
   const airedEpisodes = season.episodes.filter(
     (ep) => ep.air_date && new Date(ep.air_date) <= today,
   )
+  const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
+  const showName = tvShow.name
+  const showPosterPath = tvShow.poster_path
+  const showSeasons = tvShow.seasons
 
   const watchedEpisodes = useMemo(
     () => new Set(Object.keys(tracking?.episodes ?? {})),
@@ -85,9 +89,9 @@ export function SeasonDetailClient({
   const showStats = useMemo(
     () => ({
       totalEpisodes: tvShow.number_of_episodes,
-      avgRuntime: tvShow.episode_run_time?.[0] || 45,
+      avgRuntime: firstEpisodeRuntime || 45,
     }),
-    [tvShow.number_of_episodes, tvShow.episode_run_time?.[0]],
+    [tvShow.number_of_episodes, firstEpisodeRuntime],
   )
 
   // Mark all episodes as watched
@@ -115,7 +119,7 @@ export function SeasonDetailClient({
       } | null = null
 
       // Find the next season after the current one (excluding season 0 - specials)
-      const nextSeasons = tvShow.seasons
+      const nextSeasons = showSeasons
         ?.filter(
           (s) => s.season_number > season.season_number && s.season_number > 0,
         )
@@ -138,8 +142,8 @@ export function SeasonDetailClient({
         seasonNumber: season.season_number,
         episodes: episodesToMark,
         showMetadata: {
-          tvShowName: tvShow.name,
-          posterPath: tvShow.poster_path,
+          tvShowName: showName,
+          posterPath: showPosterPath,
         },
         showStats,
         nextEpisode,
@@ -156,7 +160,9 @@ export function SeasonDetailClient({
     markAllEpisodesWatched,
     tvShowId,
     season.season_number,
-    tvShow,
+    showName,
+    showPosterPath,
+    showSeasons,
     showStats,
   ])
 
