@@ -41,6 +41,10 @@ interface UseWatchedMoviesReturn {
   clearAllWatches: () => Promise<void>
 }
 
+interface WatchMutationContext {
+  previousWatches: WatchInstance[] | undefined
+}
+
 /**
  * Hook for managing watch history for a specific movie with React Query caching.
  */
@@ -119,7 +123,7 @@ export function useWatchedMovies(
     },
     onMutate: async (variables) => {
       if (!watchesQueryKey) {
-        return { previousWatches: undefined as WatchInstance[] | undefined }
+        return { previousWatches: undefined } satisfies WatchMutationContext
       }
 
       await queryClient.cancelQueries({ queryKey: watchesQueryKey })
@@ -138,13 +142,11 @@ export function useWatchedMovies(
       )
 
       queryClient.setQueryData(watchesQueryKey, nextWatches)
-      return { previousWatches }
+      return { previousWatches } satisfies WatchMutationContext
     },
     onError: (_error, _variables, context) => {
-      if (!watchesQueryKey) return
-      if (context?.previousWatches) {
-        queryClient.setQueryData(watchesQueryKey, context.previousWatches)
-      }
+      if (!watchesQueryKey || !context) return
+      queryClient.setQueryData(watchesQueryKey, context.previousWatches)
     },
     onSettled: () => {
       if (!watchesQueryKey) return
@@ -168,7 +170,7 @@ export function useWatchedMovies(
     },
     onMutate: async () => {
       if (!watchesQueryKey) {
-        return { previousWatches: undefined as WatchInstance[] | undefined }
+        return { previousWatches: undefined } satisfies WatchMutationContext
       }
 
       await queryClient.cancelQueries({ queryKey: watchesQueryKey })
@@ -177,13 +179,11 @@ export function useWatchedMovies(
       )
 
       queryClient.setQueryData(watchesQueryKey, [])
-      return { previousWatches }
+      return { previousWatches } satisfies WatchMutationContext
     },
     onError: (_error, _variables, context) => {
-      if (!watchesQueryKey) return
-      if (context?.previousWatches) {
-        queryClient.setQueryData(watchesQueryKey, context.previousWatches)
-      }
+      if (!watchesQueryKey || !context) return
+      queryClient.setQueryData(watchesQueryKey, context.previousWatches)
     },
     onSettled: () => {
       if (!watchesQueryKey) return
