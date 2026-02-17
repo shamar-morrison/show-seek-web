@@ -7,12 +7,8 @@ import type {
   EpisodeTrackingMetadata,
   TVShowEpisodeTracking,
 } from "@/types/episode-tracking"
-import type { TMDBEpisode as Episode } from "@/types/tmdb"
+import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-
-type SeasonEpisodeInput = Pick<Episode, "id" | "episode_number" | "name"> & {
-  air_date: string | null
-}
 
 interface ShowStats {
   totalEpisodes: number

@@ -139,28 +139,6 @@ export function useRatings() {
         posterPath: variables.posterPath,
         releaseDate: variables.releaseDate,
       })
-
-      if (
-        variables.mediaType === "movie" &&
-        preferences.autoAddToAlreadyWatched
-      ) {
-        try {
-          const wasAdded = await addToList("already-watched", {
-            id: variables.mediaId,
-            title: variables.title,
-            poster_path: variables.posterPath,
-            media_type: "movie",
-            vote_average: variables.voteAverage,
-            release_date: variables.releaseDate || undefined,
-          })
-
-          if (wasAdded) {
-            toast.success("Added to Already Watched list")
-          }
-        } catch (listError) {
-          console.error("Failed to auto-add to Already Watched list:", listError)
-        }
-      }
     },
     ...ratingsOptimisticConfig(
       queryClient,
@@ -179,6 +157,36 @@ export function useRatings() {
         })
       },
     ),
+    onSuccess: (_data, variables) => {
+      if (
+        variables.mediaType !== "movie" ||
+        !preferences.autoAddToAlreadyWatched
+      ) {
+        return
+      }
+
+      void (async () => {
+        try {
+          const wasAdded = await addToList("already-watched", {
+            id: variables.mediaId,
+            title: variables.title,
+            poster_path: variables.posterPath,
+            media_type: "movie",
+            vote_average: variables.voteAverage,
+            release_date: variables.releaseDate || undefined,
+          })
+
+          if (wasAdded) {
+            toast.success("Added to Already Watched list")
+          }
+        } catch (listError) {
+          console.error("Failed to auto-add to Already Watched list:", listError)
+          const errorMessage =
+            listError instanceof Error ? listError.message : "Unknown error"
+          toast.error(`Failed to auto-add to Already Watched list: ${errorMessage}`)
+        }
+      })()
+    },
   })
 
   const removeRatingMutation = useMutation({

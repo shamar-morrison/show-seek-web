@@ -203,20 +203,32 @@ export function useWatchedMovies(
       },
       autoAddToAlreadyWatched: boolean = false,
     ): Promise<void> => {
-      await addWatchMutationRef.current({
-        watchedAt,
-        isFirstWatch: instances.length === 0,
-        movieData,
-        autoAddToAlreadyWatched,
-      })
-      toast.success("Marked as watched")
+      try {
+        await addWatchMutationRef.current({
+          watchedAt,
+          isFirstWatch: instances.length === 0,
+          movieData,
+          autoAddToAlreadyWatched,
+        })
+        toast.success("Marked as watched")
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error"
+        toast.error(`Failed to mark as watched: ${errorMessage}`)
+      }
     },
     [instances.length],
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {
-    await clearWatchesMutationRef.current()
-    toast.success("Watch history cleared")
+    try {
+      await clearWatchesMutationRef.current()
+      toast.success("Watch history cleared")
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error"
+      toast.error(`Failed to clear watch history: ${errorMessage}`)
+    }
   }, [])
 
   return {

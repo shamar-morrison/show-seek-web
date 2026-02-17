@@ -6,6 +6,7 @@ import type {
   TVShowEpisodeTracking,
   WatchedEpisode,
 } from "@/types/episode-tracking"
+import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import type { TMDBEpisode as Episode } from "@/types/tmdb"
 import {
   deleteDoc,
@@ -19,10 +20,6 @@ import {
 // Season type for progress calculation
 interface Season {
   season_number: number
-}
-
-type SeasonEpisodeInput = Pick<Episode, "id" | "episode_number" | "name"> & {
-  air_date: string | null
 }
 
 // Inline helper to extract error message
