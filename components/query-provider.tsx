@@ -19,12 +19,14 @@ export function QueryProvider({ children }: QueryProviderProps) {
           queries: {
             // 30 minutes stale time - data is considered fresh for this duration
             staleTime: 30 * 60 * 1000,
-            // 1 hour cache time - data stays in cache even if unused
-            gcTime: 60 * 60 * 1000,
+            // 24 hour cache time - profile-oriented data stays cached between views
+            gcTime: 24 * 60 * 60 * 1000,
             // Retry failed requests once
             retry: 1,
-            // Don't refetch on window focus (TMDB data doesn't change that often)
+            // Migrated Firestore reads rely on mutation-driven invalidation
             refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
+            refetchOnMount: false,
           },
         },
       }),

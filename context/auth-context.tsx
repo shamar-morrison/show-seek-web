@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userDocRef = doc(db, "users", user.uid)
+    // Intentionally realtime: premium entitlement must propagate immediately.
     const unsubscribe = onSnapshot(
       userDocRef,
       (snapshot) => {

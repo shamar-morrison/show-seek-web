@@ -7,11 +7,10 @@ import {
   collection,
   deleteDoc,
   doc,
-  onSnapshot,
+  getDocs,
   orderBy,
   query,
   setDoc,
-  type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
 
@@ -59,30 +58,18 @@ function toFavoritePerson(data: Record<string, unknown>): FavoritePerson {
 }
 
 /**
- * Subscribe to real-time updates for all favorite persons
- * Returns an unsubscribe function
- * Data is sorted by addedAt descending (most recent first)
+ * Fetch favorite persons with a one-time read.
+ * Data is sorted by addedAt descending (most recent first).
  */
-export function subscribeToFavoritePersons(
+export async function fetchFavoritePersons(
   userId: string,
-  onPersonsChange: (persons: FavoritePerson[]) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
+): Promise<FavoritePerson[]> {
   const personsRef = getFavoritePersonsCollectionRef(userId)
   const q = query(personsRef, orderBy("addedAt", "desc"))
+  const snapshot = await getDocs(q)
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const persons: FavoritePerson[] = snapshot.docs.map((docSnapshot) =>
-        toFavoritePerson(docSnapshot.data()),
-      )
-      onPersonsChange(persons)
-    },
-    (error) => {
-      console.error("Error subscribing to favorite persons:", error)
-      onError?.(error)
-    },
+  return snapshot.docs.map((docSnapshot) =>
+    toFavoritePerson(docSnapshot.data()),
   )
 }
 

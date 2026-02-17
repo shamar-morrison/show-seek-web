@@ -38,6 +38,7 @@ export function usePreferences(): UsePreferencesReturn {
     }
 
     const userDocRef = doc(db, "users", user.uid)
+    // Intentionally realtime: preference toggles should sync live across active views.
     const unsubscribe = onSnapshot(
       userDocRef,
       (snapshot) => {

@@ -9,6 +9,8 @@ import {
 } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import { useRatings } from "@/hooks/use-ratings"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import type { TMDBMedia } from "@/types/tmdb"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
@@ -73,7 +75,8 @@ export function useForYouRecommendations() {
 
   const titleQueries = useQueries({
     queries: seedsNeedingTitles.map((seed) => ({
-      queryKey: ["seed-title", seed.mediaType, seed.id],
+      ...queryCacheProfiles.profile,
+      queryKey: queryKeys.forYou.seedTitle(seed.mediaType, seed.id),
       queryFn: async (): Promise<{ id: number; title: string } | null> => {
         if (seed.mediaType === "movie") {
           const movie = await fetchMovieDetails(seed.id)
@@ -123,7 +126,8 @@ export function useForYouRecommendations() {
   // Fetch recommendations for each seed in parallel
   const recommendationQueries = useQueries({
     queries: seeds.map((seed) => ({
-      queryKey: ["for-you", "recommendations", seed.mediaType, seed.id],
+      ...queryCacheProfiles.profile,
+      queryKey: queryKeys.forYou.recommendations(seed.mediaType, seed.id),
       queryFn: () => fetchRecommendations(seed.id, seed.mediaType),
       enabled: !isGuest,
       staleTime: 1000 * 60 * 10, // 10 minutes
@@ -143,7 +147,8 @@ export function useForYouRecommendations() {
 
   // Fetch hidden gems (high-rated, low-popularity movies)
   const { data: hiddenGemsData, isLoading: isLoadingHiddenGems } = useQuery({
-    queryKey: ["for-you", "hidden-gems"],
+    ...queryCacheProfiles.profile,
+    queryKey: queryKeys.forYou.hiddenGems(),
     queryFn: fetchDiscoverHiddenGems,
     enabled: !isGuest && !hasNoQualifyingRatings,
     staleTime: 1000 * 60 * 30, // 30 minutes
@@ -151,7 +156,8 @@ export function useForYouRecommendations() {
 
   // Fetch trending as fallback when user doesn't have enough data
   const { data: trendingData, isLoading: isLoadingTrending } = useQuery({
-    queryKey: ["for-you", "trending-week"],
+    ...queryCacheProfiles.profile,
+    queryKey: queryKeys.forYou.trendingWeek(),
     queryFn: fetchTrendingWeek,
     enabled: !isGuest && needsFallback,
     staleTime: 1000 * 60 * 60, // 1 hour

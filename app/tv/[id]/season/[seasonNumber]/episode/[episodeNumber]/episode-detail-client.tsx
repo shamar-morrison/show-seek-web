@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
+import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { buildImageUrl } from "@/lib/tmdb"
-import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type {
   CastMember,
   TMDBEpisodeDetails,
@@ -35,7 +36,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 interface EpisodeDetailClientProps {
   tvShow: TMDBTVDetails
@@ -57,8 +58,10 @@ export function EpisodeDetailClient({
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
   const { preferences } = usePreferences()
+  const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
+  const { markEpisodeWatched, markEpisodeUnwatched } =
+    useEpisodeTrackingMutations()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
-  const [isWatched, setIsWatched] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -76,24 +79,10 @@ export function EpisodeDetailClient({
     episode.episode_number,
   )
 
-  // Subscribe to episode tracking
-  useEffect(() => {
-    if (!user) return
-
-    const unsubscribe = episodeTrackingService.subscribeToShowTracking(
-      tvShowId,
-      (tracking) => {
-        if (tracking?.episodes) {
-          const key = `${episode.season_number}_${episode.episode_number}`
-          setIsWatched(key in tracking.episodes)
-        } else {
-          setIsWatched(false)
-        }
-      },
-    )
-
-    return () => unsubscribe()
-  }, [user, tvShowId, episode.season_number, episode.episode_number])
+  const isWatched = useMemo(() => {
+    const key = `${episode.season_number}_${episode.episode_number}`
+    return !!tracking?.episodes && key in tracking.episodes
+  }, [tracking, episode.season_number, episode.episode_number])
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
@@ -108,36 +97,36 @@ export function EpisodeDetailClient({
     setIsToggling(true)
     try {
       if (isWatched) {
-        await episodeTrackingService.markEpisodeUnwatched(
+        await markEpisodeUnwatched({
           tvShowId,
-          episode.season_number,
-          episode.episode_number,
-        )
+          seasonNumber: episode.season_number,
+          episodeNumber: episode.episode_number,
+        })
       } else {
         // Compute next episode when marking as watched
         const nextEpisode = getNextEpisode()
 
-        await episodeTrackingService.markEpisodeWatched(
+        await markEpisodeWatched({
           tvShowId,
-          episode.season_number,
-          episode.episode_number,
-          {
+          seasonNumber: episode.season_number,
+          episodeNumber: episode.episode_number,
+          episodeData: {
             episodeId: episode.id,
             episodeName: episode.name,
             episodeAirDate: episode.air_date,
           },
-          {
+          showMetadata: {
             tvShowName: tvShow.name,
             posterPath: tvShow.poster_path,
           },
-          {
+          showStats: {
             totalEpisodes: tvShow.number_of_episodes,
             avgRuntime: tvShow.episode_run_time?.[0] || 45,
           },
           nextEpisode,
-          preferences.markPreviousEpisodesWatched,
-          season.episodes,
-        )
+          markPreviousEpisodesWatched: preferences.markPreviousEpisodesWatched,
+          seasonEpisodes: season.episodes,
+        })
       }
     } catch (error) {
       console.error("Failed to toggle watched status:", error)
@@ -149,6 +138,8 @@ export function EpisodeDetailClient({
     hasAired,
     isToggling,
     isWatched,
+    markEpisodeWatched,
+    markEpisodeUnwatched,
     tvShowId,
     episode,
     season.episodes,

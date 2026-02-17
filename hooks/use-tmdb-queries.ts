@@ -10,32 +10,19 @@ import {
   type SeasonEpisodeData,
   type TVShowDetailsData,
 } from "@/app/actions"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { tmdbQueryKeys } from "@/lib/react-query/query-keys"
 import type { TMDBLogo, TMDBMedia, TMDBReview, TMDBVideo } from "@/types/tmdb"
 import { useQuery } from "@tanstack/react-query"
 
-/**
- * Query keys for TMDB data
- * Centralized to ensure consistent cache key usage
- */
-export const tmdbQueryKeys = {
-  tvShowDetails: (tvShowId: number) => ["tv", tvShowId, "details"] as const,
-  seasonEpisodes: (tvShowId: number, seasonNumber: number) =>
-    ["tv", tvShowId, "season", seasonNumber] as const,
-  mediaImages: (mediaId: number, mediaType: "movie" | "tv") =>
-    [mediaType, mediaId, "images"] as const,
-  mediaVideos: (mediaId: number, mediaType: "movie" | "tv") =>
-    [mediaType, mediaId, "videos"] as const,
-  mediaReviews: (mediaId: number, mediaType: "movie" | "tv") =>
-    [mediaType, mediaId, "reviews"] as const,
-  recommendations: (mediaId: number, mediaType: "movie" | "tv") =>
-    [mediaType, mediaId, "recommendations"] as const,
-}
+export { tmdbQueryKeys }
 
 /**
  * Hook to fetch TV show details for progress calculation
  */
 export function useTVShowDetails(tvShowId: number, enabled = true) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.tvShowDetails(tvShowId),
     queryFn: async (): Promise<TVShowDetailsData | null> => {
       return await fetchTVShowDetails(tvShowId)
@@ -53,6 +40,7 @@ export function useSeasonEpisodes(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.seasonEpisodes(tvShowId, seasonNumber),
     queryFn: async (): Promise<SeasonEpisodeData[]> => {
       return await fetchSeasonEpisodes(tvShowId, seasonNumber)
@@ -70,6 +58,7 @@ export function useMediaImages(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.mediaImages(mediaId, mediaType),
     queryFn: async (): Promise<TMDBLogo[]> => {
       const data = await fetchMediaImages(mediaId, mediaType)
@@ -89,6 +78,7 @@ export function useMediaVideos(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.mediaVideos(mediaId, mediaType),
     queryFn: async (): Promise<TMDBVideo[]> => {
       const data = await fetchMediaVideos(mediaId, mediaType)
@@ -107,6 +97,7 @@ export function useMediaReviews(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.mediaReviews(mediaId, mediaType),
     queryFn: async (): Promise<TMDBReview[]> => {
       const data = await fetchReviews(mediaId, mediaType)
@@ -125,6 +116,7 @@ export function useRecommendations(
   enabled = true,
 ) {
   return useQuery({
+    ...queryCacheProfiles.profile,
     queryKey: tmdbQueryKeys.recommendations(mediaId, mediaType),
     queryFn: async (): Promise<TMDBMedia[]> => {
       const data = await fetchRecommendations(mediaId, mediaType)

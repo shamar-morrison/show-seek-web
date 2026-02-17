@@ -1,16 +1,18 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
-import { useFirestoreSubscription } from "@/hooks/use-firestore-subscription"
+import { useListMutations } from "@/hooks/use-list-mutations"
 import { usePreferences } from "@/hooks/use-preferences"
-import { addToList } from "@/lib/firebase/lists"
 import {
   deleteEpisodeRating,
   deleteRating,
+  fetchRatings,
   setRating,
-  subscribeToRatings,
 } from "@/lib/firebase/ratings"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import type { Rating } from "@/types/rating"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
@@ -18,22 +20,268 @@ import { toast } from "sonner"
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
 
 /**
- * Hook for managing user ratings with real-time updates
+ * Hook for managing user ratings using React Query cached reads.
  */
 export function useRatings() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { preferences } = usePreferences()
+  const { addToList } = useListMutations()
+  const queryClient = useQueryClient()
 
-  const { data: ratings, loading } = useFirestoreSubscription<
-    Map<string, Rating>
-  >({
-    subscribe: subscribeToRatings,
-    initialValue: new Map(),
+  const userId = user && !user.isAnonymous ? user.uid : null
+  const ratingsQueryKey = userId ? queryKeys.firestore.ratings(userId) : null
+
+  const { data: ratings = new Map<string, Rating>(), isLoading } = useQuery({
+    ...queryCacheProfiles.status,
+    queryKey: ratingsQueryKey ?? ["firestore", "ratings", "guest"],
+    queryFn: async () => {
+      if (!userId) return new Map<string, Rating>()
+      return fetchRatings(userId)
+    },
+    enabled: !!userId,
   })
 
-  /**
-   * Get a rating for a specific media item
-   */
+  const saveRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      mediaType: "movie" | "tv"
+      mediaId: number
+      rating: number
+      title: string
+      posterPath: string | null
+      releaseDate: string | null
+      voteAverage?: number
+    }) => {
+      if (!userId) throw new Error("User must be authenticated to rate")
+
+      await setRating(userId, {
+        userId,
+        id: `${variables.mediaType}-${variables.mediaId}`,
+        mediaType: variables.mediaType,
+        mediaId: variables.mediaId.toString(),
+        rating: variables.rating,
+        title: variables.title,
+        posterPath: variables.posterPath,
+        releaseDate: variables.releaseDate,
+      })
+
+      if (
+        variables.mediaType === "movie" &&
+        preferences.autoAddToAlreadyWatched
+      ) {
+        try {
+          const wasAdded = await addToList("already-watched", {
+            id: variables.mediaId,
+            title: variables.title,
+            poster_path: variables.posterPath,
+            media_type: "movie",
+            vote_average: variables.voteAverage,
+            release_date: variables.releaseDate || undefined,
+          })
+
+          if (wasAdded) {
+            toast.success("Added to Already Watched list")
+          }
+        } catch (listError) {
+          console.error("Failed to auto-add to Already Watched list:", listError)
+        }
+      }
+    },
+    onMutate: async (variables) => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined as Map<string, Rating> | undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      const key = `${variables.mediaType}-${variables.mediaId}`
+
+      nextRatings.set(key, {
+        id: key,
+        mediaId: variables.mediaId.toString(),
+        mediaType: variables.mediaType,
+        rating: variables.rating,
+        title: variables.title,
+        posterPath: variables.posterPath,
+        releaseDate: variables.releaseDate,
+        ratedAt: Date.now(),
+      })
+
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+      return { previousRatings }
+    },
+    onError: (_error, _variables, context) => {
+      if (!ratingsQueryKey) return
+      if (context?.previousRatings) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  })
+
+  const removeRatingMutation = useMutation({
+    mutationFn: async (variables: { mediaType: "movie" | "tv"; mediaId: number }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      await deleteRating(userId, variables.mediaType, variables.mediaId)
+    },
+    onMutate: async (variables) => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined as Map<string, Rating> | undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      nextRatings.delete(`${variables.mediaType}-${variables.mediaId}`)
+
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+      return { previousRatings }
+    },
+    onError: (_error, _variables, context) => {
+      if (!ratingsQueryKey) return
+      if (context?.previousRatings) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  })
+
+  const saveEpisodeRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+      episodeNumber: number
+      rating: number
+      episodeName: string
+      tvShowName: string
+      posterPath: string | null
+      episodeAirDate: string | null
+    }) => {
+      if (!userId) throw new Error("User must be authenticated to rate")
+
+      await setRating(userId, {
+        userId,
+        id: `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
+        mediaType: "episode",
+        mediaId: variables.tvShowId.toString(),
+        rating: variables.rating,
+        title: variables.episodeName,
+        posterPath: variables.posterPath,
+        releaseDate: variables.episodeAirDate,
+        tvShowId: variables.tvShowId,
+        tvShowName: variables.tvShowName,
+        seasonNumber: variables.seasonNumber,
+        episodeNumber: variables.episodeNumber,
+      })
+    },
+    onMutate: async (variables) => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined as Map<string, Rating> | undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      const key = `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`
+
+      nextRatings.set(key, {
+        id: key,
+        mediaId: variables.tvShowId.toString(),
+        mediaType: "episode",
+        rating: variables.rating,
+        title: variables.episodeName,
+        posterPath: variables.posterPath,
+        releaseDate: variables.episodeAirDate,
+        ratedAt: Date.now(),
+        tvShowId: variables.tvShowId,
+        seasonNumber: variables.seasonNumber,
+        episodeNumber: variables.episodeNumber,
+        episodeName: variables.episodeName,
+        tvShowName: variables.tvShowName,
+      })
+
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+      return { previousRatings }
+    },
+    onError: (_error, _variables, context) => {
+      if (!ratingsQueryKey) return
+      if (context?.previousRatings) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  })
+
+  const removeEpisodeRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+      episodeNumber: number
+    }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      await deleteEpisodeRating(
+        userId,
+        variables.tvShowId,
+        variables.seasonNumber,
+        variables.episodeNumber,
+      )
+    },
+    onMutate: async (variables) => {
+      if (!ratingsQueryKey) {
+        return { previousRatings: undefined as Map<string, Rating> | undefined }
+      }
+
+      await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
+      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
+        ratingsQueryKey,
+      )
+
+      const nextRatings = new Map(previousRatings ?? [])
+      nextRatings.delete(
+        `episode-${variables.tvShowId}-${variables.seasonNumber}-${variables.episodeNumber}`,
+      )
+
+      queryClient.setQueryData(ratingsQueryKey, nextRatings)
+      return { previousRatings }
+    },
+    onError: (_error, _variables, context) => {
+      if (!ratingsQueryKey) return
+      if (context?.previousRatings) {
+        queryClient.setQueryData(ratingsQueryKey, context.previousRatings)
+      }
+    },
+    onSettled: () => {
+      if (!ratingsQueryKey) return
+      queryClient.invalidateQueries({ queryKey: ratingsQueryKey })
+    },
+  })
+
+  const loading = authLoading || (!!userId && isLoading)
+
   const getRating = useCallback(
     (mediaType: "movie" | "tv", mediaId: number): Rating | null => {
       const key = `${mediaType}-${mediaId}`
@@ -42,9 +290,6 @@ export function useRatings() {
     [ratings],
   )
 
-  /**
-   * Save or update a rating for a media item
-   */
   const saveRating = useCallback(
     async (
       mediaType: "movie" | "tv",
@@ -55,64 +300,26 @@ export function useRatings() {
       releaseDate: string | null = null,
       voteAverage?: number,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to rate")
-      }
-
-      await setRating(user.uid, {
-        userId: user.uid,
-        id: `${mediaType}-${mediaId}`,
+      await saveRatingMutation.mutateAsync({
         mediaType,
-        mediaId: mediaId.toString(),
+        mediaId,
         rating,
         title,
         posterPath,
         releaseDate,
+        voteAverage,
       })
-
-      // Auto-add to "Already Watched" list if preference is enabled and it's a movie
-      if (mediaType === "movie" && preferences.autoAddToAlreadyWatched) {
-        try {
-          const wasAdded = await addToList(user.uid, "already-watched", {
-            id: mediaId,
-            title,
-            poster_path: posterPath,
-            media_type: "movie",
-            vote_average: voteAverage,
-            release_date: releaseDate || undefined,
-          })
-
-          if (wasAdded) {
-            toast.success("Added to Already Watched list")
-          }
-        } catch (listError) {
-          console.error(
-            "Failed to auto-add to Already Watched list:",
-            listError,
-          )
-        }
-      }
     },
-    [user, preferences.autoAddToAlreadyWatched],
+    [saveRatingMutation],
   )
 
-  /**
-   * Remove a rating for a media item
-   */
   const removeRating = useCallback(
     async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to remove rating")
-      }
-
-      await deleteRating(user.uid, mediaType, mediaId)
+      await removeRatingMutation.mutateAsync({ mediaType, mediaId })
     },
-    [user],
+    [removeRatingMutation],
   )
 
-  /**
-   * Get a rating for a specific episode
-   */
   const getEpisodeRating = useCallback(
     (
       tvShowId: number,
@@ -125,9 +332,6 @@ export function useRatings() {
     [ratings],
   )
 
-  /**
-   * Save or update a rating for an episode
-   */
   const saveEpisodeRating = useCallback(
     async (
       tvShowId: number,
@@ -139,45 +343,33 @@ export function useRatings() {
       posterPath: string | null,
       episodeAirDate: string | null = null,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to rate")
-      }
-
-      await setRating(user.uid, {
-        userId: user.uid,
-        id: `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`,
-        mediaType: "episode",
-        mediaId: tvShowId.toString(),
-        rating,
-        title: episodeName,
-        posterPath,
-        releaseDate: episodeAirDate,
-        // Episode-specific fields
+      await saveEpisodeRatingMutation.mutateAsync({
         tvShowId,
-        tvShowName,
         seasonNumber,
         episodeNumber,
+        rating,
+        episodeName,
+        tvShowName,
+        posterPath,
+        episodeAirDate,
       })
     },
-    [user],
+    [saveEpisodeRatingMutation],
   )
 
-  /**
-   * Remove a rating for an episode
-   */
   const removeEpisodeRating = useCallback(
     async (
       tvShowId: number,
       seasonNumber: number,
       episodeNumber: number,
     ): Promise<void> => {
-      if (!user || user.isAnonymous) {
-        throw new Error("User must be authenticated to remove rating")
-      }
-
-      await deleteEpisodeRating(user.uid, tvShowId, seasonNumber, episodeNumber)
+      await removeEpisodeRatingMutation.mutateAsync({
+        tvShowId,
+        seasonNumber,
+        episodeNumber,
+      })
     },
-    [user],
+    [removeEpisodeRatingMutation],
   )
 
   return {

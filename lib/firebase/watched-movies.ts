@@ -8,7 +8,6 @@ import {
   collection,
   doc,
   getDocs,
-  onSnapshot,
   setDoc,
   Timestamp,
   writeBatch,
@@ -28,15 +27,12 @@ interface WatchInstanceDoc {
 }
 
 /**
- * Subscribe to watch history for a specific movie
- * Returns unsubscribe function
+ * Fetch watch history for a specific movie.
  */
-export function subscribeToWatches(
+export async function fetchWatches(
   userId: string,
   movieId: number,
-  onData: (instances: WatchInstance[]) => void,
-  onError?: (error: Error) => void,
-): () => void {
+): Promise<WatchInstance[]> {
   const watchesRef = collection(
     db,
     "users",
@@ -46,26 +42,19 @@ export function subscribeToWatches(
     "watches",
   )
 
-  return onSnapshot(
-    watchesRef,
-    (snapshot) => {
-      const instances: WatchInstance[] = snapshot.docs.map((doc) => {
-        const data = doc.data() as WatchInstanceDoc
-        return {
-          id: doc.id,
-          movieId: data.movieId,
-          watchedAt: data.watchedAt?.toDate() ?? new Date(),
-        }
-      })
-      // Sort by watchedAt descending (most recent first)
-      instances.sort((a, b) => b.watchedAt.getTime() - a.watchedAt.getTime())
-      onData(instances)
-    },
-    (error) => {
-      console.error("Error subscribing to watches:", error)
-      onError?.(error)
-    },
-  )
+  const snapshot = await getDocs(watchesRef)
+
+  const instances: WatchInstance[] = snapshot.docs.map((watchDoc) => {
+    const data = watchDoc.data() as WatchInstanceDoc
+    return {
+      id: watchDoc.id,
+      movieId: data.movieId,
+      watchedAt: data.watchedAt?.toDate() ?? new Date(),
+    }
+  })
+
+  instances.sort((a, b) => b.watchedAt.getTime() - a.watchedAt.getTime())
+  return instances
 }
 
 /**

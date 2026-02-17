@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
-import { createList } from "@/lib/firebase/lists"
+import { useListMutations } from "@/hooks/use-list-mutations"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useState } from "react"
@@ -33,6 +33,7 @@ export function CreateListDialog({
   onOpenChange,
 }: CreateListDialogProps) {
   const { user, isPremium } = useAuth()
+  const { createList } = useListMutations()
   const [listName, setListName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
 
@@ -67,7 +68,7 @@ export function CreateListDialog({
       }
 
       // Create the list
-      await createList(user.uid, listName.trim())
+      await createList(listName.trim())
 
       toast.success(`Created "${listName.trim()}"`)
       setListName("")
@@ -78,7 +79,7 @@ export function CreateListDialog({
     } finally {
       setIsCreating(false)
     }
-  }, [user, isPremium, listName, onOpenChange])
+  }, [user, isPremium, listName, createList, onOpenChange])
 
   const handleClose = useCallback(() => {
     if (!isCreating) {

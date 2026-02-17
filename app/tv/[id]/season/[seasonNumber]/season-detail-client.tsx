@@ -12,9 +12,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/context/auth-context"
+import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { formatDateLong } from "@/lib/format-helpers"
-import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
@@ -27,7 +28,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface SeasonDetailClientProps {
@@ -47,7 +48,9 @@ export function SeasonDetailClient({
 }: SeasonDetailClientProps) {
   const { user } = useAuth()
   const { preferences } = usePreferences()
-  const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set())
+  const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
+  const { markAllEpisodesWatched, markEpisodeUnwatched } =
+    useEpisodeTrackingMutations()
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const [isUnmarking, setIsUnmarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -59,24 +62,10 @@ export function SeasonDetailClient({
     (ep) => ep.air_date && new Date(ep.air_date) <= today,
   )
 
-  // Subscribe to episode tracking for this show
-  useEffect(() => {
-    if (!user) return
-
-    const unsubscribe = episodeTrackingService.subscribeToShowTracking(
-      tvShowId,
-      (tracking) => {
-        if (tracking?.episodes) {
-          const watched = new Set(Object.keys(tracking.episodes))
-          setWatchedEpisodes(watched)
-        } else {
-          setWatchedEpisodes(new Set())
-        }
-      },
-    )
-
-    return () => unsubscribe()
-  }, [user, tvShowId])
+  const watchedEpisodes = useMemo(
+    () => new Set(Object.keys(tracking?.episodes ?? {})),
+    [tracking],
+  )
 
   // Check if an episode is watched
   const isEpisodeWatched = useCallback(
@@ -141,24 +130,32 @@ export function SeasonDetailClient({
       }
       // If no next season, nextEpisode stays null (user is caught up!)
 
-      await episodeTrackingService.markAllEpisodesWatched(
+      await markAllEpisodesWatched({
         tvShowId,
-        season.season_number,
-        episodesToMark,
-        {
+        seasonNumber: season.season_number,
+        episodes: episodesToMark,
+        showMetadata: {
           tvShowName: tvShow.name,
           posterPath: tvShow.poster_path,
         },
         showStats,
         nextEpisode,
-      )
+      })
     } catch (error) {
       console.error("Failed to mark all episodes watched:", error)
       toast.error(`Failed to mark all episodes watched. Please try again.`)
     } finally {
       setIsMarkingAll(false)
     }
-  }, [user, airedEpisodes, tvShowId, season.season_number, tvShow, showStats])
+  }, [
+    user,
+    airedEpisodes,
+    markAllEpisodesWatched,
+    tvShowId,
+    season.season_number,
+    tvShow,
+    showStats,
+  ])
 
   // Unmark all episodes in this season
   const handleUnmarkAllWatched = useCallback(async () => {
@@ -172,11 +169,11 @@ export function SeasonDetailClient({
       // Unmark all aired episodes in parallel
       await Promise.all(
         airedEpisodes.map((ep) =>
-          episodeTrackingService.markEpisodeUnwatched(
+          markEpisodeUnwatched({
             tvShowId,
-            season.season_number,
-            ep.episode_number,
-          ),
+            seasonNumber: season.season_number,
+            episodeNumber: ep.episode_number,
+          }),
         ),
       )
     } catch (error) {
@@ -186,7 +183,13 @@ export function SeasonDetailClient({
       setIsMarkingAll(false)
       setIsUnmarking(false)
     }
-  }, [user, airedEpisodes, tvShowId, season.season_number])
+  }, [
+    user,
+    airedEpisodes,
+    markEpisodeUnwatched,
+    tvShowId,
+    season.season_number,
+  ])
 
   const posterUrl = season.poster_path
     ? `https://image.tmdb.org/t/p/w500${season.poster_path}`

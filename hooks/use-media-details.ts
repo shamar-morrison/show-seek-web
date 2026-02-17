@@ -1,5 +1,7 @@
 "use client"
 
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { useQuery } from "@tanstack/react-query"
 
@@ -33,7 +35,8 @@ export function useMediaDetails(
   options?: { enabled?: boolean },
 ) {
   return useQuery({
-    queryKey: ["media-details", mediaType, id],
+    ...queryCacheProfiles.profile,
+    queryKey: queryKeys.mediaDetails(mediaType, id),
     queryFn: () => fetchMediaDetails(mediaType, id),
     enabled: options?.enabled ?? true,
   })

@@ -1,14 +1,14 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
-import { db } from "@/lib/firebase/config"
-import {
-  deleteList,
-  renameList,
-} from "@/lib/firebase/lists"
+import { useListMutations } from "@/hooks/use-list-mutations"
+import { fetchUserLists } from "@/lib/firebase/lists"
+import { queryCacheProfiles } from "@/lib/react-query/query-options"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import { DEFAULT_LISTS, UserList } from "@/types/list"
-import { collection, onSnapshot, Timestamp } from "firebase/firestore"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Timestamp } from "firebase/firestore"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 
 /**
  * Normalize createdAt to milliseconds for sorting
@@ -21,83 +21,60 @@ function normalizeTimestamp(value: number | Timestamp | undefined): number {
 }
 
 /**
- * Hook for subscribing to user's lists with real-time updates
- * Automatically includes default lists even if they don't exist in Firestore
+ * Hook for reading user lists with React Query caching.
+ * Automatically includes default lists even if they don't exist in Firestore.
  */
 export function useLists() {
   const { user, loading: authLoading } = useAuth()
-  const [firestoreLists, setFirestoreLists] = useState<UserList[]>([])
-  const [subscribed, setSubscribed] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+  const { deleteList, renameList } = useListMutations()
 
-  useEffect(() => {
-    // Early return for unauthenticated users - no subscription needed
-    if (!user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFirestoreLists([])
-      setSubscribed(false)
-      setError(null)
-      return
-    }
+  const userId = user && !user.isAnonymous ? user.uid : null
 
-    const listsRef = collection(db, "users", user.uid, "lists")
+  const {
+    data: firestoreLists = [],
+    isLoading,
+    error,
+  } = useQuery({
+    ...queryCacheProfiles.status,
+    queryKey: userId
+      ? queryKeys.firestore.lists(userId)
+      : ["firestore", "lists", "guest"],
+    queryFn: async () => {
+      if (!userId) return []
+      return fetchUserLists(userId)
+    },
+    enabled: !!userId,
+  })
 
-    const unsubscribe = onSnapshot(
-      listsRef,
-      (snapshot) => {
-        const lists = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as UserList[]
-
-        setFirestoreLists(lists)
-        setSubscribed(true)
-        setError(null)
-      },
-      (err) => {
-        console.error("Error fetching lists:", err)
-        setError(err)
-        setSubscribed(true)
-      },
-    )
-
-    return () => unsubscribe()
-  }, [user])
-
-  // Derive loading state: loading while auth is pending OR while waiting for subscription
-  const loading = authLoading || (!!user && !subscribed)
+  // Derive loading state: loading while auth is pending OR while query is pending for an authenticated user
+  const loading = authLoading || (!!userId && isLoading)
 
   // Merge Firestore lists with default lists and sort appropriately
   const lists = useMemo(() => {
     const firestoreListMap = new Map(firestoreLists.map((l) => [l.id, l]))
 
-    // Create merged list with defaults first
     const mergedLists: UserList[] = []
 
-    // Add default lists in their defined order
     for (const defaultList of DEFAULT_LISTS) {
       const existingList = firestoreListMap.get(defaultList.id)
 
       if (existingList) {
-        // Use Firestore data but ensure correct name from defaults
         mergedLists.push({
           ...existingList,
           name: defaultList.name,
           isCustom: false,
         })
       } else {
-        // Create ephemeral empty list for missing defaults
         mergedLists.push({
           id: defaultList.id,
           name: defaultList.name,
           items: {},
-          createdAt: 0, // Ephemeral, not persisted
+          createdAt: 0,
           isCustom: false,
         })
       }
     }
 
-    // Add custom lists sorted by createdAt
     const customLists = firestoreLists
       .filter((l) => l.isCustom)
       .sort(
@@ -110,21 +87,15 @@ export function useLists() {
     return mergedLists
   }, [firestoreLists])
 
-  const removeList = useCallback(
-    async (listId: string) => {
-      if (!user) throw new Error("User must be logged in")
-      await deleteList(user.uid, listId)
-    },
-    [user],
-  )
+  const removeList = async (listId: string) => {
+    if (!userId) throw new Error("User must be logged in")
+    await deleteList(listId)
+  }
 
-  const updateList = useCallback(
-    async (listId: string, newName: string) => {
-      if (!user) throw new Error("User must be logged in")
-      await renameList(user.uid, listId, newName)
-    },
-    [user],
-  )
+  const updateList = async (listId: string, newName: string) => {
+    if (!userId) throw new Error("User must be logged in")
+    await renameList(listId, newName)
+  }
 
-  return { lists, loading, error, removeList, updateList }
+  return { lists, loading, error: (error as Error | null) ?? null, removeList, updateList }
 }

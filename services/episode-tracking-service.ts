@@ -14,7 +14,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   setDoc,
   updateDoc,
 } from "firebase/firestore"
@@ -65,39 +64,28 @@ class EpisodeTrackingService {
   }
 
   /**
-   * Subscribe to episode tracking data for a specific TV show
+   * Fetch episode tracking data for a specific TV show with a one-time read.
    */
-  subscribeToShowTracking(
+  async fetchShowTracking(
     tvShowId: number,
-    callback: (tracking: TVShowEpisodeTracking | null) => void,
-    onError?: (error: Error) => void,
-  ) {
-    const user = auth.currentUser
-    if (!user) return () => {}
+    userId?: string,
+  ): Promise<TVShowEpisodeTracking | null> {
+    const resolvedUserId = userId ?? auth.currentUser?.uid
+    if (!resolvedUserId) return null
 
-    const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+    try {
+      const trackingRef = this.getShowTrackingRef(resolvedUserId, tvShowId)
+      const snapshot = await this.withTimeout(getDoc(trackingRef))
 
-    return onSnapshot(
-      trackingRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data() as TVShowEpisodeTracking
-          callback(data)
-        } else {
-          // No tracking data yet - return empty structure
-          callback(null)
-        }
-      },
-      (error) => {
-        console.error("[EpisodeTrackingService] Subscription error:", error)
-        const message = getFirestoreErrorMessage(error)
-        if (onError) {
-          onError(new Error(message))
-        }
-        // Graceful degradation
-        callback(null)
-      },
-    )
+      if (!snapshot.exists()) {
+        return null
+      }
+
+      return snapshot.data() as TVShowEpisodeTracking
+    } catch (error) {
+      console.error("[EpisodeTrackingService] Fetch error:", error)
+      return null
+    }
   }
 
   /**

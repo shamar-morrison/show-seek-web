@@ -4,12 +4,12 @@ import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { AuthModal } from "@/components/auth-modal"
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
+import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { useListMutations } from "@/hooks/use-list-mutations"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
-import { addToList } from "@/lib/firebase/lists"
 import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
-import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
@@ -61,6 +61,9 @@ export function EpisodeCard({
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
   const { preferences } = usePreferences()
+  const { addToList } = useListMutations()
+  const { markEpisodeWatched, markEpisodeUnwatched } =
+    useEpisodeTrackingMutations()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
@@ -89,38 +92,38 @@ export function EpisodeCard({
     setIsToggling(true)
     try {
       if (isWatched) {
-        await episodeTrackingService.markEpisodeUnwatched(
+        await markEpisodeUnwatched({
           tvShowId,
-          episode.season_number,
-          episode.episode_number,
-        )
+          seasonNumber: episode.season_number,
+          episodeNumber: episode.episode_number,
+        })
       } else {
         // Compute next episode when marking as watched
         const nextEpisode = getNextEpisode()
 
-        await episodeTrackingService.markEpisodeWatched(
+        await markEpisodeWatched({
           tvShowId,
-          episode.season_number,
-          episode.episode_number,
-          {
+          seasonNumber: episode.season_number,
+          episodeNumber: episode.episode_number,
+          episodeData: {
             episodeId: episode.id,
             episodeName: episode.name,
             episodeAirDate: episode.air_date,
           },
-          {
+          showMetadata: {
             tvShowName,
             posterPath: tvShowPosterPath,
           },
           showStats,
           nextEpisode,
-          preferences.markPreviousEpisodesWatched,
-          allSeasonEpisodes,
-        )
+          markPreviousEpisodesWatched: preferences.markPreviousEpisodesWatched,
+          seasonEpisodes: allSeasonEpisodes,
+        })
 
         // Auto-add to "Watching" list if preference is enabled
         if (preferences.autoAddToWatching) {
           try {
-            const wasAdded = await addToList(user.uid, "currently-watching", {
+            const wasAdded = await addToList("currently-watching", {
               id: tvShowId,
               title: tvShowName,
               poster_path: tvShowPosterPath,
@@ -148,6 +151,8 @@ export function EpisodeCard({
     hasAired,
     isToggling,
     isWatched,
+    markEpisodeWatched,
+    markEpisodeUnwatched,
     tvShowId,
     episode,
     tvShowName,
@@ -155,6 +160,7 @@ export function EpisodeCard({
     showStats,
     getNextEpisode,
     allSeasonEpisodes,
+    addToList,
     preferences.autoAddToWatching,
     preferences.markPreviousEpisodesWatched,
     tvShowVoteAverage,

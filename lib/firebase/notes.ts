@@ -9,10 +9,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
   setDoc,
   Timestamp,
-  type Unsubscribe,
 } from "firebase/firestore"
 import { db } from "./config"
 
@@ -29,6 +28,22 @@ function getNoteDocId(mediaType: "movie" | "tv", mediaId: number): string {
  */
 function getNotesCollectionRef(userId: string) {
   return collection(db, "users", userId, "notes")
+}
+
+/**
+ * Fetch all user notes with a one-time read.
+ */
+export async function fetchNotes(userId: string): Promise<Map<string, Note>> {
+  const notesRef = getNotesCollectionRef(userId)
+  const snapshot = await getDocs(notesRef)
+  const notesMap = new Map<string, Note>()
+
+  snapshot.docs.forEach((docSnapshot) => {
+    const note = docSnapshot.data() as Note
+    notesMap.set(docSnapshot.id, note)
+  })
+
+  return notesMap
 }
 
 /**
@@ -93,33 +108,4 @@ export async function deleteNote(
 ): Promise<void> {
   const noteRef = getNoteRef(userId, mediaType, mediaId)
   await deleteDoc(noteRef)
-}
-
-/**
- * Subscribe to real-time updates for all user notes
- * Returns an unsubscribe function
- */
-export function subscribeToNotes(
-  userId: string,
-  onNotesChange: (notes: Map<string, Note>) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  const notesRef = getNotesCollectionRef(userId)
-
-  return onSnapshot(
-    notesRef,
-    (snapshot) => {
-      const notesMap = new Map<string, Note>()
-      snapshot.docs.forEach((doc) => {
-        const note = doc.data() as Note
-        // Key by mediaType-mediaId for easy lookup
-        notesMap.set(doc.id, note)
-      })
-      onNotesChange(notesMap)
-    },
-    (error) => {
-      console.error("Error subscribing to notes:", error)
-      onError?.(error)
-    },
-  )
 }

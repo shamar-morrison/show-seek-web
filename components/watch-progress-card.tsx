@@ -15,8 +15,8 @@ import {
   formatRemainingTime,
   type WatchProgressItem,
 } from "@/hooks/use-episode-tracking"
+import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import { buildImageUrl } from "@/lib/tmdb"
-import { episodeTrackingService } from "@/services/episode-tracking-service"
 import { Delete02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
@@ -32,6 +32,7 @@ interface WatchProgressCardProps {
  * Displays TV show watch progress with poster, title, progress bar, and next episode
  */
 export function WatchProgressCard({ progress }: WatchProgressCardProps) {
+  const { clearAllEpisodes } = useEpisodeTrackingMutations()
   const [isRemoving, setIsRemoving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -63,7 +64,7 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
 
     setIsRemoving(true)
     try {
-      await episodeTrackingService.clearAllEpisodes(progress.tvShowId)
+      await clearAllEpisodes({ tvShowId: progress.tvShowId })
       setDialogOpen(false)
     } catch (error) {
       console.error("Failed to remove watch progress:", error)
