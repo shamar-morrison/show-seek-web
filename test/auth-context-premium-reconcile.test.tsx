@@ -116,6 +116,14 @@ describe("AuthContext premium reconciliation flows", () => {
     expect(statusAfterError).toBe("premium")
   })
 
+  it("listener error while unknown falls back to free", () => {
+    const statusAfterError = authContext.resolvePremiumStatusOnListenerError({
+      currentStatus: "unknown",
+    })
+
+    expect(statusAfterError).toBe("free")
+  })
+
   it("reconcile runs once per user/session marker", () => {
     let hasAttemptedReconcile = false
 

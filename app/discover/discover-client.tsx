@@ -184,7 +184,6 @@ export function DiscoverClient({
   useEffect(() => {
     if (!authLoading && shouldLockProviderFilter && filters.provider !== null) {
       updateFilters({ provider: null })
-      setShowPremiumModal(true)
     }
   }, [authLoading, filters.provider, shouldLockProviderFilter, updateFilters])
 

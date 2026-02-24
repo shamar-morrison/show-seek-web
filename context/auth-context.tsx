@@ -94,7 +94,7 @@ export const resolvePremiumStatusOnListenerError = ({
   currentStatus,
 }: {
   currentStatus: PremiumStatus
-}): PremiumStatus => currentStatus
+}): PremiumStatus => (currentStatus === "unknown" ? "free" : currentStatus)
 
 export const resolvePremiumStatusFromReconcileResult = ({
   isPremium,

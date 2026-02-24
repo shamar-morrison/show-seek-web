@@ -93,6 +93,11 @@ describe("premium reconciliation state helpers", () => {
         currentStatus: "free",
       }),
     ).toBe("free")
+    expect(
+      resolvePremiumStatusOnListenerError({
+        currentStatus: "unknown",
+      }),
+    ).toBe("free")
   })
 
   it("starts reconcile only for unresolved non-premium snapshots", () => {
