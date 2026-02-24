@@ -12,6 +12,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
+import {
+  PREMIUM_LOADING_MESSAGE,
+  isPremiumStatusPending,
+  shouldEnforcePremiumLock,
+} from "@/lib/premium-gating"
+import {
+  createPremiumTelemetryPayload,
+  trackPremiumEvent,
+} from "@/lib/premium-telemetry"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useState } from "react"
@@ -32,19 +41,40 @@ export function CreateListDialog({
   open,
   onOpenChange,
 }: CreateListDialogProps) {
-  const { user, isPremium } = useAuth()
+  const { user, premiumLoading, premiumStatus } = useAuth()
   const { createList } = useListMutations()
   const [listName, setListName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const shouldRunFreeUserLimitCheck = shouldEnforcePremiumLock({
+    premiumLoading,
+    premiumStatus,
+  })
 
   const handleCreate = useCallback(async () => {
     if (!user || !listName.trim()) return
+
+    if (isPremiumCheckPending) {
+      trackPremiumEvent(
+        "premium_gate_blocked_while_loading",
+        createPremiumTelemetryPayload({
+          uid: user.uid,
+          premiumStatusBefore: premiumStatus,
+          premiumStatusAfter: premiumStatus,
+        }),
+      )
+      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
+      return
+    }
 
     setIsCreating(true)
 
     try {
       // Check server-side if the user can create more lists (only for free users)
-      if (!isPremium) {
+      if (shouldRunFreeUserLimitCheck) {
         const response = await fetch("/api/lists/can-create")
         if (!response.ok) {
           throw new Error("Failed to check list limit")
@@ -79,7 +109,15 @@ export function CreateListDialog({
     } finally {
       setIsCreating(false)
     }
-  }, [user, isPremium, listName, createList, onOpenChange])
+  }, [
+    createList,
+    isPremiumCheckPending,
+    listName,
+    onOpenChange,
+    premiumStatus,
+    shouldRunFreeUserLimitCheck,
+    user,
+  ])
 
   const handleClose = useCallback(() => {
     if (!isCreating) {
@@ -106,13 +144,16 @@ export function CreateListDialog({
           }}
           autoFocus
         />
+        {isPremiumCheckPending && (
+          <p className="text-xs text-muted-foreground">{PREMIUM_LOADING_MESSAGE}</p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isCreating}>
             Cancel
           </Button>
           <Button
             onClick={handleCreate}
-            disabled={!listName.trim() || isCreating}
+            disabled={!listName.trim() || isCreating || isPremiumCheckPending}
           >
             {isCreating ? (
               <>

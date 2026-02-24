@@ -27,7 +27,8 @@ export const useContentFilter = <T extends MediaItem>(
   } = options
   const { preferences } = usePreferences()
   const { lists } = useLists()
-  const { user, isPremium } = useAuth()
+  const { premiumStatus, user } = useAuth()
+  const canUsePremiumFilters = premiumStatus !== "free"
 
   return useMemo(() => {
     // 1. Safety checks
@@ -59,7 +60,7 @@ export const useContentFilter = <T extends MediaItem>(
 
     if (
       !applyHideWatchedContent ||
-      !isPremium ||
+      !canUsePremiumFilters ||
       !preferences.hideWatchedContent
     ) {
       return filteredItems
@@ -84,6 +85,6 @@ export const useContentFilter = <T extends MediaItem>(
     preferences.hideUnreleasedContent,
     lists,
     user,
-    isPremium,
+    canUsePremiumFilters,
   ])
 }

@@ -18,6 +18,16 @@ import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
 import { HomeScreenListItem } from "@/lib/firebase/user"
 import {
+  PREMIUM_LOADING_MESSAGE,
+  isPremiumStatusPending,
+  shouldEnforcePremiumLock,
+  type PremiumStatus,
+} from "@/lib/premium-gating"
+import {
+  createPremiumTelemetryPayload,
+  trackPremiumEvent,
+} from "@/lib/premium-telemetry"
+import {
   AVAILABLE_TMDB_LISTS,
   DEFAULT_HOME_LISTS,
   MAX_HOME_LISTS,
@@ -38,7 +48,7 @@ export function HomeScreenCustomizer({
   open,
   onOpenChange,
 }: HomeScreenCustomizerProps) {
-  const { isPremium } = useAuth()
+  const { user, isPremium, premiumLoading, premiumStatus } = useAuth()
   const { preferences, updateHomeScreenLists } = usePreferences()
   const { lists: userLists } = useLists()
 
@@ -50,6 +60,14 @@ export function HomeScreenCustomizer({
     useState<HomeScreenListItem[]>(savedLists)
   const [isSaving, setIsSaving] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const shouldLockPremiumOnly = shouldEnforcePremiumLock({
+    premiumLoading,
+    premiumStatus,
+  })
 
   // Get custom lists (non-default)
   const customLists = useMemo(
@@ -96,8 +114,21 @@ export function HomeScreenCustomizer({
     type: HomeScreenListItem["type"],
     label: string,
   ) {
+    if (isPremiumCheckPending) {
+      trackPremiumEvent(
+        "premium_gate_blocked_while_loading",
+        createPremiumTelemetryPayload({
+          uid: user?.uid,
+          premiumStatusBefore: premiumStatus,
+          premiumStatusAfter: premiumStatus,
+        }),
+      )
+      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
+      return
+    }
+
     // Check premium lock
-    if (id === PREMIUM_LIST_ID && !isPremium) {
+    if (id === PREMIUM_LIST_ID && shouldLockPremiumOnly) {
       setShowPremiumModal(true)
       return
     }
@@ -157,6 +188,11 @@ export function HomeScreenCustomizer({
               screen. ({selectedCount}/{MAX_HOME_LISTS} selected)
             </DialogDescription>
           </DialogHeader>
+          {isPremiumCheckPending && (
+            <p className="text-xs text-muted-foreground">
+              {PREMIUM_LOADING_MESSAGE}
+            </p>
+          )}
 
           <ScrollArea className="-mx-6 max-h-[50vh]" viewportClassName="px-6">
             <div className="space-y-6">
@@ -171,6 +207,8 @@ export function HomeScreenCustomizer({
                     onChange={() => handleToggle(list.id, "tmdb", list.label)}
                     isPremiumOnly={list.id === PREMIUM_LIST_ID}
                     isPremium={isPremium}
+                    premiumStatus={premiumStatus}
+                    premiumLoading={premiumLoading}
                   />
                 ))}
               </ListCategory>
@@ -252,6 +290,8 @@ function ListItem({
   onChange,
   isPremiumOnly = false,
   isPremium = false,
+  premiumStatus = "unknown",
+  premiumLoading = false,
 }: {
   id: string
   label: string
@@ -259,8 +299,16 @@ function ListItem({
   onChange: () => void
   isPremiumOnly?: boolean
   isPremium?: boolean
+  premiumStatus?: PremiumStatus
+  premiumLoading?: boolean
 }) {
-  const isLocked = isPremiumOnly && !isPremium
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const isLocked = isPremiumOnly
+    ? shouldEnforcePremiumLock({ premiumLoading, premiumStatus })
+    : false
 
   return (
     <label
@@ -272,7 +320,10 @@ function ListItem({
       <Checkbox
         checked={checked}
         onCheckedChange={onChange}
-        className={cn(isLocked && "pointer-events-none")}
+        className={cn(
+          (isLocked || (isPremiumOnly && isPremiumCheckPending)) &&
+            "pointer-events-none",
+        )}
       />
       <span className="flex-1 text-sm text-white">{label}</span>
       {isPremiumOnly && <PremiumBadge isPremium={isPremium} />}

@@ -9,6 +9,15 @@ import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import {
+  PREMIUM_LOADING_MESSAGE,
+  isPremiumStatusPending,
+  shouldEnforcePremiumLock,
+} from "@/lib/premium-gating"
+import {
+  createPremiumTelemetryPayload,
+  trackPremiumEvent,
+} from "@/lib/premium-telemetry"
 import { captureException } from "@/lib/utils"
 import {
   FileExportIcon,
@@ -20,7 +29,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 export function ProfilePageClient() {
-  const { user, loading, isPremium, signOut } = useAuth()
+  const { user, loading, premiumLoading, premiumStatus, signOut } = useAuth()
   const {
     preferences,
     isLoading: prefsLoading,
@@ -32,6 +41,16 @@ export function ProfilePageClient() {
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const shouldLockPremiumFeatures = shouldEnforcePremiumLock({
+    premiumLoading,
+    premiumStatus,
+  })
+  const isPremiumMember = premiumStatus === "premium"
+  const canAccessPremiumFeatures = !shouldLockPremiumFeatures
 
   if (loading || prefsLoading || !user) {
     return (
@@ -61,7 +80,20 @@ export function ProfilePageClient() {
   }
 
   function handleExportData() {
-    if (!isPremium) {
+    if (isPremiumCheckPending) {
+      trackPremiumEvent(
+        "premium_gate_blocked_while_loading",
+        createPremiumTelemetryPayload({
+          uid: user?.uid,
+          premiumStatusBefore: premiumStatus,
+          premiumStatusAfter: premiumStatus,
+        }),
+      )
+      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
+      return
+    }
+
+    if (shouldLockPremiumFeatures) {
       setShowPremiumModal(true)
       return
     }
@@ -78,7 +110,7 @@ export function ProfilePageClient() {
             alt={user?.displayName || "User"}
             fallback={user?.displayName || user?.email || "User"}
             size="lg"
-            isPremium={isPremium}
+            isPremium={isPremiumMember}
           />
           <div className="flex-1">
             <h1 className="text-xl font-semibold text-white">
@@ -86,8 +118,12 @@ export function ProfilePageClient() {
             </h1>
             <p className="text-sm text-white/60">{user?.email}</p>
           </div>
-          {isPremium ? (
+          {isPremiumMember ? (
             <Badge variant="premium">Premium Member</Badge>
+          ) : isPremiumCheckPending ? (
+            <span className="text-xs text-muted-foreground">
+              {PREMIUM_LOADING_MESSAGE}
+            </span>
           ) : (
             <button
               onClick={() => setShowPremiumModal(true)}
@@ -104,13 +140,18 @@ export function ProfilePageClient() {
         <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
           Preferences
         </h2>
+        {isPremiumCheckPending && (
+          <p className="mb-3 px-4 text-xs text-muted-foreground">
+            {PREMIUM_LOADING_MESSAGE}
+          </p>
+        )}
         <div className="rounded-xl bg-white/5">
           <PreferenceToggle
             label="Auto-add to Watching"
             description="Automatically add series to your Watching list when you mark an episode as watched"
             checked={preferences.autoAddToWatching}
             onChange={(value) => updatePreference("autoAddToWatching", value)}
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -120,7 +161,7 @@ export function ProfilePageClient() {
             onChange={(value) =>
               updatePreference("autoAddToAlreadyWatched", value)
             }
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -128,7 +169,7 @@ export function ProfilePageClient() {
             description="Skip the date selection modal and use the current time when marking movies as watched"
             checked={preferences.quickMarkAsWatched}
             onChange={(value) => updatePreference("quickMarkAsWatched", value)}
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -138,7 +179,7 @@ export function ProfilePageClient() {
             onChange={(value) =>
               updatePreference("markPreviousEpisodesWatched", value)
             }
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -146,7 +187,7 @@ export function ProfilePageClient() {
             description="Display a bookmark badge on cards when an item is in any of your lists"
             checked={preferences.showListIndicators}
             onChange={(value) => updatePreference("showListIndicators", value)}
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -155,7 +196,7 @@ export function ProfilePageClient() {
             checked={preferences.hideWatchedContent}
             onChange={(value) => updatePreference("hideWatchedContent", value)}
             premiumRequired
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -165,7 +206,7 @@ export function ProfilePageClient() {
             onChange={(value) =>
               updatePreference("hideUnreleasedContent", value)
             }
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -174,7 +215,7 @@ export function ProfilePageClient() {
             checked={preferences.blurPlotSpoilers}
             onChange={(value) => updatePreference("blurPlotSpoilers", value)}
             premiumRequired
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
@@ -184,7 +225,7 @@ export function ProfilePageClient() {
             onChange={(value) =>
               updatePreference("showMediaPreviewCards", value)
             }
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
         </div>
       </section>
@@ -214,7 +255,7 @@ export function ProfilePageClient() {
             label="Export Data"
             onClick={handleExportData}
             premiumRequired
-            isPremium={isPremium}
+            isPremium={canAccessPremiumFeatures}
           />
           <div className="mx-4 border-t border-white/10" />
           <ActionButton

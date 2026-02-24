@@ -14,6 +14,15 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
+import {
+  PREMIUM_LOADING_MESSAGE,
+  isPremiumStatusPending,
+  shouldEnforcePremiumLock,
+} from "@/lib/premium-gating"
+import {
+  createPremiumTelemetryPayload,
+  trackPremiumEvent,
+} from "@/lib/premium-telemetry"
 import type { UserList } from "@/types/list"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -67,7 +76,7 @@ export function AddToListModal({
   media,
   mediaType,
 }: AddToListModalProps) {
-  const { user, isPremium } = useAuth()
+  const { user, premiumLoading, premiumStatus } = useAuth()
   const { lists, loading: listsLoading } = useLists()
   const { addToList, removeFromList, createList, renameList, deleteList } =
     useListMutations()
@@ -95,6 +104,14 @@ export function AddToListModal({
     "title" in media ? media.title : "name" in media ? media.name : "Unknown"
   const mediaId = media.id
   const mediaKey = `${mediaType}-${mediaId}`
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const shouldRunFreeUserLimitCheck = shouldEnforcePremiumLock({
+    premiumLoading,
+    premiumStatus,
+  })
 
   // Filter lists by type
   const defaultLists = useMemo(() => lists.filter((l) => !l.isCustom), [lists])
@@ -286,11 +303,24 @@ export function AddToListModal({
   const handleCreateList = useCallback(async () => {
     if (!user || !newListName.trim()) return
 
+    if (isPremiumCheckPending) {
+      trackPremiumEvent(
+        "premium_gate_blocked_while_loading",
+        createPremiumTelemetryPayload({
+          uid: user.uid,
+          premiumStatusBefore: premiumStatus,
+          premiumStatusAfter: premiumStatus,
+        }),
+      )
+      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
+      return
+    }
+
     setIsCreating(true)
 
     try {
       // Check server-side if the user can create more lists (only for free users)
-      if (!isPremium) {
+      if (shouldRunFreeUserLimitCheck) {
         const response = await fetch("/api/lists/can-create")
         if (!response.ok) {
           throw new Error("Failed to check list limit")
@@ -360,15 +390,17 @@ export function AddToListModal({
       setIsCreating(false)
     }
   }, [
-    user,
-    isPremium,
-    newListName,
+    addToList,
+    createList,
+    isPremiumCheckPending,
     media,
     mediaId,
     mediaType,
+    newListName,
+    premiumStatus,
+    shouldRunFreeUserLimitCheck,
     title,
-    createList,
-    addToList,
+    user,
   ])
 
   // Handle rename list
@@ -615,6 +647,11 @@ export function AddToListModal({
             }}
             autoFocus
           />
+          {isPremiumCheckPending && (
+            <p className="text-xs text-muted-foreground">
+              {PREMIUM_LOADING_MESSAGE}
+            </p>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
@@ -627,7 +664,7 @@ export function AddToListModal({
             </Button>
             <Button
               onClick={handleCreateList}
-              disabled={!newListName.trim() || isCreating}
+              disabled={!newListName.trim() || isCreating || isPremiumCheckPending}
             >
               {isCreating ? (
                 <>
