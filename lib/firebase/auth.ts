@@ -39,11 +39,17 @@ export function getGoogleAuthErrorMessage(error: {
 
   switch (code) {
     case "auth/account-exists-with-different-credential":
-      return "An account already exists with this email. Please sign in with email/password first."
+      return "This email already exists with a different sign-in provider. Sign in with the same provider used for your premium mobile account, then link Google from account settings."
     case "auth/credential-already-in-use":
       return "This Google account is already linked to another account."
     case "auth/email-already-in-use":
       return "An account with this email already exists. Try signing in with email/password."
+    case "auth/invalid-credential":
+      return "This Google credential doesn't match your original provider. Sign in with the same provider used on your premium mobile account."
+    case "auth/user-mismatch":
+      return "This sign-in method does not match this account. Use the same provider used by your premium mobile account."
+    case "auth/provider-already-linked":
+      return "This provider is already linked. Sign in with the provider already connected to your premium mobile account."
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return "" // User cancelled
@@ -68,6 +74,8 @@ export function getEmailAuthErrorMessage(error: {
   message?: string
 }): string {
   switch (error?.code) {
+    case "auth/account-exists-with-different-credential":
+      return "This email is linked to another sign-in method. Sign in with the same provider used on your premium mobile account."
     case "auth/invalid-credential":
     case "auth/user-not-found":
     case "auth/wrong-password":

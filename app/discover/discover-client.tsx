@@ -21,6 +21,15 @@ import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-co
 import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { useTrailer } from "@/hooks/use-trailer"
+import {
+  PREMIUM_LOADING_MESSAGE,
+  isPremiumStatusPending,
+  shouldEnforcePremiumLock,
+} from "@/lib/premium-gating"
+import {
+  createPremiumTelemetryPayload,
+  trackPremiumEvent,
+} from "@/lib/premium-telemetry"
 import type {
   Genre,
   TMDBDiscoverResponse,
@@ -117,12 +126,21 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
-  const { isPremium, loading: authLoading } = useAuth()
+  const { user, isPremium, loading: authLoading, premiumLoading, premiumStatus } =
+    useAuth()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const isPremiumCheckPending = isPremiumStatusPending({
+    premiumLoading,
+    premiumStatus,
+  })
+  const shouldLockProviderFilter = shouldEnforcePremiumLock({
+    premiumLoading,
+    premiumStatus,
+  })
 
   // Use a ref to access the latest filters inside updateFilters without adding it to dependencies
   const filtersRef = useRef(filters)
@@ -164,11 +182,11 @@ export function DiscoverClient({
 
   // Prevent non-premium users from using provider filter via URL params
   useEffect(() => {
-    if (!authLoading && !isPremium && filters.provider !== null) {
+    if (!authLoading && shouldLockProviderFilter && filters.provider !== null) {
       updateFilters({ provider: null })
       setShowPremiumModal(true)
     }
-  }, [authLoading, isPremium, filters.provider])
+  }, [authLoading, filters.provider, shouldLockProviderFilter, updateFilters])
 
   // Results come from server via initialResults and update on navigation
   const results = initialResults
@@ -348,7 +366,21 @@ export function DiscoverClient({
             <div
               className="relative"
               onClickCapture={(e) => {
-                if (!isPremium) {
+                if (isPremiumCheckPending) {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  trackPremiumEvent(
+                    "premium_gate_blocked_while_loading",
+                    createPremiumTelemetryPayload({
+                      uid: user?.uid,
+                      premiumStatusBefore: premiumStatus,
+                      premiumStatusAfter: premiumStatus,
+                    }),
+                  )
+                  return
+                }
+
+                if (shouldLockProviderFilter) {
                   e.stopPropagation()
                   e.preventDefault()
                   setShowPremiumModal(true)
@@ -369,7 +401,7 @@ export function DiscoverClient({
                 }
                 placeholder="All Providers"
                 popoverClassName="w-[380px]"
-                disabled={!isPremium}
+                disabled={isPremiumCheckPending || shouldLockProviderFilter}
               />
             </div>
 
@@ -386,6 +418,11 @@ export function DiscoverClient({
               </Button>
             )}
           </div>
+          {isPremiumCheckPending && (
+            <p className="mb-8 text-xs text-muted-foreground">
+              {PREMIUM_LOADING_MESSAGE}
+            </p>
+          )}
 
           {/* Loading State */}
           {isPending && (

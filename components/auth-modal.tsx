@@ -85,6 +85,24 @@ async function createServerSession(idToken: string): Promise<void> {
   }
 }
 
+function logAuthDebug(user: {
+  email: string | null
+  providerData: Array<{ providerId?: string | null }>
+  uid: string
+}) {
+  if (process.env.NODE_ENV === "production") {
+    return
+  }
+
+  const emailDomain = user.email?.split("@")[1] ?? null
+
+  console.info("[AuthDebug] Signed in user", {
+    emailDomain,
+    providers: user.providerData.map((provider) => provider.providerId ?? null),
+    uid: user.uid,
+  })
+}
+
 /**
  * AuthModal Component
  * Sign-in/Sign-up modal with Google auth and email/password form
@@ -119,6 +137,9 @@ export function AuthModal({
   const [authError, setAuthError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const shouldShowProviderGuidance =
+    authError !== null &&
+    authError.toLowerCase().includes("same provider used for your premium mobile account")
 
   // Determine if we're in controlled mode
   const isControlled = controlledIsOpen !== undefined
@@ -197,6 +218,7 @@ export function AuthModal({
       // Create server-side session
       const idToken = await userCredential.user.getIdToken()
       await createServerSession(idToken)
+      logAuthDebug(userCredential.user)
 
       handleOpenChange(false)
     } catch (error) {
@@ -222,6 +244,7 @@ export function AuthModal({
         // Get the ID token and create a server-side session
         const idToken = await result.user.getIdToken()
         await createServerSession(idToken)
+        logAuthDebug(result.user)
 
         handleOpenChange(false)
       } else if (!result.cancelled && result.error) {
@@ -275,6 +298,11 @@ export function AuthModal({
           {authError && (
             <div className="rounded-md bg-destructive/10 p-3 text-center text-sm text-destructive">
               {authError}
+            </div>
+          )}
+          {shouldShowProviderGuidance && (
+            <div className="rounded-md bg-primary/10 p-3 text-center text-xs text-primary">
+              Sign in with the same provider used on mobile to restore premium.
             </div>
           )}
 

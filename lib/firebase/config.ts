@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app"
 import { browserLocalPersistence, getAuth, setPersistence } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
+import { getFunctions } from "firebase/functions"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,6 +15,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 const auth = getAuth(app)
 const db = getFirestore(app)
+const functions = getFunctions(app)
 
 // Set browser persistence for session management
 if (typeof window !== "undefined") {
@@ -22,4 +24,4 @@ if (typeof window !== "undefined") {
   })
 }
 
-export { auth, db }
+export { auth, db, functions }
