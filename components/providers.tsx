@@ -1,10 +1,11 @@
 "use client"
 
+import { AuthRequiredRecovery } from "@/components/auth-required-recovery"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { QueryProvider } from "@/components/query-provider"
 import { AuthProvider } from "@/context/auth-context"
-import { ReactNode, useEffect } from "react"
+import { ReactNode, Suspense, useEffect } from "react"
 
 function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -32,6 +33,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryProvider>
       <AuthProvider>
         {children}
+        <Suspense fallback={null}>
+          <AuthRequiredRecovery />
+        </Suspense>
         <ServiceWorkerRegistration />
         <PWAInstallPrompt />
         <OfflineIndicator />

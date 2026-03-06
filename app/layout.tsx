@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "ShowSeek",
   description: "Discover, Track, and Share your favorite movies and TV shows",
+  metadataBase: new URL("https://showseek.com"),
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

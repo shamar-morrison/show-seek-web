@@ -6,9 +6,36 @@ import {
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 
+function isInvalidIdTokenError(message: string): boolean {
+  const normalizedMessage = message.toLowerCase()
+
+  return (
+    normalizedMessage.includes("invalid_id_token") ||
+    normalizedMessage.includes("invalid authentication token") ||
+    (normalizedMessage.includes("id token") &&
+      (normalizedMessage.includes("expired") ||
+        normalizedMessage.includes("invalid") ||
+        normalizedMessage.includes("malformed")))
+  )
+}
+
+function getSessionCreationErrorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown error"
+  const invalidIdToken = isInvalidIdTokenError(message)
+
+  return {
+    error: invalidIdToken
+      ? "Invalid authentication token"
+      : "Authentication service temporarily unavailable",
+    logMessage: message,
+    status: invalidIdToken ? 401 : 503,
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { idToken } = await request.json()
+    const body = (await request.json()) as { idToken?: string }
+    const idToken = body.idToken
 
     if (!idToken) {
       return NextResponse.json({ error: "ID token required" }, { status: 400 })
@@ -18,8 +45,8 @@ export async function POST(request: NextRequest) {
 
     if (!sessionCookie) {
       return NextResponse.json(
-        { error: "Failed to create session cookie" },
-        { status: 401 },
+        { error: "Authentication service temporarily unavailable" },
+        { status: 503 },
       )
     }
 
@@ -35,17 +62,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // Sanitize error logging in production to avoid leaking sensitive details
-    if (process.env.NODE_ENV === "production") {
-      const message = error instanceof Error ? error.message : "Unknown error"
-      console.error("Session creation failed:", message)
-    } else {
-      console.error("Session creation failed:", error)
-    }
+    const failure = getSessionCreationErrorResponse(error)
+
+    console.error("Session creation failed:", {
+      reason: failure.logMessage,
+      status: failure.status,
+    })
 
     return NextResponse.json(
-      { error: "Failed to create session" },
-      { status: 401 },
+      { error: failure.error },
+      { status: failure.status },
     )
   }
 }
