@@ -14,10 +14,10 @@
       "service": "show-seek-web",
     },
   ],
-  "r2_buckets": [
+  "kv_namespaces": [
     {
-      "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      "bucket_name": "show-seek-web-opennext-cache",
+      "binding": "NEXT_INC_CACHE_KV",
+      "id": "7074cea90d4b4724824804fdb804db3f",
     },
   ],
   "durable_objects": {
