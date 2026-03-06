@@ -11,8 +11,26 @@ vi.mock("@/lib/premium-telemetry", () => ({
   trackPremiumEvent: vi.fn(),
 }))
 
+vi.mock("@/lib/firebase/client-session", () => ({
+  createServerSessionSyncManager: vi.fn(() => ({
+    clear: vi.fn(),
+    ensure: vi.fn(async () => ({
+      error: null,
+      ok: true,
+      status: "ready",
+      uid: "user-1",
+    })),
+    getSnapshot: vi.fn(() => ({
+      error: null,
+      status: "idle",
+      uid: null,
+    })),
+  })),
+  syncServerSessionWithIdToken: vi.fn(async () => {}),
+}))
+
 vi.mock("firebase/auth", () => ({
-  onAuthStateChanged: vi.fn(() => vi.fn()),
+  onIdTokenChanged: vi.fn(() => vi.fn()),
   signOut: vi.fn(async () => {}),
 }))
 

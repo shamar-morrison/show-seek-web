@@ -2,6 +2,12 @@
 
 import { auth, db, functions } from "@/lib/firebase/config"
 import {
+  createServerSessionSyncManager,
+  type ServerSessionSyncResult,
+  type ServerSessionSyncSnapshot,
+  syncServerSessionWithIdToken,
+} from "@/lib/firebase/client-session"
+import {
   createPremiumTelemetryPayload,
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
@@ -9,7 +15,7 @@ import { type PremiumStatus as PremiumGateStatus } from "@/lib/premium-gating"
 import { UserDocument } from "@/lib/firebase/user"
 import {
   User,
-  onAuthStateChanged,
+  onIdTokenChanged,
   signOut as firebaseSignOut,
 } from "firebase/auth"
 import { doc, onSnapshot } from "firebase/firestore"
@@ -46,6 +52,8 @@ interface AuthContextType {
   premiumLastCheckedAt: string | null
   premiumLoading: boolean
   premiumStatus: PremiumStatus
+  serverSessionSync: ServerSessionSyncSnapshot
+  ensureServerSession: (candidateUser?: User | null) => Promise<ServerSessionSyncResult>
   signOut: () => Promise<void>
 }
 
@@ -227,8 +235,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [premiumLastCheckedAt, setPremiumLastCheckedAt] = useState<string | null>(
     null,
   )
+  const [serverSessionSync, setServerSessionSync] =
+    useState<ServerSessionSyncSnapshot>({
+      error: null,
+      status: "idle",
+      uid: null,
+    })
 
   const premiumStatusRef = useRef<PremiumStatus>("free")
+  const serverSessionSyncManagerRef = useRef(
+    createServerSessionSyncManager(
+      syncServerSessionWithIdToken,
+      setServerSessionSync,
+    ),
+  )
   const reconcileAttemptedUsersRef = useRef<Set<string>>(new Set())
   const reconcileDependencyLoggedUsersRef = useRef<Set<string>>(new Set())
   const reconcileCallablesRef = useRef(
@@ -267,6 +287,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     reconcileDependencyLoggedUsersRef.current.add(userId)
     setSessionMarker(getReconcileDependencyLoggedKey(userId))
   }, [])
+
+  const clearServerSessionSyncState = useCallback(() => {
+    serverSessionSyncManagerRef.current.clear()
+  }, [])
+
+  const ensureServerSession = useCallback(
+    async (candidateUser?: User | null): Promise<ServerSessionSyncResult> => {
+      const activeUser = candidateUser ?? auth.currentUser
+
+      if (!activeUser || activeUser.isAnonymous) {
+        clearServerSessionSyncState()
+        return {
+          error: "Missing authenticated user",
+          ok: false,
+          status: "error",
+          uid: activeUser?.uid ?? "anonymous",
+        }
+      }
+
+      const idToken = await activeUser.getIdToken()
+      return serverSessionSyncManagerRef.current.ensure({
+        isCurrentUser: () => auth.currentUser?.uid === activeUser.uid,
+        token: idToken,
+        uid: activeUser.uid,
+      })
+    },
+    [clearServerSessionSyncState],
+  )
 
   const reconcilePremium = useCallback(
     async (userId: string): Promise<void> => {
@@ -401,13 +449,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [premiumStatus])
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
       setUser(currentUser)
       setLoading(false)
+
+      if (!currentUser) {
+        clearServerSessionSyncState()
+        return
+      }
+
+      void ensureServerSession(currentUser).then((result) => {
+        if (!result.ok) {
+          console.error("Server session sync failed:", {
+            reason: result.error,
+            uidSuffix: currentUser.uid.slice(-6),
+          })
+        }
+      })
     })
 
     return unsubscribe
-  }, [])
+  }, [clearServerSessionSyncState, ensureServerSession])
 
   useEffect(() => {
     if (!user) {
@@ -517,6 +579,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await firebaseSignOut(auth)
+      clearServerSessionSyncState()
       router.push("/")
     } catch (error) {
       console.error("Error signing out:", error)
@@ -535,6 +598,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         premiumStatus,
         premiumLoading,
         premiumLastCheckedAt,
+        serverSessionSync,
+        ensureServerSession,
         signOut,
       }}
     >

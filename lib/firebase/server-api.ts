@@ -17,8 +17,16 @@ export interface FirebaseServiceAccountConfig {
 let accessTokenCache: AccessTokenCache | null = null
 let signingKeyPromise: Promise<CryptoKey> | null = null
 
+export function getFirebaseProjectId(): string | null {
+  return (
+    process.env.FIREBASE_ADMIN_PROJECT_ID ??
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ??
+    null
+  )
+}
+
 export function getFirebaseServiceAccountConfig(): FirebaseServiceAccountConfig | null {
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID
+  const projectId = getFirebaseProjectId()
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(
     /\\n/g,

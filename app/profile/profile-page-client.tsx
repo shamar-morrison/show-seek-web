@@ -24,7 +24,6 @@ import {
   Home01Icon,
   Logout01Icon,
 } from "@hugeicons/core-free-icons"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -35,7 +34,6 @@ export function ProfilePageClient() {
     isLoading: prefsLoading,
     updatePreference,
   } = usePreferences()
-  const router = useRouter()
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
@@ -71,7 +69,6 @@ export function ProfilePageClient() {
     try {
       setIsSigningOut(true)
       await signOut()
-      router.push("/login")
     } catch (error) {
       captureException(error)
       toast.error("Failed to sign out. Please try again.")

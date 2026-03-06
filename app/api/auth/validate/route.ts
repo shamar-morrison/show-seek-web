@@ -1,9 +1,12 @@
-import { verifySessionCookieValue } from "@/lib/firebase/server-auth"
+import {
+  isSessionVerificationValid,
+  isSessionVerificationUnavailable,
+  verifySessionCookieValue,
+} from "@/lib/firebase/server-auth"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Validates a session cookie's signature and expiry.
- * Called by middleware to verify sessions in Edge Runtime.
+ * Validates a session cookie using strict verification.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -11,14 +14,33 @@ export async function POST(request: NextRequest) {
     const sessionCookie = body.sessionCookie
 
     if (!sessionCookie) {
-      return NextResponse.json({ valid: false })
+      return NextResponse.json({ valid: false, status: "invalid" })
     }
 
-    const decodedClaims = await verifySessionCookieValue(sessionCookie, true)
+    const verification = await verifySessionCookieValue(sessionCookie, "strict")
 
-    return NextResponse.json({ valid: !!decodedClaims })
+    if (isSessionVerificationUnavailable(verification)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          status: verification.status,
+          reason: verification.reason,
+        },
+        { status: 503 },
+      )
+    }
+
+    return NextResponse.json({
+      valid: isSessionVerificationValid(verification),
+      status: verification.status,
+    })
   } catch {
-    // Any verification error means invalid session
-    return NextResponse.json({ valid: false })
+    return NextResponse.json(
+      {
+        valid: false,
+        status: "unavailable",
+      },
+      { status: 503 },
+    )
   }
 }

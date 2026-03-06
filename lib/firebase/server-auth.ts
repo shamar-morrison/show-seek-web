@@ -1,7 +1,7 @@
 import {
+  getFirebaseProjectId,
   getGoogleAccessToken,
   getFirebaseServiceAccountConfig,
-  hasFirebaseServiceAccountConfig,
 } from "./server-api"
 
 const SESSION_COOKIE_JWKS_URL =
@@ -13,6 +13,15 @@ const SESSION_EXPIRY_DAYS = 5
 type JwksCache = {
   expiresAt: number
   keys: Map<string, FirebaseJwk>
+}
+
+export type SessionVerificationStatus = "valid" | "invalid" | "unavailable"
+export type SessionVerificationMode = "local" | "strict"
+
+export interface SessionVerificationResult {
+  status: SessionVerificationStatus
+  claims: DecodedSessionCookie | null
+  reason: string | null
 }
 
 export interface DecodedSessionCookie {
@@ -37,10 +46,35 @@ type FirebaseJwk = JsonWebKey & {
   kid?: string
 }
 
+class SessionVerificationError extends Error {
+  constructor(
+    readonly status: Exclude<SessionVerificationStatus, "valid">,
+    message: string,
+  ) {
+    super(message)
+    this.name = "SessionVerificationError"
+  }
+}
+
 let jwksCache: JwksCache | null = null
 const importedPublicKeys = new Map<string, CryptoKey>()
 
 export { SESSION_COOKIE_NAME, SESSION_EXPIRY_DAYS }
+
+export function isSessionVerificationValid(
+  result: SessionVerificationResult,
+): result is SessionVerificationResult & {
+  status: "valid"
+  claims: DecodedSessionCookie
+} {
+  return result.status === "valid" && result.claims !== null
+}
+
+export function isSessionVerificationUnavailable(
+  result: SessionVerificationResult,
+): boolean {
+  return result.status === "unavailable"
+}
 
 export async function createSessionCookie(
   idToken: string,
@@ -65,7 +99,7 @@ export async function createSessionCookie(
       },
       body: JSON.stringify({
         idToken,
-        validDuration: `${SESSION_COOKIE_EXPIRY_SECONDS}s`,
+        validDuration: String(SESSION_COOKIE_EXPIRY_SECONDS),
       }),
     },
   )
@@ -81,36 +115,55 @@ export async function createSessionCookie(
 
 export async function verifySessionCookieValue(
   sessionCookie: string,
-  checkRevoked = true,
-): Promise<DecodedSessionCookie | null> {
-  if (!hasFirebaseServiceAccountConfig()) {
-    return null
+  mode: SessionVerificationMode = "strict",
+): Promise<SessionVerificationResult> {
+  const localResult = await verifySessionCookieLocally(sessionCookie)
+
+  if (!isSessionVerificationValid(localResult) || mode === "local") {
+    return localResult
   }
 
   try {
-    const decoded = await decodeAndVerifySessionCookie(sessionCookie)
+    const account = await lookupFirebaseAccount(localResult.claims.sub)
 
-    if (!checkRevoked) {
-      return decoded
+    if (!account) {
+      return createSessionVerificationResult(
+        "invalid",
+        null,
+        "Session account not found",
+      )
     }
 
-    const account = await lookupFirebaseAccount(decoded.sub)
-
-    if (!account || account.disabled) {
-      return null
+    if (account.disabled) {
+      return createSessionVerificationResult(
+        "invalid",
+        null,
+        "Session account is disabled",
+      )
     }
 
-    if (isSessionCookieRevoked(decoded, account)) {
-      return null
+    if (isSessionCookieRevoked(localResult.claims, account)) {
+      return createSessionVerificationResult(
+        "invalid",
+        null,
+        "Session cookie has been revoked",
+      )
     }
 
-    return decoded
+    return localResult
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("Session verification failed:", error)
-    }
+    return mapSessionVerificationError(error)
+  }
+}
 
-    return null
+async function verifySessionCookieLocally(
+  sessionCookie: string,
+): Promise<SessionVerificationResult> {
+  try {
+    const decoded = await decodeAndVerifySessionCookie(sessionCookie)
+    return createSessionVerificationResult("valid", decoded)
+  } catch (error) {
+    return mapSessionVerificationError(error)
   }
 }
 
@@ -118,10 +171,21 @@ export async function lookupFirebaseAccount(
   uid: string,
 ): Promise<FirebaseAccountInfo | null> {
   const config = getFirebaseServiceAccountConfig()
+
+  if (!config) {
+    throw new SessionVerificationError(
+      "unavailable",
+      "Firebase service account credentials are not configured",
+    )
+  }
+
   const accessToken = await getGoogleAccessToken()
 
-  if (!config || !accessToken) {
-    return null
+  if (!accessToken) {
+    throw new SessionVerificationError(
+      "unavailable",
+      "Google access token is unavailable",
+    )
   }
 
   const response = await fetch(
@@ -140,7 +204,10 @@ export async function lookupFirebaseAccount(
 
   if (!response.ok) {
     const details = await response.text()
-    throw new Error(`Failed to look up Firebase account: ${details}`)
+    throw new SessionVerificationError(
+      "unavailable",
+      `Failed to look up Firebase account: ${details}`,
+    )
   }
 
   const data = (await response.json()) as {
@@ -169,9 +236,13 @@ export function isSessionCookieRevoked(
 
 export function getInvalidSessionCookieReason(
   payload: Record<string, unknown>,
-  projectId: string,
+  projectId: string | null,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): string | null {
+  if (!projectId) {
+    return "Missing Firebase project ID"
+  }
+
   if (payload.aud !== projectId) {
     return "Invalid audience"
   }
@@ -207,20 +278,54 @@ export function getInvalidSessionCookieReason(
   return null
 }
 
+function createSessionVerificationResult(
+  status: SessionVerificationStatus,
+  claims: DecodedSessionCookie | null,
+  reason: string | null = null,
+): SessionVerificationResult {
+  return {
+    status,
+    claims,
+    reason,
+  }
+}
+
+function mapSessionVerificationError(
+  error: unknown,
+): SessionVerificationResult {
+  if (error instanceof SessionVerificationError) {
+    return createSessionVerificationResult(error.status, null, error.message)
+  }
+
+  const reason = error instanceof Error ? error.message : "Unknown error"
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("Session verification failed:", error)
+  }
+
+  return createSessionVerificationResult("unavailable", null, reason)
+}
+
 async function decodeAndVerifySessionCookie(
   sessionCookie: string,
 ): Promise<DecodedSessionCookie> {
-  const config = getFirebaseServiceAccountConfig()
+  const projectId = getFirebaseProjectId()
 
-  if (!config) {
-    throw new Error("Firebase service account credentials are not configured")
+  if (!projectId) {
+    throw new SessionVerificationError(
+      "unavailable",
+      "Firebase project ID is not configured",
+    )
   }
 
   const [encodedHeader, encodedPayload, encodedSignature] =
     sessionCookie.split(".")
 
   if (!encodedHeader || !encodedPayload || !encodedSignature) {
-    throw new Error("Session cookie is not a valid JWT")
+    throw new SessionVerificationError(
+      "invalid",
+      "Session cookie is not a valid JWT",
+    )
   }
 
   const header = parseJwtSegment(encodedHeader) as {
@@ -228,17 +333,17 @@ async function decodeAndVerifySessionCookie(
     kid?: string
   }
   const payload = parseJwtSegment(encodedPayload) as Record<string, unknown>
-  const validationError = getInvalidSessionCookieReason(
-    payload,
-    config.projectId,
-  )
+  const validationError = getInvalidSessionCookieReason(payload, projectId)
 
   if (header.alg !== "RS256" || !header.kid) {
-    throw new Error("Session cookie has an invalid header")
+    throw new SessionVerificationError(
+      "invalid",
+      "Session cookie has an invalid header",
+    )
   }
 
   if (validationError) {
-    throw new Error(validationError)
+    throw new SessionVerificationError("invalid", validationError)
   }
 
   const publicKey = await getImportedPublicKey(header.kid)
@@ -250,7 +355,10 @@ async function decodeAndVerifySessionCookie(
   )
 
   if (!isValid) {
-    throw new Error("Session cookie signature verification failed")
+    throw new SessionVerificationError(
+      "invalid",
+      "Session cookie signature verification failed",
+    )
   }
 
   return payload as DecodedSessionCookie
@@ -282,24 +390,38 @@ async function getImportedPublicKey(kid: string): Promise<CryptoKey> {
 async function getPublicJwk(kid: string): Promise<FirebaseJwk> {
   const now = Date.now()
 
-  if (!jwksCache || jwksCache.expiresAt <= now) {
-    jwksCache = await fetchPublicJwks()
+  if (jwksCache && jwksCache.expiresAt > now) {
+    const cachedKey = jwksCache.keys.get(kid)
+    if (cachedKey) {
+      return cachedKey
+    }
   }
 
-  const key = jwksCache.keys.get(kid)
+  const staleCache = jwksCache
 
-  if (!key) {
+  try {
     jwksCache = await fetchPublicJwks()
-    const refreshedKey = jwksCache.keys.get(kid)
+  } catch (error) {
+    const staleKey = staleCache?.keys.get(kid)
 
-    if (!refreshedKey) {
-      throw new Error(`Unable to find Firebase public key for kid "${kid}"`)
+    if (staleKey) {
+      jwksCache = staleCache
+      return staleKey
     }
 
-    return refreshedKey
+    throw error
   }
 
-  return key
+  const refreshedKey = jwksCache.keys.get(kid)
+
+  if (!refreshedKey) {
+    throw new SessionVerificationError(
+      "invalid",
+      `Unable to find Firebase public key for kid "${kid}"`,
+    )
+  }
+
+  return refreshedKey
 }
 
 async function fetchPublicJwks(): Promise<JwksCache> {
@@ -307,7 +429,10 @@ async function fetchPublicJwks(): Promise<JwksCache> {
 
   if (!response.ok) {
     const details = await response.text()
-    throw new Error(`Failed to fetch Firebase JWKS: ${details}`)
+    throw new SessionVerificationError(
+      "unavailable",
+      `Failed to fetch Firebase JWKS: ${details}`,
+    )
   }
 
   const data = (await response.json()) as { keys?: FirebaseJwk[] }
@@ -316,7 +441,10 @@ async function fetchPublicJwks(): Promise<JwksCache> {
   const maxAgeSeconds = Number.parseInt(maxAgeMatch?.[1] ?? "3600", 10)
 
   if (!Array.isArray(data.keys)) {
-    throw new Error("Firebase JWKS response was missing keys")
+    throw new SessionVerificationError(
+      "unavailable",
+      "Firebase JWKS response was missing keys",
+    )
   }
 
   return {

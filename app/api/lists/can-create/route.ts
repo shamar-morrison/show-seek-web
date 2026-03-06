@@ -2,7 +2,11 @@ import {
   countCustomLists,
   getUserPremiumStatus,
 } from "@/lib/firebase/server-firestore"
-import { verifySessionCookieValue } from "@/lib/firebase/server-auth"
+import {
+  isSessionVerificationUnavailable,
+  isSessionVerificationValid,
+  verifySessionCookieValue,
+} from "@/lib/firebase/server-auth"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -24,13 +28,20 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decodedClaims = await verifySessionCookieValue(sessionCookie, true)
+    const verification = await verifySessionCookieValue(sessionCookie, "strict")
 
-    if (!decodedClaims) {
+    if (isSessionVerificationUnavailable(verification)) {
+      return NextResponse.json(
+        { error: "Authentication temporarily unavailable" },
+        { status: 503 },
+      )
+    }
+
+    if (!isSessionVerificationValid(verification)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = decodedClaims.sub
+    const userId = verification.claims.sub
     const isPremium = await getUserPremiumStatus(userId)
 
     // Premium users can always create lists
