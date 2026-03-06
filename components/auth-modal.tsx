@@ -70,8 +70,11 @@ async function createServerSession(idToken: string): Promise<void> {
   if (!response.ok) {
     let errorDetail = ""
     try {
-      const data = await response.json()
-      errorDetail = data.error || data.message || JSON.stringify(data)
+      const data = (await response.json()) as Record<string, unknown>
+      errorDetail =
+        (typeof data.error === "string" ? data.error : "") ||
+        (typeof data.message === "string" ? data.message : "") ||
+        JSON.stringify(data)
     } catch {
       try {
         errorDetail = await response.text()
@@ -139,7 +142,9 @@ export function AuthModal({
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const shouldShowProviderGuidance =
     authError !== null &&
-    authError.toLowerCase().includes("same provider used for your premium mobile account")
+    authError
+      .toLowerCase()
+      .includes("same provider used for your premium mobile account")
 
   // Determine if we're in controlled mode
   const isControlled = controlledIsOpen !== undefined

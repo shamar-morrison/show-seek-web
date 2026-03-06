@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { idToken } = await request.json()
+    const body = (await request.json()) as { idToken?: string }
+    const idToken = body.idToken
 
     if (!idToken) {
       return NextResponse.json({ error: "ID token required" }, { status: 400 })

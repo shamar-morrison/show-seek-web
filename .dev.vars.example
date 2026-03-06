@@ -1,0 +1,8 @@
+# Copy this file to .dev.vars for local Cloudflare/OpenNext preview.
+NEXTJS_ENV=development
+TMDB_BEARER_TOKEN=
+TMDB_API_KEY=
+TRAKT_CLIENT_ID=
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=

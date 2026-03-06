@@ -1,6 +1,8 @@
-import { adminAuth } from "@/lib/firebase/admin"
-import { getApps } from "firebase-admin/app"
-import { getFirestore } from "firebase-admin/firestore"
+import {
+  countCustomLists,
+  getUserPremiumStatus,
+} from "@/lib/firebase/server-firestore"
+import { verifySessionCookieValue } from "@/lib/firebase/server-auth"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -15,39 +17,21 @@ const FREE_USER_LIST_LIMIT = 5
  */
 export async function GET() {
   try {
-    // Get session cookie
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get("session")?.value
 
-    if (!sessionCookie || !adminAuth) {
+    if (!sessionCookie) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Verify session and get user ID
-    const decodedClaims = await adminAuth.verifySessionCookie(
-      sessionCookie,
-      true,
-    )
-    const userId = decodedClaims.uid
+    const decodedClaims = await verifySessionCookieValue(sessionCookie, true)
 
-    // Get Firestore instance from admin SDK
-    const apps = getApps()
-    const app = apps.length > 0 ? apps[0] : undefined
-
-    if (!app) {
-      console.error("Firebase Admin app not initialized")
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 },
-      )
+    if (!decodedClaims) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const db = getFirestore(app)
-
-    // Check user's premium status
-    const userDoc = await db.collection("users").doc(userId).get()
-    const userData = userDoc.data()
-    const isPremium = userData?.premium?.isPremium ?? false
+    const userId = decodedClaims.sub
+    const isPremium = await getUserPremiumStatus(userId)
 
     // Premium users can always create lists
     if (isPremium) {
@@ -58,15 +42,7 @@ export async function GET() {
       })
     }
 
-    // Count custom lists for free users
-    const listsSnapshot = await db
-      .collection("users")
-      .doc(userId)
-      .collection("lists")
-      .where("isCustom", "==", true)
-      .get()
-
-    const currentCount = listsSnapshot.size
+    const currentCount = await countCustomLists(userId)
 
     return NextResponse.json({
       canCreate: currentCount < FREE_USER_LIST_LIMIT,

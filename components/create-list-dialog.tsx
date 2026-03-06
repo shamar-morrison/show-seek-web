@@ -79,7 +79,10 @@ export function CreateListDialog({
         if (!response.ok) {
           throw new Error("Failed to check list limit")
         }
-        const { canCreate, limit } = await response.json()
+        const { canCreate, limit } = (await response.json()) as {
+          canCreate?: boolean
+          limit?: number | null
+        }
         if (!canCreate) {
           toast.error(
             `You've reached the limit of ${limit} custom lists. Upgrade to Premium for unlimited lists!`,
@@ -145,7 +148,9 @@ export function CreateListDialog({
           autoFocus
         />
         {isPremiumCheckPending && (
-          <p className="text-xs text-muted-foreground">{PREMIUM_LOADING_MESSAGE}</p>
+          <p className="text-xs text-muted-foreground">
+            {PREMIUM_LOADING_MESSAGE}
+          </p>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isCreating}>

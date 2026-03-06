@@ -1,4 +1,4 @@
-import { adminAuth } from "@/lib/firebase/admin"
+import { verifySessionCookieValue } from "@/lib/firebase/server-auth"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -7,17 +7,14 @@ import { NextRequest, NextResponse } from "next/server"
  */
 export async function POST(request: NextRequest) {
   try {
-    const { sessionCookie } = await request.json()
+    const body = (await request.json()) as { sessionCookie?: string }
+    const sessionCookie = body.sessionCookie
 
-    if (!sessionCookie || !adminAuth) {
+    if (!sessionCookie) {
       return NextResponse.json({ valid: false })
     }
 
-    // Verify session cookie signature and check if it's revoked
-    const decodedClaims = await adminAuth.verifySessionCookie(
-      sessionCookie,
-      true, // Check if revoked
-    )
+    const decodedClaims = await verifySessionCookieValue(sessionCookie, true)
 
     return NextResponse.json({ valid: !!decodedClaims })
   } catch {
