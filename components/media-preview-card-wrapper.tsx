@@ -144,6 +144,7 @@ export function MediaPreviewCardWrapper({
             genreIds: movieMedia.genres?.map((g) => g.id),
           },
           preferences.autoAddToAlreadyWatched,
+          preferences.autoRemoveFromShouldWatch,
         )
       } catch (error) {
         console.error("Error quick marking as watched:", error)
@@ -162,6 +163,7 @@ export function MediaPreviewCardWrapper({
     detailedMedia,
     preferences.quickMarkAsWatched,
     preferences.autoAddToAlreadyWatched,
+    preferences.autoRemoveFromShouldWatch,
     addWatchInstance,
     requireAuth,
   ])
@@ -181,12 +183,14 @@ export function MediaPreviewCardWrapper({
           genreIds: movieMedia.genres?.map((g) => g.id),
         },
         preferences.autoAddToAlreadyWatched,
+        preferences.autoRemoveFromShouldWatch,
       )
     },
     [
       mediaType,
       detailedMedia,
       preferences.autoAddToAlreadyWatched,
+      preferences.autoRemoveFromShouldWatch,
       addWatchInstance,
     ],
   )

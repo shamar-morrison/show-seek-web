@@ -1,41 +1,17 @@
 import { User } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
+import type { StoredUserPreferences } from "@/lib/user-preferences"
 import { db } from "./config"
 
-/** Type of list for home screen customization */
-export type HomeListType = "tmdb" | "default" | "custom"
-
-/** Configuration for a single home screen list item */
-export interface HomeScreenListItem {
-  id: string
-  type: HomeListType
-  label: string
-}
-
-export interface UserPreferences {
-  autoAddToWatching: boolean
-  autoAddToAlreadyWatched: boolean
-  markPreviousEpisodesWatched: boolean
-  showListIndicators: boolean
-  blurPlotSpoilers: boolean
-  showMediaPreviewCards: boolean
-  quickMarkAsWatched: boolean
-  hideWatchedContent: boolean
-  hideUnreleasedContent: boolean
-  homeScreenLists?: HomeScreenListItem[]
-}
-
-export const DEFAULT_PREFERENCES: UserPreferences = {
-  autoAddToWatching: false,
-  autoAddToAlreadyWatched: false,
-  markPreviousEpisodesWatched: false,
-  showListIndicators: false,
-  blurPlotSpoilers: false,
-  showMediaPreviewCards: false,
-  quickMarkAsWatched: false,
-  hideWatchedContent: false,
-  hideUnreleasedContent: false,
-}
+export {
+  DEFAULT_PREFERENCES,
+  hydrateUserPreferences,
+} from "@/lib/user-preferences"
+export type {
+  HomeListType,
+  HomeScreenListItem,
+  UserPreferences,
+} from "@/lib/user-preferences"
 
 export interface UserDocument {
   uid: string
@@ -49,7 +25,7 @@ export interface UserDocument {
     productId?: string
     purchaseDate?: ReturnType<typeof serverTimestamp>
   }
-  preferences?: Partial<UserPreferences>
+  preferences?: StoredUserPreferences
 }
 
 /**

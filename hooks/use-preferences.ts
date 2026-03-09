@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase/config"
 import {
   DEFAULT_PREFERENCES,
   HomeScreenListItem,
+  hydrateUserPreferences,
   UserDocument,
   UserPreferences,
 } from "@/lib/firebase/user"
@@ -44,11 +45,7 @@ export function usePreferences(): UsePreferencesReturn {
       (snapshot) => {
         if (snapshot.exists()) {
           const userData = snapshot.data() as UserDocument
-          // Merge with defaults to ensure all fields are present
-          setPreferences({
-            ...DEFAULT_PREFERENCES,
-            ...userData.preferences,
-          })
+          setPreferences(hydrateUserPreferences(userData.preferences))
         } else {
           setPreferences(DEFAULT_PREFERENCES)
         }

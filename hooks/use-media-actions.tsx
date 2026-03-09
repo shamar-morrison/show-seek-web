@@ -184,6 +184,7 @@ export function useMediaActions({
             genreIds: movieMedia.genres?.map((g) => g.id),
           },
           preferences.autoAddToAlreadyWatched,
+          preferences.autoRemoveFromShouldWatch,
         )
       } catch (error) {
         console.error("Error quick marking as watched:", error)
@@ -199,6 +200,7 @@ export function useMediaActions({
     media,
     preferences.quickMarkAsWatched,
     preferences.autoAddToAlreadyWatched,
+    preferences.autoRemoveFromShouldWatch,
     addWatchInstance,
   ])
 
@@ -224,9 +226,16 @@ export function useMediaActions({
           genreIds: movieMedia.genres?.map((g) => g.id),
         },
         preferences.autoAddToAlreadyWatched,
+        preferences.autoRemoveFromShouldWatch,
       )
     },
-    [mediaType, media, preferences.autoAddToAlreadyWatched, addWatchInstance],
+    [
+      mediaType,
+      media,
+      preferences.autoAddToAlreadyWatched,
+      preferences.autoRemoveFromShouldWatch,
+      addWatchInstance,
+    ],
   )
 
   // Build dropdown items

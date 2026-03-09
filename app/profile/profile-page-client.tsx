@@ -162,6 +162,16 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Auto-remove from Should Watch"
+            description="Automatically remove movies from your Should Watch list when you rate or mark them as watched"
+            checked={preferences.autoRemoveFromShouldWatch}
+            onChange={(value) =>
+              updatePreference("autoRemoveFromShouldWatch", value)
+            }
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Quick Mark as Watched"
             description="Skip the date selection modal and use the current time when marking movies as watched"
             checked={preferences.quickMarkAsWatched}
