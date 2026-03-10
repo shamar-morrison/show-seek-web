@@ -15,7 +15,38 @@ import {
   multiSearch,
 } from "@/lib/tmdb"
 import { getTraktMediaComments } from "@/lib/trakt"
-import type { TMDBMedia } from "@/types/tmdb"
+import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
+
+const COLLECTION_BATCH_CONCURRENCY = 3
+
+async function mapWithConcurrencyLimit<T, TResult>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<TResult>,
+): Promise<TResult[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  let nextIndex = 0
+  const results = new Array<TResult>(items.length)
+  const runnerCount = Math.min(concurrency, items.length)
+
+  async function runNext(): Promise<void> {
+    if (nextIndex >= items.length) {
+      return
+    }
+
+    const currentIndex = nextIndex
+    nextIndex += 1
+    results[currentIndex] = await worker(items[currentIndex] as T)
+    await runNext()
+  }
+
+  await Promise.all(Array.from({ length: runnerCount }, () => runNext()))
+
+  return results
+}
 
 /**
  * Server action to search for media.
@@ -82,10 +113,10 @@ export interface SeasonEpisodeData {
   runtime: number | null
 }
 
-export interface CollectionArtworkData {
-  poster_path: string | null
-  backdrop_path: string | null
-}
+export type CollectionArtworkData = Pick<
+  TMDBCollectionDetails,
+  "poster_path" | "backdrop_path"
+>
 
 /**
  * Server action to fetch season episodes.
@@ -196,27 +227,48 @@ export async function fetchCollectionsBatch(
     return []
   }
 
-  return Promise.all(
-    collectionIds.map(async (collectionId) => {
+  const uniqueCollectionIds: number[] = []
+  const seenCollectionIds = new Set<number>()
+
+  collectionIds.forEach((collectionId) => {
+    if (seenCollectionIds.has(collectionId)) {
+      return
+    }
+
+    seenCollectionIds.add(collectionId)
+    uniqueCollectionIds.push(collectionId)
+  })
+
+  const artworkByCollectionId = new Map<number, CollectionArtworkData | null>()
+
+  await mapWithConcurrencyLimit(
+    uniqueCollectionIds,
+    COLLECTION_BATCH_CONCURRENCY,
+    async (collectionId) => {
       try {
         const collection = await getCollectionDetails(collectionId)
 
         if (!collection) {
-          return null
+          artworkByCollectionId.set(collectionId, null)
+          return
         }
 
-        return {
+        artworkByCollectionId.set(collectionId, {
           poster_path: collection.poster_path ?? null,
           backdrop_path: collection.backdrop_path ?? null,
-        }
+        })
       } catch (error) {
         console.error(
           `Server Action: Failed to fetch collection ${collectionId} in batch`,
           error,
         )
-        return null
+        artworkByCollectionId.set(collectionId, null)
       }
-    }),
+    },
+  )
+
+  return collectionIds.map(
+    (collectionId) => artworkByCollectionId.get(collectionId) ?? null,
   )
 }
 

@@ -149,7 +149,7 @@ export function CollectionPageClient({
       console.error("Failed to stop collection tracking:", error)
       toast.error("Failed to stop collection tracking")
     }
-  }, [collection.id, collection.name, stopTrackingMutation])
+  }, [collection.id, stopTrackingMutation])
 
   const backdropUrl = collection.backdrop_path
     ? `https://image.tmdb.org/t/p/original${collection.backdrop_path}`
