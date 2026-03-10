@@ -52,6 +52,8 @@ interface UseMediaActionsOptions {
   media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
   /** Media type */
   mediaType: "movie" | "tv"
+  /** Optional collection context for collection-aware watch actions */
+  collectionId?: number | null
 }
 
 interface UseMediaActionsResult {
@@ -75,6 +77,18 @@ interface UseMediaActionsResult {
   modals: React.ReactNode
 }
 
+function getResolvedCollectionId(
+  movieMedia: TMDBMedia | TMDBMovieDetails,
+  collectionId?: number | null,
+) {
+  return (
+    collectionId ??
+    ("belongs_to_collection" in movieMedia
+      ? (movieMedia.belongs_to_collection?.id ?? null)
+      : null)
+  )
+}
+
 /**
  * Hook for managing media card actions (Add to List, Rate, Notes)
  * Returns handlers, state, and a memoized modals element tree
@@ -82,6 +96,7 @@ interface UseMediaActionsResult {
 export function useMediaActions({
   media,
   mediaType,
+  collectionId,
 }: UseMediaActionsOptions): UseMediaActionsResult {
   // Modal open states
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
@@ -166,6 +181,10 @@ export function useMediaActions({
     if (mediaType !== "movie") return
 
     const movieMedia = media as TMDBMovieDetails
+    const resolvedCollectionId = getResolvedCollectionId(
+      movieMedia,
+      collectionId,
+    )
 
     if (preferences.quickMarkAsWatched) {
       // Quick mark - immediately mark as watched with current time
@@ -182,6 +201,7 @@ export function useMediaActions({
             voteAverage: movieMedia.vote_average,
             releaseDate: movieMedia.release_date,
             genreIds: movieMedia.genres?.map((g) => g.id),
+            collectionId: resolvedCollectionId,
           },
           preferences.autoAddToAlreadyWatched,
           preferences.autoRemoveFromShouldWatch,
@@ -202,6 +222,7 @@ export function useMediaActions({
     preferences.autoAddToAlreadyWatched,
     preferences.autoRemoveFromShouldWatch,
     addWatchInstance,
+    collectionId,
   ])
 
   const openMarkAsWatchedModal = useCallback(() => {
@@ -213,6 +234,10 @@ export function useMediaActions({
     async (date: Date) => {
       if (mediaType !== "movie") return
       const movieMedia = media as TMDBMovieDetails
+      const resolvedCollectionId = getResolvedCollectionId(
+        movieMedia,
+        collectionId,
+      )
       await addWatchInstance(
         date,
         {
@@ -224,6 +249,7 @@ export function useMediaActions({
           voteAverage: movieMedia.vote_average,
           releaseDate: movieMedia.release_date,
           genreIds: movieMedia.genres?.map((g) => g.id),
+          collectionId: resolvedCollectionId,
         },
         preferences.autoAddToAlreadyWatched,
         preferences.autoRemoveFromShouldWatch,
@@ -235,6 +261,7 @@ export function useMediaActions({
       preferences.autoAddToAlreadyWatched,
       preferences.autoRemoveFromShouldWatch,
       addWatchInstance,
+      collectionId,
     ],
   )
 

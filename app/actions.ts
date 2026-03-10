@@ -15,7 +15,38 @@ import {
   multiSearch,
 } from "@/lib/tmdb"
 import { getTraktMediaComments } from "@/lib/trakt"
-import type { TMDBMedia } from "@/types/tmdb"
+import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
+
+const COLLECTION_BATCH_CONCURRENCY = 3
+
+async function mapWithConcurrencyLimit<T, TResult>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<TResult>,
+): Promise<TResult[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  let nextIndex = 0
+  const results = new Array<TResult>(items.length)
+  const runnerCount = Math.min(concurrency, items.length)
+
+  async function runNext(): Promise<void> {
+    if (nextIndex >= items.length) {
+      return
+    }
+
+    const currentIndex = nextIndex
+    nextIndex += 1
+    results[currentIndex] = await worker(items[currentIndex] as T)
+    await runNext()
+  }
+
+  await Promise.all(Array.from({ length: runnerCount }, () => runNext()))
+
+  return results
+}
 
 /**
  * Server action to search for media.
@@ -81,6 +112,11 @@ export interface SeasonEpisodeData {
   air_date: string | null
   runtime: number | null
 }
+
+export type CollectionArtworkData = Pick<
+  TMDBCollectionDetails,
+  "poster_path" | "backdrop_path"
+>
 
 /**
  * Server action to fetch season episodes.
@@ -182,6 +218,58 @@ export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
  */
 export async function fetchCollection(collectionId: number) {
   return await getCollectionDetails(collectionId)
+}
+
+export async function fetchCollectionsBatch(
+  collectionIds: number[],
+): Promise<Array<CollectionArtworkData | null>> {
+  if (collectionIds.length === 0) {
+    return []
+  }
+
+  const uniqueCollectionIds: number[] = []
+  const seenCollectionIds = new Set<number>()
+
+  collectionIds.forEach((collectionId) => {
+    if (seenCollectionIds.has(collectionId)) {
+      return
+    }
+
+    seenCollectionIds.add(collectionId)
+    uniqueCollectionIds.push(collectionId)
+  })
+
+  const artworkByCollectionId = new Map<number, CollectionArtworkData | null>()
+
+  await mapWithConcurrencyLimit(
+    uniqueCollectionIds,
+    COLLECTION_BATCH_CONCURRENCY,
+    async (collectionId) => {
+      try {
+        const collection = await getCollectionDetails(collectionId)
+
+        if (!collection) {
+          artworkByCollectionId.set(collectionId, null)
+          return
+        }
+
+        artworkByCollectionId.set(collectionId, {
+          poster_path: collection.poster_path ?? null,
+          backdrop_path: collection.backdrop_path ?? null,
+        })
+      } catch (error) {
+        console.error(
+          `Server Action: Failed to fetch collection ${collectionId} in batch`,
+          error,
+        )
+        artworkByCollectionId.set(collectionId, null)
+      }
+    },
+  )
+
+  return collectionIds.map(
+    (collectionId) => artworkByCollectionId.get(collectionId) ?? null,
+  )
 }
 
 /**
