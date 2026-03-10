@@ -1,22 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { collectText, findElementByType } from "./react-tree-helpers"
+import { render, screen } from "./utils"
 
 const useAuthMock = vi.fn()
-const authModalMock = vi.fn(() => null)
+const authModalMock = vi.fn(({ message }: { message?: string }) => (
+  <div data-testid="auth-modal">{message}</div>
+))
 
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => useAuthMock(),
 }))
 
 vi.mock("@/components/auth-modal", () => ({
-  AuthModal: authModalMock,
+  AuthModal: (props: { message?: string }) => authModalMock(props),
 }))
 
 describe("RouteGuard", () => {
   beforeEach(() => {
     useAuthMock.mockReset()
-    authModalMock.mockReset()
-    authModalMock.mockImplementation(() => null)
+    authModalMock.mockClear()
   })
 
   it("shows the inline auth gate for unauthenticated users", async () => {
@@ -26,27 +27,26 @@ describe("RouteGuard", () => {
     })
 
     const { RouteGuard } = await import("../components/route-guard")
-    const tree = RouteGuard({
-      children: <div>Protected profile content</div>,
-      message: "Manage your preferences and account settings.",
-      title: "Sign in to view your profile",
-    })
-
-    expect(collectText(tree)).toEqual(
-      expect.arrayContaining([
-        "Sign in to view your profile",
-        "Manage your preferences and account settings.",
-      ]),
+    render(
+      <RouteGuard
+        message="Manage your preferences and account settings."
+        title="Sign in to view your profile"
+      >
+        <div>Protected profile content</div>
+      </RouteGuard>,
     )
 
-    const authModalElement = findElementByType(tree, authModalMock)
-
-    expect(authModalElement).not.toBeNull()
-    expect(authModalElement?.props.message).toBe(
+    expect(screen.getByText("Sign in to view your profile")).toBeInTheDocument()
+    expect(
+      screen.getAllByText("Manage your preferences and account settings."),
+    ).toHaveLength(2)
+    expect(screen.getByTestId("auth-modal")).toHaveTextContent(
       "Manage your preferences and account settings.",
     )
-    expect(collectText(tree)).not.toContain("Protected profile content")
-  }, 10000)
+    expect(
+      screen.queryByText("Protected profile content"),
+    ).not.toBeInTheDocument()
+  })
 
   it("renders protected content for authenticated users", async () => {
     useAuthMock.mockReturnValue({
@@ -58,11 +58,13 @@ describe("RouteGuard", () => {
     })
 
     const { RouteGuard } = await import("../components/route-guard")
-    const tree = RouteGuard({
-      children: <div>Protected profile content</div>,
-    })
+    render(
+      <RouteGuard>
+        <div>Protected profile content</div>
+      </RouteGuard>,
+    )
 
-    expect(collectText(tree)).toContain("Protected profile content")
-    expect(findElementByType(tree, authModalMock)).toBeNull()
-  }, 10000)
+    expect(screen.getByText("Protected profile content")).toBeInTheDocument()
+    expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument()
+  })
 })

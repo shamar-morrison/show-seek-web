@@ -47,7 +47,15 @@ export function PhotoLightbox({
 
   // Reset loading state when closed
   useEffect(() => {
-    if (!isOpen) setLoadedIndex(null)
+    if (!isOpen) {
+      const timeoutId = window.setTimeout(() => {
+        setLoadedIndex(null)
+      }, 0)
+
+      return () => {
+        window.clearTimeout(timeoutId)
+      }
+    }
   }, [isOpen])
 
   // Calculate visible thumbnail range (current ± THUMBNAIL_WINDOW)

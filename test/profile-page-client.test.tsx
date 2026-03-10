@@ -1,25 +1,28 @@
-import { isValidElement, type ReactElement, type ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { render, screen, within } from "./utils"
 
-const preferenceToggleMock = vi.fn(() => null)
 const updatePreferenceMock = vi.fn()
 const signOutMock = vi.fn()
-
-vi.mock("react", async () => {
-  const actual = await vi.importActual<typeof import("react")>("react")
-
-  return {
-    ...actual,
-    useState: (initialValue: unknown) => [initialValue, vi.fn()],
-  }
-})
 
 vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
 }))
 
 vi.mock("@/components/profile/action-button", () => ({
-  ActionButton: () => null,
+  ActionButton: ({
+    disabled,
+    label,
+    onClick,
+  }: {
+    disabled?: boolean
+    label: string
+    onClick?: () => void
+  }) => (
+    <button disabled={disabled} onClick={onClick} type="button">
+      {label}
+    </button>
+  ),
 }))
 
 vi.mock("@/components/profile/export-data-modal", () => ({
@@ -30,16 +33,12 @@ vi.mock("@/components/profile/HomeScreenCustomizer", () => ({
   HomeScreenCustomizer: () => null,
 }))
 
-vi.mock("@/components/profile/preference-toggle", () => ({
-  PreferenceToggle: preferenceToggleMock,
-}))
-
 vi.mock("@/components/ui/avatar", () => ({
-  Avatar: () => null,
+  Avatar: ({ alt }: { alt: string }) => <div>{alt}</div>,
 }))
 
 vi.mock("@/components/ui/badge", () => ({
-  Badge: () => null,
+  Badge: ({ children }: { children: string }) => <span>{children}</span>,
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -96,35 +95,6 @@ vi.mock("sonner", () => ({
   },
 }))
 
-function findElementsByType(
-  node: ReactNode,
-  type: unknown,
-): ReactElement<Record<string, unknown>>[] {
-  if (!isValidElement(node)) {
-    if (Array.isArray(node)) {
-      return node.flatMap((child) => findElementsByType(child, type))
-    }
-
-    return []
-  }
-
-  const matches =
-    node.type === type ? [node as ReactElement<Record<string, unknown>>] : []
-
-  return matches.concat(
-    findElementsByType(
-      (node as ReactElement<{ children?: ReactNode }>).props.children,
-      type,
-    ),
-  )
-}
-
-type PreferenceToggleElement = ReactElement<{
-  label: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}>
-
 describe("ProfilePageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -133,17 +103,28 @@ describe("ProfilePageClient", () => {
   it("renders the auto-remove preference and updates it", async () => {
     const { ProfilePageClient } =
       await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
 
-    const tree = ProfilePageClient()
-    const preferenceElements = findElementsByType(tree, preferenceToggleMock)
-    const autoRemoveToggle = preferenceElements.find(
-      (element) => element.props.label === "Auto-remove from Should Watch",
-    ) as PreferenceToggleElement | undefined
+    render(<ProfilePageClient />)
 
-    expect(autoRemoveToggle).toBeDefined()
-    expect(autoRemoveToggle?.props.checked).toBe(true)
+    expect(
+      screen.getByRole("heading", { name: "Test User" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("test@example.com"),
+    ).toBeInTheDocument()
 
-    autoRemoveToggle?.props.onChange(false)
+    const autoRemoveToggleLabel = screen
+      .getByText("Auto-remove from Should Watch")
+      .closest("label")
+
+    expect(autoRemoveToggleLabel).not.toBeNull()
+
+    const autoRemoveToggle = within(autoRemoveToggleLabel as HTMLLabelElement).getByRole(
+      "switch",
+    )
+
+    await user.click(autoRemoveToggle)
 
     expect(updatePreferenceMock).toHaveBeenCalledWith(
       "autoRemoveFromShouldWatch",

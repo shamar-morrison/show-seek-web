@@ -29,7 +29,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 /** Map list IDs to icons for default lists */
 export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
@@ -122,11 +122,21 @@ export function ListsPageClient({
     useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Use controlled state if provided, otherwise internal state
-  const selectedListId =
-    controlledSelectedListId !== undefined
-      ? controlledSelectedListId
-      : internalSelectedListId
+  // Use controlled state if provided, otherwise fall back to internal selection
+  const selectedListId = useMemo(() => {
+    if (controlledSelectedListId !== undefined) {
+      return controlledSelectedListId
+    }
+
+    if (
+      internalSelectedListId &&
+      lists.some((list) => list.id === internalSelectedListId)
+    ) {
+      return internalSelectedListId
+    }
+
+    return lists[0]?.id ?? ""
+  }, [controlledSelectedListId, internalSelectedListId, lists])
 
   const handleListSelect = useCallback(
     (id: string) => {
@@ -138,24 +148,6 @@ export function ListsPageClient({
     },
     [onListSelect],
   )
-
-  // Set default selection when lists load
-  useEffect(() => {
-    if (
-      !loading &&
-      lists.length > 0 &&
-      !selectedListId &&
-      controlledSelectedListId === undefined
-    ) {
-      handleListSelect(lists[0].id)
-    }
-  }, [
-    loading,
-    lists,
-    selectedListId,
-    controlledSelectedListId,
-    handleListSelect,
-  ])
 
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({
