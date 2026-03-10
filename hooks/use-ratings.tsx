@@ -14,6 +14,7 @@ import {
   queryKeys,
   UNAUTHENTICATED_USER_ID,
 } from "@/lib/react-query/query-keys"
+import { applyMovieRatingListAutomation } from "@/lib/movie-list-automation"
 import type { Rating } from "@/types/rating"
 import {
   type QueryClient,
@@ -23,7 +24,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
-import { toast } from "sonner"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
@@ -44,15 +44,16 @@ function ratingsOptimisticConfig<TVariables>(
   ) => void,
 ) {
   return {
-    onMutate: async (variables: TVariables): Promise<RatingsMutationContext> => {
+    onMutate: async (
+      variables: TVariables,
+    ): Promise<RatingsMutationContext> => {
       if (!ratingsQueryKey) {
         return { previousRatings: undefined }
       }
 
       await queryClient.cancelQueries({ queryKey: ratingsQueryKey })
-      const previousRatings = queryClient.getQueryData<Map<string, Rating>>(
-        ratingsQueryKey,
-      )
+      const previousRatings =
+        queryClient.getQueryData<Map<string, Rating>>(ratingsQueryKey)
 
       const nextRatings = new Map(previousRatings ?? [])
       applyOptimistic(nextRatings, variables, Date.now())
@@ -113,7 +114,7 @@ export function useRatingsData() {
  */
 export function useRatings() {
   const { preferences } = usePreferences()
-  const { addToList } = useListMutations()
+  const { addToList, removeFromList } = useListMutations()
   const queryClient = useQueryClient()
   const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
 
@@ -160,37 +161,36 @@ export function useRatings() {
     onSuccess: (_data, variables) => {
       if (
         variables.mediaType !== "movie" ||
-        !preferences.autoAddToAlreadyWatched
+        (!preferences.autoAddToAlreadyWatched &&
+          !preferences.autoRemoveFromShouldWatch)
       ) {
         return
       }
 
       void (async () => {
-        try {
-          const wasAdded = await addToList("already-watched", {
-            id: variables.mediaId,
+        await applyMovieRatingListAutomation({
+          mediaType: variables.mediaType,
+          movie: {
+            movieId: variables.mediaId,
             title: variables.title,
-            poster_path: variables.posterPath,
-            media_type: "movie",
-            vote_average: variables.voteAverage,
-            release_date: variables.releaseDate || undefined,
-          })
-
-          if (wasAdded) {
-            toast.success("Added to Already Watched list")
-          }
-        } catch (listError) {
-          console.error("Failed to auto-add to Already Watched list:", listError)
-          const errorMessage =
-            listError instanceof Error ? listError.message : "Unknown error"
-          toast.error(`Failed to auto-add to Already Watched list: ${errorMessage}`)
-        }
+            posterPath: variables.posterPath,
+            voteAverage: variables.voteAverage,
+            releaseDate: variables.releaseDate,
+          },
+          autoAddToAlreadyWatched: preferences.autoAddToAlreadyWatched,
+          autoRemoveFromShouldWatch: preferences.autoRemoveFromShouldWatch,
+          addToList,
+          removeFromList,
+        })
       })()
     },
   })
 
   const removeRatingMutation = useMutation({
-    mutationFn: async (variables: { mediaType: "movie" | "tv"; mediaId: number }) => {
+    mutationFn: async (variables: {
+      mediaType: "movie" | "tv"
+      mediaId: number
+    }) => {
       if (!userId) {
         throw new Error("User must be authenticated to remove rating")
       }

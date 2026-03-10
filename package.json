@@ -8,6 +8,13 @@
     "start": "next start",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:prepare-dev-vars": "node scripts/cloudflare-sync-dev-vars.mjs",
+    "cf:preflight": "node scripts/cloudflare-free-plan-preflight.mjs",
+    "cf:preview": "pnpm cf:prepare-dev-vars && pnpm cf:build && opennextjs-cloudflare preview",
+    "cf:deploy": "pnpm cf:build && pnpm cf:preflight && opennextjs-cloudflare deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "cf:secret:sync": "node scripts/cloudflare-secret-sync.mjs",
     "read:audit": "node scripts/firestore-read-audit.mjs",
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\" \"src/**/*.js\" \"src/**/*.jsx\""
@@ -24,20 +31,19 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "firebase": "^12.7.0",
-    "firebase-admin": "^13.6.0",
     "next": "16.1.5",
     "nextjs-toploader": "^3.9.17",
     "react": "19.2.4",
     "react-day-picker": "^9.13.0",
     "react-dom": "19.2.3",
     "server-only": "^0.0.1",
-    "sharp": "^0.34.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tw-animate-css": "^1.4.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.17.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -52,7 +58,8 @@
     "prettier-plugin-tailwindcss": "0.7.2",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wrangler": "^4.71.0"
   },
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }

@@ -9,9 +9,13 @@ import "server-only"
 /**
  * Luminance threshold below which a logo is considered "dark"
  * Range: 0-255, where 0 is black and 255 is white
- * A threshold of 80 catches most dark/black logos while excluding gray ones
+ * A threshold of 80 catches most black/dark monochrome logos
  */
 const DARK_LUMINANCE_THRESHOLD = 80
+const DARK_NEUTRAL_SATURATION_THRESHOLD = 0.2
+const LOGO_ANALYSIS_CONCURRENCY = 4
+const LOGO_ANALYSIS_MAX_DIMENSION = 64
+const LOGO_FETCH_TIMEOUT_MS = 5_000
 
 /**
  * Minimum opacity threshold to consider a pixel as "visible"
@@ -20,82 +24,125 @@ const DARK_LUMINANCE_THRESHOLD = 80
 const MIN_OPACITY_THRESHOLD = 128
 
 /**
- * Analyze if a logo image is predominantly dark
- * Fetches the image and samples pixels to calculate average luminance
- * Uses dynamic import of sharp to avoid bundling issues on Vercel
+ * Analyze if a logo image is predominantly dark and near-monochrome.
+ * If image analysis is unavailable, default to `false` so non-dark logos do not
+ * receive the contrast glow by mistake.
  *
  * @param logoUrl - Full URL to the logo image
  * @returns true if the logo is dark, false otherwise
  */
 export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
-  if (!logoUrl) return false
+  if (!logoUrl) {
+    return false
+  }
 
+  let parsedUrl: URL
   try {
-    // Fetch the image as a buffer
-    const response = await fetch(logoUrl, {
-      next: { revalidate: 2592000 }, // Cache for 30 days (same as images)
+    parsedUrl = new URL(logoUrl)
+  } catch {
+    return false
+  }
+
+  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+    return false
+  }
+
+  const hasImageAnalyzerRuntime =
+    typeof fetch === "function" &&
+    typeof createImageBitmap === "function" &&
+    typeof OffscreenCanvas !== "undefined"
+
+  if (!hasImageAnalyzerRuntime) {
+    return false
+  }
+
+  let bitmap: ImageBitmap | null = null
+  try {
+    const response = await fetch(parsedUrl.toString(), {
+      cache: "force-cache",
+      signal: AbortSignal.timeout(LOGO_FETCH_TIMEOUT_MS),
     })
 
     if (!response.ok) {
-      console.warn(`Failed to fetch logo for brightness analysis: ${logoUrl}`)
       return false
     }
 
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    // Dynamic import of sharp to avoid bundling issues
-    // This works because Next.js includes sharp for image optimization
-    let sharpModule
-    try {
-      sharpModule = await import("sharp")
-    } catch {
-      console.warn("Sharp not available for logo brightness analysis")
+    const contentType = response.headers.get("content-type") ?? ""
+    if (!contentType.startsWith("image/")) {
       return false
     }
 
-    const sharp = sharpModule.default
+    const blob = await response.blob()
+    bitmap = await createImageBitmap(blob)
 
-    const { data } = await sharp(buffer)
-      .resize(50, 50, { fit: "inside" }) // Resize for faster analysis
-      .ensureAlpha() // Ensure 4 channels (RGBA)
-      .raw()
-      .toBuffer({ resolveWithObject: true })
+    if (bitmap.width <= 0 || bitmap.height <= 0) {
+      return false
+    }
 
-    // Sample pixels and calculate average luminance
-    let totalLuminance = 0
-    let visiblePixelCount = 0
+    const analysisScale = Math.min(
+      1,
+      LOGO_ANALYSIS_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height),
+    )
+    const analysisWidth = Math.max(1, Math.round(bitmap.width * analysisScale))
+    const analysisHeight = Math.max(
+      1,
+      Math.round(bitmap.height * analysisScale),
+    )
+    const canvas = new OffscreenCanvas(analysisWidth, analysisHeight)
+    const context = canvas.getContext("2d", { willReadFrequently: true })
 
-    // Each pixel is 4 bytes: R, G, B, A
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const a = data[i + 3]
+    if (!context) {
+      return false
+    }
 
-      // Only consider pixels that are sufficiently opaque
-      if (a >= MIN_OPACITY_THRESHOLD) {
-        // Calculate perceived luminance using ITU-R BT.709 coefficients
-        const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-        totalLuminance += luminance
-        visiblePixelCount++
+    context.drawImage(
+      bitmap,
+      0,
+      0,
+      bitmap.width,
+      bitmap.height,
+      0,
+      0,
+      analysisWidth,
+      analysisHeight,
+    )
+
+    const { data } = context.getImageData(0, 0, analysisWidth, analysisHeight)
+    let darkPixels = 0
+    let visiblePixels = 0
+
+    // Sample every fourth pixel to reduce analysis cost on larger logos.
+    const pixelStride = 16
+    for (let index = 0; index < data.length; index += pixelStride) {
+      const alpha = data[index + 3] ?? 0
+      if (alpha < MIN_OPACITY_THRESHOLD) {
+        continue
+      }
+
+      visiblePixels += 1
+      const red = data[index] ?? 0
+      const green = data[index + 1] ?? 0
+      const blue = data[index + 2] ?? 0
+      if (isDarkNeutralPixel(red, green, blue)) {
+        darkPixels += 1
       }
     }
 
-    // If no visible pixels, consider it not dark
-    if (visiblePixelCount === 0) return false
+    if (visiblePixels === 0) {
+      return false
+    }
 
-    const averageLuminance = totalLuminance / visiblePixelCount
-    return averageLuminance < DARK_LUMINANCE_THRESHOLD
-  } catch (error) {
-    console.warn("Error analyzing logo brightness:", error)
+    return darkPixels / visiblePixels >= 0.5
+  } catch {
     return false
+  } finally {
+    bitmap?.close()
   }
 }
 
 /**
  * Enrich an array of HeroMedia items with logo brightness analysis
- * Analyzes all logos in parallel for efficiency
+ * Analyzes unique logos with bounded concurrency to limit memory pressure
  *
  * @param mediaList - Array of HeroMedia items to enrich
  * @returns Same array with isDarkLogo field populated
@@ -103,11 +150,69 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
 export async function enrichHeroMediaWithBrightness<
   T extends { logoUrl: string | null; isDarkLogo: boolean },
 >(mediaList: T[]): Promise<T[]> {
-  const results = await Promise.all(
-    mediaList.map(async (media) => ({
-      ...media,
-      isDarkLogo: await isLogoDark(media.logoUrl),
-    })),
+  const brightnessByLogoUrl = new Map<string | null, boolean>()
+  const uniqueLogoUrls = Array.from(
+    new Set(mediaList.map((media) => media.logoUrl)),
   )
-  return results
+
+  await runWithConcurrencyLimit(
+    uniqueLogoUrls,
+    LOGO_ANALYSIS_CONCURRENCY,
+    async (logoUrl) => {
+      brightnessByLogoUrl.set(logoUrl, await isLogoDark(logoUrl))
+    },
+  )
+
+  return mediaList.map((media) => ({
+    ...media,
+    isDarkLogo: brightnessByLogoUrl.get(media.logoUrl) ?? false,
+  }))
+}
+
+function isDarkNeutralPixel(red: number, green: number, blue: number): boolean {
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+  if (luminance >= DARK_LUMINANCE_THRESHOLD) {
+    return false
+  }
+
+  const maxChannel = Math.max(red, green, blue)
+  const minChannel = Math.min(red, green, blue)
+
+  if (maxChannel === 0) {
+    return true
+  }
+
+  return (
+    (maxChannel - minChannel) / maxChannel <=
+    DARK_NEUTRAL_SATURATION_THRESHOLD
+  )
+}
+
+async function runWithConcurrencyLimit<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) {
+    return
+  }
+
+  let nextIndex = 0
+  const runnerCount = Math.min(concurrency, items.length)
+
+  async function runNext(): Promise<void> {
+    if (nextIndex >= items.length) {
+      return
+    }
+
+    const item = items[nextIndex] as T
+    nextIndex += 1
+    await worker(item)
+    await runNext()
+  }
+
+  await Promise.all(
+    Array.from({ length: runnerCount }, () => runNext()),
+  )
 }

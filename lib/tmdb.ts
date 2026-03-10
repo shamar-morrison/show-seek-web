@@ -944,7 +944,7 @@ export async function getSeasonDetails(
       throw new Error(`TMDB API error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as TMDBSeasonDetails
 
     // Return full season and episode data
     return {
@@ -1016,7 +1016,7 @@ export async function getEpisodeDetails(
       throw new Error(`TMDB API error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as TMDBEpisodeDetails
 
     return {
       id: data.id,

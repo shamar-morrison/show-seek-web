@@ -1,4 +1,5 @@
 import { tmdbFetch } from "@/lib/tmdb"
+import type { TMDBSeasonDetails } from "@/types/tmdb"
 import { NextResponse } from "next/server"
 
 interface RouteParams {
@@ -27,7 +28,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Season not found" }, { status: 404 })
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as TMDBSeasonDetails
 
     // Return simplified episode data
     return NextResponse.json({

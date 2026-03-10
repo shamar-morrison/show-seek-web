@@ -1,27 +1,59 @@
-import { adminAuth } from "@/lib/firebase/admin"
+import {
+  isSessionVerificationValid,
+  isSessionVerificationUnavailable,
+  verifySessionCookieValue,
+} from "@/lib/firebase/server-auth"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Validates a session cookie's signature and expiry.
- * Called by middleware to verify sessions in Edge Runtime.
+ * Validates a session cookie using strict verification.
  */
 export async function POST(request: NextRequest) {
   try {
-    const { sessionCookie } = await request.json()
+    const body = (await request.json()) as { sessionCookie?: string }
+    const sessionCookie = body.sessionCookie
 
-    if (!sessionCookie || !adminAuth) {
-      return NextResponse.json({ valid: false })
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { valid: false, status: "invalid" },
+        { status: 401 },
+      )
     }
 
-    // Verify session cookie signature and check if it's revoked
-    const decodedClaims = await adminAuth.verifySessionCookie(
-      sessionCookie,
-      true, // Check if revoked
-    )
+    const verification = await verifySessionCookieValue(sessionCookie, "strict")
 
-    return NextResponse.json({ valid: !!decodedClaims })
+    if (isSessionVerificationUnavailable(verification)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          status: verification.status,
+          reason: verification.reason,
+        },
+        { status: 503 },
+      )
+    }
+
+    if (!isSessionVerificationValid(verification)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          status: verification.status,
+        },
+        { status: 401 },
+      )
+    }
+
+    return NextResponse.json({
+      valid: true,
+      status: verification.status,
+    })
   } catch {
-    // Any verification error means invalid session
-    return NextResponse.json({ valid: false })
+    return NextResponse.json(
+      {
+        valid: false,
+        status: "unavailable",
+      },
+      { status: 503 },
+    )
   }
 }

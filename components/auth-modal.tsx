@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/context/auth-context"
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { getEmailAuthErrorMessage, signInWithGoogle } from "@/lib/firebase/auth"
 import { auth } from "@/lib/firebase/config"
@@ -57,34 +58,6 @@ function GoogleLogo({ className }: { className?: string }) {
   )
 }
 
-/**
- * Create a server-side session after successful sign-in
- */
-async function createServerSession(idToken: string): Promise<void> {
-  const response = await fetch("/api/auth/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
-  })
-
-  if (!response.ok) {
-    let errorDetail = ""
-    try {
-      const data = await response.json()
-      errorDetail = data.error || data.message || JSON.stringify(data)
-    } catch {
-      try {
-        errorDetail = await response.text()
-      } catch {
-        errorDetail = "Unknown session creation error"
-      }
-    }
-    throw new Error(
-      `Session creation failed (Status ${response.status}): ${errorDetail}`,
-    )
-  }
-}
-
 function logAuthDebug(user: {
   email: string | null
   providerData: Array<{ providerId?: string | null }>
@@ -117,6 +90,8 @@ interface AuthModalProps {
   isOpen?: boolean
   /** Controlled mode: callback when modal should close */
   onClose?: () => void
+  /** Callback after auth and server session creation succeed */
+  onAuthSuccess?: () => void | Promise<void>
   /** Optional message to display (e.g., "Sign in to rate movies") */
   message?: string
 }
@@ -124,8 +99,10 @@ interface AuthModalProps {
 export function AuthModal({
   isOpen: controlledIsOpen,
   onClose,
+  onAuthSuccess,
   message,
 }: AuthModalProps = {}) {
+  const { ensureServerSession } = useAuth()
   const [view, setView] = useState<"sign-in" | "sign-up">("sign-in")
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -139,7 +116,9 @@ export function AuthModal({
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const shouldShowProviderGuidance =
     authError !== null &&
-    authError.toLowerCase().includes("same provider used for your premium mobile account")
+    authError
+      .toLowerCase()
+      .includes("same provider used for your premium mobile account")
 
   // Determine if we're in controlled mode
   const isControlled = controlledIsOpen !== undefined
@@ -172,6 +151,16 @@ export function AuthModal({
   const switchView = (newView: "sign-in" | "sign-up") => {
     resetForm()
     setView(newView)
+  }
+
+  const handleAuthSuccess = async () => {
+    if (onAuthSuccess) {
+      await onAuthSuccess()
+    }
+
+    if (!isControlled || !onAuthSuccess) {
+      handleOpenChange(false)
+    }
   }
 
   /** Handle form input changes */
@@ -215,12 +204,19 @@ export function AuthModal({
       // Sync Firestore user document
       await createUserDocument(userCredential.user)
 
-      // Create server-side session
-      const idToken = await userCredential.user.getIdToken()
-      await createServerSession(idToken)
+      const sessionSyncResult = await ensureServerSession(userCredential.user)
+
+      if (!sessionSyncResult.ok) {
+        setAuthError(
+          sessionSyncResult.error ??
+            "We couldn't start your session. Please try again.",
+        )
+        return
+      }
+
       logAuthDebug(userCredential.user)
 
-      handleOpenChange(false)
+      await handleAuthSuccess()
     } catch (error) {
       const firebaseError = error as { code?: string; message?: string }
       setAuthError(getEmailAuthErrorMessage(firebaseError))
@@ -241,12 +237,19 @@ export function AuthModal({
         // Create user document in Firestore
         await createUserDocument(result.user)
 
-        // Get the ID token and create a server-side session
-        const idToken = await result.user.getIdToken()
-        await createServerSession(idToken)
+        const sessionSyncResult = await ensureServerSession(result.user)
+
+        if (!sessionSyncResult.ok) {
+          setAuthError(
+            sessionSyncResult.error ??
+              "We couldn't start your session. Please try again.",
+          )
+          return
+        }
+
         logAuthDebug(result.user)
 
-        handleOpenChange(false)
+        await handleAuthSuccess()
       } else if (!result.cancelled && result.error) {
         setAuthError(result.error)
       }

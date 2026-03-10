@@ -9,16 +9,13 @@ import {
   getWatchCount,
   WatchInstance,
 } from "@/lib/firebase/watched-movies"
+import { applyWatchedMovieListAutomation } from "@/lib/movie-list-automation"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import {
   queryKeys,
   UNAUTHENTICATED_USER_ID,
 } from "@/lib/react-query/query-keys"
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 
@@ -37,6 +34,7 @@ interface UseWatchedMoviesReturn {
       genreIds?: number[]
     },
     autoAddToAlreadyWatched?: boolean,
+    autoRemoveFromShouldWatch?: boolean,
   ) => Promise<void>
   clearAllWatches: () => Promise<void>
 }
@@ -53,7 +51,7 @@ export function useWatchedMovies(
   options: { enabled?: boolean } = { enabled: true },
 ): UseWatchedMoviesReturn {
   const { user, loading: authLoading } = useAuth()
-  const { addToList } = useListMutations()
+  const { addToList, removeFromList } = useListMutations()
   const queryClient = useQueryClient()
 
   const userId = user && !user.isAnonymous ? user.uid : null
@@ -88,38 +86,32 @@ export function useWatchedMovies(
         genreIds?: number[]
       }
       autoAddToAlreadyWatched: boolean
+      autoRemoveFromShouldWatch: boolean
     }) => {
       if (!userId) {
         throw new Error("User must be authenticated to mark as watched")
       }
 
       const isFirstWatch =
-        variables.isFirstWatch ??
-        ((await getWatchCount(userId, movieId)) === 0)
+        variables.isFirstWatch ?? (await getWatchCount(userId, movieId)) === 0
 
       await addWatch(userId, movieId, variables.watchedAt)
 
-      if (isFirstWatch && variables.autoAddToAlreadyWatched) {
-        try {
-          await addToList("already-watched", {
-            id: movieId,
-            title: variables.movieData.title,
-            poster_path: variables.movieData.posterPath,
-            media_type: "movie",
-            vote_average: variables.movieData.voteAverage,
-            release_date: variables.movieData.releaseDate,
-            genre_ids: variables.movieData.genreIds,
-          })
-        } catch (listError) {
-          const movieLabel =
-            variables.movieData.title?.trim() || `movie #${movieId}`
-          const errorDetail =
-            listError instanceof Error ? `: ${listError.message}` : ""
-          toast.error(
-            `Failed to auto-add "${movieLabel}" to Already Watched list${errorDetail}`,
-          )
-        }
-      }
+      await applyWatchedMovieListAutomation({
+        movie: {
+          movieId,
+          title: variables.movieData.title,
+          posterPath: variables.movieData.posterPath,
+          voteAverage: variables.movieData.voteAverage,
+          releaseDate: variables.movieData.releaseDate,
+          genreIds: variables.movieData.genreIds,
+        },
+        isFirstWatch,
+        autoAddToAlreadyWatched: variables.autoAddToAlreadyWatched,
+        autoRemoveFromShouldWatch: variables.autoRemoveFromShouldWatch,
+        addToList,
+        removeFromList,
+      })
     },
     onMutate: async (variables) => {
       if (!watchesQueryKey) {
@@ -127,9 +119,8 @@ export function useWatchedMovies(
       }
 
       await queryClient.cancelQueries({ queryKey: watchesQueryKey })
-      const previousWatches = queryClient.getQueryData<WatchInstance[]>(
-        watchesQueryKey,
-      )
+      const previousWatches =
+        queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
 
       const optimisticWatch: WatchInstance = {
         id: `optimistic-${Date.now()}`,
@@ -174,9 +165,8 @@ export function useWatchedMovies(
       }
 
       await queryClient.cancelQueries({ queryKey: watchesQueryKey })
-      const previousWatches = queryClient.getQueryData<WatchInstance[]>(
-        watchesQueryKey,
-      )
+      const previousWatches =
+        queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
 
       queryClient.setQueryData(watchesQueryKey, [])
       return { previousWatches } satisfies WatchMutationContext
@@ -208,6 +198,7 @@ export function useWatchedMovies(
         genreIds?: number[]
       },
       autoAddToAlreadyWatched: boolean = false,
+      autoRemoveFromShouldWatch: boolean = false,
     ): Promise<void> => {
       try {
         await addWatchMutationRef.current({
@@ -215,6 +206,7 @@ export function useWatchedMovies(
           isFirstWatch: instances.length === 0,
           movieData,
           autoAddToAlreadyWatched,
+          autoRemoveFromShouldWatch,
         })
         toast.success("Marked as watched")
       } catch (error) {

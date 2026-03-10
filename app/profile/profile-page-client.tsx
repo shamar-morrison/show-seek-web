@@ -24,7 +24,6 @@ import {
   Home01Icon,
   Logout01Icon,
 } from "@hugeicons/core-free-icons"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -35,7 +34,6 @@ export function ProfilePageClient() {
     isLoading: prefsLoading,
     updatePreference,
   } = usePreferences()
-  const router = useRouter()
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
@@ -71,7 +69,6 @@ export function ProfilePageClient() {
     try {
       setIsSigningOut(true)
       await signOut()
-      router.push("/login")
     } catch (error) {
       captureException(error)
       toast.error("Failed to sign out. Please try again.")
@@ -160,6 +157,16 @@ export function ProfilePageClient() {
             checked={preferences.autoAddToAlreadyWatched}
             onChange={(value) =>
               updatePreference("autoAddToAlreadyWatched", value)
+            }
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
+            label="Auto-remove from Should Watch"
+            description="Automatically remove movies from your Should Watch list when you rate or mark them as watched"
+            checked={preferences.autoRemoveFromShouldWatch}
+            onChange={(value) =>
+              updatePreference("autoRemoveFromShouldWatch", value)
             }
             isPremium={canAccessPremiumFeatures}
           />

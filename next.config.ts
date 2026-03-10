@@ -1,6 +1,11 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
 import type { NextConfig } from "next"
 
 const isDev = process.env.NODE_ENV === "development"
+
+if (isDev) {
+  void initOpenNextCloudflareForDev()
+}
 
 const nextConfig: NextConfig = {
   // DEV-ONLY webpack tuning
@@ -14,8 +19,10 @@ const nextConfig: NextConfig = {
     return config
   },
 
-  // Silence Next 16 Turbopack warning without forcing it
-  turbopack: {},
+  // Pin the repo root so Cloudflare/OpenNext builds don't inherit a parent lockfile.
+  turbopack: {
+    root: process.cwd(),
+  },
 
   images: {
     remotePatterns: [
