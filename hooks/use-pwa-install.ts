@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 
 interface PWAInstallPreference {
   status: "accepted" | "rejected" | "dismissed"
@@ -14,6 +14,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const STORAGE_KEY = "pwa-install-preference"
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+const STANDALONE_MEDIA_QUERY = "(display-mode: standalone)"
 
 function getPreference(): PWAInstallPreference | null {
   if (typeof window === "undefined") return null
@@ -76,15 +77,34 @@ function isSupportedBrowser(): boolean {
   return isChromium
 }
 
+function subscribeToStandaloneMode(onStoreChange: () => void) {
+  const mediaQuery = window.matchMedia(STANDALONE_MEDIA_QUERY)
+  mediaQuery.addEventListener("change", onStoreChange)
+
+  return () => {
+    mediaQuery.removeEventListener("change", onStoreChange)
+  }
+}
+
+function getStandaloneModeSnapshot() {
+  return window.matchMedia(STANDALONE_MEDIA_QUERY).matches
+}
+
+function getStandaloneModeServerSnapshot() {
+  return false
+}
+
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
-  const [isInstalled, setIsInstalled] = useState(false)
-
-  useEffect(() => {
-    setIsInstalled(window.matchMedia("(display-mode: standalone)").matches)
-  }, [])
+  const [installedFromEvent, setInstalledFromEvent] = useState(false)
+  const standaloneMode = useSyncExternalStore(
+    subscribeToStandaloneMode,
+    getStandaloneModeSnapshot,
+    getStandaloneModeServerSnapshot,
+  )
+  const isInstalled = standaloneMode || installedFromEvent
 
   useEffect(() => {
     if (isInstalled) {
@@ -108,7 +128,7 @@ export function usePWAInstall() {
     }
 
     const handleAppInstalled = () => {
-      setIsInstalled(true)
+      setInstalledFromEvent(true)
       setShowPrompt(false)
       setDeferredPrompt(null)
     }
@@ -156,7 +176,7 @@ export function usePWAInstall() {
   }, [])
 
   return {
-    showPrompt,
+    showPrompt: showPrompt && !isInstalled,
     isInstalled,
     install,
     dismiss,

@@ -3,25 +3,32 @@
 import { Button } from "@/components/ui/button"
 import { WifiDisconnected01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
+
+function subscribeToOfflineStatus(onStoreChange: () => void) {
+  window.addEventListener("online", onStoreChange)
+  window.addEventListener("offline", onStoreChange)
+
+  return () => {
+    window.removeEventListener("online", onStoreChange)
+    window.removeEventListener("offline", onStoreChange)
+  }
+}
+
+function getOfflineSnapshot() {
+  return !navigator.onLine
+}
+
+function getOfflineServerSnapshot() {
+  return false
+}
 
 export function OfflineIndicator() {
-  const [isOffline, setIsOffline] = useState(false)
-
-  useEffect(() => {
-    setIsOffline(!navigator.onLine)
-
-    const handleOnline = () => setIsOffline(false)
-    const handleOffline = () => setIsOffline(true)
-
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
-
-    return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
-    }
-  }, [])
+  const isOffline = useSyncExternalStore(
+    subscribeToOfflineStatus,
+    getOfflineSnapshot,
+    getOfflineServerSnapshot,
+  )
 
   if (!isOffline) {
     return null
