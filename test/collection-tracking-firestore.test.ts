@@ -3,10 +3,12 @@ import {
   fetchCollectionTracking,
   getTrackedCollectionCount,
   getPreviouslyWatchedMovieIds,
+  removeWatchedMovieFromTrackedCollection,
   startCollectionTracking,
   stopCollectionTracking,
 } from "@/lib/firebase/collection-tracking"
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
@@ -247,6 +249,24 @@ describe("collection tracking firestore helpers", () => {
       { path: "users/user-1/collection_tracking/11" },
       {
         watchedMovieIds: arrayUnion(999),
+        lastUpdated: expect.any(Number),
+      },
+    )
+  })
+
+  it("treats not-found collection removals as a no-op", async () => {
+    vi.mocked(updateDoc).mockRejectedValueOnce({
+      code: "firestore/not-found",
+    })
+
+    await expect(
+      removeWatchedMovieFromTrackedCollection("user-1", 11, 999),
+    ).resolves.toBeUndefined()
+
+    expect(updateDoc).toHaveBeenCalledWith(
+      { path: "users/user-1/collection_tracking/11" },
+      {
+        watchedMovieIds: arrayRemove(999),
         lastUpdated: expect.any(Number),
       },
     )

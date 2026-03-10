@@ -82,6 +82,11 @@ export interface SeasonEpisodeData {
   runtime: number | null
 }
 
+export interface CollectionArtworkData {
+  poster_path: string | null
+  backdrop_path: string | null
+}
+
 /**
  * Server action to fetch season episodes.
  * Used for episode tracking features.
@@ -182,6 +187,37 @@ export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
  */
 export async function fetchCollection(collectionId: number) {
   return await getCollectionDetails(collectionId)
+}
+
+export async function fetchCollectionsBatch(
+  collectionIds: number[],
+): Promise<Array<CollectionArtworkData | null>> {
+  if (collectionIds.length === 0) {
+    return []
+  }
+
+  return Promise.all(
+    collectionIds.map(async (collectionId) => {
+      try {
+        const collection = await getCollectionDetails(collectionId)
+
+        if (!collection) {
+          return null
+        }
+
+        return {
+          poster_path: collection.poster_path ?? null,
+          backdrop_path: collection.backdrop_path ?? null,
+        }
+      } catch (error) {
+        console.error(
+          `Server Action: Failed to fetch collection ${collectionId} in batch`,
+          error,
+        )
+        return null
+      }
+    }),
+  )
 }
 
 /**

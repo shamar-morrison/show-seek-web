@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const fetchCollectionTrackingMock = vi.fn()
 const fetchAllTrackedCollectionsMock = vi.fn()
-const fetchCollectionMock = vi.fn()
+const fetchCollectionsBatchMock = vi.fn()
 const getTrackedCollectionCountMock = vi.fn()
 const getPreviouslyWatchedMovieIdsMock = vi.fn()
 const startCollectionTrackingMock = vi.fn()
@@ -27,7 +27,8 @@ vi.mock("@/context/auth-context", () => ({
 }))
 
 vi.mock("@/app/actions", () => ({
-  fetchCollection: (...args: unknown[]) => fetchCollectionMock(...args),
+  fetchCollectionsBatch: (...args: unknown[]) =>
+    fetchCollectionsBatchMock(...args),
 }))
 
 vi.mock("@/lib/firebase/collection-tracking", () => ({
@@ -139,7 +140,7 @@ describe("useCollectionTracking", () => {
     )
   })
 
-  it("builds collection progress items with TMDB artwork", async () => {
+  it("builds collection progress items from a single batched collection artwork fetch", async () => {
     fetchAllTrackedCollectionsMock.mockResolvedValueOnce([
       {
         collectionId: 90,
@@ -149,11 +150,22 @@ describe("useCollectionTracking", () => {
         startedAt: 100,
         lastUpdated: 300,
       },
+      {
+        collectionId: 91,
+        name: "Alien Collection",
+        totalMovies: 4,
+        watchedMovieIds: [1],
+        startedAt: 110,
+        lastUpdated: 400,
+      },
     ])
-    fetchCollectionMock.mockResolvedValueOnce({
-      poster_path: "/poster.jpg",
-      backdrop_path: "/backdrop.jpg",
-    })
+    fetchCollectionsBatchMock.mockResolvedValueOnce([
+      {
+        poster_path: "/poster.jpg",
+        backdrop_path: "/backdrop.jpg",
+      },
+      null,
+    ])
 
     const { result } = renderHook(() => useCollectionProgressList(), {
       wrapper: createWrapper(),
@@ -174,7 +186,19 @@ describe("useCollectionTracking", () => {
         percentage: 67,
         lastUpdated: 300,
       },
+      {
+        collectionId: 91,
+        name: "Alien Collection",
+        posterPath: null,
+        backdropPath: null,
+        watchedCount: 1,
+        totalMovies: 4,
+        percentage: 25,
+        lastUpdated: 400,
+      },
     ])
+    expect(fetchCollectionsBatchMock).toHaveBeenCalledTimes(1)
+    expect(fetchCollectionsBatchMock).toHaveBeenCalledWith([90, 91])
     expect(result.current.isEmpty).toBe(false)
   })
 })

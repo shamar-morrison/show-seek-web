@@ -69,7 +69,6 @@ export function CollectionPageClient({
     isTracked,
     watchedCount,
     totalMovies,
-    percentage,
     isLoading,
   } = useCollectionTracking(collection.id)
   const {
@@ -92,11 +91,13 @@ export function CollectionPageClient({
     premiumStatus,
   })
   const isTrackingStateLoading = authLoading || isLoading
-  const isActionLoading =
-    isTrackingStateLoading ||
-    isLimitLoading ||
-    startTrackingMutation.isPending ||
-    stopTrackingMutation.isPending
+  const isStartActionLoading =
+    isTrackingStateLoading || isLimitLoading || startTrackingMutation.isPending
+  const isStopActionLoading =
+    isTrackingStateLoading || stopTrackingMutation.isPending
+  const displayTotal = Math.max(totalMovies, collectionMovies.length)
+  const displayPercentage =
+    displayTotal > 0 ? Math.round((watchedCount / displayTotal) * 100) : 0
 
   const handleStartTracking = useCallback(() => {
     requireAuth(async () => {
@@ -198,8 +199,7 @@ export function CollectionPageClient({
                       <Skeleton className="h-10 w-36 rounded-full" />
                     ) : isTracked ? (
                       <div className="rounded-full bg-green-500/20 px-4 py-2 text-sm font-medium text-green-300 backdrop-blur-sm">
-                        {watchedCount}/
-                        {Math.max(totalMovies, collectionMovies.length)} watched
+                        {watchedCount}/{displayTotal} watched
                       </div>
                     ) : null}
                   </div>
@@ -216,17 +216,18 @@ export function CollectionPageClient({
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3 text-sm">
                             <span className="font-medium text-gray-300">
-                              Watched {watchedCount} of{" "}
-                              {Math.max(totalMovies, collectionMovies.length)}
+                              Watched {watchedCount} of {displayTotal}
                             </span>
                             <span className="font-semibold text-primary">
-                              {percentage}%
+                              {displayPercentage}%
                             </span>
                           </div>
                           <div className="h-2 overflow-hidden rounded-full bg-white/10">
                             <div
                               className="h-full rounded-full bg-primary transition-all"
-                              style={{ width: `${Math.min(percentage, 100)}%` }}
+                              style={{
+                                width: `${Math.min(displayPercentage, 100)}%`,
+                              }}
                             />
                           </div>
                         </div>
@@ -236,7 +237,7 @@ export function CollectionPageClient({
                           size="lg"
                           className="border-red-500/50 bg-red-500/10 font-semibold text-red-300 hover:border-red-500 hover:bg-red-500/20 hover:text-red-200"
                           onClick={() => setShowStopTrackingDialog(true)}
-                          disabled={isActionLoading}
+                          disabled={isStopActionLoading}
                         >
                           {stopTrackingMutation.isPending ? (
                             <HugeiconsIcon
@@ -258,7 +259,9 @@ export function CollectionPageClient({
                           size="lg"
                           className="font-semibold"
                           onClick={handleStartTracking}
-                          disabled={isActionLoading || isPremiumCheckPending}
+                          disabled={
+                            isStartActionLoading || isPremiumCheckPending
+                          }
                         >
                           {startTrackingMutation.isPending ? (
                             <HugeiconsIcon

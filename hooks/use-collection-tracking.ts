@@ -1,6 +1,6 @@
 "use client"
 
-import { fetchCollection } from "@/app/actions"
+import { fetchCollectionsBatch } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import {
   MAX_FREE_COLLECTIONS,
@@ -24,7 +24,6 @@ import type {
 } from "@/types/collection-tracking"
 import {
   useMutation,
-  useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
@@ -283,31 +282,31 @@ function buildProgressItem(
 
 export function useCollectionProgressList() {
   const { collections, isLoading: isLoadingTracking } = useTrackedCollections()
+  const collectionIds = collections.map(
+    (trackedCollection) => trackedCollection.collectionId,
+  )
 
-  const collectionQueries = useQueries({
-    queries: collections.map((trackedCollection) => ({
-      queryKey: ["collection", trackedCollection.collectionId] as const,
-      queryFn: () => fetchCollection(trackedCollection.collectionId),
-      staleTime: COLLECTION_STALE_TIME_MS,
-      gcTime: COLLECTION_GC_TIME_MS,
-      enabled: collections.length > 0,
-    })),
+  const collectionArtworkQuery = useQuery({
+    queryKey: ["collections", collectionIds] as const,
+    queryFn: () => fetchCollectionsBatch(collectionIds),
+    staleTime: COLLECTION_STALE_TIME_MS,
+    gcTime: COLLECTION_GC_TIME_MS,
+    enabled: collectionIds.length > 0,
   })
 
   const progressItems = collections.map((trackedCollection, index) => {
-    const query = collectionQueries[index]
+    const collectionArtwork = collectionArtworkQuery.data?.[index] ?? null
 
     return buildProgressItem(
       trackedCollection,
-      query?.data?.poster_path ?? null,
-      query?.data?.backdrop_path ?? null,
+      collectionArtwork?.poster_path ?? null,
+      collectionArtwork?.backdrop_path ?? null,
     )
   })
 
   const isLoading =
     isLoadingTracking ||
-    (collectionQueries.length > 0 &&
-      collectionQueries.some((query) => query.isLoading))
+    (collectionIds.length > 0 && collectionArtworkQuery.isLoading)
 
   return {
     progressItems,

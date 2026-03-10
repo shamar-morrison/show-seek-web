@@ -216,6 +216,140 @@ describe("CollectionPageClient", () => {
     expect(screen.getByText("Watched IDs: 1")).toBeInTheDocument()
   })
 
+  it("keeps the stop flow enabled while the tracking limit query is loading", () => {
+    collectionTrackingState.isTracked = true
+    collectionTrackingState.tracking = {
+      watchedMovieIds: [1],
+    }
+    collectionTrackingState.watchedCount = 1
+    collectionTrackingState.totalMovies = 1
+    collectionTrackingState.percentage = 100
+    canTrackMoreState.isLoading = true
+
+    render(
+      <CollectionPageClient
+        collection={{
+          id: 250,
+          name: "Blade Collection",
+          overview: "",
+          poster_path: null,
+          backdrop_path: null,
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Blade",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "1998-08-21",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: /stop tracking/i })).toBeEnabled()
+  })
+
+  it("recomputes the displayed progress when tracked totals are stale", () => {
+    collectionTrackingState.isTracked = true
+    collectionTrackingState.tracking = {
+      watchedMovieIds: [1, 2],
+    }
+    collectionTrackingState.watchedCount = 2
+    collectionTrackingState.totalMovies = 2
+    collectionTrackingState.percentage = 100
+
+    const { container } = render(
+      <CollectionPageClient
+        collection={{
+          id: 260,
+          name: "The Avengers Collection",
+          overview: "",
+          poster_path: null,
+          backdrop_path: null,
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Movie 1",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "2012-05-04",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+            {
+              id: 2,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Movie 2",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "2015-05-01",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+            {
+              id: 3,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Movie 3",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "2018-04-27",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+            {
+              id: 4,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Movie 4",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "2019-04-26",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText("2/4 watched")).toBeInTheDocument()
+    expect(screen.getByText("Watched 2 of 4")).toBeInTheDocument()
+    expect(screen.getByText("50%")).toBeInTheDocument()
+    expect(screen.queryByText("100%")).not.toBeInTheDocument()
+    expect(
+      container.querySelector(".h-full.rounded-full.bg-primary.transition-all"),
+    ).toHaveStyle({ width: "50%" })
+  })
+
   it("shows loading placeholders instead of tracking controls while loading", () => {
     collectionTrackingState.isLoading = true
 
