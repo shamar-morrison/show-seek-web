@@ -114,7 +114,7 @@ export function parseAggregationCount(payload: string): number {
 
 function readBooleanField(
   document: FirestoreDocument,
-  path: string[],
+  path: [string, string],
 ): boolean {
   const [rootField, leafField] = path
   const booleanValue = getNestedValue(document, [

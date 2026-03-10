@@ -142,4 +142,63 @@ describe("server session sync manager", () => {
       uid: "user-1",
     })
   })
+
+  it("ignores stale in-flight sync completions after clear", async () => {
+    let resolveSync: (() => void) | null = null
+    const syncServerSession = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSync = resolve
+          }),
+      )
+      .mockResolvedValue(undefined)
+    const syncManager = createServerSessionSyncManager(syncServerSession)
+
+    const staleSyncPromise = syncManager.ensure({
+      token: "token-1",
+      uid: "user-1",
+    })
+
+    expect(syncManager.getSnapshot()).toEqual({
+      error: null,
+      status: "pending",
+      uid: "user-1",
+    })
+
+    syncManager.clear()
+    expect(syncManager.getSnapshot()).toEqual({
+      error: null,
+      status: "idle",
+      uid: null,
+    })
+
+    resolveSync!()
+    await expect(staleSyncPromise).resolves.toMatchObject({
+      ok: true,
+      status: "ready",
+      uid: "user-1",
+    })
+
+    // Old promise resolves successfully, but must not mutate cleared state.
+    expect(syncManager.getSnapshot()).toEqual({
+      error: null,
+      status: "idle",
+      uid: null,
+    })
+
+    await expect(
+      syncManager.ensure({
+        token: "token-1",
+        uid: "user-1",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: "ready",
+      uid: "user-1",
+    })
+
+    expect(syncServerSession).toHaveBeenCalledTimes(2)
+  })
 })

@@ -23,9 +23,11 @@ type ServerSessionSyncManagerArgs = {
 
 type ServerSessionSyncState = {
   inFlightPromise: Promise<ServerSessionSyncResult> | null
+  inFlightSyncVersion: number | null
   inFlightToken: string | null
   inFlightUid: string | null
   snapshot: ServerSessionSyncSnapshot
+  syncVersion: number
   syncedToken: string | null
   syncedUid: string | null
 }
@@ -89,6 +91,7 @@ export function createServerSessionSyncManager(
 ) {
   let state: ServerSessionSyncState = {
     inFlightPromise: null,
+    inFlightSyncVersion: null,
     inFlightToken: null,
     inFlightUid: null,
     snapshot: {
@@ -96,6 +99,7 @@ export function createServerSessionSyncManager(
       status: "idle",
       uid: null,
     },
+    syncVersion: 0,
     syncedToken: null,
     syncedUid: null,
   }
@@ -113,6 +117,7 @@ export function createServerSessionSyncManager(
 
   return {
     clear() {
+      const nextSyncVersion = state.syncVersion + 1
       const idleSnapshot = {
         error: null,
         status: "idle" as const,
@@ -121,9 +126,11 @@ export function createServerSessionSyncManager(
 
       state = {
         inFlightPromise: null,
+        inFlightSyncVersion: null,
         inFlightToken: null,
         inFlightUid: null,
         snapshot: idleSnapshot,
+        syncVersion: nextSyncVersion,
         syncedToken: null,
         syncedUid: null,
       }
@@ -148,12 +155,14 @@ export function createServerSessionSyncManager(
 
       if (
         state.inFlightPromise &&
+        state.inFlightSyncVersion === state.syncVersion &&
         state.inFlightUid === uid &&
         state.inFlightToken === token
       ) {
         return state.inFlightPromise
       }
 
+      const syncVersion = state.syncVersion
       updateSnapshot({
         error: null,
         status: "pending",
@@ -162,7 +171,7 @@ export function createServerSessionSyncManager(
 
       const syncPromise = syncServerSession(token)
         .then(() => {
-          if (isCurrentUser()) {
+          if (state.syncVersion === syncVersion && isCurrentUser()) {
             updateSnapshot({
               error: null,
               status: "ready",
@@ -186,7 +195,7 @@ export function createServerSessionSyncManager(
         .catch((error) => {
           const errorMessage = getServerSessionSyncErrorMessage(error)
 
-          if (isCurrentUser()) {
+          if (state.syncVersion === syncVersion && isCurrentUser()) {
             updateSnapshot({
               error: errorMessage,
               status: "error",
@@ -202,10 +211,16 @@ export function createServerSessionSyncManager(
           }
         })
         .finally(() => {
-          if (state.inFlightUid === uid && state.inFlightToken === token) {
+          if (
+            state.syncVersion === syncVersion &&
+            state.inFlightSyncVersion === syncVersion &&
+            state.inFlightUid === uid &&
+            state.inFlightToken === token
+          ) {
             state = {
               ...state,
               inFlightPromise: null,
+              inFlightSyncVersion: null,
               inFlightToken: null,
               inFlightUid: null,
             }
@@ -215,6 +230,7 @@ export function createServerSessionSyncManager(
       state = {
         ...state,
         inFlightPromise: syncPromise,
+        inFlightSyncVersion: syncVersion,
         inFlightToken: token,
         inFlightUid: uid,
       }

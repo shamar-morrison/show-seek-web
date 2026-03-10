@@ -1,5 +1,6 @@
-import { isValidElement, type ReactElement, type ReactNode } from "react"
+import { isValidElement, type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
+import { collectText, findElementByType } from "./react-tree-helpers"
 
 const routeGuardMock = vi.fn(() => null)
 const profilePageClientMock = vi.fn(() => null)
@@ -16,51 +17,6 @@ vi.mock("../app/profile/profile-page-client", () => ({
 vi.mock("../app/ratings/ratings-page-client", () => ({
   RatingsPageClient: ratingsPageClientMock,
 }))
-
-function findElementByType(
-  node: ReactNode,
-  type: unknown,
-): ReactElement<Record<string, unknown>> | null {
-  if (!isValidElement(node)) {
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const match = findElementByType(child, type)
-        if (match) {
-          return match
-        }
-      }
-    }
-
-    return null
-  }
-
-  if (node.type === type) {
-    return node as ReactElement<Record<string, unknown>>
-  }
-
-  return findElementByType(
-    (node as ReactElement<{ children?: ReactNode }>).props.children,
-    type,
-  )
-}
-
-function collectText(node: ReactNode): string[] {
-  if (typeof node === "string" || typeof node === "number") {
-    return [String(node)]
-  }
-
-  if (Array.isArray(node)) {
-    return node.flatMap(collectText)
-  }
-
-  if (isValidElement(node)) {
-    return collectText(
-      (node as ReactElement<{ children?: ReactNode }>).props.children,
-    )
-  }
-
-  return []
-}
 
 describe("protected pages", () => {
   it("wraps /profile in RouteGuard", async () => {

@@ -20,7 +20,15 @@ function parseEnvFile(contents) {
     }
 
     const key = line.slice(0, separatorIndex).trim()
-    const value = line.slice(separatorIndex + 1)
+    let value = line.slice(separatorIndex + 1).trim()
+
+    if (
+      value.length >= 2 &&
+      ((value[0] === '"' && value[value.length - 1] === '"') ||
+        (value[0] === "'" && value[value.length - 1] === "'"))
+    ) {
+      value = value.slice(1, -1)
+    }
 
     entries.push([key, value])
   }
@@ -28,7 +36,31 @@ function parseEnvFile(contents) {
   return entries
 }
 
-const sourceEnv = readFileSync(SOURCE_ENV_PATH, "utf8")
+let sourceEnv
+
+try {
+  sourceEnv = readFileSync(SOURCE_ENV_PATH, "utf8")
+} catch (error) {
+  const errorCode =
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+      ? error.code
+      : null
+  const errorMessage = error instanceof Error ? error.message : String(error)
+
+  if (errorCode === "ENOENT") {
+    console.error(`.env file not found at ${SOURCE_ENV_PATH}`)
+  } else {
+    console.error(
+      `Failed to read source env file at ${SOURCE_ENV_PATH}: ${errorMessage}`,
+    )
+  }
+
+  process.exit(1)
+}
+
 const entries = parseEnvFile(sourceEnv)
 const lines = ["NEXTJS_ENV=development"]
 

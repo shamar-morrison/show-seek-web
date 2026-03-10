@@ -1,9 +1,11 @@
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
 import type { NextConfig } from "next"
 
-void initOpenNextCloudflareForDev()
-
 const isDev = process.env.NODE_ENV === "development"
+
+if (isDev) {
+  void initOpenNextCloudflareForDev()
+}
 
 const nextConfig: NextConfig = {
   // DEV-ONLY webpack tuning

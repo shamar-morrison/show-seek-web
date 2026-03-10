@@ -306,12 +306,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const idToken = await activeUser.getIdToken()
-      return serverSessionSyncManagerRef.current.ensure({
-        isCurrentUser: () => auth.currentUser?.uid === activeUser.uid,
-        token: idToken,
-        uid: activeUser.uid,
-      })
+      try {
+        const idToken = await activeUser.getIdToken()
+        return serverSessionSyncManagerRef.current.ensure({
+          isCurrentUser: () => auth.currentUser?.uid === activeUser.uid,
+          token: idToken,
+          uid: activeUser.uid,
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : "Failed to fetch authentication token"
+
+        return {
+          error: message,
+          ok: false,
+          status: "error",
+          uid: activeUser.uid,
+        }
+      }
     },
     [clearServerSessionSyncState],
   )
@@ -458,14 +472,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      void ensureServerSession(currentUser).then((result) => {
-        if (!result.ok) {
-          console.error("Server session sync failed:", {
-            reason: result.error,
+      void ensureServerSession(currentUser)
+        .then((result) => {
+          if (!result.ok) {
+            console.error("Server session sync failed:", {
+              reason: result.error,
+              uidSuffix: currentUser.uid.slice(-6),
+            })
+          }
+        })
+        .catch((error) => {
+          console.error("Server session sync rejected:", {
+            reason: error instanceof Error ? error.message : "Unknown error",
             uidSuffix: currentUser.uid.slice(-6),
           })
-        }
-      })
+        })
     })
 
     return unsubscribe

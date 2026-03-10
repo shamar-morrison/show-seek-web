@@ -84,8 +84,10 @@ export function CreateListDialog({
           limit?: number | null
         }
         if (!canCreate) {
+          const limitDisplay =
+            typeof limit === "number" ? String(limit) : "your limit"
           toast.error(
-            `You've reached the limit of ${limit} custom lists. Upgrade to Premium for unlimited lists!`,
+            `You've reached the limit of ${limitDisplay} custom lists. Upgrade to Premium for unlimited lists!`,
             {
               action: {
                 label: "Upgrade",

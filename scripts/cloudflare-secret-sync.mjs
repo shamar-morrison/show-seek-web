@@ -112,7 +112,16 @@ function runWranglerSecretBulk({ tempFile, envName }) {
 }
 
 const { dryRun, envFile, envName } = parseArgs(process.argv.slice(2))
-const envContents = readFileSync(envFile, "utf8")
+let envContents
+
+try {
+  envContents = readFileSync(envFile, "utf8")
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`Failed to read env file at ${envFile}: ${message}`)
+  process.exit(1)
+}
+
 const parsedEnv = parseEnvFile(envContents)
 const payload = buildSecretPayload(parsedEnv)
 const keys = Object.keys(payload).sort()

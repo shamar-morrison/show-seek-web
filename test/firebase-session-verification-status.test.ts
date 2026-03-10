@@ -15,9 +15,7 @@ vi.mock("@/lib/firebase/server-api", () => ({
 }))
 
 function encodeBase64Url(value: unknown): string {
-  return Buffer.from(JSON.stringify(value))
-    .toString("base64url")
-    .replace(/=/g, "")
+  return Buffer.from(JSON.stringify(value)).toString("base64url")
 }
 
 function createSessionCookieToken(

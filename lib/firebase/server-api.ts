@@ -15,7 +15,7 @@ export interface FirebaseServiceAccountConfig {
 }
 
 let accessTokenCache: AccessTokenCache | null = null
-let signingKeyPromise: Promise<CryptoKey> | null = null
+const signingKeyCache = new Map<string, Promise<CryptoKey>>()
 
 export function getFirebaseProjectId(): string | null {
   return (
@@ -126,7 +126,14 @@ async function createServiceAccountAssertion(
 }
 
 async function getSigningKey(privateKey: string): Promise<CryptoKey> {
-  signingKeyPromise ??= crypto.subtle.importKey(
+  const cacheKey = privateKey
+  const cachedSigningKeyPromise = signingKeyCache.get(cacheKey)
+
+  if (cachedSigningKeyPromise) {
+    return cachedSigningKeyPromise
+  }
+
+  const signingKeyPromise = crypto.subtle.importKey(
     "pkcs8",
     pemToArrayBuffer(privateKey),
     {
@@ -137,6 +144,7 @@ async function getSigningKey(privateKey: string): Promise<CryptoKey> {
     ["sign"],
   )
 
+  signingKeyCache.set(cacheKey, signingKeyPromise)
   return signingKeyPromise
 }
 

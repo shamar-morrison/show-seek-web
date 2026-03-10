@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import {
   createSessionCookie,
+  isSessionVerificationUnavailable,
   isSessionVerificationValid,
   type SessionVerificationMode,
   lookupFirebaseAccount,
@@ -34,8 +35,14 @@ export async function verifySessionCookie(
 /**
  * Look up the current authenticated user account from the session cookie.
  */
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<
+  Awaited<ReturnType<typeof lookupFirebaseAccount>> | "unavailable"
+> {
   const verification = await verifySessionCookie("strict")
+
+  if (isSessionVerificationUnavailable(verification)) {
+    return "unavailable"
+  }
 
   if (!isSessionVerificationValid(verification)) {
     return null

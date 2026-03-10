@@ -3,7 +3,7 @@
 import { AuthModal } from "@/components/auth-modal"
 import { useAuth } from "@/context/auth-context"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
 
 const AUTH_REQUIRED_MESSAGE = "Sign in to continue."
@@ -123,7 +123,6 @@ export function AuthRequiredRecovery() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const recoveryAttemptKeyRef = useRef<string | null>(null)
   const handledRecoveryStateKeyRef = useRef<string | null>(null)
 
@@ -142,24 +141,25 @@ export function AuthRequiredRecovery() {
       }),
     [authRequired, loading, pathname, search, searchParams, serverSessionSync, user],
   )
+  const isModalOpen = useMemo(
+    () => recoveryAction.type === "show-auth",
+    [recoveryAction],
+  )
 
   useEffect(() => {
     if (recoveryAction.type === "idle") {
       recoveryAttemptKeyRef.current = null
       handledRecoveryStateKeyRef.current = null
-      setIsModalOpen(false)
       return
     }
 
     if (recoveryAction.type === "show-auth") {
       recoveryAttemptKeyRef.current = null
       handledRecoveryStateKeyRef.current = null
-      setIsModalOpen(true)
       return
     }
 
     if (recoveryAction.type === "wait-for-session") {
-      setIsModalOpen(false)
       return
     }
 
@@ -171,7 +171,6 @@ export function AuthRequiredRecovery() {
       }
 
       handledRecoveryStateKeyRef.current = redirectKey
-      setIsModalOpen(false)
       router.replace(recoveryAction.redirectTarget)
       return
     }
@@ -185,7 +184,6 @@ export function AuthRequiredRecovery() {
 
       handledRecoveryStateKeyRef.current = errorKey
       recoveryAttemptKeyRef.current = null
-      setIsModalOpen(false)
       router.replace(recoveryAction.clearUrl)
       toast.error(recoveryAction.errorMessage)
       return
@@ -199,16 +197,23 @@ export function AuthRequiredRecovery() {
 
     recoveryAttemptKeyRef.current = recoveryAttemptKey
     handledRecoveryStateKeyRef.current = null
-    setIsModalOpen(false)
     let isCancelled = false
 
-    void ensureServerSession(user).then(() => {
-      if (isCancelled) {
-        return
-      }
+    void ensureServerSession(user)
+      .then(() => {
+        if (isCancelled) {
+          return
+        }
 
-      recoveryAttemptKeyRef.current = null
-    })
+        recoveryAttemptKeyRef.current = null
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return
+        }
+
+        recoveryAttemptKeyRef.current = null
+      })
 
     return () => {
       isCancelled = true
@@ -223,13 +228,11 @@ export function AuthRequiredRecovery() {
     <AuthModal
       isOpen={isModalOpen}
       onClose={() => {
-        setIsModalOpen(false)
         recoveryAttemptKeyRef.current = null
         handledRecoveryStateKeyRef.current = null
         router.replace(recoveryAction.clearUrl)
       }}
       onAuthSuccess={async () => {
-        setIsModalOpen(false)
         recoveryAttemptKeyRef.current = null
         handledRecoveryStateKeyRef.current = null
       }}
