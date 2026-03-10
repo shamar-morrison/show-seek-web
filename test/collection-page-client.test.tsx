@@ -10,6 +10,21 @@ const requireAuthMock = vi.fn((action?: () => void | Promise<void>) => {
     return action()
   }
 })
+const canTrackMoreState = {
+  canTrackMore: true,
+  maxFreeCollections: 2,
+  isLoading: false,
+}
+const collectionTrackingState = {
+  tracking: {
+    watchedMovieIds: [1],
+  },
+  isTracked: false,
+  watchedCount: 0,
+  totalMovies: 0,
+  percentage: 0,
+  isLoading: false,
+}
 
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
@@ -26,6 +41,17 @@ vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
 }))
 
+vi.mock("next/image", () => ({
+  default: ({
+    fill: _fill,
+    priority: _priority,
+    ...props
+  }: React.ComponentProps<"img"> & {
+    fill?: boolean
+    priority?: boolean
+  }) => <img {...props} />,
+}))
+
 vi.mock("@/hooks/use-auth-guard", () => ({
   useAuthGuard: () => ({
     requireAuth: requireAuthMock,
@@ -36,21 +62,8 @@ vi.mock("@/hooks/use-auth-guard", () => ({
 }))
 
 vi.mock("@/hooks/use-collection-tracking", () => ({
-  useCanTrackMoreCollections: () => ({
-    canTrackMore: true,
-    maxFreeCollections: 2,
-    isLoading: false,
-  }),
-  useCollectionTracking: () => ({
-    tracking: {
-      watchedMovieIds: [1],
-    },
-    isTracked: false,
-    watchedCount: 0,
-    totalMovies: 0,
-    percentage: 0,
-    isLoading: false,
-  }),
+  useCanTrackMoreCollections: () => canTrackMoreState,
+  useCollectionTracking: () => collectionTrackingState,
   useStartCollectionTracking: () => ({
     isPending: false,
     mutateAsync: (...args: unknown[]) => mutateStartMock(...args),
@@ -72,6 +85,17 @@ vi.mock("@/components/collection-movies-grid", () => ({
 describe("CollectionPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    canTrackMoreState.canTrackMore = true
+    canTrackMoreState.maxFreeCollections = 2
+    canTrackMoreState.isLoading = false
+    collectionTrackingState.tracking = {
+      watchedMovieIds: [1],
+    }
+    collectionTrackingState.isTracked = false
+    collectionTrackingState.watchedCount = 0
+    collectionTrackingState.totalMovies = 0
+    collectionTrackingState.percentage = 0
+    collectionTrackingState.isLoading = false
   })
 
   it("starts collection tracking from the collection page", async () => {
@@ -132,5 +156,46 @@ describe("CollectionPageClient", () => {
     )
 
     expect(screen.getByText("Watched IDs: 1")).toBeInTheDocument()
+  })
+
+  it("shows loading placeholders instead of tracking controls while loading", () => {
+    collectionTrackingState.isLoading = true
+
+    const { container } = render(
+      <CollectionPageClient
+        collection={{
+          id: 301,
+          name: "John Wick Collection",
+          overview: "",
+          poster_path: null,
+          backdrop_path: "/backdrop.jpg",
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "John Wick",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "2014-10-24",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(
+      screen.queryByRole("button", { name: /start tracking/i }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Watched \d+ of/i)).not.toBeInTheDocument()
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      0,
+    )
   })
 })

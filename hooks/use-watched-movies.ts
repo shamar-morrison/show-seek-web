@@ -50,7 +50,10 @@ interface WatchMutationContext {
   previousWatches: WatchInstance[] | undefined
 }
 
-async function resolveCollectionId(movieId: number, collectionId?: number | null) {
+async function resolveCollectionId(
+  movieId: number,
+  collectionId?: number | null,
+) {
   if (typeof collectionId === "number") {
     return collectionId
   }
@@ -71,24 +74,36 @@ async function syncCollectionTrackingAfterWatch(
   userId: string,
   movieId: number,
   collectionId?: number | null,
-) {
+): Promise<boolean> {
   try {
-    const resolvedCollectionId = await resolveCollectionId(movieId, collectionId)
+    const resolvedCollectionId = await resolveCollectionId(
+      movieId,
+      collectionId,
+    )
 
     if (!resolvedCollectionId) {
-      return
+      return false
     }
 
-    await addWatchedMovieToTrackedCollection(userId, resolvedCollectionId, movieId)
+    await addWatchedMovieToTrackedCollection(
+      userId,
+      resolvedCollectionId,
+      movieId,
+    )
+    return true
   } catch (error) {
     console.warn(
       `[useWatchedMovies] Failed to sync collection tracking after watch for movie ${movieId}:`,
       error,
     )
+    return false
   }
 }
 
-async function syncCollectionTrackingAfterUnwatch(userId: string, movieId: number) {
+async function syncCollectionTrackingAfterUnwatch(
+  userId: string,
+  movieId: number,
+) {
   try {
     const trackedCollections = await fetchAllTrackedCollections(userId)
     const affectedCollections = trackedCollections.filter((trackedCollection) =>
@@ -180,11 +195,27 @@ export function useWatchedMovies(
 
       await addWatch(userId, movieId, variables.watchedAt)
 
-      await syncCollectionTrackingAfterWatch(
-        userId,
-        movieId,
-        variables.movieData.collectionId,
-      )
+      if (typeof variables.movieData.collectionId === "number") {
+        await syncCollectionTrackingAfterWatch(
+          userId,
+          movieId,
+          variables.movieData.collectionId,
+        )
+      } else {
+        void syncCollectionTrackingAfterWatch(
+          userId,
+          movieId,
+          variables.movieData.collectionId,
+        ).then((didSync) => {
+          if (!didSync) {
+            return
+          }
+
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.firestore.collectionTrackingRoot,
+          })
+        })
+      }
 
       await applyWatchedMovieListAutomation({
         movie: {

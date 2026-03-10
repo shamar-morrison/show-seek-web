@@ -22,7 +22,12 @@ import type {
   CollectionProgressItem,
   TrackedCollection,
 } from "@/types/collection-tracking"
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 const COLLECTION_STALE_TIME_MS = 7 * 24 * 60 * 60 * 1000
 const COLLECTION_GC_TIME_MS = 30 * 24 * 60 * 60 * 1000
@@ -179,12 +184,7 @@ export function useStopCollectionTracking() {
   const userId = user && !user.isAnonymous ? user.uid : null
 
   return useMutation({
-    mutationFn: async ({
-      collectionId,
-    }: {
-      collectionId: number
-      collectionName: string
-    }) => {
+    mutationFn: async ({ collectionId }: { collectionId: number }) => {
       if (!userId) {
         throw new Error("Please sign in to continue")
       }
@@ -243,7 +243,11 @@ export function useRemoveWatchedMovieFromCollection() {
         throw new Error("Please sign in to continue")
       }
 
-      await removeWatchedMovieFromTrackedCollection(userId, collectionId, movieId)
+      await removeWatchedMovieFromTrackedCollection(
+        userId,
+        collectionId,
+        movieId,
+      )
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -301,7 +305,8 @@ export function useCollectionProgressList() {
 
   const isLoading =
     isLoadingTracking ||
-    (collectionQueries.length > 0 && collectionQueries.some((query) => query.isLoading))
+    (collectionQueries.length > 0 &&
+      collectionQueries.some((query) => query.isLoading))
 
   return {
     progressItems,

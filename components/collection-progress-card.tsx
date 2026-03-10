@@ -1,9 +1,8 @@
 "use client"
 
+import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { CollectionProgressItem } from "@/types/collection-tracking"
-import { LayersIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 
 interface CollectionProgressCardProps {
@@ -13,9 +12,10 @@ interface CollectionProgressCardProps {
 export function CollectionProgressCard({
   collection,
 }: CollectionProgressCardProps) {
-  const backdropUrl = collection.backdropPath
-    ? buildImageUrl(collection.backdropPath, "w780")
-    : null
+  const backdropUrl = buildImageUrl(
+    collection.backdropPath ?? collection.posterPath,
+    "w780",
+  )
 
   return (
     <Link
@@ -23,17 +23,12 @@ export function CollectionProgressCard({
       className="group overflow-hidden rounded-xl border border-white/10 bg-card transition-colors hover:border-white/20 hover:bg-card/80"
     >
       <div className="relative h-32 overflow-hidden bg-gray-900">
-        {backdropUrl ? (
-          <img
-            src={backdropUrl}
-            alt={collection.name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-white/40">
-            <HugeiconsIcon icon={LayersIcon} className="size-8" />
-          </div>
-        )}
+        <ImageWithFallback
+          src={backdropUrl}
+          alt={collection.name}
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
+        />
         <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/35 to-transparent" />
       </div>
 

@@ -3,6 +3,7 @@
 import { AuthModal } from "@/components/auth-modal"
 import { CollectionMoviesGrid } from "@/components/collection-movies-grid"
 import { PremiumModal } from "@/components/premium-modal"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ import {
   StopCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import Image from "next/image"
 import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -40,11 +42,19 @@ interface CollectionPageClientProps {
   collection: TMDBCollectionDetails
 }
 
-export function CollectionPageClient({ collection }: CollectionPageClientProps) {
+export function CollectionPageClient({
+  collection,
+}: CollectionPageClientProps) {
   const { premiumLoading, premiumStatus } = useAuth()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
-  const { tracking, isTracked, watchedCount, totalMovies, percentage, isLoading } =
-    useCollectionTracking(collection.id)
+  const {
+    tracking,
+    isTracked,
+    watchedCount,
+    totalMovies,
+    percentage,
+    isLoading,
+  } = useCollectionTracking(collection.id)
   const {
     canTrackMore,
     maxFreeCollections,
@@ -55,7 +65,7 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
   const [showStopTrackingDialog, setShowStopTrackingDialog] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
-  const sortedMovies = useMemo(
+  const collectionMovies = useMemo(
     () => collection.parts ?? [],
     [collection.parts],
   )
@@ -85,8 +95,8 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
         await startTrackingMutation.mutateAsync({
           collectionId: collection.id,
           name: collection.name,
-          totalMovies: sortedMovies.length,
-          collectionMovieIds: sortedMovies.map((movie) => movie.id),
+          totalMovies: collectionMovies.length,
+          collectionMovieIds: collectionMovies.map((movie) => movie.id),
         })
         toast.success("Collection tracking started")
       } catch (error) {
@@ -101,7 +111,7 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
     isPremiumCheckPending,
     isTracked,
     requireAuth,
-    sortedMovies,
+    collectionMovies,
     startTrackingMutation,
   ])
 
@@ -109,7 +119,6 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
     try {
       await stopTrackingMutation.mutateAsync({
         collectionId: collection.id,
-        collectionName: collection.name,
       })
       setShowStopTrackingDialog(false)
       toast.success("Collection tracking stopped")
@@ -129,10 +138,13 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
         <section className="relative w-full overflow-hidden">
           {backdropUrl && (
             <div className="absolute inset-0">
-              <img
+              <Image
                 src={backdropUrl}
                 alt={collection.name}
-                className="h-full w-full object-cover object-center opacity-60"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center opacity-60"
               />
             </div>
           )}
@@ -157,23 +169,33 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
 
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                     <div className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
-                      {sortedMovies.length}{" "}
-                      {sortedMovies.length === 1 ? "Movie" : "Movies"}
+                      {collectionMovies.length}{" "}
+                      {collectionMovies.length === 1 ? "Movie" : "Movies"}
                     </div>
-                    {isTracked && (
+                    {isLoading ? (
+                      <Skeleton className="h-10 w-36 rounded-full" />
+                    ) : isTracked ? (
                       <div className="rounded-full bg-green-500/20 px-4 py-2 text-sm font-medium text-green-300 backdrop-blur-sm">
-                        {watchedCount}/{Math.max(totalMovies, sortedMovies.length)} watched
+                        {watchedCount}/
+                        {Math.max(totalMovies, collectionMovies.length)} watched
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4 backdrop-blur-md">
-                    {isTracked ? (
+                    {isLoading ? (
+                      <div className="space-y-4" aria-hidden="true">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-2 w-full rounded-full" />
+                        <Skeleton className="h-11 w-40 rounded-xl" />
+                      </div>
+                    ) : isTracked ? (
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3 text-sm">
                             <span className="font-medium text-gray-300">
-                              Watched {watchedCount} of {Math.max(totalMovies, sortedMovies.length)}
+                              Watched {watchedCount} of{" "}
+                              {Math.max(totalMovies, collectionMovies.length)}
                             </span>
                             <span className="font-semibold text-primary">
                               {percentage}%
@@ -200,7 +222,10 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
                               className="size-5 animate-spin"
                             />
                           ) : (
-                            <HugeiconsIcon icon={StopCircleIcon} className="size-5" />
+                            <HugeiconsIcon
+                              icon={StopCircleIcon}
+                              className="size-5"
+                            />
                           )}
                           Stop Tracking
                         </Button>
@@ -230,13 +255,14 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
                           </p>
                         ) : !canTrackMore ? (
                           <p className="text-sm text-white/60">
-                            Free users can track up to {maxFreeCollections} collections.
-                            Upgrade to Premium for unlimited tracking.
+                            Free users can track up to {maxFreeCollections}{" "}
+                            collections. Upgrade to Premium for unlimited
+                            tracking.
                           </p>
                         ) : (
                           <p className="text-sm text-white/60">
-                            Track your progress across this collection and keep watched
-                            badges in sync as you mark movies watched.
+                            Track your progress across this collection and keep
+                            watched badges in sync as you mark movies watched.
                           </p>
                         )}
                       </div>
@@ -251,7 +277,7 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
         <div className="mx-auto w-full max-w-[1800px] px-4 sm:px-8 lg:px-12">
           <h2 className="mb-6 text-2xl font-bold text-white">Movies</h2>
           <CollectionMoviesGrid
-            movies={sortedMovies}
+            movies={collectionMovies}
             collectionId={collection.id}
             isTracked={isTracked}
             watchedMovieIds={tracking?.watchedMovieIds ?? []}
@@ -267,8 +293,9 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
           <AlertDialogHeader>
             <AlertDialogTitle>Stop tracking collection?</AlertDialogTitle>
             <AlertDialogDescription>
-              Stop tracking your progress for {collection.name}? Your watch history
-              will remain, but this collection will no longer show progress.
+              Stop tracking your progress for {collection.name}? Your watch
+              history will remain, but this collection will no longer show
+              progress.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -286,7 +313,10 @@ export function CollectionPageClient({ collection }: CollectionPageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
 
-      <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
+      <PremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
+      />
 
       {modalVisible && (
         <AuthModal

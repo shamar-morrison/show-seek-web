@@ -17,6 +17,7 @@ import {
 export const MAX_FREE_COLLECTIONS = 2
 
 const WATCHED_HISTORY_CHECK_BATCH_SIZE = 8
+const WATCHED_HISTORY_CHECK_CONCURRENCY = 3
 
 function getCollectionTrackingDocRef(userId: string, collectionId: number) {
   return doc(db, "users", userId, "collection_tracking", String(collectionId))
@@ -53,34 +54,112 @@ function normalizeTrackedCollection(
   }
 }
 
-function isNotFoundError(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error !== null && "code" in error
-      ? (error as { code?: unknown }).code
-      : undefined
+function getErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    return (error as { code: string }).code
+  }
 
-  if (typeof code === "string") {
+  return null
+}
+
+function getErrorMessage(error: unknown): string | null {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message
+  }
+
+  return null
+}
+
+function isNotFoundError(error: unknown): boolean {
+  const code = getErrorCode(error)
+
+  if (code !== null) {
     return code === "not-found" || code === "firestore/not-found"
   }
 
-  if (error instanceof Error) {
-    return error.message.includes("No document to update")
+  const message = getErrorMessage(error)
+  if (message?.includes("No document to update")) {
+    return true
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.debug(
+      "[collection-tracking] Unexpected Firestore update error",
+      error,
+    )
   }
 
   return false
+}
+
+function chunkItems<T>(items: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize))
+  }
+
+  return chunks
+}
+
+async function mapWithConcurrencyLimit<T, TResult>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<TResult>,
+): Promise<TResult[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  let nextIndex = 0
+  const results = new Array<TResult>(items.length)
+  const runnerCount = Math.min(concurrency, items.length)
+
+  async function runNext(): Promise<void> {
+    if (nextIndex >= items.length) {
+      return
+    }
+
+    const currentIndex = nextIndex
+    nextIndex += 1
+    results[currentIndex] = await worker(items[currentIndex] as T)
+    await runNext()
+  }
+
+  await Promise.all(Array.from({ length: runnerCount }, () => runNext()))
+
+  return results
 }
 
 export async function fetchCollectionTracking(
   userId: string,
   collectionId: number,
 ): Promise<TrackedCollection | null> {
-  const snapshot = await getDoc(getCollectionTrackingDocRef(userId, collectionId))
+  const snapshot = await getDoc(
+    getCollectionTrackingDocRef(userId, collectionId),
+  )
 
   if (!snapshot.exists()) {
     return null
   }
 
-  return normalizeTrackedCollection(snapshot.data() as Partial<TrackedCollection>)
+  return normalizeTrackedCollection(
+    snapshot.data() as Partial<TrackedCollection>,
+  )
 }
 
 export async function fetchAllTrackedCollections(
@@ -94,12 +173,15 @@ export async function fetchAllTrackedCollections(
         trackedCollectionDoc.data() as Partial<TrackedCollection>,
       ),
     )
-    .filter((trackedCollection): trackedCollection is TrackedCollection =>
-      trackedCollection !== null,
+    .filter(
+      (trackedCollection): trackedCollection is TrackedCollection =>
+        trackedCollection !== null,
     )
 }
 
-export async function getTrackedCollectionCount(userId: string): Promise<number> {
+export async function getTrackedCollectionCount(
+  userId: string,
+): Promise<number> {
   const trackedCollections = await fetchAllTrackedCollections(userId)
   return trackedCollections.length
 }
@@ -112,7 +194,11 @@ export async function getPreviouslyWatchedMovieIds(
   const seenMovieIds = new Set<number>()
 
   movieIds.forEach((movieId) => {
-    if (!Number.isInteger(movieId) || movieId <= 0 || seenMovieIds.has(movieId)) {
+    if (
+      !Number.isInteger(movieId) ||
+      movieId <= 0 ||
+      seenMovieIds.has(movieId)
+    ) {
       return
     }
 
@@ -124,42 +210,34 @@ export async function getPreviouslyWatchedMovieIds(
     return []
   }
 
-  const watchedMovieIds: number[] = []
+  const batches = chunkItems(uniqueMovieIds, WATCHED_HISTORY_CHECK_BATCH_SIZE)
+  const watchedMovieIdsByBatch = await mapWithConcurrencyLimit(
+    batches,
+    WATCHED_HISTORY_CHECK_CONCURRENCY,
+    async (batch) => {
+      const batchResults = await Promise.all(
+        batch.map(async (movieId) => {
+          const watchesRef = collection(
+            db,
+            "users",
+            userId,
+            "watched_movies",
+            String(movieId),
+            "watches",
+          )
+          const snapshot = await getDocs(query(watchesRef, limit(1)))
 
-  for (
-    let startIndex = 0;
-    startIndex < uniqueMovieIds.length;
-    startIndex += WATCHED_HISTORY_CHECK_BATCH_SIZE
-  ) {
-    const batch = uniqueMovieIds.slice(
-      startIndex,
-      startIndex + WATCHED_HISTORY_CHECK_BATCH_SIZE,
-    )
+          return snapshot.empty ? null : movieId
+        }),
+      )
 
-    const batchResults = await Promise.all(
-      batch.map(async (movieId) => {
-        const watchesRef = collection(
-          db,
-          "users",
-          userId,
-          "watched_movies",
-          String(movieId),
-          "watches",
-        )
-        const snapshot = await getDocs(query(watchesRef, limit(1)))
+      return batchResults.filter(
+        (movieId): movieId is number => movieId !== null,
+      )
+    },
+  )
 
-        return snapshot.empty ? null : movieId
-      }),
-    )
-
-    batchResults.forEach((movieId) => {
-      if (movieId !== null) {
-        watchedMovieIds.push(movieId)
-      }
-    })
-  }
-
-  return watchedMovieIds
+  return watchedMovieIdsByBatch.flat()
 }
 
 export async function startCollectionTracking(
@@ -179,7 +257,10 @@ export async function startCollectionTracking(
     lastUpdated: now,
   }
 
-  await setDoc(getCollectionTrackingDocRef(userId, collectionId), trackedCollection)
+  await setDoc(
+    getCollectionTrackingDocRef(userId, collectionId),
+    trackedCollection,
+  )
 }
 
 export async function stopCollectionTracking(

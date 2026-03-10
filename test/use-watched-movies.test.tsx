@@ -1,6 +1,6 @@
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -81,6 +81,16 @@ function createWrapper() {
   }
 }
 
+function createDeferredPromise<T>() {
+  let resolve!: (value: T) => void
+
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+
+  return { promise, resolve }
+}
+
 describe("useWatchedMovies collection sync", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -95,9 +105,12 @@ describe("useWatchedMovies collection sync", () => {
   })
 
   it("syncs collection tracking immediately when collection id is provided", async () => {
-    const { result } = renderHook(() => useWatchedMovies(501, { enabled: false }), {
-      wrapper: createWrapper(),
-    })
+    const { result } = renderHook(
+      () => useWatchedMovies(501, { enabled: false }),
+      {
+        wrapper: createWrapper(),
+      },
+    )
 
     await act(async () => {
       await result.current.addWatchInstance(
@@ -125,17 +138,23 @@ describe("useWatchedMovies collection sync", () => {
     expect(fetchMovieDetailsMock).not.toHaveBeenCalled()
   })
 
-  it("resolves the collection id when the caller does not provide one", async () => {
-    fetchMovieDetailsMock.mockResolvedValueOnce({
-      belongs_to_collection: { id: 88 },
-    })
+  it("defers collection resolution when the caller does not provide one", async () => {
+    const deferredMovieDetails = createDeferredPromise<{
+      belongs_to_collection: { id: number }
+    }>()
+    fetchMovieDetailsMock.mockReturnValueOnce(deferredMovieDetails.promise)
 
-    const { result } = renderHook(() => useWatchedMovies(777, { enabled: false }), {
-      wrapper: createWrapper(),
-    })
+    const { result } = renderHook(
+      () => useWatchedMovies(777, { enabled: false }),
+      {
+        wrapper: createWrapper(),
+      },
+    )
+
+    let addWatchPromise!: Promise<void>
 
     await act(async () => {
-      await result.current.addWatchInstance(
+      addWatchPromise = result.current.addWatchInstance(
         new Date("2026-03-10T20:05:00.000Z"),
         {
           title: "Movie",
@@ -144,14 +163,26 @@ describe("useWatchedMovies collection sync", () => {
         false,
         false,
       )
+
+      await Promise.resolve()
     })
 
+    await expect(addWatchPromise).resolves.toBeUndefined()
+
     expect(fetchMovieDetailsMock).toHaveBeenCalledWith(777)
-    expect(addWatchedMovieToTrackedCollectionMock).toHaveBeenCalledWith(
-      "user-1",
-      88,
-      777,
-    )
+    expect(addWatchedMovieToTrackedCollectionMock).not.toHaveBeenCalled()
+
+    deferredMovieDetails.resolve({
+      belongs_to_collection: { id: 88 },
+    })
+
+    await waitFor(() => {
+      expect(addWatchedMovieToTrackedCollectionMock).toHaveBeenCalledWith(
+        "user-1",
+        88,
+        777,
+      )
+    })
   })
 
   it("removes cleared movies from tracked collections", async () => {
@@ -166,9 +197,12 @@ describe("useWatchedMovies collection sync", () => {
       },
     ])
 
-    const { result } = renderHook(() => useWatchedMovies(900, { enabled: false }), {
-      wrapper: createWrapper(),
-    })
+    const { result } = renderHook(
+      () => useWatchedMovies(900, { enabled: false }),
+      {
+        wrapper: createWrapper(),
+      },
+    )
 
     await act(async () => {
       await result.current.clearAllWatches()

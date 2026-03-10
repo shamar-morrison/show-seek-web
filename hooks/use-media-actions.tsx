@@ -77,6 +77,18 @@ interface UseMediaActionsResult {
   modals: React.ReactNode
 }
 
+function getResolvedCollectionId(
+  movieMedia: TMDBMedia | TMDBMovieDetails,
+  collectionId?: number | null,
+) {
+  return (
+    collectionId ??
+    ("belongs_to_collection" in movieMedia
+      ? (movieMedia.belongs_to_collection?.id ?? null)
+      : null)
+  )
+}
+
 /**
  * Hook for managing media card actions (Add to List, Rate, Notes)
  * Returns handlers, state, and a memoized modals element tree
@@ -169,11 +181,10 @@ export function useMediaActions({
     if (mediaType !== "movie") return
 
     const movieMedia = media as TMDBMovieDetails
-    const resolvedCollectionId =
-      collectionId ??
-      ("belongs_to_collection" in movieMedia
-        ? movieMedia.belongs_to_collection?.id ?? null
-        : null)
+    const resolvedCollectionId = getResolvedCollectionId(
+      movieMedia,
+      collectionId,
+    )
 
     if (preferences.quickMarkAsWatched) {
       // Quick mark - immediately mark as watched with current time
@@ -223,11 +234,10 @@ export function useMediaActions({
     async (date: Date) => {
       if (mediaType !== "movie") return
       const movieMedia = media as TMDBMovieDetails
-      const resolvedCollectionId =
-        collectionId ??
-        ("belongs_to_collection" in movieMedia
-          ? movieMedia.belongs_to_collection?.id ?? null
-          : null)
+      const resolvedCollectionId = getResolvedCollectionId(
+        movieMedia,
+        collectionId,
+      )
       await addWatchInstance(
         date,
         {
