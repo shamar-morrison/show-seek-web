@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
     const sessionCookie = body.sessionCookie
 
     if (!sessionCookie) {
-      return NextResponse.json({ valid: false, status: "invalid" })
+      return NextResponse.json(
+        { valid: false, status: "invalid" },
+        { status: 401 },
+      )
     }
 
     const verification = await verifySessionCookieValue(sessionCookie, "strict")
@@ -30,8 +33,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!isSessionVerificationValid(verification)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          status: verification.status,
+        },
+        { status: 401 },
+      )
+    }
+
     return NextResponse.json({
-      valid: isSessionVerificationValid(verification),
+      valid: true,
       status: verification.status,
     })
   } catch {

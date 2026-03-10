@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+vi.mock("server-only", () => ({}))
+
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
 
@@ -62,10 +64,25 @@ describe("firebase server api", () => {
   })
 
   afterEach(() => {
-    process.env.FIREBASE_ADMIN_PROJECT_ID = originalEnv.FIREBASE_ADMIN_PROJECT_ID
-    process.env.FIREBASE_ADMIN_CLIENT_EMAIL =
-      originalEnv.FIREBASE_ADMIN_CLIENT_EMAIL
-    process.env.FIREBASE_ADMIN_PRIVATE_KEY = originalEnv.FIREBASE_ADMIN_PRIVATE_KEY
+    if (originalEnv.FIREBASE_ADMIN_PROJECT_ID === undefined) {
+      Reflect.deleteProperty(process.env, "FIREBASE_ADMIN_PROJECT_ID")
+    } else {
+      process.env.FIREBASE_ADMIN_PROJECT_ID = originalEnv.FIREBASE_ADMIN_PROJECT_ID
+    }
+
+    if (originalEnv.FIREBASE_ADMIN_CLIENT_EMAIL === undefined) {
+      Reflect.deleteProperty(process.env, "FIREBASE_ADMIN_CLIENT_EMAIL")
+    } else {
+      process.env.FIREBASE_ADMIN_CLIENT_EMAIL =
+        originalEnv.FIREBASE_ADMIN_CLIENT_EMAIL
+    }
+
+    if (originalEnv.FIREBASE_ADMIN_PRIVATE_KEY === undefined) {
+      Reflect.deleteProperty(process.env, "FIREBASE_ADMIN_PRIVATE_KEY")
+    } else {
+      process.env.FIREBASE_ADMIN_PRIVATE_KEY = originalEnv.FIREBASE_ADMIN_PRIVATE_KEY
+    }
+
     vi.unstubAllGlobals()
   })
 

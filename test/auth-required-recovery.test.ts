@@ -1,5 +1,21 @@
 import { describe, expect, it, vi } from "vitest"
 
+function createDeferred<T>() {
+  let reject!: (reason?: unknown) => void
+  let resolve!: (value: T | PromiseLike<T>) => void
+
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    reject = innerReject
+    resolve = innerResolve
+  })
+
+  return {
+    promise,
+    reject,
+    resolve,
+  }
+}
+
 vi.mock("@/components/auth-modal", () => ({
   AuthModal: () => null,
 }))
@@ -8,6 +24,11 @@ vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
     ensureServerSession: vi.fn(),
     loading: false,
+    serverSessionSync: {
+      error: null,
+      status: "idle",
+      uid: null,
+    },
     user: null,
   }),
 }))
@@ -25,6 +46,7 @@ vi.mock("sonner", () => ({
 }))
 
 import {
+  handleSessionRepairAttempt,
   resolveAuthRequiredRecoveryAction,
   sanitizeAuthRedirectPath,
   stripAuthRedirectParams,
@@ -154,5 +176,68 @@ describe("auth-required recovery helpers", () => {
     expect(sanitizeAuthRedirectPath("/profile?tab=settings")).toBe(
       "/profile?tab=settings",
     )
+  })
+
+  it("falls back to the auth error flow when session repair resolves with ok false", async () => {
+    const onError = vi.fn()
+    const onSuccess = vi.fn()
+
+    await handleSessionRepairAttempt({
+      ensureServerSession: async () => ({
+        error: "Authentication service temporarily unavailable",
+        ok: false,
+        status: "error",
+        uid: "user-1",
+      }),
+      onError,
+      onSuccess,
+    })
+
+    expect(onError).toHaveBeenCalledWith(
+      "Authentication service temporarily unavailable",
+    )
+    expect(onSuccess).not.toHaveBeenCalled()
+  })
+
+  it("falls back to the auth error flow when session repair rejects", async () => {
+    const onError = vi.fn()
+    const onSuccess = vi.fn()
+
+    await handleSessionRepairAttempt({
+      ensureServerSession: async () => {
+        throw new Error("Unexpected session failure")
+      },
+      onError,
+      onSuccess,
+    })
+
+    expect(onError).toHaveBeenCalledWith("Unexpected session failure")
+    expect(onSuccess).not.toHaveBeenCalled()
+  })
+
+  it("ignores late session repair failures after cancellation", async () => {
+    const deferred = createDeferred<{
+      error: string | null
+      ok: boolean
+      status: "error" | "ready"
+      uid: string
+    }>()
+    const onError = vi.fn()
+    const onSuccess = vi.fn()
+    let isCancelled = false
+
+    const attemptPromise = handleSessionRepairAttempt({
+      ensureServerSession: () => deferred.promise,
+      isCancelled: () => isCancelled,
+      onError,
+      onSuccess,
+    })
+
+    isCancelled = true
+    deferred.reject(new Error("Late session failure"))
+    await attemptPromise
+
+    expect(onError).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
   })
 })

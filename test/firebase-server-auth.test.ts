@@ -1,10 +1,12 @@
+vi.mock("server-only", () => ({}))
+
 import {
   getInvalidSessionCookieReason,
   isSessionCookieRevoked,
   type DecodedSessionCookie,
   type FirebaseAccountInfo,
 } from "@/lib/firebase/server-auth"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 function createDecodedSessionCookie(
   overrides: Partial<DecodedSessionCookie> = {},

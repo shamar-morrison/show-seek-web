@@ -1,3 +1,5 @@
+import "server-only"
+
 const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 const GOOGLE_CLOUD_PLATFORM_SCOPE =
   "https://www.googleapis.com/auth/cloud-platform"

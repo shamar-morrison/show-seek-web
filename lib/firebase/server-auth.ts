@@ -6,6 +6,7 @@ import {
 
 const SESSION_COOKIE_JWKS_URL =
   "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+const FIREBASE_REQUEST_TIMEOUT_MS = 10_000
 const SESSION_COOKIE_EXPIRY_SECONDS = 5 * 24 * 60 * 60
 const SESSION_COOKIE_NAME = "session"
 const SESSION_EXPIRY_DAYS = 5
@@ -85,6 +86,38 @@ export function isSessionVerificationUnavailable(
   return result.status === "unavailable"
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError"
+}
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMessage: string,
+  createError: (message: string) => Error,
+): Promise<Response> {
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(
+    () => abortController.abort(),
+    FIREBASE_REQUEST_TIMEOUT_MS,
+  )
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: abortController.signal,
+    })
+  } catch (error) {
+    if (abortController.signal.aborted || isAbortError(error)) {
+      throw createError(timeoutMessage)
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 export async function createSessionCookie(
   idToken: string,
 ): Promise<string | null> {
@@ -98,7 +131,7 @@ export async function createSessionCookie(
     return null
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://identitytoolkit.googleapis.com/v1/projects/${config.projectId}:createSessionCookie`,
     {
       method: "POST",
@@ -111,6 +144,8 @@ export async function createSessionCookie(
         validDuration: String(SESSION_COOKIE_EXPIRY_SECONDS),
       }),
     },
+    `Failed to create session cookie: request timed out after ${FIREBASE_REQUEST_TIMEOUT_MS}ms`,
+    (message) => new Error(message),
   )
 
   if (!response.ok) {
@@ -202,7 +237,7 @@ export async function lookupFirebaseAccount(
     )
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://identitytoolkit.googleapis.com/v1/projects/${config.projectId}/accounts:lookup`,
     {
       method: "POST",
@@ -214,6 +249,8 @@ export async function lookupFirebaseAccount(
         localId: [uid],
       }),
     },
+    `Firebase account lookup timed out after ${FIREBASE_REQUEST_TIMEOUT_MS}ms`,
+    (message) => new SessionVerificationError("unavailable", message),
   )
 
   if (!response.ok) {
@@ -355,11 +392,25 @@ async function decodeAndVerifySessionCookie(
     )
   }
 
-  const header = parseJwtSegment(encodedHeader) as {
+  let header: {
     alg?: string
     kid?: string
   }
-  const payload = parseJwtSegment(encodedPayload) as Record<string, unknown>
+  let payload: Record<string, unknown>
+
+  try {
+    header = parseJwtSegment(encodedHeader) as {
+      alg?: string
+      kid?: string
+    }
+    payload = parseJwtSegment(encodedPayload) as Record<string, unknown>
+  } catch {
+    throw new SessionVerificationError(
+      "invalid",
+      "Session cookie is not a valid JWT",
+    )
+  }
+
   const validationError = getInvalidSessionCookieReason(payload, projectId)
 
   if (header.alg !== "RS256" || !header.kid) {
@@ -452,7 +503,12 @@ async function getPublicJwk(kid: string): Promise<FirebaseJwk> {
 }
 
 async function fetchPublicJwks(): Promise<JwksCache> {
-  const response = await fetch(SESSION_COOKIE_JWKS_URL)
+  const response = await fetchWithTimeout(
+    SESSION_COOKIE_JWKS_URL,
+    {},
+    `Firebase public key request timed out after ${FIREBASE_REQUEST_TIMEOUT_MS}ms`,
+    (message) => new SessionVerificationError("unavailable", message),
+  )
 
   if (!response.ok) {
     const details = await response.text()

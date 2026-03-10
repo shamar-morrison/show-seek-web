@@ -18,6 +18,10 @@ function encodeBase64Url(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString("base64url")
 }
 
+function encodeRawBase64Url(value: string): string {
+  return Buffer.from(value).toString("base64url")
+}
+
 function createSessionCookieToken(
   overrides: Partial<Record<string, unknown>> = {},
 ): string {
@@ -103,8 +107,29 @@ describe("firebase session verification status", () => {
           "Content-Type": "application/json",
         }),
         method: "POST",
+        signal: expect.any(AbortSignal),
       }),
     )
+  })
+
+  it("marks malformed JWT segments as invalid instead of unavailable", async () => {
+    const { verifySessionCookieValue } = await import(
+      "../lib/firebase/server-auth"
+    )
+
+    const result = await verifySessionCookieValue(
+      `${encodeRawBase64Url("not-json")}.${encodeBase64Url({
+        aud: "showseek-project",
+      })}.${Buffer.from("signature").toString("base64url")}`,
+      "local",
+    )
+
+    expect(result).toEqual({
+      account: null,
+      status: "invalid",
+      claims: null,
+      reason: "Session cookie is not a valid JWT",
+    })
   })
 
   it("includes the looked-up account on successful strict verification", async () => {
@@ -170,6 +195,25 @@ describe("firebase session verification status", () => {
       reason: null,
       status: "valid",
     })
+
+    const fetchCalls = fetchMock.mock.calls as unknown as Array<
+      [string, RequestInit | undefined]
+    >
+    const jwksCall = fetchCalls.find(([input]) => input.includes("service_accounts"))
+    const lookupCall = fetchCalls.find(([input]) =>
+      input.includes("accounts:lookup"),
+    )
+
+    expect(jwksCall?.[1]).toEqual(
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+    expect(lookupCall?.[1]).toEqual(
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
   })
 
   it("marks strict verification as unavailable when account lookup fails", async () => {

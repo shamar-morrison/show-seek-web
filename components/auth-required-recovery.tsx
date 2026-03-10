@@ -3,7 +3,7 @@
 import { AuthModal } from "@/components/auth-modal"
 import { useAuth } from "@/context/auth-context"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
 
 const AUTH_REQUIRED_MESSAGE = "Sign in to continue."
@@ -20,6 +20,11 @@ export type AuthRequiredRecoveryAction =
   | { clearUrl: string; redirectTarget: string; type: "repair-session" }
   | { clearUrl: string; redirectTarget: string; type: "show-auth" }
   | { clearUrl: string; redirectTarget: string; type: "wait-for-session" }
+
+type SessionRepairAttemptResult = {
+  error: string | null
+  ok: boolean
+}
 
 export function sanitizeAuthRedirectPath(pathname: string | null): string | null {
   if (!pathname || !pathname.startsWith("/") || pathname.startsWith("//")) {
@@ -118,6 +123,46 @@ export function resolveAuthRequiredRecoveryAction({
   }
 }
 
+export async function handleSessionRepairAttempt({
+  ensureServerSession,
+  isCancelled = () => false,
+  onError,
+  onSuccess,
+}: {
+  ensureServerSession: () => Promise<SessionRepairAttemptResult>
+  isCancelled?: () => boolean
+  onError: (errorMessage: string) => void
+  onSuccess: () => void
+}): Promise<void> {
+  const fallbackErrorMessage =
+    "We couldn't restore your session. Please try again."
+
+  try {
+    const result = await ensureServerSession()
+
+    if (isCancelled()) {
+      return
+    }
+
+    if (!result.ok) {
+      onError(result.error ?? fallbackErrorMessage)
+      return
+    }
+
+    onSuccess()
+  } catch (error) {
+    if (isCancelled()) {
+      return
+    }
+
+    onError(
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : fallbackErrorMessage,
+    )
+  }
+}
+
 export function AuthRequiredRecovery() {
   const { ensureServerSession, loading, serverSessionSync, user } = useAuth()
   const pathname = usePathname()
@@ -145,6 +190,21 @@ export function AuthRequiredRecovery() {
   const isModalOpen = useMemo(
     () => recoveryAction.type === "show-auth",
     [recoveryAction],
+  )
+  const reportRecoveryError = useCallback(
+    (clearUrl: string, redirectTarget: string, errorMessage: string) => {
+      const errorKey = `${user?.uid ?? "unknown"}:${redirectTarget}:${errorMessage}`
+
+      if (handledRecoveryStateKeyRef.current === errorKey) {
+        return
+      }
+
+      handledRecoveryStateKeyRef.current = errorKey
+      recoveryAttemptKeyRef.current = null
+      router.replace(clearUrl)
+      toast.error(errorMessage)
+    },
+    [router, user],
   )
 
   useEffect(() => {
@@ -177,16 +237,11 @@ export function AuthRequiredRecovery() {
     }
 
     if (recoveryAction.type === "report-error") {
-      const errorKey = `${user?.uid ?? "unknown"}:${recoveryAction.redirectTarget}:${recoveryAction.errorMessage}`
-
-      if (handledRecoveryStateKeyRef.current === errorKey) {
-        return
-      }
-
-      handledRecoveryStateKeyRef.current = errorKey
-      recoveryAttemptKeyRef.current = null
-      router.replace(recoveryAction.clearUrl)
-      toast.error(recoveryAction.errorMessage)
+      reportRecoveryError(
+        recoveryAction.clearUrl,
+        recoveryAction.redirectTarget,
+        recoveryAction.errorMessage,
+      )
       return
     }
 
@@ -200,26 +255,25 @@ export function AuthRequiredRecovery() {
     handledRecoveryStateKeyRef.current = null
     let isCancelled = false
 
-    void ensureServerSession(user)
-      .then(() => {
-        if (isCancelled) {
-          return
-        }
-
+    void handleSessionRepairAttempt({
+      ensureServerSession: () => ensureServerSession(user),
+      isCancelled: () => isCancelled,
+      onError: (errorMessage) => {
+          reportRecoveryError(
+            recoveryAction.clearUrl,
+            recoveryAction.redirectTarget,
+            errorMessage,
+          )
+        },
+      onSuccess: () => {
         recoveryAttemptKeyRef.current = null
-      })
-      .catch(() => {
-        if (isCancelled) {
-          return
-        }
-
-        recoveryAttemptKeyRef.current = null
-      })
+      },
+    })
 
     return () => {
       isCancelled = true
     }
-  }, [ensureServerSession, recoveryAction, router, search, user])
+  }, [ensureServerSession, recoveryAction, reportRecoveryError, router, search, user])
 
   if (recoveryAction.type === "idle") {
     return null

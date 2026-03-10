@@ -15,6 +15,7 @@ const DARK_LUMINANCE_THRESHOLD = 80
 const DARK_NEUTRAL_SATURATION_THRESHOLD = 0.2
 const LOGO_ANALYSIS_CONCURRENCY = 4
 const LOGO_ANALYSIS_MAX_DIMENSION = 64
+const LOGO_FETCH_TIMEOUT_MS = 5_000
 
 /**
  * Minimum opacity threshold to consider a pixel as "visible"
@@ -57,7 +58,10 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
 
   let bitmap: ImageBitmap | null = null
   try {
-    const response = await fetch(parsedUrl.toString(), { cache: "force-cache" })
+    const response = await fetch(parsedUrl.toString(), {
+      cache: "force-cache",
+      signal: AbortSignal.timeout(LOGO_FETCH_TIMEOUT_MS),
+    })
 
     if (!response.ok) {
       return false

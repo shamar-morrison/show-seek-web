@@ -59,6 +59,7 @@ describe("logo brightness", () => {
 
   it("downscales large bitmaps before reading pixel data", async () => {
     const drawImageMock = vi.fn()
+    const fetchMock = vi.fn(async () => createImageResponse())
     const getImageDataMock = vi.fn(() => ({
       data: new Uint8ClampedArray([0, 0, 0, 255]),
     }))
@@ -85,7 +86,7 @@ describe("logo brightness", () => {
       "OffscreenCanvas",
       FakeOffscreenCanvas as unknown as typeof OffscreenCanvas,
     )
-    vi.stubGlobal("fetch", vi.fn(async () => createImageResponse()))
+    vi.stubGlobal("fetch", fetchMock)
     vi.stubGlobal(
       "createImageBitmap",
       vi.fn(async () => ({
@@ -114,6 +115,13 @@ describe("logo brightness", () => {
       32,
     )
     expect(closeMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://image.example/logo.png",
+      expect.objectContaining({
+        cache: "force-cache",
+        signal: expect.any(AbortSignal),
+      }),
+    )
   })
 
   it("does not treat saturated dark colors as black logos", async () => {

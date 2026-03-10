@@ -3,8 +3,41 @@ import {
   getGoogleAccessToken,
 } from "./server-api"
 
+const FIRESTORE_REQUEST_TIMEOUT_MS = 10_000
+
 interface FirestoreDocument {
   fields?: Record<string, unknown>
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError"
+}
+
+async function fetchFirestoreWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMessage: string,
+): Promise<Response> {
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(
+    () => abortController.abort(),
+    FIRESTORE_REQUEST_TIMEOUT_MS,
+  )
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: abortController.signal,
+    })
+  } catch (error) {
+    if (abortController.signal.aborted || isAbortError(error)) {
+      throw new Error(timeoutMessage)
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 async function getFirestoreRequestContext(): Promise<{
@@ -36,13 +69,14 @@ async function getFirestoreRequestContext(): Promise<{
 export async function getUserPremiumStatus(userId: string): Promise<boolean> {
   const { accessToken, projectId } = await getFirestoreRequestContext()
 
-  const response = await fetch(
+  const response = await fetchFirestoreWithTimeout(
     `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     },
+    `Firestore user document request timed out after ${FIRESTORE_REQUEST_TIMEOUT_MS}ms`,
   )
 
   if (response.status === 404) {
@@ -61,7 +95,7 @@ export async function getUserPremiumStatus(userId: string): Promise<boolean> {
 export async function countCustomLists(userId: string): Promise<number> {
   const { accessToken, projectId } = await getFirestoreRequestContext()
 
-  const response = await fetch(
+  const response = await fetchFirestoreWithTimeout(
     `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}:runAggregationQuery`,
     {
       method: "POST",
@@ -90,6 +124,7 @@ export async function countCustomLists(userId: string): Promise<number> {
         },
       }),
     },
+    `Firestore custom list count request timed out after ${FIRESTORE_REQUEST_TIMEOUT_MS}ms`,
   )
 
   if (!response.ok) {
