@@ -32,7 +32,7 @@ export function PersonContent({ person }: PersonContentProps) {
   const { movieCredits, tvCredits, mediaItems, creditLabel } = useMemo(() => {
     const knownFor = person.known_for_department
     let credits: (PersonCastMember | PersonCrewMember)[] = []
-    let label = knownFor
+    const label = knownFor
 
     if (knownFor === "Acting") {
       credits = person.combined_credits?.cast || []
@@ -93,7 +93,7 @@ export function PersonContent({ person }: PersonContentProps) {
       } else {
         toast.error("No trailer available for this title")
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load trailer")
     } finally {
       setLoadingMediaId(null)

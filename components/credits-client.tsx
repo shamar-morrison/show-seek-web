@@ -159,7 +159,7 @@ export function CreditsClient({
               No {activeTab === "cast" ? "cast" : "crew"} information available
             </EmptyTitle>
             <EmptyDescription>
-              We don't have {activeTab === "cast" ? "cast" : "crew"} data for
+              We don&apos;t have {activeTab === "cast" ? "cast" : "crew"} data for
               this title yet.
             </EmptyDescription>
           </EmptyHeader>
@@ -173,8 +173,8 @@ export function CreditsClient({
             </EmptyMedia>
             <EmptyTitle>No results found</EmptyTitle>
             <EmptyDescription>
-              No {activeTab === "cast" ? "cast" : "crew"} members match "
-              {searchQuery}"
+              No {activeTab === "cast" ? "cast" : "crew"} members match{" "}
+              &quot;{searchQuery}&quot;
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

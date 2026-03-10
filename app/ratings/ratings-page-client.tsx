@@ -103,7 +103,7 @@ export function RatingsPageClient() {
       activeTab === "movies" ? movieRatings.ratings : tvRatings.ratings
 
     // Filter ratings
-    let filtered = currentRatings.filter((rating) => {
+    const filtered = currentRatings.filter((rating) => {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
@@ -169,7 +169,7 @@ export function RatingsPageClient() {
 
   // Filter and sort episode ratings
   const filteredAndSortedEpisodes = useMemo(() => {
-    let filtered = episodeRatings.ratings.filter((rating) => {
+    const filtered = episodeRatings.ratings.filter((rating) => {
       // Search filter - search by show name or episode name
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()

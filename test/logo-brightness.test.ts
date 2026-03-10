@@ -16,7 +16,7 @@ function createDeferred<T>() {
 }
 
 function createImageResponse(): Response {
-  return new Response(new Blob(["image"], { type: "image/png" }), {
+  return new Response(new Uint8Array([105, 109, 97, 103, 101]), {
     headers: {
       "content-type": "image/png",
     },

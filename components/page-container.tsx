@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-interface PageContainerProps extends React.HTMLAttributes<HTMLDivElement> {}
+type PageContainerProps = React.HTMLAttributes<HTMLDivElement>
 
 /**
  * Standard container for page content to ensure consistent max-width and padding

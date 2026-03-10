@@ -1,87 +1,78 @@
-import { isValidElement, type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { collectText, findElementByType } from "./react-tree-helpers"
+import type { ReactNode } from "react"
+import { render, screen } from "./utils"
 
-const routeGuardMock = vi.fn(() => null)
-const profilePageClientMock = vi.fn(() => null)
-const ratingsPageClientMock = vi.fn(() => null)
+const routeGuardMock = vi.fn(
+  ({
+    children,
+    message,
+    title,
+  }: {
+    children?: ReactNode
+    message?: string
+    title?: string
+  }) => (
+    <section data-testid="route-guard">
+      {title ? <h2>{title}</h2> : null}
+      {message ? <p>{message}</p> : null}
+      <div>{children}</div>
+    </section>
+  ),
+)
 
 vi.mock("@/components/route-guard", () => ({
-  RouteGuard: routeGuardMock,
+  RouteGuard: (props: {
+    children?: ReactNode
+    message?: string
+    title?: string
+  }) => routeGuardMock(props),
 }))
 
 vi.mock("../app/profile/profile-page-client", () => ({
-  ProfilePageClient: profilePageClientMock,
+  ProfilePageClient: () => <div>profile-page-client</div>,
 }))
 
 vi.mock("../app/ratings/ratings-page-client", () => ({
-  RatingsPageClient: ratingsPageClientMock,
+  RatingsPageClient: () => <div>ratings-page-client</div>,
 }))
 
 describe("protected pages", () => {
   it("wraps /profile in RouteGuard", async () => {
     const { default: ProfilePage } = await import("../app/profile/page")
-    const tree = ProfilePage()
-    const routeGuardElement = findElementByType(tree, routeGuardMock)
-    const routeGuardProps = routeGuardElement?.props as
-      | {
-          children?: ReactNode
-          message?: string
-          title?: string
-        }
-      | undefined
+    render(<ProfilePage />)
 
-    expect(routeGuardElement).not.toBeNull()
-    expect(routeGuardProps?.title).toBe("Sign in to view your profile")
-    expect(routeGuardProps?.message).toBe(
-      "Manage your preferences and account settings.",
-    )
+    expect(screen.getByTestId("route-guard")).toBeInTheDocument()
+    expect(screen.getByText("Sign in to view your profile")).toBeInTheDocument()
     expect(
-      isValidElement(routeGuardProps?.children) ? routeGuardProps.children.type : null,
-    ).toBe(profilePageClientMock)
+      screen.getByText("Manage your preferences and account settings."),
+    ).toBeInTheDocument()
+    expect(screen.getByText("profile-page-client")).toBeInTheDocument()
   })
 
   it("wraps /ratings in RouteGuard", async () => {
     const { default: RatingsPage } = await import("../app/ratings/page")
-    const tree = RatingsPage()
-    const routeGuardElement = findElementByType(tree, routeGuardMock)
-    const routeGuardProps = routeGuardElement?.props as
-      | {
-          children?: ReactNode
-          message?: string
-          title?: string
-        }
-      | undefined
+    render(<RatingsPage />)
 
-    expect(routeGuardElement).not.toBeNull()
-    expect(routeGuardProps?.title).toBe("Sign in to view your ratings")
-    expect(routeGuardProps?.message).toBe(
-      "Rate movies and TV shows to track your opinions and see them here.",
-    )
     expect(
-      isValidElement(routeGuardProps?.children) ? routeGuardProps.children.type : null,
-    ).toBe(ratingsPageClientMock)
+      screen.getByRole("heading", { name: "My Ratings" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Sign in to view your ratings")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Rate movies and TV shows to track your opinions and see them here.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText("ratings-page-client")).toBeInTheDocument()
   })
 
   it("wraps /lists routes in RouteGuard", async () => {
     const { default: ListsLayout } = await import("../app/lists/layout")
-    const tree = ListsLayout({
-      children: <div>watch-lists-page</div>,
-    })
-    const routeGuardElement = findElementByType(tree, routeGuardMock)
-    const routeGuardProps = routeGuardElement?.props as
-      | {
-          children?: ReactNode
-          message?: string
-          title?: string
-        }
-      | undefined
+    render(<ListsLayout>{<div>watch-lists-page</div>}</ListsLayout>)
 
-    expect(routeGuardElement).not.toBeNull()
-    expect(routeGuardProps?.title).toBe("Sign in to view your lists")
-    expect(routeGuardProps?.message).toBe(
-      "Track your watch progress, create custom lists, and more.",
-    )
-    expect(collectText(routeGuardProps?.children)).toContain("watch-lists-page")
+    expect(screen.getByText("Sign in to view your lists")).toBeInTheDocument()
+    expect(
+      screen.getByText("Track your watch progress, create custom lists, and more."),
+    ).toBeInTheDocument()
+    expect(screen.getByText("watch-lists-page")).toBeInTheDocument()
   })
 })
