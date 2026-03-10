@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 
-interface PWAInstallPreference {
+export interface PWAInstallPreference {
   status: "accepted" | "rejected" | "dismissed"
   timestamp: number
 }
@@ -15,14 +15,40 @@ interface BeforeInstallPromptEvent extends Event {
 const STORAGE_KEY = "pwa-install-preference"
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const STANDALONE_MEDIA_QUERY = "(display-mode: standalone)"
+const PREFERENCE_CHANGE_EVENT = "pwa-install-preference-change"
+
+let cachedPreferenceValue: string | null | undefined
+let cachedPreferenceSnapshot: PWAInstallPreference | null = null
 
 function getPreference(): PWAInstallPreference | null {
   if (typeof window === "undefined") return null
+
+  let stored: string | null
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return null
-    return JSON.parse(stored) as PWAInstallPreference
+    stored = localStorage.getItem(STORAGE_KEY)
   } catch {
+    cachedPreferenceValue = undefined
+    cachedPreferenceSnapshot = null
+    return null
+  }
+
+  if (stored === cachedPreferenceValue) {
+    return cachedPreferenceSnapshot
+  }
+
+  if (!stored) {
+    cachedPreferenceValue = stored
+    cachedPreferenceSnapshot = null
+    return null
+  }
+
+  try {
+    cachedPreferenceValue = stored
+    cachedPreferenceSnapshot = JSON.parse(stored) as PWAInstallPreference
+    return cachedPreferenceSnapshot
+  } catch {
+    cachedPreferenceValue = stored
+    cachedPreferenceSnapshot = null
     return null
   }
 }
@@ -34,10 +60,11 @@ function setPreference(status: PWAInstallPreference["status"]): void {
   } catch {
     // localStorage unavailable or full
   }
+
+  window.dispatchEvent(new Event(PREFERENCE_CHANGE_EVENT))
 }
 
-function shouldShowPrompt(): boolean {
-  const pref = getPreference()
+function shouldShowPrompt(pref: PWAInstallPreference | null): boolean {
   if (!pref) return true
 
   if (pref.status === "accepted" || pref.status === "rejected") {
@@ -94,17 +121,42 @@ function getStandaloneModeServerSnapshot() {
   return false
 }
 
+function subscribeToInstallPreference(onStoreChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === STORAGE_KEY) {
+      onStoreChange()
+    }
+  }
+  const handlePreferenceChange = () => onStoreChange()
+
+  window.addEventListener("storage", handleStorage)
+  window.addEventListener(PREFERENCE_CHANGE_EVENT, handlePreferenceChange)
+
+  return () => {
+    window.removeEventListener("storage", handleStorage)
+    window.removeEventListener(PREFERENCE_CHANGE_EVENT, handlePreferenceChange)
+  }
+}
+
+function getPreferenceServerSnapshot() {
+  return null
+}
+
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
-  const [installedFromEvent, setInstalledFromEvent] = useState(false)
+  const installPreference = useSyncExternalStore(
+    subscribeToInstallPreference,
+    getPreference,
+    getPreferenceServerSnapshot,
+  )
   const standaloneMode = useSyncExternalStore(
     subscribeToStandaloneMode,
     getStandaloneModeSnapshot,
     getStandaloneModeServerSnapshot,
   )
-  const isInstalled = standaloneMode || installedFromEvent
+  const isInstalled = standaloneMode
 
   useEffect(() => {
     if (isInstalled) {
@@ -117,7 +169,7 @@ export function usePWAInstall() {
     }
 
     // Check localStorage preference
-    if (!shouldShowPrompt()) {
+    if (!shouldShowPrompt(installPreference)) {
       return
     }
 
@@ -128,7 +180,7 @@ export function usePWAInstall() {
     }
 
     const handleAppInstalled = () => {
-      setInstalledFromEvent(true)
+      setPreference("accepted")
       setShowPrompt(false)
       setDeferredPrompt(null)
     }
@@ -143,7 +195,7 @@ export function usePWAInstall() {
       )
       window.removeEventListener("appinstalled", handleAppInstalled)
     }
-  }, [isInstalled])
+  }, [installPreference, isInstalled])
 
   const install = useCallback(async () => {
     if (!deferredPrompt) return false
@@ -178,6 +230,7 @@ export function usePWAInstall() {
   return {
     showPrompt: showPrompt && !isInstalled,
     isInstalled,
+    installPreference,
     install,
     dismiss,
     cancel,
