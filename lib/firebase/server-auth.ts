@@ -18,12 +18,6 @@ type JwksCache = {
 export type SessionVerificationStatus = "valid" | "invalid" | "unavailable"
 export type SessionVerificationMode = "local" | "strict"
 
-export interface SessionVerificationResult {
-  status: SessionVerificationStatus
-  claims: DecodedSessionCookie | null
-  reason: string | null
-}
-
 export interface DecodedSessionCookie {
   aud: string
   auth_time: number
@@ -41,6 +35,20 @@ export interface FirebaseAccountInfo {
   validSince?: string
   [key: string]: unknown
 }
+
+export type SessionVerificationResult =
+  | {
+      status: "valid"
+      account: FirebaseAccountInfo | null
+      claims: DecodedSessionCookie
+      reason: null
+    }
+  | {
+      status: Exclude<SessionVerificationStatus, "valid">
+      account: null
+      claims: null
+      reason: string
+    }
 
 type FirebaseJwk = JsonWebKey & {
   kid?: string
@@ -65,6 +73,7 @@ export function isSessionVerificationValid(
   result: SessionVerificationResult,
 ): result is SessionVerificationResult & {
   status: "valid"
+  account: FirebaseAccountInfo | null
   claims: DecodedSessionCookie
 } {
   return result.status === "valid" && result.claims !== null
@@ -150,7 +159,12 @@ export async function verifySessionCookieValue(
       )
     }
 
-    return localResult
+    return createSessionVerificationResult(
+      "valid",
+      localResult.claims,
+      null,
+      account,
+    )
   } catch (error) {
     return mapSessionVerificationError(error)
   }
@@ -279,15 +293,28 @@ export function getInvalidSessionCookieReason(
 }
 
 function createSessionVerificationResult(
+  status: "valid",
+  claims: DecodedSessionCookie,
+  reason?: null,
+  account?: FirebaseAccountInfo | null,
+): SessionVerificationResult
+function createSessionVerificationResult(
+  status: Exclude<SessionVerificationStatus, "valid">,
+  claims: null,
+  reason: string,
+): SessionVerificationResult
+function createSessionVerificationResult(
   status: SessionVerificationStatus,
   claims: DecodedSessionCookie | null,
   reason: string | null = null,
+  account: FirebaseAccountInfo | null = null,
 ): SessionVerificationResult {
   return {
+    account,
     status,
     claims,
     reason,
-  }
+  } as SessionVerificationResult
 }
 
 function mapSessionVerificationError(

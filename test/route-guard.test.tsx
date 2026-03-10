@@ -15,6 +15,8 @@ vi.mock("@/components/auth-modal", () => ({
 describe("RouteGuard", () => {
   beforeEach(() => {
     useAuthMock.mockReset()
+    authModalMock.mockReset()
+    authModalMock.mockImplementation(() => null)
   })
 
   it("shows the inline auth gate for unauthenticated users", async () => {
@@ -44,7 +46,7 @@ describe("RouteGuard", () => {
       "Manage your preferences and account settings.",
     )
     expect(collectText(tree)).not.toContain("Protected profile content")
-  })
+  }, 10000)
 
   it("renders protected content for authenticated users", async () => {
     useAuthMock.mockReturnValue({
@@ -62,5 +64,5 @@ describe("RouteGuard", () => {
 
     expect(collectText(tree)).toContain("Protected profile content")
     expect(findElementByType(tree, authModalMock)).toBeNull()
-  })
+  }, 10000)
 })

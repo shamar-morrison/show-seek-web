@@ -137,4 +137,23 @@ describe("GET /api/lists/can-create", () => {
       limit: 5,
     })
   })
+
+  it("returns 500 when the Firestore helper throws", async () => {
+    verifySessionCookieValueMock.mockResolvedValue({
+      status: "valid",
+      claims: { sub: "user-1" },
+      reason: null,
+    })
+    getUserPremiumStatusMock.mockRejectedValue(
+      new Error("Missing Firebase service account configuration"),
+    )
+
+    const { GET } = await import("../app/api/lists/can-create/route")
+    const response = await GET()
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to check list permission",
+    })
+  })
 })

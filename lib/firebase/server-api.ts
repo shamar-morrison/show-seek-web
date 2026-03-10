@@ -2,11 +2,22 @@ const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 const GOOGLE_CLOUD_PLATFORM_SCOPE =
   "https://www.googleapis.com/auth/cloud-platform"
 const ACCESS_TOKEN_SKEW_SECONDS = 60
+const GOOGLE_REQUEST_TIMEOUT_MS = 10_000
 
-type AccessTokenCache = {
+type CachedAccessToken = {
   accessToken: string
   expiresAt: number
 }
+
+type AccessTokenCache =
+  | {
+      kind: "resolved"
+      value: CachedAccessToken
+    }
+  | {
+      kind: "pending"
+      value: Promise<CachedAccessToken>
+    }
 
 export interface FirebaseServiceAccountConfig {
   projectId: string
@@ -57,45 +68,92 @@ export async function getGoogleAccessToken(): Promise<string | null> {
 
   const nowSeconds = Math.floor(Date.now() / 1000)
 
-  if (
-    accessTokenCache &&
-    accessTokenCache.expiresAt - ACCESS_TOKEN_SKEW_SECONDS > nowSeconds
-  ) {
-    return accessTokenCache.accessToken
+  if (accessTokenCache?.kind === "resolved" && accessTokenCache.value.expiresAt > nowSeconds) {
+    return accessTokenCache.value.accessToken
   }
 
-  const assertion = await createServiceAccountAssertion(config, nowSeconds)
-  const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion,
-    }),
-  })
-
-  if (!response.ok) {
-    const details = await response.text()
-    throw new Error(`Failed to fetch Google access token: ${details}`)
+  if (accessTokenCache?.kind === "pending") {
+    const cachedAccessToken = await accessTokenCache.value
+    return cachedAccessToken.accessToken
   }
 
-  const data = (await response.json()) as {
-    access_token?: string
-    expires_in?: number
-  }
-
-  if (!data.access_token || typeof data.expires_in !== "number") {
-    throw new Error("Google access token response was missing required fields")
-  }
-
+  const refreshPromise = refreshGoogleAccessToken(config)
   accessTokenCache = {
-    accessToken: data.access_token,
-    expiresAt: nowSeconds + data.expires_in,
+    kind: "pending",
+    value: refreshPromise,
   }
 
-  return accessTokenCache.accessToken
+  try {
+    const cachedAccessToken = await refreshPromise
+    accessTokenCache = {
+      kind: "resolved",
+      value: cachedAccessToken,
+    }
+    return cachedAccessToken.accessToken
+  } catch (error) {
+    if (
+      accessTokenCache?.kind === "pending" &&
+      accessTokenCache.value === refreshPromise
+    ) {
+      accessTokenCache = null
+    }
+
+    throw error
+  }
+}
+
+async function refreshGoogleAccessToken(
+  config: FirebaseServiceAccountConfig,
+): Promise<CachedAccessToken> {
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const assertion = await createServiceAccountAssertion(config, nowSeconds)
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(
+    () => abortController.abort(),
+    GOOGLE_REQUEST_TIMEOUT_MS,
+  )
+
+  try {
+    const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion,
+      }),
+      signal: abortController.signal,
+    })
+
+    if (!response.ok) {
+      const details = await response.text()
+      throw new Error(`Failed to fetch Google access token: ${details}`)
+    }
+
+    const data = (await response.json()) as {
+      access_token?: string
+      expires_in?: number
+    }
+
+    if (!data.access_token || typeof data.expires_in !== "number") {
+      throw new Error("Google access token response was missing required fields")
+    }
+
+    return {
+      accessToken: data.access_token,
+      expiresAt:
+        nowSeconds + Math.max(data.expires_in - ACCESS_TOKEN_SKEW_SECONDS, 0),
+    }
+  } catch (error) {
+    if (abortController.signal.aborted) {
+      throw new Error("Google access token request timed out after 10000ms")
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 async function createServiceAccountAssertion(
@@ -142,7 +200,10 @@ async function getSigningKey(privateKey: string): Promise<CryptoKey> {
     },
     false,
     ["sign"],
-  )
+  ).catch((error) => {
+    signingKeyCache.delete(cacheKey)
+    throw error
+  })
 
   signingKeyCache.set(cacheKey, signingKeyPromise)
   return signingKeyPromise

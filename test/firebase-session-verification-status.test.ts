@@ -71,6 +71,7 @@ describe("firebase session verification status", () => {
     const result = await verifySessionCookieValue("not-a-jwt", "local")
 
     expect(result).toEqual({
+      account: null,
       status: "invalid",
       claims: null,
       reason: "Session cookie is not a valid JWT",
@@ -104,6 +105,71 @@ describe("firebase session verification status", () => {
         method: "POST",
       }),
     )
+  })
+
+  it("includes the looked-up account on successful strict verification", async () => {
+    const fetchMock = vi.fn(async (input: string) => {
+      if (input.includes("service_accounts")) {
+        return new Response(
+          JSON.stringify({
+            keys: [
+              {
+                alg: "RS256",
+                e: "AQAB",
+                kid: "kid-1",
+                kty: "RSA",
+                n: "abc",
+              },
+            ],
+          }),
+          {
+            headers: {
+              "cache-control": "public, max-age=3600",
+            },
+            status: 200,
+          },
+        )
+      }
+
+      if (input.includes("accounts:lookup")) {
+        return new Response(
+          JSON.stringify({
+            users: [{ localId: "user-123", validSince: "1700000000" }],
+          }),
+          { status: 200 },
+        )
+      }
+
+      throw new Error(`Unexpected fetch: ${input}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { verifySessionCookieValue } = await import(
+      "../lib/firebase/server-auth"
+    )
+
+    const result = await verifySessionCookieValue(
+      createSessionCookieToken(),
+      "strict",
+    )
+
+    expect(result).toEqual({
+      account: {
+        localId: "user-123",
+        validSince: "1700000000",
+      },
+      claims: {
+        aud: "showseek-project",
+        auth_time: 1_700_000_000,
+        exp: 1_900_000_000,
+        iat: 1_700_000_100,
+        iss: "https://session.firebase.google.com/showseek-project",
+        sub: "user-123",
+      },
+      reason: null,
+      status: "valid",
+    })
   })
 
   it("marks strict verification as unavailable when account lookup fails", async () => {
@@ -148,7 +214,12 @@ describe("firebase session verification status", () => {
       "strict",
     )
 
-    expect(result.status).toBe("unavailable")
+    expect(result).toEqual(
+      expect.objectContaining({
+        account: null,
+        status: "unavailable",
+      }),
+    )
     expect(result.reason).toContain("Failed to look up Firebase account")
   })
 })

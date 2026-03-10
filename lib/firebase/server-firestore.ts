@@ -7,16 +7,37 @@ interface FirestoreDocument {
   fields?: Record<string, unknown>
 }
 
-export async function getUserPremiumStatus(userId: string): Promise<boolean> {
+async function getFirestoreRequestContext(): Promise<{
+  accessToken: string
+  projectId: string
+}> {
   const config = getFirebaseServiceAccountConfig()
-  const accessToken = await getGoogleAccessToken()
 
-  if (!config || !accessToken) {
-    return false
+  if (!config) {
+    throw new Error(
+      "Missing Firebase service account configuration (getFirebaseServiceAccountConfig returned null)",
+    )
   }
 
+  const accessToken = await getGoogleAccessToken()
+
+  if (!accessToken) {
+    throw new Error(
+      "Missing Google access token for Firestore server access (getGoogleAccessToken returned null)",
+    )
+  }
+
+  return {
+    accessToken,
+    projectId: config.projectId,
+  }
+}
+
+export async function getUserPremiumStatus(userId: string): Promise<boolean> {
+  const { accessToken, projectId } = await getFirestoreRequestContext()
+
   const response = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents/users/${userId}`,
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -38,15 +59,10 @@ export async function getUserPremiumStatus(userId: string): Promise<boolean> {
 }
 
 export async function countCustomLists(userId: string): Promise<number> {
-  const config = getFirebaseServiceAccountConfig()
-  const accessToken = await getGoogleAccessToken()
-
-  if (!config || !accessToken) {
-    return 0
-  }
+  const { accessToken, projectId } = await getFirestoreRequestContext()
 
   const response = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents/users/${userId}:runAggregationQuery`,
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}:runAggregationQuery`,
     {
       method: "POST",
       headers: {

@@ -127,6 +127,7 @@ export function AuthRequiredRecovery() {
   const handledRecoveryStateKeyRef = useRef<string | null>(null)
 
   const search = searchParams.toString()
+  const redirectPath = searchParams.get("redirect")
   const authRequired = searchParams.get("auth") === "required"
   const recoveryAction = useMemo(
     () =>
@@ -134,12 +135,12 @@ export function AuthRequiredRecovery() {
         authRequired,
         loading,
         pathname,
-        redirectPath: searchParams.get("redirect"),
+        redirectPath,
         search,
         serverSessionSync,
         user,
       }),
-    [authRequired, loading, pathname, search, searchParams, serverSessionSync, user],
+    [authRequired, loading, pathname, redirectPath, search, serverSessionSync, user],
   )
   const isModalOpen = useMemo(
     () => recoveryAction.type === "show-auth",

@@ -1,12 +1,13 @@
 import { cookies } from "next/headers"
 import {
   createSessionCookie,
+  type FirebaseAccountInfo,
   isSessionVerificationUnavailable,
   isSessionVerificationValid,
-  type SessionVerificationMode,
-  lookupFirebaseAccount,
   SESSION_COOKIE_NAME,
   SESSION_EXPIRY_DAYS,
+  type SessionVerificationMode,
+  type SessionVerificationResult,
   verifySessionCookieValue,
 } from "./server-auth"
 
@@ -17,12 +18,13 @@ export { createSessionCookie, SESSION_COOKIE_NAME, SESSION_EXPIRY_DAYS }
  */
 export async function verifySessionCookie(
   mode: SessionVerificationMode = "strict",
-) {
+): Promise<SessionVerificationResult> {
   const cookieStore = await cookies()
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value
 
   if (!sessionCookie) {
     return {
+      account: null,
       status: "invalid" as const,
       claims: null,
       reason: "Missing session cookie",
@@ -33,10 +35,10 @@ export async function verifySessionCookie(
 }
 
 /**
- * Look up the current authenticated user account from the session cookie.
+ * Read the current authenticated user account from the verified session cookie.
  */
 export async function getCurrentUser(): Promise<
-  Awaited<ReturnType<typeof lookupFirebaseAccount>> | "unavailable"
+  FirebaseAccountInfo | null | "unavailable"
 > {
   const verification = await verifySessionCookie("strict")
 
@@ -48,5 +50,5 @@ export async function getCurrentUser(): Promise<
     return null
   }
 
-  return lookupFirebaseAccount(verification.claims.sub)
+  return verification.account
 }

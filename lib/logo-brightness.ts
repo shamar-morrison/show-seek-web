@@ -9,9 +9,12 @@ import "server-only"
 /**
  * Luminance threshold below which a logo is considered "dark"
  * Range: 0-255, where 0 is black and 255 is white
- * A threshold of 80 catches most dark/black logos while excluding gray ones
+ * A threshold of 80 catches most black/dark monochrome logos
  */
 const DARK_LUMINANCE_THRESHOLD = 80
+const DARK_NEUTRAL_SATURATION_THRESHOLD = 0.2
+const LOGO_ANALYSIS_CONCURRENCY = 4
+const LOGO_ANALYSIS_MAX_DIMENSION = 64
 
 /**
  * Minimum opacity threshold to consider a pixel as "visible"
@@ -20,27 +23,27 @@ const DARK_LUMINANCE_THRESHOLD = 80
 const MIN_OPACITY_THRESHOLD = 128
 
 /**
- * Analyze if a logo image is predominantly dark
- * Cloudflare Workers cannot run the previous sharp-based implementation.
- * We conservatively fall back to `true` so visibility safeguards still apply.
+ * Analyze if a logo image is predominantly dark and near-monochrome.
+ * If image analysis is unavailable, default to `false` so non-dark logos do not
+ * receive the contrast glow by mistake.
  *
  * @param logoUrl - Full URL to the logo image
  * @returns true if the logo is dark, false otherwise
  */
 export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
   if (!logoUrl) {
-    return true
+    return false
   }
 
   let parsedUrl: URL
   try {
     parsedUrl = new URL(logoUrl)
   } catch {
-    return true
+    return false
   }
 
   if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-    return true
+    return false
   }
 
   const hasImageAnalyzerRuntime =
@@ -49,7 +52,7 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
     typeof OffscreenCanvas !== "undefined"
 
   if (!hasImageAnalyzerRuntime) {
-    return true
+    return false
   }
 
   let bitmap: ImageBitmap | null = null
@@ -57,31 +60,50 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
     const response = await fetch(parsedUrl.toString(), { cache: "force-cache" })
 
     if (!response.ok) {
-      return true
+      return false
     }
 
     const contentType = response.headers.get("content-type") ?? ""
     if (!contentType.startsWith("image/")) {
-      return true
+      return false
     }
 
     const blob = await response.blob()
     bitmap = await createImageBitmap(blob)
 
     if (bitmap.width <= 0 || bitmap.height <= 0) {
-      return true
+      return false
     }
 
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const analysisScale = Math.min(
+      1,
+      LOGO_ANALYSIS_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height),
+    )
+    const analysisWidth = Math.max(1, Math.round(bitmap.width * analysisScale))
+    const analysisHeight = Math.max(
+      1,
+      Math.round(bitmap.height * analysisScale),
+    )
+    const canvas = new OffscreenCanvas(analysisWidth, analysisHeight)
     const context = canvas.getContext("2d", { willReadFrequently: true })
 
     if (!context) {
-      return true
+      return false
     }
 
-    context.drawImage(bitmap, 0, 0)
+    context.drawImage(
+      bitmap,
+      0,
+      0,
+      bitmap.width,
+      bitmap.height,
+      0,
+      0,
+      analysisWidth,
+      analysisHeight,
+    )
 
-    const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+    const { data } = context.getImageData(0, 0, analysisWidth, analysisHeight)
     let darkPixels = 0
     let visiblePixels = 0
 
@@ -97,20 +119,18 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
       const red = data[index] ?? 0
       const green = data[index + 1] ?? 0
       const blue = data[index + 2] ?? 0
-      const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
-
-      if (luminance < DARK_LUMINANCE_THRESHOLD) {
+      if (isDarkNeutralPixel(red, green, blue)) {
         darkPixels += 1
       }
     }
 
     if (visiblePixels === 0) {
-      return true
+      return false
     }
 
     return darkPixels / visiblePixels >= 0.5
   } catch {
-    return true
+    return false
   } finally {
     bitmap?.close()
   }
@@ -118,7 +138,7 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
 
 /**
  * Enrich an array of HeroMedia items with logo brightness analysis
- * Analyzes all logos in parallel for efficiency
+ * Analyzes unique logos with bounded concurrency to limit memory pressure
  *
  * @param mediaList - Array of HeroMedia items to enrich
  * @returns Same array with isDarkLogo field populated
@@ -126,11 +146,69 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
 export async function enrichHeroMediaWithBrightness<
   T extends { logoUrl: string | null; isDarkLogo: boolean },
 >(mediaList: T[]): Promise<T[]> {
-  const results = await Promise.all(
-    mediaList.map(async (media) => ({
-      ...media,
-      isDarkLogo: await isLogoDark(media.logoUrl),
-    })),
+  const brightnessByLogoUrl = new Map<string | null, boolean>()
+  const uniqueLogoUrls = Array.from(
+    new Set(mediaList.map((media) => media.logoUrl)),
   )
-  return results
+
+  await runWithConcurrencyLimit(
+    uniqueLogoUrls,
+    LOGO_ANALYSIS_CONCURRENCY,
+    async (logoUrl) => {
+      brightnessByLogoUrl.set(logoUrl, await isLogoDark(logoUrl))
+    },
+  )
+
+  return mediaList.map((media) => ({
+    ...media,
+    isDarkLogo: brightnessByLogoUrl.get(media.logoUrl) ?? false,
+  }))
+}
+
+function isDarkNeutralPixel(red: number, green: number, blue: number): boolean {
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+  if (luminance >= DARK_LUMINANCE_THRESHOLD) {
+    return false
+  }
+
+  const maxChannel = Math.max(red, green, blue)
+  const minChannel = Math.min(red, green, blue)
+
+  if (maxChannel === 0) {
+    return true
+  }
+
+  return (
+    (maxChannel - minChannel) / maxChannel <=
+    DARK_NEUTRAL_SATURATION_THRESHOLD
+  )
+}
+
+async function runWithConcurrencyLimit<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) {
+    return
+  }
+
+  let nextIndex = 0
+  const runnerCount = Math.min(concurrency, items.length)
+
+  async function runNext(): Promise<void> {
+    if (nextIndex >= items.length) {
+      return
+    }
+
+    const item = items[nextIndex] as T
+    nextIndex += 1
+    await worker(item)
+    await runNext()
+  }
+
+  await Promise.all(
+    Array.from({ length: runnerCount }, () => runNext()),
+  )
 }
