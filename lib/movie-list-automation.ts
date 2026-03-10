@@ -1,5 +1,3 @@
-import { isMovieInCachedWatchlist } from "@/lib/watchlist-cache"
-import type { QueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 type MovieListPayload = {
@@ -29,8 +27,6 @@ type RemoveFromListFn = (listId: string, mediaId: string) => Promise<void>
 export async function applyMovieRatingListAutomation(params: {
   mediaType: "movie" | "tv"
   movie: MovieListPayload
-  queryClient: QueryClient
-  userId: string | null
   autoAddToAlreadyWatched: boolean
   autoRemoveFromShouldWatch: boolean
   addToList: AddToListFn
@@ -39,8 +35,6 @@ export async function applyMovieRatingListAutomation(params: {
   const {
     mediaType,
     movie,
-    queryClient,
-    userId,
     autoAddToAlreadyWatched,
     autoRemoveFromShouldWatch,
     addToList,
@@ -71,10 +65,7 @@ export async function applyMovieRatingListAutomation(params: {
     }
   }
 
-  if (
-    autoRemoveFromShouldWatch &&
-    isMovieInCachedWatchlist(queryClient, userId, movie.movieId)
-  ) {
+  if (autoRemoveFromShouldWatch) {
     try {
       await removeFromList("watchlist", String(movie.movieId))
     } catch (listError) {
@@ -85,8 +76,6 @@ export async function applyMovieRatingListAutomation(params: {
 
 export async function applyWatchedMovieListAutomation(params: {
   movie: MovieListPayload
-  queryClient: QueryClient
-  userId: string | null
   isFirstWatch: boolean
   autoAddToAlreadyWatched: boolean
   autoRemoveFromShouldWatch: boolean
@@ -95,8 +84,6 @@ export async function applyWatchedMovieListAutomation(params: {
 }): Promise<void> {
   const {
     movie,
-    queryClient,
-    userId,
     isFirstWatch,
     autoAddToAlreadyWatched,
     autoRemoveFromShouldWatch,
@@ -125,10 +112,7 @@ export async function applyWatchedMovieListAutomation(params: {
     }
   }
 
-  if (
-    autoRemoveFromShouldWatch &&
-    isMovieInCachedWatchlist(queryClient, userId, movie.movieId)
-  ) {
+  if (autoRemoveFromShouldWatch) {
     try {
       await removeFromList("watchlist", String(movie.movieId))
     } catch (listError) {

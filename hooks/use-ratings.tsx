@@ -177,8 +177,6 @@ export function useRatings() {
             voteAverage: variables.voteAverage,
             releaseDate: variables.releaseDate,
           },
-          queryClient,
-          userId,
           autoAddToAlreadyWatched: preferences.autoAddToAlreadyWatched,
           autoRemoveFromShouldWatch: preferences.autoRemoveFromShouldWatch,
           addToList,

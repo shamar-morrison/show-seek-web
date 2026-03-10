@@ -106,8 +106,6 @@ export function useWatchedMovies(
           releaseDate: variables.movieData.releaseDate,
           genreIds: variables.movieData.genreIds,
         },
-        queryClient,
-        userId,
         isFirstWatch,
         autoAddToAlreadyWatched: variables.autoAddToAlreadyWatched,
         autoRemoveFromShouldWatch: variables.autoRemoveFromShouldWatch,
