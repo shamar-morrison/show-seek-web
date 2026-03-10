@@ -15,6 +15,11 @@ const canTrackMoreState = {
   maxFreeCollections: 2,
   isLoading: false,
 }
+const authState = {
+  loading: false,
+  premiumLoading: false,
+  premiumStatus: "free",
+}
 const collectionTrackingState = {
   tracking: {
     watchedMovieIds: [1],
@@ -27,10 +32,7 @@ const collectionTrackingState = {
 }
 
 vi.mock("@/context/auth-context", () => ({
-  useAuth: () => ({
-    premiumLoading: false,
-    premiumStatus: "free",
-  }),
+  useAuth: () => authState,
 }))
 
 vi.mock("@/components/auth-modal", () => ({
@@ -85,6 +87,9 @@ vi.mock("@/components/collection-movies-grid", () => ({
 describe("CollectionPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authState.loading = false
+    authState.premiumLoading = false
+    authState.premiumStatus = "free"
     canTrackMoreState.canTrackMore = true
     canTrackMoreState.maxFreeCollections = 2
     canTrackMoreState.isLoading = false
@@ -181,6 +186,47 @@ describe("CollectionPageClient", () => {
               genre_ids: [],
               popularity: 1,
               release_date: "2014-10-24",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(
+      screen.queryByRole("button", { name: /start tracking/i }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Watched \d+ of/i)).not.toBeInTheDocument()
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      0,
+    )
+  })
+
+  it("keeps showing loading placeholders while auth state is unresolved", () => {
+    authState.loading = true
+
+    const { container } = render(
+      <CollectionPageClient
+        collection={{
+          id: 401,
+          name: "Mission: Impossible Collection",
+          overview: "",
+          poster_path: null,
+          backdrop_path: "/backdrop.jpg",
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Mission: Impossible",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "1996-05-22",
               vote_average: 7,
               vote_count: 1,
               original_language: "en",

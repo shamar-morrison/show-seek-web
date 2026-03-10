@@ -6,6 +6,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   limit,
@@ -182,8 +183,10 @@ export async function fetchAllTrackedCollections(
 export async function getTrackedCollectionCount(
   userId: string,
 ): Promise<number> {
-  const trackedCollections = await fetchAllTrackedCollections(userId)
-  return trackedCollections.length
+  const snapshot = await getCountFromServer(
+    getCollectionTrackingCollectionRef(userId),
+  )
+  return snapshot.data().count
 }
 
 export async function getPreviouslyWatchedMovieIds(

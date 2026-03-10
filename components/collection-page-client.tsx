@@ -45,7 +45,7 @@ interface CollectionPageClientProps {
 export function CollectionPageClient({
   collection,
 }: CollectionPageClientProps) {
-  const { premiumLoading, premiumStatus } = useAuth()
+  const { loading: authLoading, premiumLoading, premiumStatus } = useAuth()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
   const {
     tracking,
@@ -74,8 +74,9 @@ export function CollectionPageClient({
     premiumLoading,
     premiumStatus,
   })
+  const isTrackingStateLoading = authLoading || isLoading
   const isActionLoading =
-    isLoading ||
+    isTrackingStateLoading ||
     isLimitLoading ||
     startTrackingMutation.isPending ||
     stopTrackingMutation.isPending
@@ -172,7 +173,7 @@ export function CollectionPageClient({
                       {collectionMovies.length}{" "}
                       {collectionMovies.length === 1 ? "Movie" : "Movies"}
                     </div>
-                    {isLoading ? (
+                    {isTrackingStateLoading ? (
                       <Skeleton className="h-10 w-36 rounded-full" />
                     ) : isTracked ? (
                       <div className="rounded-full bg-green-500/20 px-4 py-2 text-sm font-medium text-green-300 backdrop-blur-sm">
@@ -183,7 +184,7 @@ export function CollectionPageClient({
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4 backdrop-blur-md">
-                    {isLoading ? (
+                    {isTrackingStateLoading ? (
                       <div className="space-y-4" aria-hidden="true">
                         <Skeleton className="h-4 w-40" />
                         <Skeleton className="h-2 w-full rounded-full" />

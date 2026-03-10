@@ -1,6 +1,7 @@
 import {
   addWatchedMovieToTrackedCollection,
   fetchCollectionTracking,
+  getTrackedCollectionCount,
   getPreviouslyWatchedMovieIds,
   startCollectionTracking,
   stopCollectionTracking,
@@ -10,6 +11,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   setDoc,
@@ -31,6 +33,7 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db, ...segments: string[]) => ({
     path: segments.join("/"),
   })),
+  getCountFromServer: vi.fn(),
   getDoc: vi.fn(),
   getDocs: vi.fn(),
   limit: vi.fn((value: number) => value),
@@ -143,6 +146,19 @@ describe("collection tracking firestore helpers", () => {
         lastUpdated: expect.any(Number),
       },
     )
+  })
+
+  it("counts tracked collections with a Firestore aggregation", async () => {
+    vi.mocked(getCountFromServer).mockResolvedValueOnce({
+      data: () => ({ count: 7 }),
+    } as Awaited<ReturnType<typeof getCountFromServer>>)
+
+    await expect(getTrackedCollectionCount("user-1")).resolves.toBe(7)
+
+    expect(getCountFromServer).toHaveBeenCalledWith({
+      path: "users/user-1/collection_tracking",
+    })
+    expect(getDocs).not.toHaveBeenCalled()
   })
 
   it("deduplicates movie ids across more than one watched-history batch", async () => {
