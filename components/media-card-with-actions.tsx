@@ -12,6 +12,10 @@ interface MediaCardWithActionsProps {
   isLoading?: boolean
   priority?: boolean
   buttonText?: string
+  collectionContext?: {
+    collectionId: number | null
+  }
+  isWatched?: boolean
 }
 
 /**
@@ -25,6 +29,8 @@ export function MediaCardWithActions({
   isLoading = false,
   priority = false,
   buttonText,
+  collectionContext,
+  isWatched = false,
 }: MediaCardWithActionsProps) {
   // Determine media type
   const mediaType = media.media_type === "movie" ? "movie" : "tv"
@@ -36,6 +42,7 @@ export function MediaCardWithActions({
   const { dropdownItems, userRating, listIds, modals } = useMediaActions({
     media,
     mediaType,
+    collectionId: collectionContext?.collectionId ?? null,
   })
 
   const cardContent = (
@@ -48,6 +55,7 @@ export function MediaCardWithActions({
       dropdownItems={dropdownItems}
       userRating={userRating?.rating}
       listIds={listIds}
+      isWatched={isWatched}
     />
   )
 
@@ -64,6 +72,8 @@ export function MediaCardWithActions({
           dropdownItems={dropdownItems}
           userRating={userRating?.rating}
           listIds={listIds}
+          collectionContext={collectionContext}
+          isWatched={isWatched}
         />
       ) : (
         cardContent

@@ -1,7 +1,13 @@
 "use client"
 
+import { fetchMovieDetails } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
+import {
+  addWatchedMovieToTrackedCollection,
+  fetchAllTrackedCollections,
+  removeWatchedMovieFromTrackedCollection,
+} from "@/lib/firebase/collection-tracking"
 import {
   addWatch,
   clearWatches,
@@ -32,6 +38,7 @@ interface UseWatchedMoviesReturn {
       voteAverage?: number
       releaseDate?: string
       genreIds?: number[]
+      collectionId?: number | null
     },
     autoAddToAlreadyWatched?: boolean,
     autoRemoveFromShouldWatch?: boolean,
@@ -41,6 +48,81 @@ interface UseWatchedMoviesReturn {
 
 interface WatchMutationContext {
   previousWatches: WatchInstance[] | undefined
+}
+
+async function resolveCollectionId(movieId: number, collectionId?: number | null) {
+  if (typeof collectionId === "number") {
+    return collectionId
+  }
+
+  try {
+    const movieDetails = await fetchMovieDetails(movieId)
+    return movieDetails?.belongs_to_collection?.id ?? null
+  } catch (error) {
+    console.warn(
+      `[useWatchedMovies] Failed to resolve collection for movie ${movieId}:`,
+      error,
+    )
+    return null
+  }
+}
+
+async function syncCollectionTrackingAfterWatch(
+  userId: string,
+  movieId: number,
+  collectionId?: number | null,
+) {
+  try {
+    const resolvedCollectionId = await resolveCollectionId(movieId, collectionId)
+
+    if (!resolvedCollectionId) {
+      return
+    }
+
+    await addWatchedMovieToTrackedCollection(userId, resolvedCollectionId, movieId)
+  } catch (error) {
+    console.warn(
+      `[useWatchedMovies] Failed to sync collection tracking after watch for movie ${movieId}:`,
+      error,
+    )
+  }
+}
+
+async function syncCollectionTrackingAfterUnwatch(userId: string, movieId: number) {
+  try {
+    const trackedCollections = await fetchAllTrackedCollections(userId)
+    const affectedCollections = trackedCollections.filter((trackedCollection) =>
+      trackedCollection.watchedMovieIds.includes(movieId),
+    )
+
+    if (affectedCollections.length === 0) {
+      return
+    }
+
+    const results = await Promise.allSettled(
+      affectedCollections.map((trackedCollection) =>
+        removeWatchedMovieFromTrackedCollection(
+          userId,
+          trackedCollection.collectionId,
+          movieId,
+        ),
+      ),
+    )
+
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn(
+          `[useWatchedMovies] Failed to remove movie ${movieId} from tracked collection ${affectedCollections[index].collectionId}:`,
+          result.reason,
+        )
+      }
+    })
+  } catch (error) {
+    console.warn(
+      `[useWatchedMovies] Failed to sync collection tracking after unwatch for movie ${movieId}:`,
+      error,
+    )
+  }
 }
 
 /**
@@ -84,6 +166,7 @@ export function useWatchedMovies(
         voteAverage?: number
         releaseDate?: string
         genreIds?: number[]
+        collectionId?: number | null
       }
       autoAddToAlreadyWatched: boolean
       autoRemoveFromShouldWatch: boolean
@@ -96,6 +179,12 @@ export function useWatchedMovies(
         variables.isFirstWatch ?? (await getWatchCount(userId, movieId)) === 0
 
       await addWatch(userId, movieId, variables.watchedAt)
+
+      await syncCollectionTrackingAfterWatch(
+        userId,
+        movieId,
+        variables.movieData.collectionId,
+      )
 
       await applyWatchedMovieListAutomation({
         movie: {
@@ -142,6 +231,9 @@ export function useWatchedMovies(
     onSettled: () => {
       if (!watchesQueryKey) return
       queryClient.invalidateQueries({ queryKey: watchesQueryKey })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.firestore.collectionTrackingRoot,
+      })
     },
   })
 
@@ -158,6 +250,7 @@ export function useWatchedMovies(
       }
 
       await clearWatches(userId, movieId)
+      await syncCollectionTrackingAfterUnwatch(userId, movieId)
     },
     onMutate: async () => {
       if (!watchesQueryKey) {
@@ -178,6 +271,9 @@ export function useWatchedMovies(
     onSettled: () => {
       if (!watchesQueryKey) return
       queryClient.invalidateQueries({ queryKey: watchesQueryKey })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.firestore.collectionTrackingRoot,
+      })
     },
   })
 
@@ -196,6 +292,7 @@ export function useWatchedMovies(
         voteAverage?: number
         releaseDate?: string
         genreIds?: number[]
+        collectionId?: number | null
       },
       autoAddToAlreadyWatched: boolean = false,
       autoRemoveFromShouldWatch: boolean = false,

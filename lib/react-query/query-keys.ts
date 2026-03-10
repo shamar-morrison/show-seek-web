@@ -33,6 +33,13 @@ export const queryKeys = {
   },
 
   firestore: {
+    collectionTrackingRoot: ["firestore", "collection-tracking"] as const,
+    collectionTrackingAll: (userId: string) =>
+      ["firestore", "collection-tracking", userId, "all"] as const,
+    collectionTrackingSingle: (userId: string, collectionId: number) =>
+      ["firestore", "collection-tracking", userId, "single", collectionId] as const,
+    collectionTrackingCount: (userId: string) =>
+      ["firestore", "collection-tracking", userId, "count"] as const,
     lists: (userId: string) => ["firestore", "lists", userId] as const,
     ratings: (userId: string) => ["firestore", "ratings", userId] as const,
     notes: (userId: string) => ["firestore", "notes", userId] as const,

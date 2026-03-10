@@ -33,6 +33,8 @@ interface MediaCardProps {
   dropdownItems?: DropdownMenuItem[]
   /** Optional list IDs to display indicators for */
   listIds?: string[]
+  /** Optional watched badge for collection progress */
+  isWatched?: boolean
 }
 
 export function MediaCard({
@@ -44,6 +46,7 @@ export function MediaCard({
   userRating,
   dropdownItems,
   listIds,
+  isWatched = false,
 }: MediaCardProps) {
   const title = media.title || media.name || "Unknown Title"
   const date = media.release_date || media.first_air_date
@@ -95,6 +98,16 @@ export function MediaCard({
           {/* Status Badges - Top Left */}
           <div className="absolute top-2 left-2 flex flex-col gap-2">
             {/* User Rating Badge */}
+            {isWatched && (
+              <div className="flex w-fit items-center gap-1 rounded-md bg-green-500/85 px-2 py-1 backdrop-blur-sm">
+                <HugeiconsIcon
+                  icon={CheckmarkCircle02Icon}
+                  className="size-3.5 fill-white text-white"
+                />
+                <span className="text-sm font-semibold text-white">Watched</span>
+              </div>
+            )}
+
             {userRating != null && (
               <div className="flex w-fit items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
                 <HugeiconsIcon

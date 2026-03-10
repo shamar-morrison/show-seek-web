@@ -19,14 +19,23 @@ import { HugeiconsIcon } from "@hugeicons/react"
 
 interface CollectionMoviesGridProps {
   movies: TMDBMedia[]
+  collectionId?: number
+  isTracked?: boolean
+  watchedMovieIds?: number[]
 }
 
-export function CollectionMoviesGrid({ movies }: CollectionMoviesGridProps) {
+export function CollectionMoviesGrid({
+  movies,
+  collectionId,
+  isTracked = false,
+  watchedMovieIds = [],
+}: CollectionMoviesGridProps) {
   const { isPremium } = useAuth()
   const { preferences } = usePreferences()
   const { isOpen, activeTrailer, watchTrailer, closeTrailer, loadingMediaId } =
     useTrailer()
   const filteredMovies = useContentFilter(movies)
+  const watchedMovieIdSet = new Set(watchedMovieIds)
 
   const handleWatchTrailer = (media: TMDBMedia) => {
     watchTrailer(media.id, "movie", media.title || "Trailer")
@@ -61,6 +70,8 @@ export function CollectionMoviesGrid({ movies }: CollectionMoviesGridProps) {
               isLoading={
                 loadingMediaId === `${movie.media_type || "movie"}-${movie.id}`
               }
+              collectionContext={{ collectionId: collectionId ?? null }}
+              isWatched={isTracked && watchedMovieIdSet.has(movie.id)}
             />
           ))}
         </div>

@@ -213,6 +213,7 @@ export function MediaDetailHero({
     if (mediaType !== "movie") return
 
     const movieMedia = media as TMDBMovieDetails
+    const collectionId = movieMedia.belongs_to_collection?.id ?? null
 
     if (preferences.quickMarkAsWatched) {
       // Quick mark - immediately mark as watched with current time
@@ -226,6 +227,7 @@ export function MediaDetailHero({
             voteAverage: movieMedia.vote_average,
             releaseDate: movieMedia.release_date,
             genreIds: movieMedia.genres?.map((g) => g.id),
+            collectionId,
           },
           preferences.autoAddToAlreadyWatched,
           preferences.autoRemoveFromShouldWatch,
@@ -253,6 +255,7 @@ export function MediaDetailHero({
     async (date: Date) => {
       if (mediaType !== "movie") return
       const movieMedia = media as TMDBMovieDetails
+      const collectionId = movieMedia.belongs_to_collection?.id ?? null
       await addWatchInstance(
         date,
         {
@@ -261,6 +264,7 @@ export function MediaDetailHero({
           voteAverage: movieMedia.vote_average,
           releaseDate: movieMedia.release_date,
           genreIds: movieMedia.genres?.map((g) => g.id),
+          collectionId,
         },
         preferences.autoAddToAlreadyWatched,
         preferences.autoRemoveFromShouldWatch,

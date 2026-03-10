@@ -38,6 +38,12 @@ interface MediaPreviewCardWrapperProps {
   userRating?: number | null
   /** List IDs for indicators */
   listIds?: string[]
+  /** Optional collection context for collection-aware watch actions */
+  collectionContext?: {
+    collectionId: number | null
+  }
+  /** Whether the media is watched within the active collection */
+  isWatched?: boolean
 }
 
 /**
@@ -56,6 +62,8 @@ export function MediaPreviewCardWrapper({
   dropdownItems,
   userRating,
   listIds,
+  collectionContext,
+  isWatched = false,
 }: MediaPreviewCardWrapperProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -96,6 +104,7 @@ export function MediaPreviewCardWrapper({
       dropdownItems={dropdownItems}
       userRating={userRating}
       listIds={listIds}
+      isWatched={isWatched}
     />
   )
 
@@ -129,6 +138,10 @@ export function MediaPreviewCardWrapper({
     setIsOpen(false)
 
     const movieMedia = detailedMedia as TMDBMovieDetails
+    const resolvedCollectionId =
+      collectionContext?.collectionId ??
+      movieMedia.belongs_to_collection?.id ??
+      null
 
     if (preferences.quickMarkAsWatched) {
       // Quick mark - immediately mark as watched with current time
@@ -142,6 +155,7 @@ export function MediaPreviewCardWrapper({
             voteAverage: movieMedia.vote_average,
             releaseDate: movieMedia.release_date,
             genreIds: movieMedia.genres?.map((g) => g.id),
+            collectionId: resolvedCollectionId,
           },
           preferences.autoAddToAlreadyWatched,
           preferences.autoRemoveFromShouldWatch,
@@ -166,6 +180,7 @@ export function MediaPreviewCardWrapper({
     preferences.autoRemoveFromShouldWatch,
     addWatchInstance,
     requireAuth,
+    collectionContext?.collectionId,
   ])
 
   // Handle mark as watched from modal
@@ -173,6 +188,10 @@ export function MediaPreviewCardWrapper({
     async (date: Date) => {
       if (mediaType !== "movie" || !detailedMedia) return
       const movieMedia = detailedMedia as TMDBMovieDetails
+      const resolvedCollectionId =
+        collectionContext?.collectionId ??
+        movieMedia.belongs_to_collection?.id ??
+        null
       await addWatchInstance(
         date,
         {
@@ -181,6 +200,7 @@ export function MediaPreviewCardWrapper({
           voteAverage: movieMedia.vote_average,
           releaseDate: movieMedia.release_date,
           genreIds: movieMedia.genres?.map((g) => g.id),
+          collectionId: resolvedCollectionId,
         },
         preferences.autoAddToAlreadyWatched,
         preferences.autoRemoveFromShouldWatch,
@@ -192,6 +212,7 @@ export function MediaPreviewCardWrapper({
       preferences.autoAddToAlreadyWatched,
       preferences.autoRemoveFromShouldWatch,
       addWatchInstance,
+      collectionContext?.collectionId,
     ],
   )
 

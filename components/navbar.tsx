@@ -38,6 +38,7 @@ const listsMenu: NavItemWithSubmenu = {
   label: "Lists",
   links: [
     { label: "Watch Progress", href: "/lists/watch-progress" },
+    { label: "Collection Progress", href: "/lists/collection-progress" },
     { label: "Watch Lists", href: "/lists/watch-lists" },
     { label: "Custom Lists", href: "/lists/custom-lists" },
     { label: "Notes", href: "/lists/notes" },
