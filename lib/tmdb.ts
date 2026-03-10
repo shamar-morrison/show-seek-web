@@ -945,6 +945,7 @@ export async function getSeasonDetails(
     }
 
     const data = (await response.json()) as TMDBSeasonDetails
+    console.log("foo")
 
     // Return full season and episode data
     return {
