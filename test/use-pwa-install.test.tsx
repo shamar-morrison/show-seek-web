@@ -121,6 +121,41 @@ describe("usePWAInstall", () => {
     ).toBe("accepted")
   })
 
+  it("hides the prompt when an external preference update suppresses it", async () => {
+    const { result } = renderHook(() => usePWAInstall())
+
+    act(() => {
+      window.dispatchEvent(createBeforeInstallPromptEvent())
+    })
+
+    await waitFor(() => {
+      expect(result.current.showPrompt).toBe(true)
+    })
+
+    const acceptedPreference = JSON.stringify({
+      status: "accepted",
+      timestamp: Date.now(),
+    })
+
+    act(() => {
+      localStorage.setItem(STORAGE_KEY, acceptedPreference)
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: STORAGE_KEY,
+          newValue: acceptedPreference,
+          oldValue: null,
+          storageArea: localStorage,
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(result.current.installPreference?.status).toBe("accepted")
+    })
+
+    expect(result.current.showPrompt).toBe(false)
+  })
+
   it("continues to respect dismissed preference expiration", async () => {
     setStoredPreference("dismissed", Date.now() - 60 * 60 * 1000)
 

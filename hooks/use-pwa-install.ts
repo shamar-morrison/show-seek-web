@@ -228,7 +228,8 @@ export function usePWAInstall() {
   }, [])
 
   return {
-    showPrompt: showPrompt && !isInstalled,
+    showPrompt:
+      showPrompt && !isInstalled && shouldShowPrompt(installPreference),
     isInstalled,
     installPreference,
     install,
