@@ -135,6 +135,7 @@ describe("useCollectionTracking", () => {
       "Spider-Man Collection",
       3,
       [101, 103],
+      { isPremium: false },
     )
   })
 

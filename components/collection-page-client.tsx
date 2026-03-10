@@ -42,6 +42,23 @@ interface CollectionPageClientProps {
   collection: TMDBCollectionDetails
 }
 
+function CollectionMoviesGridSkeleton() {
+  return (
+    <div
+      className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7"
+      data-testid="collection-movies-grid-skeleton"
+      aria-hidden="true"
+    >
+      {Array.from({ length: 7 }).map((_, index) => (
+        <div key={index} className="space-y-3">
+          <Skeleton className="aspect-[2/3] w-full rounded-lg" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function CollectionPageClient({
   collection,
 }: CollectionPageClientProps) {
@@ -102,7 +119,11 @@ export function CollectionPageClient({
         toast.success("Collection tracking started")
       } catch (error) {
         console.error("Failed to start collection tracking:", error)
-        toast.error("Failed to start collection tracking")
+        toast.error(
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to start collection tracking",
+        )
       }
     }, "Sign in to track collection progress")
   }, [
@@ -277,12 +298,16 @@ export function CollectionPageClient({
 
         <div className="mx-auto w-full max-w-[1800px] px-4 sm:px-8 lg:px-12">
           <h2 className="mb-6 text-2xl font-bold text-white">Movies</h2>
-          <CollectionMoviesGrid
-            movies={collectionMovies}
-            collectionId={collection.id}
-            isTracked={isTracked}
-            watchedMovieIds={tracking?.watchedMovieIds ?? []}
-          />
+          {isTrackingStateLoading ? (
+            <CollectionMoviesGridSkeleton />
+          ) : (
+            <CollectionMoviesGrid
+              movies={collectionMovies}
+              collectionId={collection.id}
+              isTracked={isTracked}
+              watchedMovieIds={tracking?.watchedMovieIds ?? []}
+            />
+          )}
         </div>
       </main>
 

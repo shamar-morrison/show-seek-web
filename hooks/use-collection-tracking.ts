@@ -125,7 +125,7 @@ interface StartCollectionTrackingInput {
 }
 
 export function useStartCollectionTracking() {
-  const { user } = useAuth()
+  const { user, isPremium } = useAuth()
   const queryClient = useQueryClient()
   const userId = user && !user.isAnonymous ? user.uid : null
 
@@ -168,6 +168,7 @@ export function useStartCollectionTracking() {
         name,
         totalMovies,
         watchedMovieIds,
+        { isPremium },
       )
     },
     onSuccess: async () => {

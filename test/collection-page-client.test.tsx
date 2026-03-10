@@ -78,10 +78,23 @@ vi.mock("@/hooks/use-collection-tracking", () => ({
 
 vi.mock("@/components/collection-movies-grid", () => ({
   CollectionMoviesGrid: ({
+    movies,
+    collectionId,
+    isTracked,
     watchedMovieIds,
   }: {
-    watchedMovieIds: number[]
-  }) => <div>Watched IDs: {watchedMovieIds.join(",")}</div>,
+    movies: Array<{ id: number }>
+    collectionId?: number
+    isTracked?: boolean
+    watchedMovieIds?: number[]
+  }) => (
+    <div data-testid="collection-movies-grid">
+      <div>Collection ID: {collectionId ?? "missing"}</div>
+      <div>Movie IDs: {movies.map((movie) => movie.id).join(",")}</div>
+      <div>Is Tracked: {String(Boolean(isTracked))}</div>
+      <div>Watched IDs: {(watchedMovieIds ?? []).join(",")}</div>
+    </div>
+  ),
 }))
 
 describe("CollectionPageClient", () => {
@@ -146,7 +159,12 @@ describe("CollectionPageClient", () => {
     })
   })
 
-  it("passes watched movie ids into the collection grid", () => {
+  it("passes collection tracking props into the collection grid", () => {
+    collectionTrackingState.isTracked = true
+    collectionTrackingState.tracking = {
+      watchedMovieIds: [1],
+    }
+
     render(
       <CollectionPageClient
         collection={{
@@ -155,11 +173,46 @@ describe("CollectionPageClient", () => {
           overview: "",
           poster_path: null,
           backdrop_path: null,
-          parts: [],
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Batman",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "1989-06-23",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+            {
+              id: 2,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Batman Returns",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "1992-06-19",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
         }}
       />,
     )
 
+    expect(screen.getByTestId("collection-movies-grid")).toBeInTheDocument()
+    expect(screen.getByText("Collection ID: 201")).toBeInTheDocument()
+    expect(screen.getByText("Movie IDs: 1,2")).toBeInTheDocument()
+    expect(screen.getByText("Is Tracked: true")).toBeInTheDocument()
     expect(screen.getByText("Watched IDs: 1")).toBeInTheDocument()
   })
 
@@ -199,6 +252,12 @@ describe("CollectionPageClient", () => {
       screen.queryByRole("button", { name: /start tracking/i }),
     ).not.toBeInTheDocument()
     expect(screen.queryByText(/Watched \d+ of/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId("collection-movies-grid"),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByTestId("collection-movies-grid-skeleton"),
+    ).toBeInTheDocument()
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
       0,
     )
@@ -240,6 +299,12 @@ describe("CollectionPageClient", () => {
       screen.queryByRole("button", { name: /start tracking/i }),
     ).not.toBeInTheDocument()
     expect(screen.queryByText(/Watched \d+ of/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId("collection-movies-grid"),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByTestId("collection-movies-grid-skeleton"),
+    ).toBeInTheDocument()
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
       0,
     )

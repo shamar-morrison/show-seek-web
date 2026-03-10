@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore"
 
 export const MAX_FREE_COLLECTIONS = 2
+const COLLECTION_TRACKING_LIMIT_ERROR = `Free users can track up to ${MAX_FREE_COLLECTIONS} collections. Upgrade to Premium for unlimited tracking.`
 
 const WATCHED_HISTORY_CHECK_BATCH_SIZE = 8
 const WATCHED_HISTORY_CHECK_CONCURRENCY = 3
@@ -249,7 +250,19 @@ export async function startCollectionTracking(
   name: string,
   totalMovies: number,
   initialWatchedMovieIds: number[] = [],
+  options: { isPremium?: boolean } = {},
 ): Promise<void> {
+  const trackedCollectionRef = getCollectionTrackingDocRef(userId, collectionId)
+  const existingTrackingSnapshot = await getDoc(trackedCollectionRef)
+
+  if (!existingTrackingSnapshot.exists() && !options.isPremium) {
+    const trackedCollectionCount = await getTrackedCollectionCount(userId)
+
+    if (trackedCollectionCount >= MAX_FREE_COLLECTIONS) {
+      throw new Error(COLLECTION_TRACKING_LIMIT_ERROR)
+    }
+  }
+
   const now = Date.now()
   const trackedCollection: TrackedCollection = {
     collectionId,
@@ -260,10 +273,7 @@ export async function startCollectionTracking(
     lastUpdated: now,
   }
 
-  await setDoc(
-    getCollectionTrackingDocRef(userId, collectionId),
-    trackedCollection,
-  )
+  await setDoc(trackedCollectionRef, trackedCollection)
 }
 
 export async function stopCollectionTracking(

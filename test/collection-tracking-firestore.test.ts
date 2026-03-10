@@ -83,6 +83,12 @@ describe("collection tracking firestore helpers", () => {
 
     try {
       vi.setSystemTime(new Date("2026-03-10T18:45:00.000Z"))
+      vi.mocked(getDoc).mockResolvedValueOnce({
+        exists: () => false,
+      } as Awaited<ReturnType<typeof getDoc>>)
+      vi.mocked(getCountFromServer).mockResolvedValueOnce({
+        data: () => ({ count: 1 }),
+      } as Awaited<ReturnType<typeof getCountFromServer>>)
 
       await startCollectionTracking(
         "user-1",
@@ -90,6 +96,7 @@ describe("collection tracking firestore helpers", () => {
         "The Matrix Collection",
         4,
         [603],
+        { isPremium: false },
       )
 
       expect(setDoc).toHaveBeenCalledWith(
@@ -103,6 +110,103 @@ describe("collection tracking firestore helpers", () => {
           lastUpdated: 1773168300000,
         },
       )
+      expect(getCountFromServer).toHaveBeenCalledWith({
+        path: "users/user-1/collection_tracking",
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("rejects new collection tracking when a free user is already at the limit", async () => {
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => false,
+    } as Awaited<ReturnType<typeof getDoc>>)
+    vi.mocked(getCountFromServer).mockResolvedValueOnce({
+      data: () => ({ count: 2 }),
+    } as Awaited<ReturnType<typeof getCountFromServer>>)
+
+    await expect(
+      startCollectionTracking(
+        "user-1",
+        78,
+        "The Dark Knight Collection",
+        3,
+        [],
+        { isPremium: false },
+      ),
+    ).rejects.toThrow(
+      "Free users can track up to 2 collections. Upgrade to Premium for unlimited tracking.",
+    )
+
+    expect(setDoc).not.toHaveBeenCalled()
+  })
+
+  it("allows premium users to start tracking even when they are above the free limit", async () => {
+    vi.useFakeTimers()
+
+    try {
+      vi.setSystemTime(new Date("2026-03-10T18:45:00.000Z"))
+      vi.mocked(getDoc).mockResolvedValueOnce({
+        exists: () => false,
+      } as Awaited<ReturnType<typeof getDoc>>)
+
+      await startCollectionTracking(
+        "user-1",
+        79,
+        "Harry Potter Collection",
+        8,
+        [1, 2],
+        { isPremium: true },
+      )
+
+      expect(setDoc).toHaveBeenCalledWith(
+        { path: "users/user-1/collection_tracking/79" },
+        {
+          collectionId: 79,
+          name: "Harry Potter Collection",
+          totalMovies: 8,
+          watchedMovieIds: [1, 2],
+          startedAt: 1773168300000,
+          lastUpdated: 1773168300000,
+        },
+      )
+      expect(getCountFromServer).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("allows existing tracked collections to be updated without rechecking the free limit", async () => {
+    vi.useFakeTimers()
+
+    try {
+      vi.setSystemTime(new Date("2026-03-10T18:45:00.000Z"))
+      vi.mocked(getDoc).mockResolvedValueOnce({
+        exists: () => true,
+      } as Awaited<ReturnType<typeof getDoc>>)
+
+      await startCollectionTracking(
+        "user-1",
+        80,
+        "Alien Collection",
+        4,
+        [201],
+        { isPremium: false },
+      )
+
+      expect(setDoc).toHaveBeenCalledWith(
+        { path: "users/user-1/collection_tracking/80" },
+        {
+          collectionId: 80,
+          name: "Alien Collection",
+          totalMovies: 4,
+          watchedMovieIds: [201],
+          startedAt: 1773168300000,
+          lastUpdated: 1773168300000,
+        },
+      )
+      expect(getCountFromServer).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
     }
