@@ -41,7 +41,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Run tests
-        run: pnpm test -- --watchman=false
+        run: pnpm test
 
       - name: Build
         env:
