@@ -80,10 +80,11 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
-  const [isInstalled, setIsInstalled] = useState(
-    typeof window !== "undefined" &&
-      window.matchMedia("(display-mode: standalone)").matches,
-  )
+  const [isInstalled, setIsInstalled] = useState(false)
+
+  useEffect(() => {
+    setIsInstalled(window.matchMedia("(display-mode: standalone)").matches)
+  }, [])
 
   useEffect(() => {
     if (isInstalled) {

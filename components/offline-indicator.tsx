@@ -6,11 +6,11 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useEffect, useState } from "react"
 
 export function OfflineIndicator() {
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== "undefined" ? !navigator.onLine : false,
-  )
+  const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
+    setIsOffline(!navigator.onLine)
+
     const handleOnline = () => setIsOffline(false)
     const handleOffline = () => setIsOffline(true)
 
