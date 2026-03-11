@@ -1,5 +1,5 @@
-import type { TrackedCollection } from "@/types/collection-tracking"
 import { db } from "@/lib/firebase/config"
+import type { TrackedCollection } from "@/types/collection-tracking"
 import {
   arrayRemove,
   arrayUnion,
@@ -26,6 +26,7 @@ function getCollectionTrackingDocRef(userId: string, collectionId: number) {
 }
 
 function getCollectionTrackingCollectionRef(userId: string) {
+  console.log("getCollectionTrackingCollectionRef", userId)
   return collection(db, "users", userId, "collection_tracking")
 }
 
