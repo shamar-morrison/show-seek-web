@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Firebase Firestore operations for user ratings
  * Path: users/{userId}/ratings/{ratingId}
@@ -14,7 +16,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore"
-import { db } from "./config"
+import { getFirebaseDb } from "./config"
 
 /**
  * Convert Firestore document data to Rating interface
@@ -56,7 +58,7 @@ function getRatingDocId(mediaType: "movie" | "tv", mediaId: number): string {
  * Get the Firestore reference for a user's ratings collection
  */
 function getRatingsCollectionRef(userId: string) {
-  return collection(db, "users", userId, "ratings")
+  return collection(getFirebaseDb(), "users", userId, "ratings")
 }
 
 /**
@@ -87,7 +89,7 @@ function getRatingRef(
     mediaType,
     typeof mediaId === "number" ? mediaId : parseInt(mediaId),
   )
-  return doc(db, "users", userId, "ratings", docId)
+  return doc(getFirebaseDb(), "users", userId, "ratings", docId)
 }
 
 /**
@@ -114,9 +116,9 @@ export async function setRating(
     }
 
     const docId = `episode-${input.tvShowId}-${input.seasonNumber}-${input.episodeNumber}`
-    const ratingRef = doc(db, "users", userId, "ratings", docId)
+    const ratingRef = doc(getFirebaseDb(), "users", userId, "ratings", docId)
 
-    await runTransaction(db, async (transaction) => {
+    await runTransaction(getFirebaseDb(), async (transaction) => {
       transaction.set(
         ratingRef,
         {
@@ -140,7 +142,7 @@ export async function setRating(
 
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
-  await runTransaction(db, async (transaction) => {
+  await runTransaction(getFirebaseDb(), async (transaction) => {
     const existingDoc = await transaction.get(ratingRef)
     const exists = existingDoc.exists()
 
@@ -203,6 +205,6 @@ export async function deleteEpisodeRating(
   episodeNumber: number,
 ): Promise<void> {
   const docId = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
-  const ratingRef = doc(db, "users", userId, "ratings", docId)
+  const ratingRef = doc(getFirebaseDb(), "users", userId, "ratings", docId)
   await deleteDoc(ratingRef)
 }

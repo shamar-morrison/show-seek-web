@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Firebase Firestore operations for user notes
  * Path: users/{userId}/notes/{noteId}
@@ -13,7 +15,7 @@ import {
   setDoc,
   Timestamp,
 } from "firebase/firestore"
-import { db } from "./config"
+import { getFirebaseDb } from "./config"
 
 /**
  * Generate document ID for a note
@@ -27,7 +29,7 @@ function getNoteDocId(mediaType: "movie" | "tv", mediaId: number): string {
  * Get the Firestore reference for a user's notes collection
  */
 function getNotesCollectionRef(userId: string) {
-  return collection(db, "users", userId, "notes")
+  return collection(getFirebaseDb(), "users", userId, "notes")
 }
 
 /**
@@ -55,7 +57,7 @@ function getNoteRef(
   mediaId: number,
 ) {
   const docId = getNoteDocId(mediaType, mediaId)
-  return doc(db, "users", userId, "notes", docId)
+  return doc(getFirebaseDb(), "users", userId, "notes", docId)
 }
 
 /**

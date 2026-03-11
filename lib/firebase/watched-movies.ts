@@ -1,9 +1,11 @@
+"use client"
+
 /**
  * Firebase Firestore operations for movie watch history
  * Path: users/{userId}/watched_movies/{movieId}/watches/{watchId}
  */
 
-import { db } from "@/lib/firebase/config"
+import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   collection,
   doc,
@@ -35,7 +37,7 @@ export async function fetchWatches(
   movieId: number,
 ): Promise<WatchInstance[]> {
   const watchesRef = collection(
-    db,
+    getFirebaseDb(),
     "users",
     userId,
     "watched_movies",
@@ -68,7 +70,7 @@ export async function addWatch(
   watchedAt: Date,
 ): Promise<string> {
   const watchesRef = collection(
-    db,
+    getFirebaseDb(),
     "users",
     userId,
     "watched_movies",
@@ -99,7 +101,7 @@ export async function clearWatches(
   movieId: number,
 ): Promise<void> {
   const watchesRef = collection(
-    db,
+    getFirebaseDb(),
     "users",
     userId,
     "watched_movies",
@@ -113,7 +115,7 @@ export async function clearWatches(
 
   const BATCH_LIMIT = 500
   for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
-    const batch = writeBatch(db)
+    const batch = writeBatch(getFirebaseDb())
     const chunk = snapshot.docs.slice(i, i + BATCH_LIMIT)
     chunk.forEach((watchDoc) => {
       batch.delete(watchDoc.ref)
@@ -132,7 +134,7 @@ export async function getWatchCount(
   movieId: number,
 ): Promise<number> {
   const watchesRef = collection(
-    db,
+    getFirebaseDb(),
     "users",
     userId,
     "watched_movies",

@@ -1,4 +1,6 @@
-import { db } from "@/lib/firebase/config"
+"use client"
+
+import { getFirebaseDb } from "@/lib/firebase/config"
 import type { TrackedCollection } from "@/types/collection-tracking"
 import {
   arrayRemove,
@@ -22,12 +24,18 @@ const WATCHED_HISTORY_CHECK_BATCH_SIZE = 8
 const WATCHED_HISTORY_CHECK_CONCURRENCY = 3
 
 function getCollectionTrackingDocRef(userId: string, collectionId: number) {
-  return doc(db, "users", userId, "collection_tracking", String(collectionId))
+  return doc(
+    getFirebaseDb(),
+    "users",
+    userId,
+    "collection_tracking",
+    String(collectionId),
+  )
 }
 
 function getCollectionTrackingCollectionRef(userId: string) {
   console.log("getCollectionTrackingCollectionRef", userId)
-  return collection(db, "users", userId, "collection_tracking")
+  return collection(getFirebaseDb(), "users", userId, "collection_tracking")
 }
 
 function normalizeTrackedCollection(
@@ -223,7 +231,7 @@ export async function getPreviouslyWatchedMovieIds(
       const batchResults = await Promise.all(
         batch.map(async (movieId) => {
           const watchesRef = collection(
-            db,
+            getFirebaseDb(),
             "users",
             userId,
             "watched_movies",

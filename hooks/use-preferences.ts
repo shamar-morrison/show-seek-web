@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
-import { db } from "@/lib/firebase/config"
+import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   DEFAULT_PREFERENCES,
   HomeScreenListItem,
@@ -38,7 +38,7 @@ export function usePreferences(): UsePreferencesReturn {
       return
     }
 
-    const userDocRef = doc(db, "users", user.uid)
+    const userDocRef = doc(getFirebaseDb(), "users", user.uid)
     // Intentionally realtime: preference toggles should sync live across active views.
     const unsubscribe = onSnapshot(
       userDocRef,
@@ -70,7 +70,7 @@ export function usePreferences(): UsePreferencesReturn {
         throw new Error("User must be logged in to update preferences")
       }
 
-      const userDocRef = doc(db, "users", user.uid)
+      const userDocRef = doc(getFirebaseDb(), "users", user.uid)
 
       // Capture original value before optimistic update
       let originalValue: UserPreferences[K]
@@ -101,7 +101,7 @@ export function usePreferences(): UsePreferencesReturn {
         throw new Error("User must be logged in to update home screen lists")
       }
 
-      const userDocRef = doc(db, "users", user.uid)
+      const userDocRef = doc(getFirebaseDb(), "users", user.uid)
 
       // Capture original value before optimistic update
       let originalLists: HomeScreenListItem[] | undefined

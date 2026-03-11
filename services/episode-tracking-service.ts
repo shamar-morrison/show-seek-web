@@ -1,4 +1,6 @@
-import { auth, db } from "@/lib/firebase/config"
+"use client"
+
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/config"
 import type {
   EpisodeTrackingMetadata,
   SeasonProgress,
@@ -46,11 +48,21 @@ function isNotFoundUpdateError(error: unknown): boolean {
 }
 
 class EpisodeTrackingService {
+  private getCurrentUser() {
+    return getFirebaseAuth().currentUser
+  }
+
   /**
    * Get reference to a TV show's episode tracking document
    */
   private getShowTrackingRef(userId: string, tvShowId: number) {
-    return doc(db, "users", userId, "episode_tracking", tvShowId.toString())
+    return doc(
+      getFirebaseDb(),
+      "users",
+      userId,
+      "episode_tracking",
+      tvShowId.toString(),
+    )
   }
 
   /**
@@ -87,7 +99,7 @@ class EpisodeTrackingService {
     tvShowId: number,
     userId?: string,
   ): Promise<TVShowEpisodeTracking | null> {
-    const resolvedUserId = userId ?? auth.currentUser?.uid
+    const resolvedUserId = userId ?? this.getCurrentUser()?.uid
     if (!resolvedUserId) return null
 
     try {
@@ -141,7 +153,7 @@ class EpisodeTrackingService {
     seasonEpisodes?: SeasonEpisodeInput[],
   ): Promise<void> {
     try {
-      const user = auth.currentUser
+      const user = this.getCurrentUser()
       if (!user) throw new Error("Please sign in to continue")
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
@@ -238,7 +250,7 @@ class EpisodeTrackingService {
     episodeNumber: number,
   ): Promise<void> {
     try {
-      const user = auth.currentUser
+      const user = this.getCurrentUser()
       if (!user) throw new Error("Please sign in to continue")
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
@@ -280,7 +292,7 @@ class EpisodeTrackingService {
     if (episodeNumbers.length === 0) return
 
     try {
-      const user = auth.currentUser
+      const user = this.getCurrentUser()
       if (!user) throw new Error("Please sign in to continue")
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
@@ -335,7 +347,7 @@ class EpisodeTrackingService {
     } | null,
   ): Promise<void> {
     try {
-      const user = auth.currentUser
+      const user = this.getCurrentUser()
       if (!user) throw new Error("Please sign in to continue")
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
@@ -497,7 +509,7 @@ class EpisodeTrackingService {
    */
   async clearAllEpisodes(tvShowId: number): Promise<void> {
     try {
-      const user = auth.currentUser
+      const user = this.getCurrentUser()
       if (!user) throw new Error("Please sign in to continue")
 
       const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)

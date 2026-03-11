@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/auth-context"
+import { getFirebaseClientConfigErrorMessage } from "@/lib/firebase/config"
 import { exportToCSV, exportToMarkdown } from "@/lib/export-data"
 import { Dialog } from "@base-ui/react/dialog"
 import { Cancel01Icon, FileExportIcon } from "@hugeicons/core-free-icons"
@@ -15,12 +16,17 @@ interface ExportDataModalProps {
 }
 
 export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
-  const { user } = useAuth()
+  const { user, firebaseAvailable } = useAuth()
   const [isExporting, setIsExporting] = useState(false)
   const [exportType, setExportType] = useState<"csv" | "markdown" | null>(null)
+  const firebaseUnavailableMessage = getFirebaseClientConfigErrorMessage()
 
   async function handleExport(type: "csv" | "markdown") {
     if (!user) return
+    if (!firebaseAvailable) {
+      toast.error(firebaseUnavailableMessage)
+      return
+    }
 
     setIsExporting(true)
     setExportType(type)
@@ -60,11 +66,16 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
             Download all your ShowSeek data including ratings, watch lists,
             notes, and more.
           </Dialog.Description>
+          {!firebaseAvailable && (
+            <p className="mt-3 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
+              {firebaseUnavailableMessage}
+            </p>
+          )}
 
           <div className="mt-6 space-y-3">
             <button
               onClick={() => handleExport("csv")}
-              disabled={isExporting}
+              disabled={!firebaseAvailable || isExporting}
               className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/20">
@@ -86,7 +97,7 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
 
             <button
               onClick={() => handleExport("markdown")}
-              disabled={isExporting}
+              disabled={!firebaseAvailable || isExporting}
               className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/20">

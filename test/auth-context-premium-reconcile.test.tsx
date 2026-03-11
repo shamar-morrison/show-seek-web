@@ -1,9 +1,17 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
 
+const authMock = { currentUser: null }
+const dbMock = {}
+const functionsMock = {}
+
 vi.mock("@/lib/firebase/config", () => ({
-  auth: { currentUser: null },
-  db: {},
-  functions: {},
+  getFirebaseAuth: vi.fn(() => authMock),
+  getFirebaseClientConfigErrorMessage: vi.fn(
+    () => "Firebase client configuration is missing.",
+  ),
+  getFirebaseDb: vi.fn(() => dbMock),
+  getFirebaseFunctions: vi.fn(() => functionsMock),
+  isFirebaseClientConfigured: true,
 }))
 
 vi.mock("@/lib/premium-telemetry", () => ({

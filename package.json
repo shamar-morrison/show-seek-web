@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NEXT_PRIVATE_WORKER_THREADS=1 NODE_OPTIONS=\"--max-old-space-size=4096\" next dev --webpack",
-    "build": "next build",
+    "build": "node scripts/validate-build-env.mjs && next build",
     "start": "next start",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
@@ -15,6 +15,8 @@
     "cf:deploy": "pnpm cf:build && pnpm cf:preflight && opennextjs-cloudflare deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "cf:secret:sync": "node scripts/cloudflare-secret-sync.mjs",
+    "cf:build-env:sync": "node scripts/cloudflare-build-env-sync.mjs",
+    "cf:build-env:sync:dry": "node scripts/cloudflare-build-env-sync.mjs --dry-run",
     "read:audit": "node scripts/firestore-read-audit.mjs",
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\" \"src/**/*.js\" \"src/**/*.jsx\""

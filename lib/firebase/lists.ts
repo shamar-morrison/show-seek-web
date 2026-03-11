@@ -1,9 +1,11 @@
+"use client"
+
 /**
  * Firebase Firestore operations for user lists
  * Path: users/{userId}/lists/{listId}
  */
 
-import { db } from "@/lib/firebase/config"
+import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   DEFAULT_LIST_IDS,
   DEFAULT_LISTS,
@@ -59,11 +61,11 @@ function generateSlug(name: string): string {
  * Get the Firestore reference for a user's list
  */
 function getListRef(userId: string, listId: string) {
-  return doc(db, "users", userId, "lists", listId)
+  return doc(getFirebaseDb(), "users", userId, "lists", listId)
 }
 
 function getListsCollectionRef(userId: string) {
-  return collection(db, "users", userId, "lists")
+  return collection(getFirebaseDb(), "users", userId, "lists")
 }
 
 /**
@@ -106,7 +108,7 @@ export async function addToList(
   const defaultList = DEFAULT_LISTS.find((l) => l.id === listId)
   const listName = defaultList?.name || listId
 
-  return await runTransaction(db, async (transaction) => {
+  return await runTransaction(getFirebaseDb(), async (transaction) => {
     const docSnap = await transaction.get(listRef)
     const isNewDocument = !docSnap.exists()
     
@@ -175,13 +177,13 @@ export async function createList(
   const baseSlug = generateSlug(listName)
   const MAX_ATTEMPTS = 100
 
-  return await runTransaction(db, async (transaction) => {
+  return await runTransaction(getFirebaseDb(), async (transaction) => {
     let listId = baseSlug
     let suffix = 1
     let attempt = 0
 
     while (attempt < MAX_ATTEMPTS) {
-      const listRef = doc(db, "users", userId, "lists", listId)
+      const listRef = doc(getFirebaseDb(), "users", userId, "lists", listId)
       const existing = await transaction.get(listRef)
 
       if (!existing.exists()) {

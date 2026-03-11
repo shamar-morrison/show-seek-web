@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ShowSeek Web
 
-## Getting Started
+ShowSeek is a Next.js app deployed to Cloudflare Workers with OpenNext.
 
-First, run the development server:
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm run typecheck
+pnpm test -- --watchman=false
+pnpm run build
+pnpm run cf:build
+```
 
-## Learn More
+`pnpm run build` now validates the required build-time environment before running `next build`.
 
-To learn more about Next.js, take a look at the following resources:
+## Cloudflare deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This repo is set up for Cloudflare Workers, not the default Vercel flow.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Local CLI deploy
 
-## Deploy on Vercel
+```bash
+pnpm cf:build
+pnpm cf:preflight
+pnpm cf:deploy
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Git-connected Cloudflare deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Configure the Cloudflare Worker with:
+
+- Worker name: `show-seek-web`
+- Build command: `pnpm cf:build`
+- Deploy command: `pnpm exec wrangler deploy --config wrangler.jsonc`
+
+Build variables and secrets are synced from `.env` through the Cloudflare Workers Builds API, so they do not need to be re-entered manually in the dashboard:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+TMDB stays out of git and is synced as a build secret through the Cloudflare Workers Builds API:
+
+```bash
+export CLOUDFLARE_API_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_BUILD_TRIGGER_ID=...
+pnpm cf:build-env:sync
+```
+
+Use this to preview the payload without sending it:
+
+```bash
+pnpm cf:build-env:sync:dry
+```
+
+The build sync script will:
+
+- upsert the six `NEXT_PUBLIC_FIREBASE_*` keys as non-secret build variables
+- upsert `TMDB_BEARER_TOKEN`, or fall back to `TMDB_API_KEY`
+- delete the alternate TMDB key if it exists, so stale build secrets do not override the current choice
+
+The Firebase web config is required during `next build`, and TMDB credentials are required because prerendered pages fetch TMDB data at build time.
+
+### Runtime variables and secrets
+
+Keep the Worker runtime configuration populated as well. At minimum, this repo expects runtime values such as:
+
+- `NEXTJS_ENV`
+- `FIREBASE_ADMIN_PROJECT_ID`
+- `FIREBASE_ADMIN_CLIENT_EMAIL`
+- `FIREBASE_ADMIN_PRIVATE_KEY`
+- `TRAKT_CLIENT_ID`
+- `TRAKT_REDIRECT_URI`
+- `POLAR_ACCESS_TOKEN`
+- `POLAR_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+
+For local Cloudflare preview, copy `.dev.vars.example` to `.dev.vars` or run:
+
+```bash
+pnpm cf:prepare-dev-vars
+pnpm cf:preview
+```
+
+## Secret sync note
+
+`pnpm cf:secret:sync` still syncs runtime Worker secrets from `.env`.
+
+`pnpm cf:build-env:sync` is separate and only manages Git build secrets for Workers Builds.

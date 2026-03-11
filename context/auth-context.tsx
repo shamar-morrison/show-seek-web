@@ -1,6 +1,12 @@
 "use client"
 
-import { auth, db, functions } from "@/lib/firebase/config"
+import {
+  getFirebaseAuth,
+  getFirebaseClientConfigErrorMessage,
+  getFirebaseDb,
+  getFirebaseFunctions,
+  isFirebaseClientConfigured,
+} from "@/lib/firebase/config"
 import {
   createServerSessionSyncManager,
   type ServerSessionSyncResult,
@@ -12,7 +18,7 @@ import {
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
 import { type PremiumStatus as PremiumGateStatus } from "@/lib/premium-gating"
-import { UserDocument } from "@/lib/firebase/user"
+import type { UserDocument } from "@/lib/firebase/user"
 import {
   User,
   onIdTokenChanged,
@@ -46,6 +52,7 @@ export type ReconcilePremiumStatusResponse = {
 }
 
 interface AuthContextType {
+  firebaseAvailable: boolean
   user: User | null
   loading: boolean
   isPremium: boolean
@@ -228,8 +235,10 @@ const parseReconcilePremiumStatusResponse = (
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const firebaseAvailable = isFirebaseClientConfigured
+  const firebaseUnavailableMessage = getFirebaseClientConfigErrorMessage()
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(firebaseAvailable)
   const [premiumStatus, setPremiumStatus] = useState<PremiumStatus>("free")
   const [premiumLoading, setPremiumLoading] = useState(false)
   const [premiumLastCheckedAt, setPremiumLastCheckedAt] = useState<string | null>(
@@ -252,17 +261,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const reconcileAttemptedUsersRef = useRef<Set<string>>(new Set())
   const reconcileDependencyLoggedUsersRef = useRef<Set<string>>(new Set())
   const reconcileCallablesRef = useRef(
-    new Map<ReconcileCallableName, ReturnType<typeof httpsCallable<unknown, unknown>>>([
-      [
-        "reconcilePremiumStatus",
-        httpsCallable<unknown, unknown>(functions, "reconcilePremiumStatus"),
-      ],
-      [
-        "syncPremiumStatus",
-        httpsCallable<unknown, unknown>(functions, "syncPremiumStatus"),
-      ],
-    ]),
+    new Map<ReconcileCallableName, ReturnType<typeof httpsCallable<unknown, unknown>>>(),
   )
+
+  const getAuth = useCallback(() => getFirebaseAuth(), [])
+  const getDb = useCallback(() => getFirebaseDb(), [])
+  const getCallable = useCallback((name: ReconcileCallableName) => {
+    const cachedCallable = reconcileCallablesRef.current.get(name)
+
+    if (cachedCallable) {
+      return cachedCallable
+    }
+
+    const callable = httpsCallable<unknown, unknown>(getFirebaseFunctions(), name)
+    reconcileCallablesRef.current.set(name, callable)
+    return callable
+  }, [])
 
   const hasAttemptedReconcile = useCallback((userId: string): boolean => {
     return (
@@ -294,6 +308,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const ensureServerSession = useCallback(
     async (candidateUser?: User | null): Promise<ServerSessionSyncResult> => {
+      if (!firebaseAvailable) {
+        clearServerSessionSyncState()
+        return {
+          error: firebaseUnavailableMessage,
+          ok: false,
+          status: "error",
+          uid: candidateUser?.uid ?? "missing-firebase-config",
+        }
+      }
+
+      const auth = getAuth()
       const activeUser = candidateUser ?? auth.currentUser
 
       if (!activeUser || activeUser.isAnonymous) {
@@ -327,16 +352,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [clearServerSessionSyncState],
+    [clearServerSessionSyncState, firebaseAvailable, firebaseUnavailableMessage, getAuth],
   )
 
   const reconcilePremium = useCallback(
     async (userId: string): Promise<void> => {
-      if (!userId) {
+      if (!firebaseAvailable || !userId) {
         setPremiumLoading(false)
         return
       }
 
+      const auth = getAuth()
       const statusBefore = premiumStatusRef.current
 
       if (!reconcileEnabled || hasAttemptedReconcile(userId)) {
@@ -350,10 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let reconcileCompleted = false
 
         for (const callableName of RECONCILE_CALLABLE_ORDER) {
-          const callable = reconcileCallablesRef.current.get(callableName)
-          if (!callable) {
-            continue
-          }
+          const callable = getCallable(callableName)
 
           trackPremiumEvent(
             "premium_reconcile_started",
@@ -451,6 +474,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     [
+      firebaseAvailable,
+      getAuth,
+      getCallable,
       hasAttemptedReconcile,
       hasLoggedDependencyError,
       markDependencyErrorLogged,
@@ -463,6 +489,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [premiumStatus])
 
   useEffect(() => {
+    if (!firebaseAvailable) {
+      clearServerSessionSyncState()
+      setUser(null)
+      setLoading(false)
+      return
+    }
+
+    const auth = getAuth()
     const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
       setUser(currentUser)
       setLoading(false)
@@ -490,10 +524,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return unsubscribe
-  }, [clearServerSessionSyncState, ensureServerSession])
+  }, [clearServerSessionSyncState, ensureServerSession, firebaseAvailable, getAuth])
 
   useEffect(() => {
-    if (!user) {
+    if (!firebaseAvailable || !user) {
       premiumStatusRef.current = "free"
       setPremiumStatus("free")
       setPremiumLoading(false)
@@ -501,6 +535,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const auth = getAuth()
+    const db = getDb()
     premiumStatusRef.current = "unknown"
     setPremiumStatus("unknown")
     setPremiumLoading(true)
@@ -589,7 +625,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 
     return unsubscribe
-  }, [hasAttemptedReconcile, reconcilePremium, user])
+  }, [firebaseAvailable, getAuth, getDb, hasAttemptedReconcile, reconcilePremium, user])
 
   const signOut = async () => {
     try {
@@ -599,7 +635,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Failed to sign out from server")
       }
 
-      await firebaseSignOut(auth)
+      if (firebaseAvailable) {
+        await firebaseSignOut(getAuth())
+      }
       clearServerSessionSyncState()
       router.push("/")
     } catch (error) {
@@ -613,6 +651,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
+        firebaseAvailable,
         user,
         loading,
         isPremium,

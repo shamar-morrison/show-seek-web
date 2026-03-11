@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Firebase Firestore operations for favorite persons
  * Path: users/{userId}/favorite_persons/{personId}
@@ -12,7 +14,7 @@ import {
   query,
   setDoc,
 } from "firebase/firestore"
-import { db } from "./config"
+import { getFirebaseDb } from "./config"
 
 /**
  * Favorite person data structure matching Firebase schema
@@ -34,14 +36,20 @@ export interface FavoritePerson {
  * Get the Firestore reference for a user's favorite_persons collection
  */
 function getFavoritePersonsCollectionRef(userId: string) {
-  return collection(db, "users", userId, "favorite_persons")
+  return collection(getFirebaseDb(), "users", userId, "favorite_persons")
 }
 
 /**
  * Get the Firestore reference for a specific favorite person
  */
 function getFavoritePersonRef(userId: string, personId: number) {
-  return doc(db, "users", userId, "favorite_persons", String(personId))
+  return doc(
+    getFirebaseDb(),
+    "users",
+    userId,
+    "favorite_persons",
+    String(personId),
+  )
 }
 
 /**

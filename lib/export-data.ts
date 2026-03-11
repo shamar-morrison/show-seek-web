@@ -1,9 +1,11 @@
+"use client"
+
 /**
  * Export user data to CSV or Markdown format
  * Matches mobile app export formats per spec.md
  */
 
-import { db } from "@/lib/firebase/config"
+import { getFirebaseDb } from "@/lib/firebase/config"
 import type { FavoritePerson } from "@/lib/firebase/favorite-persons"
 import { getMovieDetails, getTVDetails } from "@/lib/tmdb"
 import type { ListMediaItem } from "@/types/list"
@@ -86,7 +88,9 @@ interface EnrichedRating {
 // ============================================================================
 
 async function fetchLists(userId: string): Promise<ListDoc[]> {
-  const snapshot = await getDocs(collection(db, "users", userId, "lists"))
+  const snapshot = await getDocs(
+    collection(getFirebaseDb(), "users", userId, "lists"),
+  )
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     name: (doc.data().name as string) || doc.id,
@@ -95,7 +99,9 @@ async function fetchLists(userId: string): Promise<ListDoc[]> {
 }
 
 async function fetchRatings(userId: string): Promise<RatingDoc[]> {
-  const snapshot = await getDocs(collection(db, "users", userId, "ratings"))
+  const snapshot = await getDocs(
+    collection(getFirebaseDb(), "users", userId, "ratings"),
+  )
   return snapshot.docs.map((doc) => {
     const data = doc.data()
     return {
@@ -115,7 +121,7 @@ async function fetchRatings(userId: string): Promise<RatingDoc[]> {
 
 async function fetchFavoritePersons(userId: string): Promise<FavoritePerson[]> {
   const snapshot = await getDocs(
-    collection(db, "users", userId, "favorite_persons"),
+    collection(getFirebaseDb(), "users", userId, "favorite_persons"),
   )
   return snapshot.docs.map((doc) => {
     const data = doc.data()

@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
-import { HomeScreenListItem } from "@/lib/firebase/user"
+import type { HomeScreenListItem } from "@/lib/firebase/user"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,

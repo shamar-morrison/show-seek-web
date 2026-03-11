@@ -1,7 +1,9 @@
+"use client"
+
 import { User } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 import type { StoredUserPreferences } from "@/lib/user-preferences"
-import { db } from "./config"
+import { getFirebaseDb } from "./config"
 
 export {
   DEFAULT_PREFERENCES,
@@ -37,7 +39,7 @@ export async function createUserDocument(user: User): Promise<void> {
     return // Don't create documents for anonymous users
   }
 
-  const userRef = doc(db, "users", user.uid)
+  const userRef = doc(getFirebaseDb(), "users", user.uid)
 
   try {
     const existingDoc = await getDoc(userRef)

@@ -21,8 +21,14 @@ import {
 } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+const dbMock = {}
+
 vi.mock("@/lib/firebase/config", () => ({
-  db: {},
+  getFirebaseClientConfigErrorMessage: vi.fn(
+    () => "Firebase client configuration is missing.",
+  ),
+  getFirebaseDb: vi.fn(() => dbMock),
+  isFirebaseClientConfigured: true,
 }))
 
 vi.mock("firebase/firestore", () => ({
@@ -72,7 +78,7 @@ describe("collection tracking firestore helpers", () => {
     })
 
     expect(doc).toHaveBeenCalledWith(
-      {},
+      dbMock,
       "users",
       "user-1",
       "collection_tracking",

@@ -13,7 +13,10 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { getEmailAuthErrorMessage, signInWithGoogle } from "@/lib/firebase/auth"
-import { auth } from "@/lib/firebase/config"
+import {
+  getFirebaseAuth,
+  getFirebaseClientConfigErrorMessage,
+} from "@/lib/firebase/config"
 import { createUserDocument } from "@/lib/firebase/user"
 import { cn } from "@/lib/utils"
 import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
@@ -102,7 +105,7 @@ export function AuthModal({
   onAuthSuccess,
   message,
 }: AuthModalProps = {}) {
-  const { ensureServerSession } = useAuth()
+  const { ensureServerSession, firebaseAvailable } = useAuth()
   const [view, setView] = useState<"sign-in" | "sign-up">("sign-in")
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -119,6 +122,7 @@ export function AuthModal({
     authError
       .toLowerCase()
       .includes("same provider used for your premium mobile account")
+  const firebaseUnavailableMessage = getFirebaseClientConfigErrorMessage()
 
   // Determine if we're in controlled mode
   const isControlled = controlledIsOpen !== undefined
@@ -191,10 +195,16 @@ export function AuthModal({
       return
     }
 
+    if (!firebaseAvailable) {
+      setAuthError(firebaseUnavailableMessage)
+      return
+    }
+
     setIsLoading(true)
     setAuthError(null)
 
     try {
+      const auth = getFirebaseAuth()
       const userCredential = await signInWithEmailAndPassword(
         auth,
         result.data.email,
@@ -227,6 +237,11 @@ export function AuthModal({
 
   /** Handle Google sign-in/sign-up */
   const handleGoogleAuth = async () => {
+    if (!firebaseAvailable) {
+      setAuthError(firebaseUnavailableMessage)
+      return
+    }
+
     setIsGoogleLoading(true)
     setAuthError(null)
 
@@ -303,6 +318,11 @@ export function AuthModal({
               {authError}
             </div>
           )}
+          {!firebaseAvailable && !authError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-center text-sm text-destructive">
+              {firebaseUnavailableMessage}
+            </div>
+          )}
           {shouldShowProviderGuidance && (
             <div className="rounded-md bg-primary/10 p-3 text-center text-xs text-primary">
               Sign in with the same provider used on mobile to restore premium.
@@ -314,7 +334,7 @@ export function AuthModal({
             type="button"
             variant={"outline"}
             onClick={handleGoogleAuth}
-            disabled={isGoogleLoading || isLoading}
+            disabled={!firebaseAvailable || isGoogleLoading || isLoading}
             className="w-full gap-3 text-white"
           >
             {isGoogleLoading ? (
@@ -346,7 +366,7 @@ export function AuthModal({
                     placeholder="Email address"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
-                    disabled={isLoading || isGoogleLoading}
+                    disabled={!firebaseAvailable || isLoading || isGoogleLoading}
                     className={cn(
                       errors.email &&
                         "border-destructive focus-visible:ring-destructive",
@@ -371,7 +391,7 @@ export function AuthModal({
                       onChange={(e) =>
                         handleInputChange("password", e.target.value)
                       }
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={!firebaseAvailable || isLoading || isGoogleLoading}
                       className={cn(
                         "pr-10",
                         errors.password &&
@@ -385,6 +405,7 @@ export function AuthModal({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      disabled={!firebaseAvailable || isLoading || isGoogleLoading}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                       aria-label={
                         showPassword ? "Hide password" : "Show password"
@@ -407,7 +428,7 @@ export function AuthModal({
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={!firebaseAvailable || isLoading || isGoogleLoading}
                 >
                   {isLoading ? (
                     <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />

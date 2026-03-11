@@ -1,5 +1,11 @@
+"use client"
+
 import { GoogleAuthProvider, signInWithPopup, User } from "firebase/auth"
-import { auth } from "./config"
+import {
+  getFirebaseAuth,
+  getFirebaseClientConfigErrorMessage,
+  isFirebaseClientConfigError,
+} from "./config"
 
 const googleProvider = new GoogleAuthProvider()
 
@@ -12,10 +18,17 @@ export type GoogleSignInResult =
  */
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   try {
-    const result = await signInWithPopup(auth, googleProvider)
+    const result = await signInWithPopup(getFirebaseAuth(), googleProvider)
     return { success: true, user: result.user }
   } catch (error: unknown) {
     console.error("[GoogleAuth] Error:", error)
+
+    if (isFirebaseClientConfigError(error)) {
+      return {
+        success: false,
+        error: getFirebaseClientConfigErrorMessage(),
+      }
+    }
 
     const firebaseError = error as { code?: string; message?: string }
 

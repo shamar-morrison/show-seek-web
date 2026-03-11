@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Firebase Firestore operations for episode tracking
  * Path: users/{userId}/episode_tracking/{tvShowId}
@@ -5,13 +7,13 @@
 
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
 import { collection, getDocs } from "firebase/firestore"
-import { db } from "./config"
+import { getFirebaseDb } from "./config"
 
 /**
  * Get the Firestore reference for a user's episode tracking collection
  */
 function getEpisodeTrackingCollectionRef(userId: string) {
-  return collection(db, "users", userId, "episode_tracking")
+  return collection(getFirebaseDb(), "users", userId, "episode_tracking")
 }
 
 /**
