@@ -2,6 +2,23 @@ import { spawnSync } from "node:child_process"
 
 const FREE_PLAN_MAX_GZIP_BYTES = 3 * 1024 * 1024
 
+function parseArgs(argv) {
+  const args = {
+    configPath: null,
+  }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]
+
+    if (arg === "--config" || arg === "-c") {
+      args.configPath = argv[index + 1] ?? null
+      index += 1
+    }
+  }
+
+  return args
+}
+
 function toBytes(value, unit) {
   const normalizedUnit = unit.toLowerCase()
 
@@ -16,9 +33,18 @@ function toBytes(value, unit) {
   throw new Error(`Unsupported size unit: ${unit}`)
 }
 
+const { configPath } = parseArgs(process.argv.slice(2))
+const wranglerArgs = ["exec", "wrangler"]
+
+if (configPath) {
+  wranglerArgs.push("--config", configPath)
+}
+
+wranglerArgs.push("deploy", "--dry-run", "--outdir", ".open-next/dry-run")
+
 const result = spawnSync(
   "pnpm",
-  ["exec", "wrangler", "deploy", "--dry-run", "--outdir", ".open-next/dry-run"],
+  wranglerArgs,
   {
     encoding: "utf8",
     shell: process.platform === "win32",

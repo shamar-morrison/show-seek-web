@@ -10,28 +10,34 @@ import {
 import { getFirestore, type Firestore } from "firebase/firestore"
 import { getFunctions, type Functions } from "firebase/functions"
 
-const REQUIRED_FIREBASE_ENV_KEYS = [
-  "NEXT_PUBLIC_FIREBASE_API_KEY",
-  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  "NEXT_PUBLIC_FIREBASE_APP_ID",
-] as const
+const firebaseClientEnv = {
+  NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+} as const
 
-type FirebaseClientConfigKey = (typeof REQUIRED_FIREBASE_ENV_KEYS)[number]
+type FirebaseClientConfigKey = keyof typeof firebaseClientEnv
+
+const REQUIRED_FIREBASE_ENV_KEYS = Object.keys(
+  firebaseClientEnv,
+) as FirebaseClientConfigKey[]
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: firebaseClientEnv.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
 const missingFirebaseClientConfigKeys = REQUIRED_FIREBASE_ENV_KEYS.filter((key) => {
-  const value = process.env[key]
+  const value = firebaseClientEnv[key]
   return typeof value !== "string" || value.trim() === ""
 })
 

@@ -1,7 +1,7 @@
 # Copy this file to .dev.vars for local Cloudflare/OpenNext preview.
-# These entries are server-side runtime vars only. Client-side Firebase vars
-# (`NEXT_PUBLIC_FIREBASE_*`) are configured separately (see `lib/firebase/config.ts`)
-# via local `.env` and/or your build/deploy environment variable settings.
+# These entries are server-side runtime vars only. Non-secret deploy vars,
+# including the `NEXT_PUBLIC_FIREBASE_*` values, are generated separately into
+# `.wrangler/wrangler.local.jsonc` from local `.env`.
 NEXTJS_ENV=development
 TMDB_BEARER_TOKEN=
 TMDB_API_KEY=

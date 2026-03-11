@@ -9,9 +9,27 @@ const REQUIRED_FIREBASE_ENV_KEYS = [
   "NEXT_PUBLIC_FIREBASE_APP_ID",
 ] as const
 
+const FIREBASE_CLIENT_ENV_VALUES: Record<
+  (typeof REQUIRED_FIREBASE_ENV_KEYS)[number],
+  string
+> = {
+  NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key",
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "test-app.firebaseapp.com",
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: "test-app",
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "test-app.firebasestorage.app",
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "1234567890",
+  NEXT_PUBLIC_FIREBASE_APP_ID: "1:1234567890:web:test-app-id",
+}
+
 function clearFirebaseClientEnv() {
   for (const key of REQUIRED_FIREBASE_ENV_KEYS) {
     vi.stubEnv(key, "")
+  }
+}
+
+function setFirebaseClientEnv() {
+  for (const key of REQUIRED_FIREBASE_ENV_KEYS) {
+    vi.stubEnv(key, FIREBASE_CLIENT_ENV_VALUES[key])
   }
 }
 
@@ -59,5 +77,14 @@ describe("firebase config", () => {
         code: config.FIREBASE_CLIENT_CONFIG_ERROR_CODE,
       })
     }
+  })
+
+  it("reports configured Firebase client configuration from the inlined env record", async () => {
+    setFirebaseClientEnv()
+
+    const config = await import("../lib/firebase/config")
+
+    expect(config.isFirebaseClientConfigured).toBe(true)
+    expect(config.getMissingFirebaseClientConfigKeys()).toEqual([])
   })
 })
