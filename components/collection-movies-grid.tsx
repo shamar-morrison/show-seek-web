@@ -13,6 +13,7 @@ import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBMedia } from "@/types/tmdb"
 import { ViewIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -38,7 +39,11 @@ export function CollectionMoviesGrid({
   const watchedMovieIdSet = new Set(watchedMovieIds)
 
   const handleWatchTrailer = (media: TMDBMedia) => {
-    watchTrailer(media.id, "movie", media.title || "Trailer")
+    watchTrailer(
+      media.id,
+      "movie",
+      getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
+    )
   }
 
   const isHidingWatched = isPremium && preferences.hideWatchedContent

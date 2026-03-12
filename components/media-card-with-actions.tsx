@@ -16,6 +16,7 @@ interface MediaCardWithActionsProps {
     collectionId: number | null
   }
   isWatched?: boolean
+  preferOriginalTitles?: boolean
 }
 
 /**
@@ -31,12 +32,15 @@ export function MediaCardWithActions({
   buttonText,
   collectionContext,
   isWatched = false,
+  preferOriginalTitles,
 }: MediaCardWithActionsProps) {
   // Determine media type
   const mediaType = media.media_type === "movie" ? "movie" : "tv"
 
   // Get user preferences
   const { preferences } = usePreferences()
+  const resolvedPreferOriginalTitles =
+    preferOriginalTitles ?? preferences.showOriginalTitles
 
   // Use consolidated media actions hook
   const { dropdownItems, userRating, listIds, modals } = useMediaActions({
@@ -56,6 +60,7 @@ export function MediaCardWithActions({
       userRating={userRating?.rating}
       listIds={listIds}
       isWatched={isWatched}
+      preferOriginalTitles={resolvedPreferOriginalTitles}
     />
   )
 
@@ -74,6 +79,7 @@ export function MediaCardWithActions({
           listIds={listIds}
           collectionContext={collectionContext}
           isWatched={isWatched}
+          preferOriginalTitles={resolvedPreferOriginalTitles}
         />
       ) : (
         cardContent

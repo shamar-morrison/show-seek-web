@@ -13,10 +13,12 @@ import {
 } from "@/components/ui/empty"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
+import { useContentFilter } from "@/hooks/use-content-filter"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
-import { useContentFilter } from "@/hooks/use-content-filter"
 import { debounceWithCancel } from "@/lib/debounce"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn } from "@/lib/utils"
 import type {
   MediaType,
@@ -66,6 +68,7 @@ export function SearchResultsClient({
   initialResults,
 }: SearchResultsClientProps) {
   const router = useRouter()
+  const { preferences } = usePreferences()
 
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(initialResults)
@@ -84,10 +87,11 @@ export function SearchResultsClient({
       watchTrailer(
         media.id,
         media.media_type,
-        media.title || media.name || "Trailer",
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) ||
+          "Trailer",
       )
     },
-    [watchTrailer],
+    [preferences.showOriginalTitles, watchTrailer],
   )
 
   // Convert TMDBSearchResult to TMDBMedia for MediaCard
@@ -108,12 +112,10 @@ export function SearchResultsClient({
       vote_average: result.vote_average ?? 0,
       vote_count: 0,
       original_language: "",
-      // Conditionally set original_title/original_name based on media_type
-      // to avoid polluting the object with undefined values
       ...(result.media_type === "movie"
-        ? { original_title: result.title }
+        ? { original_title: result.original_title }
         : result.media_type === "tv"
-          ? { original_name: result.name }
+          ? { original_name: result.original_name }
           : {}),
     }),
     [],
@@ -298,6 +300,7 @@ export function SearchResultsClient({
                 isLoading={
                   loadingMediaId === `${result.media_type}-${result.id}`
                 }
+                preferOriginalTitles={preferences.showOriginalTitles}
               />
             ),
           )}

@@ -1,3 +1,7 @@
+"use client"
+
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 
 interface MediaDetailsProps {
@@ -61,12 +65,16 @@ function getTVCertification(media: TMDBTVDetails): string | null {
  * Displays a grid of metadata about the media
  */
 export function MediaDetails({ media, mediaType }: MediaDetailsProps) {
+  const { preferences } = usePreferences()
   const isMovie = mediaType === "movie"
   const movieData = isMovie ? (media as TMDBMovieDetails) : null
   const tvData = !isMovie ? (media as TMDBTVDetails) : null
 
   // Get display title and original title
-  const displayTitle = isMovie ? movieData!.title : tvData!.name
+  const displayTitle = getDisplayMediaTitle(
+    media,
+    preferences.showOriginalTitles,
+  )
   const originalTitle = isMovie
     ? movieData!.original_title
     : tvData!.original_name

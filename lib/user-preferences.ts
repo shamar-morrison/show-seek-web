@@ -14,6 +14,7 @@ export interface UserPreferences {
   autoRemoveFromShouldWatch: boolean
   markPreviousEpisodesWatched: boolean
   showListIndicators: boolean
+  showOriginalTitles: boolean
   blurPlotSpoilers: boolean
   showMediaPreviewCards: boolean
   quickMarkAsWatched: boolean
@@ -33,6 +34,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   autoRemoveFromShouldWatch: true,
   markPreviousEpisodesWatched: false,
   showListIndicators: false,
+  showOriginalTitles: false,
   blurPlotSpoilers: false,
   showMediaPreviewCards: false,
   quickMarkAsWatched: false,

@@ -92,6 +92,7 @@ export interface TMDBVideosResponse {
 export interface HeroMedia {
   id: number
   title: string
+  originalTitle: string | null
   overview: string
   backdropUrl: string
   logoUrl: string | null
@@ -390,9 +391,11 @@ export interface TMDBSearchResult {
   media_type: MediaType
   // Movie fields
   title?: string
+  original_title?: string
   release_date?: string
   // TV fields
   name?: string
+  original_name?: string
   first_air_date?: string
   // Person fields
   known_for_department?: string
@@ -419,7 +422,9 @@ export interface PersonCastMember {
   id: number
   media_type: "movie" | "tv"
   title?: string // For movies
+  original_title?: string
   name?: string // For TV shows
+  original_name?: string
   poster_path: string | null
   backdrop_path: string | null
   release_date?: string // For movies
@@ -438,7 +443,9 @@ export interface PersonCrewMember {
   id: number
   media_type: "movie" | "tv"
   title?: string // For movies
+  original_title?: string
   name?: string // For TV shows
+  original_name?: string
   poster_path: string | null
   backdrop_path: string | null
   release_date?: string // For movies

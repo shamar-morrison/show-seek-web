@@ -9,6 +9,10 @@ describe("user preferences", () => {
     expect(DEFAULT_PREFERENCES.autoRemoveFromShouldWatch).toBe(true)
   })
 
+  it("defaults original titles to disabled", () => {
+    expect(DEFAULT_PREFERENCES.showOriginalTitles).toBe(false)
+  })
+
   it("hydrates the new preference key from stored preferences", () => {
     expect(
       hydrateUserPreferences({ autoRemoveFromShouldWatch: false }),
@@ -33,6 +37,12 @@ describe("user preferences", () => {
       }),
     ).toMatchObject({
       autoRemoveFromShouldWatch: true,
+    })
+  })
+
+  it("hydrates original title preference from stored preferences", () => {
+    expect(hydrateUserPreferences({ showOriginalTitles: true })).toMatchObject({
+      showOriginalTitles: true,
     })
   })
 })

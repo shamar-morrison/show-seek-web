@@ -6,6 +6,8 @@ import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Pagination } from "@/components/ui/pagination"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBMedia } from "@/types/tmdb"
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -45,6 +47,7 @@ export function BrowsePageClient({
   baseUrl,
   showActions = true,
 }: BrowsePageClientProps) {
+  const { preferences } = usePreferences()
   const router = useRouter()
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [activeTrailer, setActiveTrailer] = useState<{
@@ -61,7 +64,8 @@ export function BrowsePageClient({
 
   // Handle opening trailer for Media Cards (fetch on demand)
   const handleWatchTrailer = async (media: TMDBMedia) => {
-    const title = media.title || media.name || "Trailer"
+    const title =
+      getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer"
     const mediaType =
       (media.media_type as "movie" | "tv") || (media.title ? "movie" : "tv")
     const compositeKey = `${mediaType}-${media.id}`
@@ -121,6 +125,7 @@ export function BrowsePageClient({
                 media={item}
                 onWatchTrailer={handleWatchTrailer}
                 isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                preferOriginalTitles={preferences.showOriginalTitles}
               />
             ))}
           </div>

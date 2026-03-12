@@ -18,6 +18,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
@@ -281,9 +282,7 @@ export function MediaDetailHero({
 
   // Extract common properties
   const title =
-    mediaType === "movie"
-      ? (media as TMDBMovieDetails).title
-      : (media as TMDBTVDetails).name
+    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
   const overview = media.overview || "No description available."
   const backdropUrl = buildImageUrl(media.backdrop_path, "original")
   const posterUrl = buildImageUrl(media.poster_path, "w500")

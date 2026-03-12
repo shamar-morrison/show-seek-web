@@ -25,6 +25,8 @@ interface EpisodeRatingModalProps {
   tvShowId: number
   /** TV Show name for display and storage */
   tvShowName: string
+  /** Optional preferred display title for the TV show */
+  displayTvShowName?: string
 }
 
 /**
@@ -37,6 +39,7 @@ export function EpisodeRatingModal({
   episode,
   tvShowId,
   tvShowName,
+  displayTvShowName,
 }: EpisodeRatingModalProps) {
   const { getEpisodeRating, saveEpisodeRating, removeEpisodeRating } =
     useRatings()
@@ -137,6 +140,7 @@ export function EpisodeRatingModal({
 
   // Determine which rating to display (hover takes precedence)
   const displayRating = hoverRating || selectedRating
+  const visibleTvShowName = displayTvShowName || tvShowName
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -144,7 +148,7 @@ export function EpisodeRatingModal({
         <DialogHeader>
           <DialogTitle className="text-xl">Rate this Episode</DialogTitle>
           <DialogDescription>
-            <span className="block text-primary">{tvShowName}</span>
+            <span className="block text-primary">{visibleTvShowName}</span>
             <span className="block mt-1">
               S{episode.season_number}:E{episode.episode_number} -{" "}
               {episode.name}

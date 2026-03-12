@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -78,6 +80,7 @@ export function AddToListModal({
 }: AddToListModalProps) {
   const { user, premiumLoading, premiumStatus } = useAuth()
   const { lists, loading: listsLoading } = useLists()
+  const { preferences } = usePreferences()
   const { addToList, removeFromList, createList, renameList, deleteList } =
     useListMutations()
   const [activeTab, setActiveTab] = useState<TabType>("default")
@@ -100,8 +103,12 @@ export function AddToListModal({
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Get media details
+  const displayTitle =
+    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
   const title =
-    "title" in media ? media.title : "name" in media ? media.name : "Unknown"
+    ("title" in media ? media.title : undefined) ||
+    ("name" in media ? media.name : undefined) ||
+    displayTitle
   const mediaId = media.id
   const mediaKey = `${mediaType}-${mediaId}`
   const isPremiumCheckPending = isPremiumStatusPending({
@@ -246,7 +253,7 @@ export function AddToListModal({
       })
 
       await Promise.all(promises)
-      toast.success(`Updated lists for ${title}`, {
+      toast.success(`Updated lists for ${displayTitle}`, {
         action:
           undoOps.length > 0
             ? {
@@ -381,7 +388,7 @@ export function AddToListModal({
         mediaItem as Omit<import("@/types/list").ListMediaItem, "addedAt">,
       )
 
-      toast.success(`Created "${newListName.trim()}" and added ${title}`)
+      toast.success(`Created "${newListName.trim()}" and added ${displayTitle}`)
       setShowCreateModal(false)
       setNewListName("")
       // Switch to custom tab to show the new list
@@ -462,7 +469,7 @@ export function AddToListModal({
             </DialogTitle>
             <DialogDescription>
               {mode === "add"
-                ? `Save "${title}" to your lists`
+                ? `Save "${displayTitle}" to your lists`
                 : "Rename or delete your custom lists"}
             </DialogDescription>
           </DialogHeader>

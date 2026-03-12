@@ -110,9 +110,7 @@ describe("ProfilePageClient", () => {
     expect(
       screen.getByRole("heading", { name: "Test User" }),
     ).toBeInTheDocument()
-    expect(
-      screen.getByText("test@example.com"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("test@example.com")).toBeInTheDocument()
 
     const autoRemoveToggleLabel = screen
       .getByText("Auto-remove from Should Watch")
@@ -120,9 +118,9 @@ describe("ProfilePageClient", () => {
 
     expect(autoRemoveToggleLabel).not.toBeNull()
 
-    const autoRemoveToggle = within(autoRemoveToggleLabel as HTMLLabelElement).getByRole(
-      "switch",
-    )
+    const autoRemoveToggle = within(
+      autoRemoveToggleLabel as HTMLLabelElement,
+    ).getByRole("switch")
 
     await user.click(autoRemoveToggle)
 
@@ -131,4 +129,29 @@ describe("ProfilePageClient", () => {
       false,
     )
   }, 10000)
+
+  it("renders the original titles preference and updates it", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    const originalTitlesToggleLabel = screen
+      .getByText("Use original titles")
+      .closest("label")
+
+    expect(originalTitlesToggleLabel).not.toBeNull()
+
+    const originalTitlesToggle = within(
+      originalTitlesToggleLabel as HTMLLabelElement,
+    ).getByRole("switch")
+
+    await user.click(originalTitlesToggle)
+
+    expect(updatePreferenceMock).toHaveBeenCalledWith(
+      "showOriginalTitles",
+      true,
+    )
+  })
 })

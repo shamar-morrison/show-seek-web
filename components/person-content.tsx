@@ -4,7 +4,14 @@ import { fetchTrailerKey } from "@/app/actions"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
-import { PersonCastMember, PersonCrewMember, TMDBMedia, TMDBPersonDetails } from "@/types/tmdb"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayMediaTitle } from "@/lib/media-title"
+import {
+  PersonCastMember,
+  PersonCrewMember,
+  TMDBMedia,
+  TMDBPersonDetails,
+} from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -27,7 +34,11 @@ export function PersonContent({ person }: PersonContentProps) {
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
+  const [activeTrailerTitle, setActiveTrailerTitle] = useState<string | null>(
+    null,
+  )
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
+  const { preferences } = usePreferences()
 
   const { movieCredits, tvCredits, mediaItems, creditLabel } = useMemo(() => {
     const knownFor = person.known_for_department
@@ -40,13 +51,14 @@ export function PersonContent({ person }: PersonContentProps) {
       // For non-acting departments (Directing, Writing, Production, etc.),
       // filter crew credits by that department
       credits =
-        person.combined_credits?.crew.filter((c) => c.department === knownFor) ||
-        []
-      
+        person.combined_credits?.crew.filter(
+          (c) => c.department === knownFor,
+        ) || []
+
       // Fallback: If the person is known for a department but has no credits listed under that specific department
       // (e.g. data inconsistency), we might want to check for "Creator" job explicitly if looking for creative roles,
       // but strictly following known_for_department is the standard TMDB approach.
-      // However, if the result is empty, we could fallback to all crew credits? 
+      // However, if the result is empty, we could fallback to all crew credits?
       // Let's stick to strict filtering to be accurate.
     }
 
@@ -65,11 +77,9 @@ export function PersonContent({ person }: PersonContentProps) {
     const items: TMDBMedia[] = current.map((credit) => ({
       ...credit,
       original_language: "en",
-      // Conditionally set original_title/original_name based on media_type
-      // to avoid polluting the object with undefined values
       ...(credit.media_type === "movie"
-        ? { original_title: credit.title }
-        : { original_name: credit.name }),
+        ? { original_title: credit.original_title }
+        : { original_name: credit.original_name }),
     }))
 
     return {
@@ -83,12 +93,15 @@ export function PersonContent({ person }: PersonContentProps) {
   const handleWatchTrailer = async (media: TMDBMedia) => {
     setLoadingMediaId(media.id)
     try {
+      const trailerTitle =
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer"
       const key = await fetchTrailerKey(
         media.id,
         media.media_type as "movie" | "tv",
       )
       if (key) {
         setTrailerKey(key)
+        setActiveTrailerTitle(trailerTitle)
         setIsModalOpen(true)
       } else {
         toast.error("No trailer available for this title")
@@ -134,6 +147,7 @@ export function PersonContent({ person }: PersonContentProps) {
             buttonText="Trailer"
             onWatchTrailer={handleWatchTrailer}
             isLoading={loadingMediaId === media.id}
+            preferOriginalTitles={preferences.showOriginalTitles}
           />
         ))}
 
@@ -146,8 +160,12 @@ export function PersonContent({ person }: PersonContentProps) {
 
       <TrailerModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false)
+          setActiveTrailerTitle(null)
+        }}
         videoKey={trailerKey}
+        title={activeTrailerTitle || "Trailer"}
       />
     </div>
   )

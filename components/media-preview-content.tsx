@@ -8,6 +8,7 @@ import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn } from "@/lib/utils"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -114,9 +115,7 @@ export function MediaPreviewContent({
 
   // Extract common properties
   const title =
-    mediaType === "movie"
-      ? (media as TMDBMovieDetails).title
-      : (media as TMDBTVDetails).name
+    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
   const overview = media.overview || "No description available."
   const rating = Math.round(media.vote_average * 10) / 10
 

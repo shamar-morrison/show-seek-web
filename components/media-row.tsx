@@ -20,6 +20,8 @@ interface MediaRowProps {
   limit?: number
   /** If true, shows dropdown actions (Add to List, Rate, Notes) on cards */
   showActions?: boolean
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
 }
 
 export function MediaRow({
@@ -31,6 +33,7 @@ export function MediaRow({
   scrollable = false,
   limit,
   showActions = false,
+  preferOriginalTitles = false,
 }: MediaRowProps) {
   // Filter out watched content
   const filteredItems = useContentFilter(items)
@@ -67,6 +70,7 @@ export function MediaRow({
                 media={item}
                 onWatchTrailer={onWatchTrailer}
                 isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                preferOriginalTitles={preferOriginalTitles}
               />
             </div>
           ))}
@@ -80,6 +84,7 @@ export function MediaRow({
               media={item}
               onWatchTrailer={onWatchTrailer}
               isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+              preferOriginalTitles={preferOriginalTitles}
             />
           ))}
         </div>

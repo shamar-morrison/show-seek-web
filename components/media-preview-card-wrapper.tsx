@@ -44,6 +44,8 @@ interface MediaPreviewCardWrapperProps {
   }
   /** Whether the media is watched within the active collection */
   isWatched?: boolean
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
 }
 
 /**
@@ -64,6 +66,7 @@ export function MediaPreviewCardWrapper({
   listIds,
   collectionContext,
   isWatched = false,
+  preferOriginalTitles = false,
 }: MediaPreviewCardWrapperProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -105,6 +108,7 @@ export function MediaPreviewCardWrapper({
       userRating={userRating}
       listIds={listIds}
       isWatched={isWatched}
+      preferOriginalTitles={preferOriginalTitles}
     />
   )
 

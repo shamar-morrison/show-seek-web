@@ -2,7 +2,9 @@
 
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { Loading03Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -30,17 +32,18 @@ export function RatingModal({
   mediaType,
 }: RatingModalProps) {
   const { getRating, saveRating, removeRating } = useRatings()
+  const { preferences } = usePreferences()
   const [selectedRating, setSelectedRating] = useState<number>(0)
   const [hoverRating, setHoverRating] = useState<number>(0)
   const [isSaving, setIsSaving] = useState(false)
   const [hasExistingRating, setHasExistingRating] = useState(false)
 
-  const title: string =
-    "title" in media && media.title
-      ? media.title
-      : "name" in media && media.name
-        ? media.name
-        : "Unknown"
+  const displayTitle =
+    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
+  const title =
+    ("title" in media ? media.title : undefined) ||
+    ("name" in media ? media.name : undefined) ||
+    displayTitle
   const mediaId = media.id
   const posterPath: string | null =
     "poster_path" in media ? (media.poster_path ?? null) : null
@@ -135,7 +138,7 @@ export function RatingModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={`Rate this ${mediaType === "movie" ? "Movie" : "Show"}`}
-      description={`How would you rate "${title}"?`}
+      description={`How would you rate "${displayTitle}"?`}
     >
       {/* Star Rating - 10 stars with half-star support */}
       <div className="py-6">
