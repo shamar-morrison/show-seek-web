@@ -332,7 +332,6 @@ export function useMediaActions({
     openRatingModal,
     openNotesModal,
     mediaType,
-    watchCount,
     isWatched,
     isQuickMarkLoading,
     openMarkAsWatchedModal,
