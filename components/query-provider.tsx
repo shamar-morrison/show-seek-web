@@ -1,5 +1,6 @@
 "use client"
 
+import { shouldRetryQueryRequest } from "@/lib/react-query/query-retry"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState, type ReactNode } from "react"
 
@@ -21,8 +22,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
             staleTime: 30 * 60 * 1000,
             // 24 hour cache time - profile-oriented data stays cached between views
             gcTime: 24 * 60 * 60 * 1000,
-            // Retry failed requests once
-            retry: 1,
+            // Retry failed requests once, except for abort/cancellation errors
+            retry: shouldRetryQueryRequest,
             // Migrated Firestore reads rely on mutation-driven invalidation
             refetchOnWindowFocus: false,
             refetchOnReconnect: false,

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 
 import {
+  buildReleaseCalendarSeasonRequests,
   buildReleaseCalendarReleases,
+  dedupeTrackedItems,
+  deriveReleaseCalendarReleases,
   resolveMovieReleaseDate,
 } from "@/lib/release-calendar"
 import {
@@ -146,6 +149,153 @@ describe("release calendar helpers", () => {
         region: "BR",
       }),
     ).toBe("2026-04-10")
+  })
+
+  it("builds season requests only for shows with resolvable seasons", () => {
+    const items = dedupeTrackedItems([
+      {
+        id: 301,
+        mediaType: "tv",
+        title: "Returning Show",
+        name: "Returning Show",
+        posterPath: "/show.jpg",
+        firstAirDate: "2024-01-01",
+        sourceList: "watchlist",
+      },
+      {
+        id: 302,
+        mediaType: "tv",
+        title: "Ended Show",
+        name: "Ended Show",
+        posterPath: "/ended.jpg",
+        firstAirDate: "2020-01-01",
+        sourceList: "favorites",
+      },
+    ])
+
+    const tvDetailsById = new Map([
+      [
+        301,
+        createTVDetails({
+          id: 301,
+          next_episode_to_air: {
+            id: 91,
+            name: "Premiere",
+            overview: "",
+            vote_average: 0,
+            vote_count: 0,
+            air_date: "2026-05-10",
+            episode_number: 1,
+            episode_type: "standard",
+            production_code: "",
+            runtime: null,
+            season_number: 3,
+            show_id: 301,
+            still_path: null,
+          },
+        }),
+      ],
+      [
+        302,
+        createTVDetails({
+          id: 302,
+          status: "Ended",
+          seasons: [
+            {
+              air_date: "2020-01-01",
+              episode_count: 10,
+              id: 1,
+              name: "Season 1",
+              overview: "",
+              poster_path: null,
+              season_number: 1,
+              vote_average: 0,
+            },
+          ],
+        }),
+      ],
+    ])
+
+    expect(buildReleaseCalendarSeasonRequests(items, tvDetailsById)).toEqual([
+      {
+        showId: 301,
+        seasonNumber: 3,
+      },
+    ])
+  })
+
+  it("prefers season episodes over the fallback next episode without duplicating the same release", () => {
+    const items = dedupeTrackedItems([
+      {
+        id: 301,
+        mediaType: "tv",
+        title: "Returning Show",
+        name: "Returning Show",
+        posterPath: "/show.jpg",
+        firstAirDate: "2024-01-01",
+        sourceList: "watchlist",
+      },
+    ])
+
+    const tvDetailsById = new Map([
+      [
+        301,
+        createTVDetails({
+          id: 301,
+          name: "Returning Show",
+          backdrop_path: "/show-backdrop.jpg",
+          next_episode_to_air: {
+            id: 91,
+            name: "Premiere",
+            overview: "",
+            vote_average: 0,
+            vote_count: 0,
+            air_date: "2026-05-10",
+            episode_number: 1,
+            episode_type: "standard",
+            production_code: "",
+            runtime: null,
+            season_number: 3,
+            show_id: 301,
+            still_path: null,
+          },
+        }),
+      ],
+    ])
+
+    const releases = deriveReleaseCalendarReleases({
+      items,
+      region: "US",
+      seasonDataByShowId: new Map([
+        [
+          301,
+          {
+            episodes: [
+              {
+                airDate: "2026-05-10",
+                episodeName: "Premiere",
+                episodeNumber: 1,
+                seasonNumber: 3,
+              },
+              {
+                airDate: "2026-05-17",
+                episodeName: "Episode 2",
+                episodeNumber: 2,
+                seasonNumber: 3,
+              },
+            ],
+          },
+        ],
+      ]),
+      todayKey: "2026-05-01",
+      tvDetailsById,
+    })
+
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.uniqueKey)).toEqual([
+      "tv-301-s3-e1",
+      "tv-301-s3-e2",
+    ])
   })
 })
 

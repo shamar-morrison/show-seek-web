@@ -33,20 +33,11 @@ export const queryKeys = {
   },
 
   calendar: {
-    releases: (
-      userId: string,
-      region: string,
-      itemsSignature: string,
-      todayKey: string,
-    ) =>
-      [
-        "calendar",
-        "releases",
-        userId,
-        region,
-        todayKey,
-        itemsSignature,
-      ] as const,
+    movieDetails: (movieId: number) =>
+      ["calendar", "movie", movieId, "details"] as const,
+    tvDetails: (tvId: number) => ["calendar", "tv", tvId, "details"] as const,
+    seasonEpisodes: (tvId: number, seasonNumber: number) =>
+      ["calendar", "tv", tvId, "season", seasonNumber, "episodes"] as const,
   },
 
   firestore: {
