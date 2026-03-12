@@ -14,6 +14,8 @@ export interface Rating {
   rating: number
   /** Title of the media for display purposes */
   title: string
+  /** Original title/name for display preference fallback */
+  originalTitle?: string
   /** Poster path for display purposes */
   posterPath: string | null
   /** Release date string (YYYY-MM-DD) */

@@ -44,6 +44,10 @@ export function RatingModal({
     ("title" in media ? media.title : undefined) ||
     ("name" in media ? media.name : undefined) ||
     displayTitle
+  const originalTitle =
+    ("original_title" in media ? media.original_title : undefined) ||
+    ("original_name" in media ? media.original_name : undefined) ||
+    undefined
   const mediaId = media.id
   const posterPath: string | null =
     "poster_path" in media ? (media.poster_path ?? null) : null
@@ -90,6 +94,7 @@ export function RatingModal({
         mediaId,
         selectedRating,
         title,
+        originalTitle,
         posterPath,
         releaseDate,
         voteAverage,
@@ -106,6 +111,7 @@ export function RatingModal({
     mediaType,
     mediaId,
     title,
+    originalTitle,
     posterPath,
     releaseDate,
     voteAverage,

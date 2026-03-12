@@ -124,6 +124,7 @@ export function useRatings() {
       mediaId: number
       rating: number
       title: string
+      originalTitle?: string
       posterPath: string | null
       releaseDate: string | null
       voteAverage?: number
@@ -137,6 +138,7 @@ export function useRatings() {
         mediaId: variables.mediaId.toString(),
         rating: variables.rating,
         title: variables.title,
+        originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
         releaseDate: variables.releaseDate,
       })
@@ -152,6 +154,7 @@ export function useRatings() {
           mediaType: variables.mediaType,
           rating: variables.rating,
           title: variables.title,
+          originalTitle: variables.originalTitle,
           posterPath: variables.posterPath,
           releaseDate: variables.releaseDate,
           ratedAt: now,
@@ -170,11 +173,11 @@ export function useRatings() {
       void (async () => {
         await applyMovieRatingListAutomation({
           mediaType: variables.mediaType,
-          movie: {
-            movieId: variables.mediaId,
-            title: variables.title,
-            posterPath: variables.posterPath,
-            voteAverage: variables.voteAverage,
+            movie: {
+              movieId: variables.mediaId,
+              title: variables.title,
+              posterPath: variables.posterPath,
+              voteAverage: variables.voteAverage,
             releaseDate: variables.releaseDate,
           },
           autoAddToAlreadyWatched: preferences.autoAddToAlreadyWatched,
@@ -305,6 +308,7 @@ export function useRatings() {
       mediaId: number,
       rating: number,
       title: string,
+      originalTitle: string | undefined,
       posterPath: string | null,
       releaseDate: string | null = null,
       voteAverage?: number,
@@ -314,6 +318,7 @@ export function useRatings() {
         mediaId,
         rating,
         title,
+        originalTitle,
         posterPath,
         releaseDate,
         voteAverage,

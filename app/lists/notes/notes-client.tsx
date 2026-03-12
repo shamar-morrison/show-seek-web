@@ -13,6 +13,8 @@ import { FilterSort, SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { useAuth } from "@/context/auth-context"
 import { useNotes } from "@/hooks/use-notes"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayNormalizedTitle } from "@/lib/media-title"
 import type { Note } from "@/types/note"
 import {
   Loading03Icon,
@@ -36,6 +38,7 @@ const SORT_FIELDS = [
  */
 export function NotesClient() {
   const { user, loading: authLoading } = useAuth()
+  const { preferences } = usePreferences()
   const { notes, loading: notesLoading, removeNote } = useNotes()
   const [searchQuery, setSearchQuery] = useState("")
   const [editingNote, setEditingNote] = useState<Note | null>(null)
@@ -57,6 +60,7 @@ export function NotesClient() {
     return notesArray.filter(
       (note) =>
         note.mediaTitle.toLowerCase().includes(query) ||
+        (note.originalTitle || "").toLowerCase().includes(query) ||
         note.content.toLowerCase().includes(query),
     )
   }, [notesArray, searchQuery])
@@ -116,13 +120,21 @@ export function NotesClient() {
     async (note: Note) => {
       try {
         await removeNote(note.mediaType, note.mediaId)
-        toast.success(`Note for "${note.mediaTitle}" deleted`)
+        toast.success(
+          `Note for "${getDisplayNormalizedTitle(
+            {
+              title: note.mediaTitle,
+              originalTitle: note.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          )}" deleted`,
+        )
       } catch (error) {
         console.error("Error deleting note:", error)
         toast.error("Failed to delete note")
       }
     },
-    [removeNote],
+    [preferences.showOriginalTitles, removeNote],
   )
 
   // Close modal
@@ -240,9 +252,17 @@ export function NotesClient() {
               editingNote.mediaType === "movie"
                 ? editingNote.mediaTitle
                 : undefined,
+            original_title:
+              editingNote.mediaType === "movie"
+                ? editingNote.originalTitle
+                : undefined,
             name:
               editingNote.mediaType === "tv"
                 ? editingNote.mediaTitle
+                : undefined,
+            original_name:
+              editingNote.mediaType === "tv"
+                ? editingNote.originalTitle
                 : undefined,
           }}
           mediaType={editingNote.mediaType}

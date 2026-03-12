@@ -23,6 +23,7 @@ import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isActionableMedia } from "@/lib/tmdb-media"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -200,6 +201,7 @@ export function DiscoverClient({
   const filteredResults = useContentFilter(results.results, {
     applyHideUnreleasedContent: true,
   })
+  const actionableResults = filteredResults.filter(isActionableMedia)
 
   // Handle watch trailer for a media item
   const handleWatchTrailer = useCallback(
@@ -451,7 +453,7 @@ export function DiscoverClient({
           {/* Results Grid */}
           {!isPending && filteredResults.length > 0 && (
             <div className="mb-12 grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-              {filteredResults.map((media) => (
+              {actionableResults.map((media) => (
                 <MediaCardWithActions
                   key={`${media.media_type}-${media.id}`}
                   media={media}

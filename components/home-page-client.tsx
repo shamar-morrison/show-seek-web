@@ -12,12 +12,12 @@ import {
   LIST_BROWSE_URLS,
   PREMIUM_LIST_ID,
 } from "@/lib/home-screen-lists"
+import { listItemToMedia } from "@/lib/list-media"
 import {
   getDisplayMediaTitle,
   getDisplayNormalizedTitle,
 } from "@/lib/media-title"
 import type { TrailerItem } from "@/lib/tmdb"
-import type { ListMediaItem } from "@/types/list"
 import { isDefaultList } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import dynamic from "next/dynamic"
@@ -159,25 +159,7 @@ export function HomePageClient({
         // Convert ListMediaItem record to TMDBMedia[]
         const items = Object.values(userList.items)
           .sort((a, b) => b.addedAt - a.addedAt) // Sort by added time descending
-          .map(
-            (mediaItem: ListMediaItem): TMDBMedia => ({
-              id: mediaItem.id,
-              media_type: mediaItem.media_type,
-              title: mediaItem.title,
-              name: mediaItem.name || mediaItem.title,
-              poster_path: mediaItem.poster_path,
-              backdrop_path: null,
-              overview: "",
-              vote_average: mediaItem.vote_average || 0,
-              vote_count: 0,
-              popularity: 0,
-              original_language: "en",
-              adult: false,
-              genre_ids: mediaItem.genre_ids || [],
-              release_date: mediaItem.release_date,
-              first_air_date: mediaItem.first_air_date,
-            }),
-          )
+          .map((mediaItem): TMDBMedia => listItemToMedia(mediaItem))
 
         // Determine the correct page based on list type
         const listHref = isDefaultList(item.id)

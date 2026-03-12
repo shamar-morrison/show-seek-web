@@ -10,6 +10,8 @@ export interface ListMediaItem {
   title: string
   poster_path: string | null
   media_type: "movie" | "tv"
+  original_title?: string
+  original_name?: string
   vote_average?: number
   release_date?: string
   addedAt: number

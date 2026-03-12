@@ -25,7 +25,7 @@ import {
   createPremiumTelemetryPayload,
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
-import type { UserList } from "@/types/list"
+import type { ListMediaItem, UserList } from "@/types/list"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   Add01Icon,
@@ -109,6 +109,10 @@ export function AddToListModal({
     ("title" in media ? media.title : undefined) ||
     ("name" in media ? media.name : undefined) ||
     displayTitle
+  const originalTitle =
+    ("original_title" in media ? media.original_title : undefined) || undefined
+  const originalName =
+    ("original_name" in media ? media.original_name : undefined) || undefined
   const mediaId = media.id
   const mediaKey = `${mediaType}-${mediaId}`
   const isPremiumCheckPending = isPremiumStatusPending({
@@ -186,6 +190,37 @@ export function AddToListModal({
     [lists, mediaId, mediaKey],
   )
 
+  const buildMediaItem = useCallback((): Omit<ListMediaItem, "addedAt"> => {
+    const mediaItem: Omit<ListMediaItem, "addedAt"> = {
+      id: mediaId,
+      title: title || "Unknown",
+      poster_path: "poster_path" in media ? media.poster_path : null,
+      media_type: mediaType,
+      vote_average: "vote_average" in media ? media.vote_average : 0,
+      genre_ids:
+        "genre_ids" in media
+          ? media.genre_ids
+          : "genres" in media
+            ? media.genres?.map((g) => g.id)
+            : [],
+    }
+
+    if (mediaType === "movie") {
+      mediaItem.release_date =
+        "release_date" in media ? media.release_date || "" : ""
+      mediaItem.original_title = originalTitle
+    }
+
+    if (mediaType === "tv") {
+      mediaItem.name = title || "Unknown"
+      mediaItem.first_air_date =
+        "first_air_date" in media ? media.first_air_date || "" : ""
+      mediaItem.original_name = originalName
+    }
+
+    return mediaItem
+  }, [media, mediaId, mediaType, originalName, originalTitle, title])
+
   // Handle save (add mode)
   const handleSave = useCallback(async () => {
     if (!user) return
@@ -200,33 +235,7 @@ export function AddToListModal({
         | { type: "remove"; listId: string }
       const undoOps: UndoOperation[] = []
 
-      // Build media item for adding - only include defined values
-      const mediaItem: Record<string, unknown> = {
-        id: mediaId,
-        title: title || "Unknown",
-        poster_path: "poster_path" in media ? media.poster_path : null,
-        media_type: mediaType,
-        vote_average: "vote_average" in media ? media.vote_average : 0,
-        genre_ids:
-          "genre_ids" in media
-            ? media.genre_ids
-            : "genres" in media
-              ? media.genres?.map((g) => g.id)
-              : [],
-      }
-
-      // Add movie-specific fields
-      if (mediaType === "movie") {
-        mediaItem.release_date =
-          "release_date" in media ? media.release_date || "" : ""
-      }
-
-      // Add TV-specific fields
-      if (mediaType === "tv") {
-        mediaItem.name = title || "Unknown"
-        mediaItem.first_air_date =
-          "first_air_date" in media ? media.first_air_date || "" : ""
-      }
+      const mediaItem = buildMediaItem()
 
       // Process each list
       lists.forEach((list) => {
@@ -236,13 +245,7 @@ export function AddToListModal({
         if (!wasInList && isNowSelected) {
           // Add to list
           promises.push(
-            addToList(
-              list.id,
-              mediaItem as Omit<
-                import("@/types/list").ListMediaItem,
-                "addedAt"
-              >,
-            ),
+            addToList(list.id, mediaItem),
           )
           undoOps.push({ type: "remove", listId: list.id })
         } else if (wasInList && !isNowSelected) {
@@ -265,10 +268,7 @@ export function AddToListModal({
                         // Re-add the item
                         return addToList(
                           op.listId,
-                          mediaItem as Omit<
-                            import("@/types/list").ListMediaItem,
-                            "addedAt"
-                          >,
+                          mediaItem,
                         )
                       } else {
                         // Remove the item
@@ -296,10 +296,7 @@ export function AddToListModal({
     user,
     lists,
     selectedLists,
-    media,
-    mediaId,
-    mediaType,
-    title,
+    buildMediaItem,
     addToList,
     removeFromList,
     isInList,
@@ -357,36 +354,10 @@ export function AddToListModal({
       // Create the list
       const listId = await createList(newListName.trim())
 
-      // Build media item
-      const mediaItem: Record<string, unknown> = {
-        id: mediaId,
-        title: title || "Unknown",
-        poster_path: "poster_path" in media ? media.poster_path : null,
-        media_type: mediaType,
-        vote_average: "vote_average" in media ? media.vote_average : 0,
-        genre_ids:
-          "genre_ids" in media
-            ? media.genre_ids
-            : "genres" in media
-              ? media.genres?.map((g) => g.id)
-              : [],
-      }
-
-      if (mediaType === "movie") {
-        mediaItem.release_date =
-          "release_date" in media ? media.release_date || "" : ""
-      }
-      if (mediaType === "tv") {
-        mediaItem.name = title || "Unknown"
-        mediaItem.first_air_date =
-          "first_air_date" in media ? media.first_air_date || "" : ""
-      }
+      const mediaItem = buildMediaItem()
 
       // Add the media to the new list
-      await addToList(
-        listId,
-        mediaItem as Omit<import("@/types/list").ListMediaItem, "addedAt">,
-      )
+      await addToList(listId, mediaItem)
 
       toast.success(`Created "${newListName.trim()}" and added ${displayTitle}`)
       setShowCreateModal(false)
@@ -401,15 +372,12 @@ export function AddToListModal({
     }
   }, [
     addToList,
+    buildMediaItem,
     createList,
     isPremiumCheckPending,
-    media,
-    mediaId,
-    mediaType,
     newListName,
     premiumStatus,
     shouldRunFreeUserLimitCheck,
-    title,
     user,
   ])
 

@@ -33,6 +33,7 @@ function toRating(docId: string, data: Record<string, unknown>): Rating {
     rating: data.rating as number,
     // For episodes, use episodeName as title
     title: (data.title as string) || (data.episodeName as string) || "",
+    originalTitle: data.originalTitle as string | undefined,
     posterPath: (data.posterPath as string) || null,
     releaseDate: (data.releaseDate as string) || null,
     ratedAt:
@@ -154,6 +155,7 @@ export async function setRating(
         mediaType: input.mediaType,
         rating: input.rating,
         title: input.title,
+        originalTitle: input.originalTitle,
         posterPath: input.posterPath,
         releaseDate: input.releaseDate,
         // Always set ratedAt to current timestamp (matches mobile behavior)

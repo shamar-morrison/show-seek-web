@@ -45,4 +45,18 @@ describe("user preferences", () => {
       showOriginalTitles: true,
     })
   })
+
+  it("defaults original title preference when the stored key is omitted", () => {
+    expect(hydrateUserPreferences({})).toMatchObject({
+      showOriginalTitles: false,
+    })
+  })
+
+  it("normalizes undefined original title preference to false", () => {
+    expect(
+      hydrateUserPreferences({ showOriginalTitles: undefined }),
+    ).toMatchObject({
+      showOriginalTitles: false,
+    })
+  })
 })

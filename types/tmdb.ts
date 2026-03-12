@@ -41,6 +41,10 @@ export interface TMDBMedia {
   original_language: string
 }
 
+export type TMDBActionableMedia = TMDBMedia & {
+  media_type: "movie" | "tv"
+}
+
 /** Response from trending endpoint */
 export interface TMDBTrendingResponse {
   page: number

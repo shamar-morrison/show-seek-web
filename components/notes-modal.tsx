@@ -53,6 +53,7 @@ export function NotesModal({
   const displayTitle =
     getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
   const title = media.title || media.name || displayTitle
+  const originalTitle = media.original_title || media.original_name || undefined
   const mediaId = media.id
   const posterPath: string | null = media.poster_path ?? null
 
@@ -72,7 +73,14 @@ export function NotesModal({
 
     setIsSaving(true)
     try {
-      await saveNote(mediaType, mediaId, noteContent.trim(), title, posterPath)
+      await saveNote(
+        mediaType,
+        mediaId,
+        noteContent.trim(),
+        title,
+        originalTitle,
+        posterPath,
+      )
       toast.success("Note saved")
       onClose()
     } catch (error) {
@@ -81,7 +89,16 @@ export function NotesModal({
     } finally {
       setIsSaving(false)
     }
-  }, [noteContent, saveNote, mediaType, mediaId, title, posterPath, onClose])
+  }, [
+    noteContent,
+    saveNote,
+    mediaType,
+    mediaId,
+    title,
+    originalTitle,
+    posterPath,
+    onClose,
+  ])
 
   const handleClose = useCallback(() => {
     setNoteContent("")

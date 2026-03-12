@@ -9,7 +9,7 @@ import { getDisplayMediaTitle } from "@/lib/media-title"
 import {
   PersonCastMember,
   PersonCrewMember,
-  TMDBMedia,
+  TMDBActionableMedia,
   TMDBPersonDetails,
 } from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
@@ -74,7 +74,7 @@ export function PersonContent({ person }: PersonContentProps) {
     const current = activeTab === "movie" ? movies : tv
 
     // Map to TMDBMedia for MediaCard
-    const items: TMDBMedia[] = current.map((credit) => ({
+    const items: TMDBActionableMedia[] = current.map((credit) => ({
       ...credit,
       original_language: "en",
       ...(credit.media_type === "movie"
@@ -90,15 +90,12 @@ export function PersonContent({ person }: PersonContentProps) {
     }
   }, [person, activeTab])
 
-  const handleWatchTrailer = async (media: TMDBMedia) => {
+  const handleWatchTrailer = async (media: TMDBActionableMedia) => {
     setLoadingMediaId(media.id)
     try {
       const trailerTitle =
         getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer"
-      const key = await fetchTrailerKey(
-        media.id,
-        media.media_type as "movie" | "tv",
-      )
+      const key = await fetchTrailerKey(media.id, media.media_type)
       if (key) {
         setTrailerKey(key)
         setActiveTrailerTitle(trailerTitle)

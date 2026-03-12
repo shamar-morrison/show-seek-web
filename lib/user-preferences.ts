@@ -55,5 +55,7 @@ export function hydrateUserPreferences(
       autoRemoveFromShouldWatch ??
       autoRemoveWatchedFromWatchlist ??
       DEFAULT_PREFERENCES.autoRemoveFromShouldWatch,
+    showOriginalTitles:
+      rest.showOriginalTitles ?? DEFAULT_PREFERENCES.showOriginalTitles,
   }
 }

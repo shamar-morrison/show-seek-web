@@ -8,6 +8,7 @@ import { TrailerModal } from "@/components/trailer-modal"
 import { Pagination } from "@/components/ui/pagination"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isActionableMedia } from "@/lib/tmdb-media"
 import type { TMDBMedia } from "@/types/tmdb"
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -92,8 +93,7 @@ export function BrowsePageClient({
     }
   }
 
-  // Choose which card component to render
-  const CardComponent = showActions ? MediaCardWithActions : MediaCard
+  const actionableItems = items.filter(isActionableMedia)
 
   return (
     <main className="min-h-screen bg-black pb-16 pt-32">
@@ -119,15 +119,25 @@ export function BrowsePageClient({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-            {items.map((item) => (
-              <CardComponent
-                key={`${item.media_type}-${item.id}`}
-                media={item}
-                onWatchTrailer={handleWatchTrailer}
-                isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
-                preferOriginalTitles={preferences.showOriginalTitles}
-              />
-            ))}
+            {showActions
+              ? actionableItems.map((item) => (
+                  <MediaCardWithActions
+                    key={`${item.media_type}-${item.id}`}
+                    media={item}
+                    onWatchTrailer={handleWatchTrailer}
+                    isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                    preferOriginalTitles={preferences.showOriginalTitles}
+                  />
+                ))
+              : items.map((item) => (
+                  <MediaCard
+                    key={`${item.media_type}-${item.id}`}
+                    media={item}
+                    onWatchTrailer={handleWatchTrailer}
+                    isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                    preferOriginalTitles={preferences.showOriginalTitles}
+                  />
+                ))}
           </div>
         )}
       </div>
