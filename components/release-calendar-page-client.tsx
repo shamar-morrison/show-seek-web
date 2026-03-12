@@ -302,6 +302,11 @@ function ReleaseCard({ release }: { release: ReleaseCalendarViewItem }) {
     buildImageUrl(release.posterPath, "w342") ??
     buildImageUrl(release.backdropPath, "w300")
   const isToday = toLocalDateKey(release.releaseDate) === toLocalDateKey(new Date())
+  const formattedReleaseDate = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(release.releaseDate)
 
   return (
     <Link
@@ -344,21 +349,21 @@ function ReleaseCard({ release }: { release: ReleaseCalendarViewItem }) {
               {release.title}
             </h2>
             {release.nextEpisode ? (
-              <p className="line-clamp-1 text-sm text-white/70">
-                S{release.nextEpisode.seasonNumber}E
-                {release.nextEpisode.episodeNumber}
-                {release.nextEpisode.episodeName
-                  ? ` • ${release.nextEpisode.episodeName}`
-                  : ""}
-              </p>
+              <>
+                <p className="line-clamp-1 text-sm text-white/70">
+                  Season {release.nextEpisode.seasonNumber} Episode{" "}
+                  {release.nextEpisode.episodeNumber}
+                </p>
+                {release.nextEpisode.episodeName ? (
+                  <p className="line-clamp-1 text-sm text-white/60">
+                    {release.nextEpisode.episodeName}
+                  </p>
+                ) : null}
+              </>
             ) : null}
-            <p className="text-sm text-white/60">
-              {new Intl.DateTimeFormat(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              }).format(release.releaseDate)}
-            </p>
+            {!release.nextEpisode ? (
+              <p className="text-sm text-white/60">{formattedReleaseDate}</p>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-2 rounded-full bg-black/45 px-2.5 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">

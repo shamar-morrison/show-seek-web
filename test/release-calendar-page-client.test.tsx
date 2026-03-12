@@ -175,6 +175,9 @@ describe("ReleaseCalendarView", () => {
     expect(screen.getByText("Alpha")).toBeInTheDocument()
     expect(screen.getByText("Beta")).toBeInTheDocument()
     expect(screen.getByText("Gamma")).toBeInTheDocument()
+    expect(screen.getByText("Season 1 Episode 1")).toBeInTheDocument()
+    expect(screen.getByText("Pilot")).toBeInTheDocument()
+    expect(screen.queryByText("S1E1 • Pilot")).not.toBeInTheDocument()
     expect(screen.getAllByTestId("release-calendar-section-grid")).toHaveLength(2)
 
     await user.click(screen.getByTestId("release-calendar-date-2099-04-12"))
