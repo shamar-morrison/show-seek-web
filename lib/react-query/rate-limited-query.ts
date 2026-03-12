@@ -13,7 +13,25 @@ const delay = (ms: number) =>
   })
 
 let isProcessing = false
+let isProcessingScheduled = false
 let queuedRequests: Array<QueuedRequest<unknown>> = []
+
+function scheduleQueueProcessing() {
+  if (
+    isProcessing ||
+    isProcessingScheduled ||
+    queuedRequests.length === 0
+  ) {
+    return
+  }
+
+  isProcessingScheduled = true
+
+  queueMicrotask(() => {
+    isProcessingScheduled = false
+    void processQueue()
+  })
+}
 
 async function processQueue() {
   if (isProcessing || queuedRequests.length === 0) {
@@ -44,7 +62,7 @@ async function processQueue() {
     isProcessing = false
 
     if (queuedRequests.length > 0) {
-      void processQueue()
+      scheduleQueueProcessing()
     }
   }
 }
@@ -57,7 +75,7 @@ export function enqueueRateLimitedRequest<T>(fn: () => Promise<T>) {
       resolve: resolve as (value: unknown) => void,
     })
 
-    void processQueue()
+    scheduleQueueProcessing()
   })
 }
 

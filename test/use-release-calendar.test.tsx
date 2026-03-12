@@ -2,7 +2,7 @@ import { useReleaseCalendar } from "@/hooks/use-release-calendar"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const fetchFullTVDetailsMock = vi.fn()
 const fetchMovieDetailsMock = vi.fn()
@@ -92,10 +92,6 @@ describe("useReleaseCalendar", () => {
       isLoading: false,
       region: "US",
     })
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("loads releases incrementally from list data, then detail data, then season episodes", async () => {
