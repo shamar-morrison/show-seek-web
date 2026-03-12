@@ -96,9 +96,21 @@ export function NotesClient() {
           break
         }
         case "title": {
-          comparison = a.mediaTitle
-            .toLowerCase()
-            .localeCompare(b.mediaTitle.toLowerCase())
+          const titleA = getDisplayNormalizedTitle(
+            {
+              title: a.mediaTitle,
+              originalTitle: a.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          const titleB = getDisplayNormalizedTitle(
+            {
+              title: b.mediaTitle,
+              originalTitle: b.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          comparison = titleA.localeCompare(titleB)
           break
         }
       }
@@ -107,7 +119,7 @@ export function NotesClient() {
     })
 
     return sorted
-  }, [filteredNotes, sortState])
+  }, [filteredNotes, preferences.showOriginalTitles, sortState])
 
   // Handle edit - open modal with the note's media
   const handleEdit = useCallback((note: Note) => {

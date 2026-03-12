@@ -17,7 +17,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { listItemToMedia } from "@/lib/list-media"
 import { getDisplayMediaTitle } from "@/lib/media-title"
-import type { UserList } from "@/types/list"
+import type { ListMediaItem, UserList } from "@/types/list"
 import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
   Bookmark02Icon,
@@ -183,6 +183,18 @@ export function ListsPageClient({
     )
   }, [activeList])
 
+  const getItemDisplayTitle = useCallback(
+    (item: ListMediaItem) =>
+      getDisplayMediaTitle(
+        listItemToMedia(item),
+        preferences.showOriginalTitles,
+      ) ||
+      item.title ||
+      item.name ||
+      "",
+    [preferences.showOriginalTitles],
+  )
+
   // Filter items by all criteria
   const filteredItems = useMemo(() => {
     let items = listItems
@@ -191,7 +203,7 @@ export function ListsPageClient({
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       items = items.filter((item) => {
-        const title = (item.title || item.name || "").toLowerCase()
+        const title = getItemDisplayTitle(item).toLowerCase()
         return title.includes(query)
       })
     }
@@ -221,7 +233,14 @@ export function ListsPageClient({
     }
 
     return items
-  }, [listItems, searchQuery, filterState, yearRange, minRating])
+  }, [
+    filterState,
+    getItemDisplayTitle,
+    listItems,
+    minRating,
+    searchQuery,
+    yearRange,
+  ])
 
   // Sort items
   const sortedItems = useMemo(() => {
@@ -246,8 +265,8 @@ export function ListsPageClient({
           comparison = (a.vote_average ?? 0) - (b.vote_average ?? 0)
           break
         case "title": {
-          const titleA = (a.title || a.name || "").toLowerCase()
-          const titleB = (b.title || b.name || "").toLowerCase()
+          const titleA = getItemDisplayTitle(a).toLowerCase()
+          const titleB = getItemDisplayTitle(b).toLowerCase()
           comparison = titleA.localeCompare(titleB)
           break
         }
@@ -257,7 +276,7 @@ export function ListsPageClient({
     })
 
     return sorted
-  }, [filteredItems, sortState])
+  }, [filteredItems, getItemDisplayTitle, sortState])
 
   // Get item count for each list
   const getItemCount = useCallback(

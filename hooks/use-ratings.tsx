@@ -173,11 +173,12 @@ export function useRatings() {
       void (async () => {
         await applyMovieRatingListAutomation({
           mediaType: variables.mediaType,
-            movie: {
-              movieId: variables.mediaId,
-              title: variables.title,
-              posterPath: variables.posterPath,
-              voteAverage: variables.voteAverage,
+          movie: {
+            movieId: variables.mediaId,
+            title: variables.title,
+            originalTitle: variables.originalTitle,
+            posterPath: variables.posterPath,
+            voteAverage: variables.voteAverage,
             releaseDate: variables.releaseDate,
           },
           autoAddToAlreadyWatched: preferences.autoAddToAlreadyWatched,

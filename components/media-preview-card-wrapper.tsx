@@ -245,6 +245,7 @@ export function MediaPreviewCardWrapper({
                   <MediaPreviewContent
                     media={detailedMedia as TMDBMovieDetails | TMDBTVDetails}
                     mediaType={mediaType}
+                    preferOriginalTitles={preferOriginalTitles}
                     onAddToList={handleAddToList}
                     onRate={handleRate}
                     onNotes={handleNotes}

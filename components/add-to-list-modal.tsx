@@ -301,6 +301,7 @@ export function AddToListModal({
     removeFromList,
     isInList,
     handleClose,
+    displayTitle,
   ])
 
   // Handle create custom list
@@ -379,6 +380,7 @@ export function AddToListModal({
     premiumStatus,
     shouldRunFreeUserLimitCheck,
     user,
+    displayTitle,
   ])
 
   // Handle rename list

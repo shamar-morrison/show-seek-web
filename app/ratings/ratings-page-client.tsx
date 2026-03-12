@@ -22,7 +22,10 @@ import {
 } from "@/hooks/use-ratings"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
-import { getDisplayMediaTitle } from "@/lib/media-title"
+import {
+  getDisplayMediaTitle,
+  getDisplayNormalizedTitle,
+} from "@/lib/media-title"
 import type { Rating } from "@/types/rating"
 import type { TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -154,11 +157,24 @@ export function RatingsPageClient() {
         case "userRating":
           comparison = (a.rating || 0) - (b.rating || 0)
           break
-        case "title":
-          comparison = (a.title || "")
-            .toLowerCase()
-            .localeCompare((b.title || "").toLowerCase())
+        case "title": {
+          const titleA = getDisplayNormalizedTitle(
+            {
+              title: a.title,
+              originalTitle: a.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          const titleB = getDisplayNormalizedTitle(
+            {
+              title: b.title,
+              originalTitle: b.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          comparison = titleA.localeCompare(titleB)
           break
+        }
       }
 
       return sortState.direction === "asc" ? comparison : -comparison
@@ -171,6 +187,7 @@ export function RatingsPageClient() {
     tvRatings.ratings,
     searchQuery,
     filterState,
+    preferences.showOriginalTitles,
     yearRange,
     sortState,
   ])
@@ -304,13 +321,13 @@ export function RatingsPageClient() {
     adult: false,
     ...(mediaType === "movie"
       ? {
-          title: rating.title || "Untitled",
+          title: rating.title || rating.originalTitle || "Untitled",
           original_title: rating.originalTitle,
           release_date: rating.releaseDate || "",
           video: false,
         }
       : {
-          name: rating.title || "Untitled",
+          name: rating.title || rating.originalTitle || "Untitled",
           original_name: rating.originalTitle,
           first_air_date: rating.releaseDate || "",
           origin_country: [],

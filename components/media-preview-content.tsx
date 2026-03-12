@@ -26,6 +26,8 @@ import { useMemo } from "react"
 interface MediaPreviewContentProps {
   media: TMDBMovieDetails | TMDBTVDetails
   mediaType: "movie" | "tv"
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
   /** Callback when Add to List button is clicked */
   onAddToList: () => void
   /** Callback when Rate button is clicked */
@@ -85,6 +87,7 @@ function formatDate(dateString: string | null | undefined): string | null {
 export function MediaPreviewContent({
   media,
   mediaType,
+  preferOriginalTitles,
   onAddToList,
   onRate,
   onNotes,
@@ -115,7 +118,10 @@ export function MediaPreviewContent({
 
   // Extract common properties
   const title =
-    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
+    getDisplayMediaTitle(
+      media,
+      preferOriginalTitles ?? preferences.showOriginalTitles,
+    ) || "Unknown"
   const overview = media.overview || "No description available."
   const rating = Math.round(media.vote_average * 10) / 10
 

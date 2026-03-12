@@ -144,23 +144,25 @@ export async function setRating(
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
   await runTransaction(getFirebaseDb(), async (transaction) => {
-    const existingDoc = await transaction.get(ratingRef)
-    const exists = existingDoc.exists()
+    const data: Record<string, unknown> = {
+      id: input.mediaId,
+      mediaType: input.mediaType,
+      rating: input.rating,
+      title: input.title,
+      posterPath: input.posterPath,
+      releaseDate: input.releaseDate,
+      // Always set ratedAt to current timestamp (matches mobile behavior)
+      ratedAt: serverTimestamp(),
+    }
+
+    if (input.originalTitle !== undefined) {
+      data.originalTitle = input.originalTitle
+    }
 
     // Use mobile app's field structure
     transaction.set(
       ratingRef,
-      {
-        id: input.mediaId,
-        mediaType: input.mediaType,
-        rating: input.rating,
-        title: input.title,
-        originalTitle: input.originalTitle,
-        posterPath: input.posterPath,
-        releaseDate: input.releaseDate,
-        // Always set ratedAt to current timestamp (matches mobile behavior)
-        ratedAt: serverTimestamp(),
-      },
+      data,
       { merge: true },
     )
   })

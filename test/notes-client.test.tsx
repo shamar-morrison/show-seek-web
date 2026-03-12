@@ -39,6 +39,32 @@ vi.mock("@/hooks/use-preferences", () => ({
   }),
 }))
 
+vi.mock("@/components/note-card", () => ({
+  NoteCard: ({
+    note,
+    onEdit,
+  }: {
+    note: {
+      mediaTitle: string
+      originalTitle?: string
+    }
+    onEdit: (note: unknown) => void
+  }) => {
+    const displayTitle =
+      (mocks.preferences.showOriginalTitles && note.originalTitle) ||
+      note.mediaTitle
+
+    return (
+      <div data-testid="note-card">
+        <span>{displayTitle}</span>
+        <button type="button" onClick={() => onEdit(note)}>
+          Edit note
+        </button>
+      </div>
+    )
+  },
+}))
+
 vi.mock("@/components/notes-modal", () => ({
   NotesModal: (props: {
     isOpen: boolean
@@ -57,6 +83,21 @@ vi.mock("@/components/notes-modal", () => ({
       />
     ) : null
   },
+}))
+
+vi.mock("@/components/ui/filter-sort", () => ({
+  FilterSort: ({
+    onSortChange,
+  }: {
+    onSortChange: (state: { field: string; direction: string }) => void
+  }) => (
+    <button
+      type="button"
+      onClick={() => onSortChange({ field: "title", direction: "asc" })}
+    >
+      Sort title
+    </button>
+  ),
 }))
 
 describe("NotesClient", () => {
@@ -104,5 +145,48 @@ describe("NotesClient", () => {
     expect(mocks.lastModalProps?.media.original_title).toBe(
       "Sen to Chihiro no Kamikakushi",
     )
+  })
+
+  it("sorts notes alphabetically by the displayed title", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "movie-123",
+        {
+          userId: "user-1",
+          mediaId: 123,
+          mediaType: "movie",
+          content: "Masterpiece",
+          mediaTitle: "Spirited Away",
+          originalTitle: "Sen to Chihiro no Kamikakushi",
+          posterPath: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        },
+      ],
+      [
+        "movie-456",
+        {
+          userId: "user-1",
+          mediaId: 456,
+          mediaType: "movie",
+          content: "Excellent",
+          mediaTitle: "Your Name",
+          originalTitle: "Kimi no Na wa.",
+          posterPath: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        },
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: "Sort title" }))
+
+    const cards = screen.getAllByTestId("note-card")
+    expect(cards[0]).toHaveTextContent("Kimi no Na wa.")
+    expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
   })
 })

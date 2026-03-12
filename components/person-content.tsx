@@ -34,9 +34,8 @@ export function PersonContent({ person }: PersonContentProps) {
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
-  const [activeTrailerTitle, setActiveTrailerTitle] = useState<string | null>(
-    null,
-  )
+  const [selectedTrailerMedia, setSelectedTrailerMedia] =
+    useState<TMDBActionableMedia | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
   const { preferences } = usePreferences()
 
@@ -76,7 +75,7 @@ export function PersonContent({ person }: PersonContentProps) {
     // Map to TMDBMedia for MediaCard
     const items: TMDBActionableMedia[] = current.map((credit) => ({
       ...credit,
-      original_language: "en",
+      original_language: "",
       ...(credit.media_type === "movie"
         ? { original_title: credit.original_title }
         : { original_name: credit.original_name }),
@@ -93,12 +92,10 @@ export function PersonContent({ person }: PersonContentProps) {
   const handleWatchTrailer = async (media: TMDBActionableMedia) => {
     setLoadingMediaId(media.id)
     try {
-      const trailerTitle =
-        getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer"
       const key = await fetchTrailerKey(media.id, media.media_type)
       if (key) {
         setTrailerKey(key)
-        setActiveTrailerTitle(trailerTitle)
+        setSelectedTrailerMedia(media)
         setIsModalOpen(true)
       } else {
         toast.error("No trailer available for this title")
@@ -159,10 +156,17 @@ export function PersonContent({ person }: PersonContentProps) {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false)
-          setActiveTrailerTitle(null)
+          setSelectedTrailerMedia(null)
         }}
         videoKey={trailerKey}
-        title={activeTrailerTitle || "Trailer"}
+        title={
+          (selectedTrailerMedia &&
+            getDisplayMediaTitle(
+              selectedTrailerMedia,
+              preferences.showOriginalTitles,
+            )) ||
+          "Trailer"
+        }
       />
     </div>
   )

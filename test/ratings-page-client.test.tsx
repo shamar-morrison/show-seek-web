@@ -18,6 +18,17 @@ const mocks = vi.hoisted(() => ({
       releaseDate: "2001-07-20",
       ratedAt: 1,
     },
+    {
+      id: "movie-456",
+      mediaId: "456",
+      mediaType: "movie" as const,
+      rating: 8,
+      title: "Your Name",
+      originalTitle: "Kimi no Na wa.",
+      posterPath: null,
+      releaseDate: "2016-08-26",
+      ratedAt: 2,
+    },
   ],
   preferences: {
     showOriginalTitles: true,
@@ -64,6 +75,21 @@ vi.mock("@/hooks/use-trailer", () => ({
   }),
 }))
 
+vi.mock("@/components/ui/filter-sort", () => ({
+  FilterSort: ({
+    onSortChange,
+  }: {
+    onSortChange: (state: { field: string; direction: string }) => void
+  }) => (
+    <button
+      type="button"
+      onClick={() => onSortChange({ field: "title", direction: "asc" })}
+    >
+      Sort title
+    </button>
+  ),
+}))
+
 vi.mock("@/components/media-card-with-actions", () => ({
   MediaCardWithActions: ({
     media,
@@ -75,13 +101,23 @@ vi.mock("@/components/media-card-with-actions", () => ({
       original_name?: string
     }
   }) => (
-    <div
-      data-testid="media-card"
-      data-title={media.title ?? media.name ?? ""}
-      data-original-title={media.original_title ?? media.original_name ?? ""}
-    >
-      {media.original_title ?? media.original_name ?? media.title ?? media.name}
-    </div>
+    (() => {
+      const canonicalTitle = media.title ?? media.name ?? ""
+      const originalTitle = media.original_title ?? media.original_name ?? ""
+      const displayTitle = mocks.preferences.showOriginalTitles
+        ? originalTitle || canonicalTitle
+        : canonicalTitle || originalTitle
+
+      return (
+        <div
+          data-testid="media-card"
+          data-title={canonicalTitle}
+          data-original-title={originalTitle}
+        >
+          {displayTitle}
+        </div>
+      )
+    })()
   ),
 }))
 
@@ -96,14 +132,20 @@ vi.mock("@/components/trailer-modal", () => ({
 describe("RatingsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.preferences.showOriginalTitles = true
   })
 
   it("rehydrates original titles for cards and searches both title variants", async () => {
     const user = userEvent.setup()
 
-    render(<RatingsPageClient />)
+    const { rerender } = render(<RatingsPageClient />)
 
-    const card = screen.getByTestId("media-card")
+    const card = screen
+      .getByText("Sen to Chihiro no Kamikakushi")
+      .closest('[data-testid="media-card"]')
+
+    expect(card).not.toBeNull()
+    expect(card).toHaveAttribute("data-title", "Spirited Away")
     expect(card).toHaveAttribute(
       "data-original-title",
       "Sen to Chihiro no Kamikakushi",
@@ -115,6 +157,23 @@ describe("RatingsPageClient", () => {
       "Chihiro",
     )
 
-    expect(screen.getByTestId("media-card")).toBeInTheDocument()
+    expect(screen.getAllByTestId("media-card")).toHaveLength(1)
+
+    mocks.preferences.showOriginalTitles = false
+    rerender(<RatingsPageClient />)
+
+    expect(screen.getByText("Spirited Away")).toBeInTheDocument()
+  })
+
+  it("sorts ratings alphabetically by the displayed title", async () => {
+    const user = userEvent.setup()
+
+    render(<RatingsPageClient />)
+
+    await user.click(screen.getByRole("button", { name: "Sort title" }))
+
+    const cards = screen.getAllByTestId("media-card")
+    expect(cards[0]).toHaveTextContent("Kimi no Na wa.")
+    expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
   })
 })
