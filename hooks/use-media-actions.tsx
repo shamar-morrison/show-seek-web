@@ -7,6 +7,11 @@ import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
+import {
+  resolveAddToListAppearance,
+  type AddToListAppearance,
+} from "@/lib/add-to-list-appearance"
+import { cn } from "@/lib/utils"
 import type { Note } from "@/types/note"
 import type { Rating } from "@/types/rating"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
@@ -14,9 +19,7 @@ import {
   CheckmarkCircle02Icon,
   Note01Icon,
   NoteDoneIcon,
-  PlusSignIcon,
   StarIcon,
-  Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import dynamic from "next/dynamic"
@@ -69,6 +72,8 @@ interface UseMediaActionsResult {
   userRating: Rating | null
   /** User's note for this media, if any */
   userNote: Note | null
+  /** Shared appearance data for add-to-list actions */
+  addToListAppearance: AddToListAppearance
   /** List IDs the media is in (if preference enabled), for display indicators */
   listIds: string[] | undefined
   /** Pre-built dropdown menu items */
@@ -141,21 +146,17 @@ export function useMediaActions({
     return getNote(mediaType, media.id)
   }, [getNote, mediaType, media.id])
 
-  // Check if media is in any list
-  const isInAnyList = useMemo(() => {
-    const numericKey = String(media.id)
-    return lists.some((list) => list.items && list.items[numericKey])
-  }, [lists, media.id])
+  const addToListAppearance = useMemo(
+    () => resolveAddToListAppearance(lists, media.id, mediaType),
+    [lists, media.id, mediaType],
+  )
+  const isInAnyList = addToListAppearance.isInAnyList
 
   // Get lists the media is in (if preference enabled)
   const listIds = useMemo(() => {
     if (!preferences.showListIndicators) return undefined
-
-    const numericKey = String(media.id)
-    return lists
-      .filter((list) => list.items && list.items[numericKey])
-      .map((list) => list.id)
-  }, [lists, media.id, preferences.showListIndicators])
+    return addToListAppearance.listIds
+  }, [addToListAppearance.listIds, preferences.showListIndicators])
 
   // Handlers with auth guard
   const openListModal = useCallback(() => {
@@ -273,8 +274,9 @@ export function useMediaActions({
         label: isInAnyList ? "In List" : "Add to List",
         icon: ({ className }) => (
           <HugeiconsIcon
-            icon={isInAnyList ? Tick02Icon : PlusSignIcon}
-            className={className}
+            icon={addToListAppearance.icon}
+            data-add-to-list-icon={addToListAppearance.iconKey}
+            className={cn(className, addToListAppearance.dropdownIconClassName)}
           />
         ),
         onClick: openListModal,
@@ -323,13 +325,14 @@ export function useMediaActions({
     return items
   }, [
     isInAnyList,
+    addToListAppearance,
     userRating,
     userNote,
     openListModal,
     openRatingModal,
     openNotesModal,
     mediaType,
-    watchCount,
+    isWatched,
     isQuickMarkLoading,
     openMarkAsWatchedModal,
   ])
@@ -425,6 +428,7 @@ export function useMediaActions({
     isInAnyList,
     userRating,
     userNote,
+    addToListAppearance,
     listIds,
     dropdownItems,
     modals,

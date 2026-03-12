@@ -7,15 +7,15 @@ import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
+import { cn } from "@/lib/utils"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
   InformationCircleIcon,
   Note01Icon,
   NoteDoneIcon,
-  PlusSignIcon,
   StarIcon,
-  Tick02Icon,
   Tv01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -106,11 +106,11 @@ export function MediaPreviewContent({
     return getNote(mediaType, media.id)
   }, [getNote, mediaType, media.id])
 
-  // Check if media is in any list
-  const isInAnyList = useMemo(() => {
-    const numericKey = String(media.id)
-    return lists.some((list) => list.items && list.items[numericKey])
-  }, [lists, media.id])
+  const addToListAppearance = useMemo(
+    () => resolveAddToListAppearance(lists, media.id, mediaType),
+    [lists, media.id, mediaType],
+  )
+  const isInAnyList = addToListAppearance.isInAnyList
 
   // Extract common properties
   const title =
@@ -218,7 +218,10 @@ export function MediaPreviewContent({
         <Button
           size="sm"
           variant="outline"
-          className="border-white/20 bg-white/5 text-xs font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+          className={cn(
+            "border-white/20 bg-white/5 text-xs font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10",
+            addToListAppearance.buttonClassName,
+          )}
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -226,7 +229,8 @@ export function MediaPreviewContent({
           }}
         >
           <HugeiconsIcon
-            icon={isInAnyList ? Tick02Icon : PlusSignIcon}
+            icon={addToListAppearance.icon}
+            data-add-to-list-icon={addToListAppearance.iconKey}
             className="size-3.5"
           />
           {isInAnyList ? "Added" : "Add"}
