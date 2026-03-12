@@ -333,6 +333,7 @@ export function useMediaActions({
     openNotesModal,
     mediaType,
     watchCount,
+    isWatched,
     isQuickMarkLoading,
     openMarkAsWatchedModal,
   ])

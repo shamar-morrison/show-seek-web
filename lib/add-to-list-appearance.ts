@@ -1,5 +1,3 @@
-"use client"
-
 import { isDefaultList, type UserList } from "@/types/list"
 import {
   Bookmark02Icon,
