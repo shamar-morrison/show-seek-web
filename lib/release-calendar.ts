@@ -11,7 +11,7 @@ import type {
 const ACTIVE_TV_STATUSES = new Set(["Returning Series", "In Production"])
 const MAX_EPISODES_PER_SHOW = 5
 
-interface DedupedTrackedItem {
+export interface DedupedTrackedItem {
   id: number
   mediaType: "movie" | "tv"
   title: string
@@ -20,6 +20,20 @@ interface DedupedTrackedItem {
   releaseDate?: string
   firstAirDate?: string
   sourceLists: TrackedCalendarListId[]
+}
+
+export interface ReleaseCalendarSeasonRequest {
+  seasonNumber: number
+  showId: number
+}
+
+export interface ReleaseCalendarSeasonData {
+  episodes: Array<{
+    airDate: string | null
+    episodeName?: string
+    episodeNumber: number
+    seasonNumber: number
+  }>
 }
 
 interface ReleaseCalendarFetchers {
@@ -39,7 +53,7 @@ function compareListIds(
   return left.localeCompare(right)
 }
 
-function dedupeTrackedItems(
+export function dedupeTrackedItems(
   items: ReleaseCalendarTrackedItem[],
 ): DedupedTrackedItem[] {
   const dedupedItems = new Map<string, DedupedTrackedItem>()
@@ -173,6 +187,189 @@ function isFutureOrToday(dateKey: string | null | undefined, todayKey: string) {
   return !!dateKey && dateKey >= todayKey
 }
 
+export function buildReleaseCalendarSeasonRequests(
+  items: DedupedTrackedItem[],
+  tvDetailsById: Map<number, TMDBTVDetails | null>,
+): ReleaseCalendarSeasonRequest[] {
+  return items
+    .filter((item) => item.mediaType === "tv")
+    .map((item) => {
+      const details = tvDetailsById.get(item.id)
+      if (!details) {
+        return null
+      }
+
+      const seasonNumber = getSeasonToFetch(details)
+      if (!seasonNumber) {
+        return null
+      }
+
+      return {
+        showId: item.id,
+        seasonNumber,
+      }
+    })
+    .filter((request): request is ReleaseCalendarSeasonRequest => request !== null)
+}
+
+export function deriveReleaseCalendarReleases({
+  items,
+  movieDetailsById,
+  region,
+  seasonDataByShowId,
+  todayKey,
+  tvDetailsById,
+}: {
+  items: DedupedTrackedItem[]
+  movieDetailsById?: Map<number, TMDBMovieDetails | null>
+  region: string
+  seasonDataByShowId?: Map<number, ReleaseCalendarSeasonData>
+  todayKey: string
+  tvDetailsById?: Map<number, TMDBTVDetails | null>
+}): ReleaseCalendarRelease[] {
+  const releases: ReleaseCalendarRelease[] = []
+  const seenKeys = new Set<string>()
+  const tvReleasesByShow = new Set<number>()
+
+  for (const item of items) {
+    if (item.mediaType !== "movie") {
+      continue
+    }
+
+    const details = movieDetailsById?.get(item.id) ?? null
+    const releaseDate = resolveMovieReleaseDate({
+      details,
+      fallbackDate: item.releaseDate,
+      region,
+    })
+
+    if (!releaseDate || !isFutureOrToday(releaseDate, todayKey)) {
+      continue
+    }
+
+    const uniqueKey = `movie-${item.id}`
+    releases.push({
+      id: item.id,
+      mediaType: "movie",
+      title: item.title,
+      posterPath: item.posterPath,
+      backdropPath: details?.backdrop_path ?? null,
+      releaseDate,
+      sourceLists: item.sourceLists,
+      uniqueKey,
+    })
+    seenKeys.add(uniqueKey)
+  }
+
+  for (const item of items) {
+    if (item.mediaType !== "tv") {
+      continue
+    }
+
+    const details = tvDetailsById?.get(item.id) ?? null
+    const seasonData = seasonDataByShowId?.get(item.id)
+
+    if (!details || !seasonData) {
+      continue
+    }
+
+    const futureEpisodes = seasonData.episodes
+      .filter(
+        (episode) =>
+          episode.seasonNumber > 0 &&
+          episode.episodeNumber > 0 &&
+          isFutureOrToday(episode.airDate, todayKey),
+      )
+      .slice(0, MAX_EPISODES_PER_SHOW)
+
+    for (const episode of futureEpisodes) {
+      const airDate = episode.airDate
+      if (!airDate) {
+        continue
+      }
+
+      const uniqueKey = `tv-${item.id}-s${episode.seasonNumber}-e${episode.episodeNumber}`
+      if (seenKeys.has(uniqueKey)) {
+        continue
+      }
+
+      releases.push({
+        id: item.id,
+        mediaType: "tv",
+        title: details.name || item.name || item.title,
+        posterPath: item.posterPath,
+        backdropPath: details.backdrop_path ?? null,
+        releaseDate: airDate,
+        nextEpisode: {
+          seasonNumber: episode.seasonNumber,
+          episodeNumber: episode.episodeNumber,
+          episodeName: episode.episodeName,
+        },
+        sourceLists: item.sourceLists,
+        uniqueKey,
+      })
+      seenKeys.add(uniqueKey)
+    }
+
+    if (futureEpisodes.length > 0) {
+      tvReleasesByShow.add(item.id)
+    }
+  }
+
+  for (const item of items) {
+    if (item.mediaType !== "tv" || tvReleasesByShow.has(item.id)) {
+      continue
+    }
+
+    const details = tvDetailsById?.get(item.id) ?? null
+    const nextEpisode = details?.next_episode_to_air
+    if (
+      !nextEpisode ||
+      nextEpisode.season_number <= 0 ||
+      nextEpisode.episode_number <= 0 ||
+      !isFutureOrToday(nextEpisode.air_date, todayKey)
+    ) {
+      continue
+    }
+
+    const uniqueKey = `tv-${item.id}-s${nextEpisode.season_number}-e${nextEpisode.episode_number}`
+    if (seenKeys.has(uniqueKey)) {
+      continue
+    }
+
+    releases.push({
+      id: item.id,
+      mediaType: "tv",
+      title: details?.name || item.name || item.title,
+      posterPath: item.posterPath,
+      backdropPath: details?.backdrop_path ?? null,
+      releaseDate: nextEpisode.air_date as string,
+      nextEpisode: {
+        seasonNumber: nextEpisode.season_number,
+        episodeNumber: nextEpisode.episode_number,
+        episodeName: nextEpisode.name,
+      },
+      sourceLists: item.sourceLists,
+      uniqueKey,
+    })
+    seenKeys.add(uniqueKey)
+  }
+
+  releases.sort((left, right) => {
+    if (left.releaseDate !== right.releaseDate) {
+      return left.releaseDate.localeCompare(right.releaseDate)
+    }
+
+    if (left.mediaType !== right.mediaType) {
+      return left.mediaType.localeCompare(right.mediaType)
+    }
+
+    return left.id - right.id
+  })
+
+  return releases
+}
+
 export async function buildReleaseCalendarReleases(
   input: FetchReleaseCalendarInput,
   fetchers: ReleaseCalendarFetchers,
@@ -201,140 +398,55 @@ export async function buildReleaseCalendarReleases(
     ),
   ])
 
-  const seasonRequests = tvDetailsResults
-    .map(({ item, details }) => {
-      if (!details) {
-        return null
-      }
+  const movieDetailsById = new Map<number, TMDBMovieDetails | null>()
+  for (const { item, details } of movieDetailsResults) {
+    movieDetailsById.set(item.id, details)
+  }
 
-      const seasonNumber = getSeasonToFetch(details)
-      if (!seasonNumber) {
-        return null
-      }
+  const tvDetailsById = new Map<number, TMDBTVDetails | null>()
+  for (const { item, details } of tvDetailsResults) {
+    tvDetailsById.set(item.id, details)
+  }
 
-      return {
-        item,
-        details,
-        seasonNumber,
-      }
-    })
-    .filter((request): request is NonNullable<typeof request> => request !== null)
+  const seasonRequests = buildReleaseCalendarSeasonRequests(
+    tvItems,
+    tvDetailsById,
+  )
 
   const seasonDetailsResults = await mapWithConcurrencyLimit(
     seasonRequests,
     async (request) => ({
-      ...request,
       seasonDetails: await fetchers.fetchSeasonDetails(
-        request.item.id,
+        request.showId,
         request.seasonNumber,
       ),
+      showId: request.showId,
     }),
     fetchers.concurrency,
   )
 
-  const releases: ReleaseCalendarRelease[] = []
-  const tvReleasesByShow = new Set<number>()
-
-  for (const { item, details } of movieDetailsResults) {
-    const releaseDate = resolveMovieReleaseDate({
-      details,
-      fallbackDate: item.releaseDate,
-      region,
-    })
-
-    if (!releaseDate || !isFutureOrToday(releaseDate, input.todayKey)) {
+  const seasonDataByShowId = new Map<number, ReleaseCalendarSeasonData>()
+  for (const { showId, seasonDetails } of seasonDetailsResults) {
+    if (!seasonDetails?.episodes?.length) {
       continue
     }
 
-    releases.push({
-      id: item.id,
-      mediaType: "movie",
-      title: item.title,
-      posterPath: item.posterPath,
-      backdropPath: details?.backdrop_path ?? null,
-      releaseDate,
-      sourceLists: item.sourceLists,
-      uniqueKey: `movie-${item.id}`,
+    seasonDataByShowId.set(showId, {
+      episodes: seasonDetails.episodes.map((episode) => ({
+        airDate: episode.air_date,
+        episodeName: episode.name,
+        episodeNumber: episode.episode_number,
+        seasonNumber: episode.season_number,
+      })),
     })
   }
 
-  for (const { item, details, seasonDetails } of seasonDetailsResults) {
-    const futureEpisodes =
-      seasonDetails?.episodes
-        ?.filter(
-          (episode) =>
-            episode.season_number > 0 &&
-            episode.episode_number > 0 &&
-            isFutureOrToday(episode.air_date, input.todayKey),
-        )
-        .slice(0, MAX_EPISODES_PER_SHOW) ?? []
-
-    for (const episode of futureEpisodes) {
-      releases.push({
-        id: item.id,
-        mediaType: "tv",
-        title: details.name || item.name || item.title,
-        posterPath: item.posterPath,
-        backdropPath: details.backdrop_path ?? null,
-        releaseDate: episode.air_date as string,
-        nextEpisode: {
-          seasonNumber: episode.season_number,
-          episodeNumber: episode.episode_number,
-          episodeName: episode.name,
-        },
-        sourceLists: item.sourceLists,
-        uniqueKey: `tv-${item.id}-s${episode.season_number}-e${episode.episode_number}`,
-      })
-    }
-
-    if (futureEpisodes.length > 0) {
-      tvReleasesByShow.add(item.id)
-    }
-  }
-
-  for (const { item, details } of tvDetailsResults) {
-    if (!details || tvReleasesByShow.has(item.id)) {
-      continue
-    }
-
-    const nextEpisode = details.next_episode_to_air
-    if (
-      !nextEpisode ||
-      nextEpisode.season_number <= 0 ||
-      nextEpisode.episode_number <= 0 ||
-      !isFutureOrToday(nextEpisode.air_date, input.todayKey)
-    ) {
-      continue
-    }
-
-    releases.push({
-      id: item.id,
-      mediaType: "tv",
-      title: details.name || item.name || item.title,
-      posterPath: item.posterPath,
-      backdropPath: details.backdrop_path ?? null,
-      releaseDate: nextEpisode.air_date as string,
-      nextEpisode: {
-        seasonNumber: nextEpisode.season_number,
-        episodeNumber: nextEpisode.episode_number,
-        episodeName: nextEpisode.name,
-      },
-      sourceLists: item.sourceLists,
-      uniqueKey: `tv-${item.id}-s${nextEpisode.season_number}-e${nextEpisode.episode_number}`,
-    })
-  }
-
-  releases.sort((left, right) => {
-    if (left.releaseDate !== right.releaseDate) {
-      return left.releaseDate.localeCompare(right.releaseDate)
-    }
-
-    if (left.mediaType !== right.mediaType) {
-      return left.mediaType.localeCompare(right.mediaType)
-    }
-
-    return left.id - right.id
+  return deriveReleaseCalendarReleases({
+    items: dedupedItems,
+    movieDetailsById,
+    region,
+    seasonDataByShowId,
+    todayKey: input.todayKey,
+    tvDetailsById,
   })
-
-  return releases
 }
