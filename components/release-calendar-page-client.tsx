@@ -241,7 +241,7 @@ function DateStrip({ dates, selectedDateKey, onSelectDate }: DateStripProps) {
           aria-label="Scroll dates left"
           disabled={!canScrollLeft}
           onClick={() => scroll("left")}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/75 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex size-10 shrink-0 self-center items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/75 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} className="size-5" />
         </button>
@@ -250,7 +250,7 @@ function DateStrip({ dates, selectedDateKey, onSelectDate }: DateStripProps) {
       <div
         ref={scrollRef}
         data-testid="release-calendar-date-strip"
-        className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+        className="min-w-0 flex-1 overflow-x-auto scrollbar-hide"
       >
         <div className="flex gap-3 pr-1">
           {dates.map((date, index) => {
@@ -288,7 +288,7 @@ function DateStrip({ dates, selectedDateKey, onSelectDate }: DateStripProps) {
           aria-label="Scroll dates right"
           disabled={!canScrollRight}
           onClick={() => scroll("right")}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/75 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex size-10 shrink-0 self-center items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/75 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
         >
           <HugeiconsIcon icon={ArrowRight01Icon} className="size-5" />
         </button>
@@ -325,11 +325,6 @@ function ReleaseCard({ release }: { release: ReleaseCalendarViewItem }) {
             month: "short",
           }).format(release.releaseDate)}
         </span>
-        {isToday ? (
-          <span className="mt-2 rounded-full bg-primary px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-white">
-            Today
-          </span>
-        ) : null}
       </div>
 
       <div className="relative hidden w-24 shrink-0 border-r border-white/10 bg-white/[0.03] sm:block">
