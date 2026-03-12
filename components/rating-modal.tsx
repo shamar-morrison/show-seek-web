@@ -89,16 +89,16 @@ export function RatingModal({
 
     setIsSaving(true)
     try {
-      await saveRating(
+      await saveRating({
         mediaType,
         mediaId,
-        selectedRating,
+        rating: selectedRating,
         title,
         originalTitle,
         posterPath,
         releaseDate,
         voteAverage,
-      )
+      })
       onClose()
     } catch (error) {
       console.error("Error saving rating:", error)

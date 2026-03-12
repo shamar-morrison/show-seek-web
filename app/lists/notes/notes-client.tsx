@@ -53,7 +53,7 @@ export function NotesClient() {
   // Convert notes Map to array
   const notesArray = useMemo(() => Array.from(notes.values()), [notes])
 
-  // Filter notes by search query (matches title or content)
+  // Filter notes by media title, original title, or note content
   const filteredNotes = useMemo(() => {
     if (!searchQuery.trim()) return notesArray
     const query = searchQuery.toLowerCase()
@@ -212,8 +212,8 @@ export function NotesClient() {
           id="notes-search-input"
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search by title or note content..."
-          aria-label="Search notes by title or content"
+          placeholder="Search by media title, original title, or note content..."
+          aria-label="Search notes by media title, original title, or content"
           className="flex-1"
         />
         <FilterSort

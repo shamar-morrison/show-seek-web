@@ -130,7 +130,9 @@ describe("NotesClient", () => {
     expect(screen.getByText("Sen to Chihiro no Kamikakushi")).toBeInTheDocument()
 
     await user.type(
-      screen.getByPlaceholderText("Search by title or note content..."),
+      screen.getByPlaceholderText(
+        "Search by media title, original title, or note content...",
+      ),
       "Chihiro",
     )
 

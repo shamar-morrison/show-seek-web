@@ -121,9 +121,9 @@ describe("PersonContent", () => {
 
     await user.click(screen.getByRole("button", { name: "Watch trailer" }))
 
-    expect(screen.getByTestId("trailer-modal")).toHaveTextContent(
-      "Spirited Away",
-    )
+    const trailerModal = await screen.findByTestId("trailer-modal")
+
+    expect(trailerModal).toHaveTextContent("Spirited Away")
 
     mocks.preferences.showOriginalTitles = true
     rerender(<PersonContent person={createPerson()} />)

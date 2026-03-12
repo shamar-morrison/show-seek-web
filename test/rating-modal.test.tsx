@@ -97,16 +97,16 @@ describe("RatingModal", () => {
     await user.click(screen.getByRole("button", { name: "Save Rating" }))
 
     await waitFor(() => {
-      expect(mocks.saveRating).toHaveBeenCalledWith(
-        "movie",
-        123,
-        8,
-        "Spirited Away",
-        "Sen to Chihiro no Kamikakushi",
-        null,
-        "2001-07-20",
-        8.5,
-      )
+      expect(mocks.saveRating).toHaveBeenCalledWith({
+        mediaType: "movie",
+        mediaId: 123,
+        rating: 8,
+        title: "Spirited Away",
+        originalTitle: "Sen to Chihiro no Kamikakushi",
+        posterPath: null,
+        releaseDate: "2001-07-20",
+        voteAverage: 8.5,
+      })
     })
   })
 })
