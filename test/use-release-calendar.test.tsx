@@ -30,7 +30,11 @@ vi.mock("@/hooks/use-preferences", () => ({
 }))
 
 vi.mock("@/lib/react-query/rate-limited-query", () => ({
-  createRateLimitedQueryFn: (fn: () => Promise<unknown>) => fn,
+  createRateLimitedQueryFn: function <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => Promise<TResult>,
+  ) {
+    return fn
+  },
 }))
 
 vi.mock("@/lib/tmdb-date", async () => {

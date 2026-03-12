@@ -1,3 +1,4 @@
+import { CancelledError } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const BASE_TIME = new Date("2026-01-01T00:00:00.000Z")
@@ -74,6 +75,27 @@ describe("rate-limited query queue", () => {
     expect(startedAt[10]).toBe(BASE_TIME.getTime() + 300)
   })
 
+  it("forwards query function arguments through the rate-limited wrapper", async () => {
+    const { createRateLimitedQueryFn } = await loadQueueModule()
+    const context = {
+      client: {},
+      meta: { source: "test" },
+      pageParam: 3,
+      queryKey: ["calendar", 42] as const,
+      signal: new AbortController().signal,
+    }
+
+    const wrappedQueryFn = createRateLimitedQueryFn(
+      async (receivedContext: typeof context) => receivedContext,
+    )
+
+    const resultPromise = wrappedQueryFn(context)
+
+    await flushMicrotasks()
+
+    await expect(resultPromise).resolves.toBe(context)
+  })
+
   it("propagates request errors without stalling later queued work", async () => {
     const { createRateLimitedQueryFn } = await loadQueueModule()
     const boom = new Error("boom")
@@ -111,7 +133,7 @@ describe("rate-limited query queue", () => {
     })
   })
 
-  it("rejects queued work on clear and accepts fresh work after the active batch finishes", async () => {
+  it("rejects queued work with cancellation on clear and accepts fresh work after the active batch finishes", async () => {
     const { clearRateLimitedRequestQueue, createRateLimitedQueryFn } =
       await loadQueueModule()
     const started: number[] = []
@@ -137,9 +159,7 @@ describe("rate-limited query queue", () => {
 
     clearRateLimitedRequestQueue()
 
-    await expect(pendingPromises[10]).rejects.toThrow(
-      "Rate-limited request queue cleared",
-    )
+    await expect(pendingPromises[10]).rejects.toBeInstanceOf(CancelledError)
     expect(started).toEqual(Array.from({ length: 10 }, (_, index) => index))
 
     firstBatch.forEach((deferred, index) => {

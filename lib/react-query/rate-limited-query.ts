@@ -1,10 +1,17 @@
+import { CancelledError } from "@tanstack/react-query"
+
 const BATCH_DELAY_MS = 300
 const BATCH_SIZE = 10
 
-interface QueuedRequest<T> {
-  fn: () => Promise<T>
+type AsyncRequestFn<TArgs extends unknown[] = unknown[], TResult = unknown> = (
+  ...args: TArgs
+) => Promise<TResult>
+
+interface QueuedRequest<TArgs extends unknown[], TResult> {
+  args: TArgs
+  fn: AsyncRequestFn<TArgs, TResult>
   reject: (error: unknown) => void
-  resolve: (value: T) => void
+  resolve: (value: TResult) => void
 }
 
 const delay = (ms: number) =>
@@ -14,7 +21,7 @@ const delay = (ms: number) =>
 
 let isProcessing = false
 let isProcessingScheduled = false
-let queuedRequests: Array<QueuedRequest<unknown>> = []
+let queuedRequests: Array<QueuedRequest<unknown[], unknown>> = []
 
 function scheduleQueueProcessing() {
   if (
@@ -45,9 +52,9 @@ async function processQueue() {
       const batch = queuedRequests.splice(0, BATCH_SIZE)
 
       await Promise.all(
-        batch.map(async ({ fn, resolve, reject }) => {
+        batch.map(async ({ fn, args, resolve, reject }) => {
           try {
-            resolve(await fn())
+            resolve(await fn(...args))
           } catch (error) {
             reject(error)
           }
@@ -67,10 +74,14 @@ async function processQueue() {
   }
 }
 
-export function enqueueRateLimitedRequest<T>(fn: () => Promise<T>) {
-  return new Promise<T>((resolve, reject) => {
+export function enqueueRateLimitedRequest<TArgs extends unknown[], TResult>(
+  fn: AsyncRequestFn<TArgs, TResult>,
+  ...args: TArgs
+) {
+  return new Promise<TResult>((resolve, reject) => {
     queuedRequests.push({
-      fn: fn as () => Promise<unknown>,
+      args: args as unknown[],
+      fn: fn as AsyncRequestFn<unknown[], unknown>,
       reject,
       resolve: resolve as (value: unknown) => void,
     })
@@ -79,8 +90,10 @@ export function enqueueRateLimitedRequest<T>(fn: () => Promise<T>) {
   })
 }
 
-export function createRateLimitedQueryFn<T>(fn: () => Promise<T>) {
-  return () => enqueueRateLimitedRequest(fn)
+export function createRateLimitedQueryFn<TArgs extends unknown[], TResult>(
+  fn: AsyncRequestFn<TArgs, TResult>,
+) {
+  return (...args: TArgs) => enqueueRateLimitedRequest(fn, ...args)
 }
 
 export function clearRateLimitedRequestQueue() {
@@ -88,6 +101,6 @@ export function clearRateLimitedRequestQueue() {
   queuedRequests = []
 
   for (const { reject } of pendingRequests) {
-    reject(new Error("Rate-limited request queue cleared"))
+    reject(new CancelledError())
   }
 }
