@@ -29,6 +29,7 @@ This repo is set up for Cloudflare Workers, not the default Vercel flow.
 ### Local CLI deploy
 
 Deployments are triggered from your machine with Wrangler. Git pushes do not auto-deploy.
+Cloudflare Workers Builds / Git auto-deploy is intentionally disabled for this project, so pull requests should rely on the GitHub `PR Checks` workflow for repository validation.
 
 ```bash
 pnpm cf:prepare-local-config

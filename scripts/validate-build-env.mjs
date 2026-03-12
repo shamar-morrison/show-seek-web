@@ -105,6 +105,6 @@ if (!hasTmdbCredential) {
 }
 
 console.error(
-  "Cloudflare Git builds must set these values in Build variables and secrets. Local builds can supply them via .env or .env.local.",
+  "These values are required for builds. Local builds can supply them via .env or .env.local, and any hosted build pipeline can provide them through its own environment configuration.",
 )
 process.exit(1)
