@@ -61,6 +61,11 @@ const forYouLink: SimpleNavItem = {
   href: "/for-you",
 }
 
+const calendarLink: SimpleNavItem = {
+  label: "Calendar",
+  href: "/calendar",
+}
+
 /** Chevron icon for dropdown indicators */
 function ChevronDownIcon(props: React.ComponentProps<"svg">) {
   return (
@@ -258,6 +263,17 @@ export function Navbar() {
                 )}
 
                 {isAuthenticated && (
+                  <NavigationMenu.Item>
+                    <NavLink
+                      href={calendarLink.href}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                    >
+                      {calendarLink.label}
+                    </NavLink>
+                  </NavigationMenu.Item>
+                )}
+
+                {isAuthenticated && (
                   <>
                     {/* Lists - Dropdown */}
                     <DropdownMenuItem item={listsMenu} />
@@ -363,6 +379,16 @@ export function Navbar() {
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
               >
                 {forYouLink.label}
+              </Link>
+            )}
+
+            {isAuthenticated && (
+              <Link
+                href={calendarLink.href}
+                onClick={closeMobileMenu}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {calendarLink.label}
               </Link>
             )}
 

@@ -20,6 +20,7 @@ export interface UserDocument {
   displayName: string | null
   email: string | null
   photoURL: string | null
+  region?: string
   createdAt: ReturnType<typeof serverTimestamp>
   premium?: {
     isPremium: boolean

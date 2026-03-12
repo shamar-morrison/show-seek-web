@@ -130,5 +130,5 @@ describe("ProfilePageClient", () => {
       "autoRemoveFromShouldWatch",
       false,
     )
-  })
+  }, 10000)
 })

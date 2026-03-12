@@ -56,6 +56,7 @@ if (typeof window !== "undefined") {
 
   if (!window.scrollTo) {
     Object.defineProperty(window, "scrollTo", {
+      configurable: true,
       writable: true,
       value: vi.fn(),
     })
@@ -63,6 +64,7 @@ if (typeof window !== "undefined") {
 
   if (!Element.prototype.scrollTo) {
     Object.defineProperty(Element.prototype, "scrollTo", {
+      configurable: true,
       writable: true,
       value: vi.fn(),
     })

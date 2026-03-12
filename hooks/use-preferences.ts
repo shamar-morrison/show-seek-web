@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/auth-context"
 import { getFirebaseDb } from "@/lib/firebase/config"
+import { resolveUserRegion, type SupportedRegionCode } from "@/lib/regions"
 import {
   DEFAULT_PREFERENCES,
   HomeScreenListItem,
@@ -14,6 +15,7 @@ import { useCallback, useEffect, useState } from "react"
 
 interface UsePreferencesReturn {
   preferences: UserPreferences
+  region: SupportedRegionCode
   isLoading: boolean
   updatePreference: <K extends keyof UserPreferences>(
     key: K,
@@ -26,6 +28,9 @@ export function usePreferences(): UsePreferencesReturn {
   const { user, loading: authLoading } = useAuth()
   const [preferences, setPreferences] =
     useState<UserPreferences>(DEFAULT_PREFERENCES)
+  const [region, setRegion] = useState<SupportedRegionCode>(
+    resolveUserRegion(undefined),
+  )
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export function usePreferences(): UsePreferencesReturn {
     if (!user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreferences(DEFAULT_PREFERENCES)
+      setRegion(resolveUserRegion(undefined))
       setIsLoading(false)
       return
     }
@@ -46,14 +52,17 @@ export function usePreferences(): UsePreferencesReturn {
         if (snapshot.exists()) {
           const userData = snapshot.data() as UserDocument
           setPreferences(hydrateUserPreferences(userData.preferences))
+          setRegion(resolveUserRegion(userData.region))
         } else {
           setPreferences(DEFAULT_PREFERENCES)
+          setRegion(resolveUserRegion(undefined))
         }
         setIsLoading(false)
       },
       (error) => {
         console.error("Error listening to preferences:", error)
         setPreferences(DEFAULT_PREFERENCES)
+        setRegion(resolveUserRegion(undefined))
         setIsLoading(false)
       },
     )
@@ -126,5 +135,11 @@ export function usePreferences(): UsePreferencesReturn {
     [user],
   )
 
-  return { preferences, isLoading, updatePreference, updateHomeScreenLists }
+  return {
+    preferences,
+    region,
+    isLoading,
+    updatePreference,
+    updateHomeScreenLists,
+  }
 }
