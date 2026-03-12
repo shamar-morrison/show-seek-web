@@ -4,7 +4,11 @@ import {
   buildReleaseCalendarReleases,
   resolveMovieReleaseDate,
 } from "@/lib/release-calendar"
-import { DEFAULT_REGION, resolveUserRegion } from "@/lib/regions"
+import {
+  DEFAULT_REGION,
+  isSupportedRegionCode,
+  resolveUserRegion,
+} from "@/lib/regions"
 import type { TMDBMovieDetails, TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import type { FetchReleaseCalendarInput } from "@/types/release-calendar"
 
@@ -91,8 +95,14 @@ function createSeasonDetails(
 }
 
 describe("release calendar helpers", () => {
+  it("only accepts exact-case supported region codes in the type guard", () => {
+    expect(isSupportedRegionCode("US")).toBe(true)
+    expect(isSupportedRegionCode("us")).toBe(false)
+  })
+
   it("uses the stored region when valid and falls back to US when invalid", () => {
     expect(resolveUserRegion("MX")).toBe("MX")
+    expect(resolveUserRegion("us")).toBe("US")
     expect(resolveUserRegion("invalid")).toBe(DEFAULT_REGION)
     expect(resolveUserRegion(undefined)).toBe(DEFAULT_REGION)
   })

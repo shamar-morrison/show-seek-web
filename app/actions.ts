@@ -15,40 +15,12 @@ import {
   getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
+import { mapWithConcurrencyLimit } from "@/lib/utils/concurrency"
 import type { FetchReleaseCalendarInput } from "@/types/release-calendar"
 import { getTraktMediaComments } from "@/lib/trakt"
 import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
 
 const COLLECTION_BATCH_CONCURRENCY = 3
-
-async function mapWithConcurrencyLimit<T, TResult>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<TResult>,
-): Promise<TResult[]> {
-  if (items.length === 0) {
-    return []
-  }
-
-  let nextIndex = 0
-  const results = new Array<TResult>(items.length)
-  const runnerCount = Math.min(concurrency, items.length)
-
-  async function runNext(): Promise<void> {
-    if (nextIndex >= items.length) {
-      return
-    }
-
-    const currentIndex = nextIndex
-    nextIndex += 1
-    results[currentIndex] = await worker(items[currentIndex] as T)
-    await runNext()
-  }
-
-  await Promise.all(Array.from({ length: runnerCount }, () => runNext()))
-
-  return results
-}
 
 /**
  * Server action to search for media.
@@ -263,7 +235,6 @@ export async function fetchCollectionsBatch(
 
   await mapWithConcurrencyLimit(
     uniqueCollectionIds,
-    COLLECTION_BATCH_CONCURRENCY,
     async (collectionId) => {
       try {
         const collection = await getCollectionDetails(collectionId)
@@ -285,6 +256,7 @@ export async function fetchCollectionsBatch(
         artworkByCollectionId.set(collectionId, null)
       }
     },
+    COLLECTION_BATCH_CONCURRENCY,
   )
 
   return collectionIds.map(

@@ -39,6 +39,10 @@ const originalElementScrollIntoView = Object.getOwnPropertyDescriptor(
   Element.prototype,
   "scrollIntoView",
 )
+const originalElementScrollTo = Object.getOwnPropertyDescriptor(
+  Element.prototype,
+  "scrollTo",
+)
 
 const scrollToMock = vi.fn()
 const scrollIntoViewMock = vi.fn()
@@ -106,18 +110,11 @@ describe("ReleaseCalendarView", () => {
       },
     })
 
-    const existingScrollTo = Element.prototype.scrollTo as unknown as {
-      mockReset?: () => void
-      mockImplementation?: (
-        implementation: (
-          this: Element,
-          options?: ScrollToOptions | number,
-        ) => void,
-      ) => void
-    }
-
-    existingScrollTo.mockReset?.()
-    existingScrollTo.mockImplementation?.(scrollToMock)
+    Object.defineProperty(Element.prototype, "scrollTo", {
+      configurable: true,
+      writable: true,
+      value: scrollToMock,
+    })
 
     Object.defineProperty(Element.prototype, "scrollIntoView", {
       configurable: true,
@@ -130,6 +127,7 @@ describe("ReleaseCalendarView", () => {
     restoreDescriptor(HTMLElement.prototype, "clientWidth", originalClientWidth)
     restoreDescriptor(HTMLElement.prototype, "scrollWidth", originalScrollWidth)
     restoreDescriptor(HTMLElement.prototype, "scrollLeft", originalScrollLeft)
+    restoreDescriptor(Element.prototype, "scrollTo", originalElementScrollTo)
     restoreDescriptor(
       Element.prototype,
       "scrollIntoView",

@@ -1,4 +1,5 @@
 import { DEFAULT_REGION, resolveUserRegion } from "@/lib/regions"
+import { mapWithConcurrencyLimit } from "@/lib/utils/concurrency"
 import type { TMDBMovieDetails, TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import type {
   FetchReleaseCalendarInput,
@@ -9,7 +10,6 @@ import type {
 
 const ACTIVE_TV_STATUSES = new Set(["Returning Series", "In Production"])
 const MAX_EPISODES_PER_SHOW = 5
-const DEFAULT_CONCURRENCY = 5
 
 interface DedupedTrackedItem {
   id: number
@@ -169,35 +169,6 @@ export function getSeasonToFetch(
   return Math.max(...regularSeasonNumbers)
 }
 
-async function mapWithConcurrencyLimit<T, TResult>(
-  items: readonly T[],
-  worker: (item: T) => Promise<TResult>,
-  concurrency: number = DEFAULT_CONCURRENCY,
-): Promise<TResult[]> {
-  if (items.length === 0) {
-    return []
-  }
-
-  const results = new Array<TResult>(items.length)
-  let nextIndex = 0
-  const workerCount = Math.min(items.length, Math.max(1, concurrency))
-
-  async function run(): Promise<void> {
-    if (nextIndex >= items.length) {
-      return
-    }
-
-    const currentIndex = nextIndex
-    nextIndex += 1
-    results[currentIndex] = await worker(items[currentIndex] as T)
-    await run()
-  }
-
-  await Promise.all(Array.from({ length: workerCount }, () => run()))
-
-  return results
-}
-
 function isFutureOrToday(dateKey: string | null | undefined, todayKey: string) {
   return !!dateKey && dateKey >= todayKey
 }
@@ -210,7 +181,6 @@ export async function buildReleaseCalendarReleases(
   const dedupedItems = dedupeTrackedItems(input.items)
   const movieItems = dedupedItems.filter((item) => item.mediaType === "movie")
   const tvItems = dedupedItems.filter((item) => item.mediaType === "tv")
-  const concurrency = fetchers.concurrency ?? DEFAULT_CONCURRENCY
 
   const [movieDetailsResults, tvDetailsResults] = await Promise.all([
     mapWithConcurrencyLimit(
@@ -219,7 +189,7 @@ export async function buildReleaseCalendarReleases(
         item,
         details: await fetchers.fetchMovieDetails(item.id),
       }),
-      concurrency,
+      fetchers.concurrency,
     ),
     mapWithConcurrencyLimit(
       tvItems,
@@ -227,7 +197,7 @@ export async function buildReleaseCalendarReleases(
         item,
         details: await fetchers.fetchTVDetails(item.id),
       }),
-      concurrency,
+      fetchers.concurrency,
     ),
   ])
 
@@ -259,7 +229,7 @@ export async function buildReleaseCalendarReleases(
         request.seasonNumber,
       ),
     }),
-    concurrency,
+    fetchers.concurrency,
   )
 
   const releases: ReleaseCalendarRelease[] = []

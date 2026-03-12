@@ -74,7 +74,7 @@ export function useReleaseCalendar(): UseReleaseCalendarReturn {
 
   const userId = user && !user.isAnonymous ? user.uid : null
   const trackedItems = useMemo(() => createTrackedItems(lists), [lists])
-  const todayKey = getTodayDateKey()
+  const todayKey = useMemo(() => getTodayDateKey(), [])
   const itemsSignature = useMemo(
     () => JSON.stringify(trackedItems),
     [trackedItems],

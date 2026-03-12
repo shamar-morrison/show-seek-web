@@ -53,10 +53,11 @@ export const DEFAULT_REGION: SupportedRegionCode = "US"
 
 const SUPPORTED_REGION_CODE_SET = new Set<string>(SUPPORTED_REGION_CODES)
 
+// Use resolveUserRegion when callers need case-insensitive input handling.
 export function isSupportedRegionCode(
   value: string | null | undefined,
 ): value is SupportedRegionCode {
-  return !!value && SUPPORTED_REGION_CODE_SET.has(value.toUpperCase())
+  return !!value && SUPPORTED_REGION_CODE_SET.has(value)
 }
 
 export function resolveUserRegion(
