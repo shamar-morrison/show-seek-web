@@ -32,6 +32,23 @@ export const queryKeys = {
     trendingWeek: () => ["for-you", "trending-week"] as const,
   },
 
+  calendar: {
+    releases: (
+      userId: string,
+      region: string,
+      itemsSignature: string,
+      todayKey: string,
+    ) =>
+      [
+        "calendar",
+        "releases",
+        userId,
+        region,
+        todayKey,
+        itemsSignature,
+      ] as const,
+  },
+
   firestore: {
     collectionTrackingRoot: ["firestore", "collection-tracking"] as const,
     collectionTrackingAll: (userId: string) =>

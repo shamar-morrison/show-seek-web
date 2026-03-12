@@ -1,5 +1,6 @@
 "use server"
 
+import { buildReleaseCalendarReleases } from "@/lib/release-calendar"
 import {
   discoverMedia,
   getBestTrailer,
@@ -14,6 +15,7 @@ import {
   getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
+import type { FetchReleaseCalendarInput } from "@/types/release-calendar"
 import { getTraktMediaComments } from "@/lib/trakt"
 import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
 
@@ -58,6 +60,24 @@ export async function searchMedia(query: string) {
   } catch (error) {
     console.error("Server Action: Failed to search media", error)
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
+  }
+}
+
+export async function fetchReleaseCalendarReleases(
+  input: FetchReleaseCalendarInput,
+) {
+  try {
+    return await buildReleaseCalendarReleases(input, {
+      fetchMovieDetails: getMovieDetails,
+      fetchTVDetails: getTVDetails,
+      fetchSeasonDetails: getSeasonDetails,
+    })
+  } catch (error) {
+    console.error(
+      "Server Action: Failed to fetch release calendar releases",
+      error,
+    )
+    return []
   }
 }
 

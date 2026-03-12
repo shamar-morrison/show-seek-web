@@ -32,6 +32,10 @@ vi.mock("../app/profile/profile-page-client", () => ({
   ProfilePageClient: () => <div>profile-page-client</div>,
 }))
 
+vi.mock("@/components/release-calendar-page-client", () => ({
+  ReleaseCalendarPageClient: () => <div>release-calendar-page-client</div>,
+}))
+
 vi.mock("../app/ratings/ratings-page-client", () => ({
   RatingsPageClient: () => <div>ratings-page-client</div>,
 }))
@@ -63,6 +67,19 @@ describe("protected pages", () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText("ratings-page-client")).toBeInTheDocument()
+  })
+
+  it("wraps /calendar in RouteGuard", async () => {
+    const { default: CalendarPage } = await import("../app/calendar/page")
+    render(<CalendarPage />)
+
+    expect(screen.getByText("Sign in to view your release calendar")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Track upcoming movies and episodes from your watchlists and favorites.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText("release-calendar-page-client")).toBeInTheDocument()
   })
 
   it("wraps /lists routes in RouteGuard", async () => {
