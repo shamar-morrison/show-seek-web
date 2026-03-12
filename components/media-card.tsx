@@ -6,6 +6,7 @@ import {
 } from "@/components/media-card-dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { getMediaUrl } from "@/lib/utils"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -35,6 +36,8 @@ interface MediaCardProps {
   listIds?: string[]
   /** Optional watched badge for collection progress */
   isWatched?: boolean
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
 }
 
 export function MediaCard({
@@ -47,8 +50,10 @@ export function MediaCard({
   dropdownItems,
   listIds,
   isWatched = false,
+  preferOriginalTitles = false,
 }: MediaCardProps) {
-  const title = media.title || media.name || "Unknown Title"
+  const title =
+    getDisplayMediaTitle(media, preferOriginalTitles) || "Unknown Title"
   const date = media.release_date || media.first_air_date
   const year = date ? date.split("-")[0] : null
   const posterUrl = buildImageUrl(media.poster_path, "w500")
@@ -104,7 +109,9 @@ export function MediaCard({
                   icon={CheckmarkCircle02Icon}
                   className="size-3.5 fill-white text-white"
                 />
-                <span className="text-sm font-semibold text-white">Watched</span>
+                <span className="text-sm font-semibold text-white">
+                  Watched
+                </span>
               </div>
             )}
 

@@ -454,6 +454,7 @@ export async function getUpcomingTVPaginated(
 export interface TrailerItem {
   id: number
   title: string
+  originalTitle: string | null
   mediaType: "movie" | "tv"
   posterPath: string | null
   backdropPath: string | null
@@ -492,6 +493,7 @@ export async function getLatestTrailers(
       const item: TrailerItem = {
         id: media.id,
         title: media.title || media.name || "Unknown",
+        originalTitle: getOriginalTitle(media),
         mediaType,
         posterPath: media.poster_path,
         backdropPath: media.backdrop_path,
@@ -560,6 +562,13 @@ export function buildImageUrl(
 ): string | null {
   if (!path) return null
   return `${DEFAULT_IMAGE_BASE_URL}${size}${path}`
+}
+
+function getOriginalTitle(media: {
+  original_title?: string | null
+  original_name?: string | null
+}): string | null {
+  return media.original_title || media.original_name || null
 }
 
 /**
@@ -743,6 +752,7 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
     const heroMedia: HeroMedia = {
       id: featuredMedia.id,
       title: featuredMedia.title || featuredMedia.name || "Unknown Title",
+      originalTitle: getOriginalTitle(featuredMedia),
       overview: featuredMedia.overview || "No description available.",
       backdropUrl: buildImageUrl(featuredMedia.backdrop_path, "original") || "",
       logoUrl,
@@ -803,6 +813,7 @@ export async function getHeroMediaList(
       const heroMedia: HeroMedia = {
         id: media.id,
         title: media.title || media.name || "Unknown Title",
+        originalTitle: getOriginalTitle(media),
         overview: media.overview || "No description available.",
         backdropUrl: buildImageUrl(media.backdrop_path, "original") || "",
         logoUrl,

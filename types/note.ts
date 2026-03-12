@@ -15,6 +15,8 @@ export interface Note {
   content: string
   /** Title of the media for display purposes */
   mediaTitle: string
+  /** Original title/name for display preference fallback */
+  originalTitle?: string
   /** Poster path for display purposes (optional) */
   posterPath: string | null
   /** Timestamp when note was created */

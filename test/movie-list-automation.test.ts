@@ -114,6 +114,29 @@ describe("movie list automation", () => {
 
       expect(removeFromListMock).not.toHaveBeenCalled()
     })
+
+    it("forwards original_title when auto-adding a rated movie", async () => {
+      await applyMovieRatingListAutomation({
+        mediaType: "movie",
+        movie: {
+          movieId: 123,
+          title: "Spirited Away",
+          originalTitle: "Sen to Chihiro no Kamikakushi",
+          posterPath: null,
+        },
+        autoAddToAlreadyWatched: true,
+        autoRemoveFromShouldWatch: false,
+        addToList: addToListMock,
+        removeFromList: removeFromListMock,
+      })
+
+      expect(addToListMock).toHaveBeenCalledWith(
+        "already-watched",
+        expect.objectContaining({
+          original_title: "Sen to Chihiro no Kamikakushi",
+        }),
+      )
+    })
   })
 
   describe("watched flow", () => {
@@ -189,6 +212,29 @@ describe("movie list automation", () => {
 
       expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
       expect(toastErrorMock).not.toHaveBeenCalled()
+    })
+
+    it("forwards original_title when auto-adding a watched movie", async () => {
+      await applyWatchedMovieListAutomation({
+        movie: {
+          movieId: 123,
+          title: "Spirited Away",
+          originalTitle: "Sen to Chihiro no Kamikakushi",
+          posterPath: null,
+        },
+        isFirstWatch: true,
+        autoAddToAlreadyWatched: true,
+        autoRemoveFromShouldWatch: false,
+        addToList: addToListMock,
+        removeFromList: removeFromListMock,
+      })
+
+      expect(addToListMock).toHaveBeenCalledWith(
+        "already-watched",
+        expect.objectContaining({
+          original_title: "Sen to Chihiro no Kamikakushi",
+        }),
+      )
     })
   })
 })

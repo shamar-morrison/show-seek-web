@@ -16,6 +16,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import type {
   CastMember,
@@ -67,6 +68,8 @@ export function EpisodeDetailClient({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const displayShowTitle =
+    getDisplayMediaTitle(tvShow, preferences.showOriginalTitles) || tvShow.name
 
   // Compute whether episode has aired
   const today = new Date()
@@ -307,7 +310,7 @@ export function EpisodeDetailClient({
                     href={`/tv/${tvShowId}`}
                     className="font-medium text-white hover:text-primary transition-colors"
                   >
-                    {tvShow.name}
+                    {displayShowTitle}
                   </Link>
                 </div>
 
@@ -524,6 +527,7 @@ export function EpisodeDetailClient({
         episode={episode}
         tvShowId={tvShowId}
         tvShowName={tvShow.name}
+        displayTvShowName={displayShowTitle}
       />
 
       {/* Video Modal */}

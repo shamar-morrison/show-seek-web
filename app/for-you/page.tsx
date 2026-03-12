@@ -6,6 +6,7 @@ import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useForYouRecommendations } from "@/hooks/use-for-you-recommendations"
+import { isActionableMedia } from "@/lib/tmdb-media"
 import {
   Loading03Icon,
   SparklesIcon,
@@ -186,7 +187,10 @@ export default function ForYouPage() {
                 </div>
               ) : (
                 <ScrollableRow className="pb-2">
-                  {section.recommendations.slice(0, 20).map((item) => (
+                  {section.recommendations
+                    .filter(isActionableMedia)
+                    .slice(0, 20)
+                    .map((item) => (
                     <div
                       key={`${item.media_type}-${item.id}`}
                       className="w-[140px] shrink-0 sm:w-[160px]"
@@ -207,7 +211,7 @@ export default function ForYouPage() {
               Critically acclaimed but under-the-radar picks you might love.
             </p>
             <ScrollableRow className="pb-2">
-              {hiddenGems.slice(0, 20).map((item) => (
+              {hiddenGems.filter(isActionableMedia).slice(0, 20).map((item) => (
                 <div
                   key={`gem-${item.id}`}
                   className="w-[140px] shrink-0 sm:w-[160px]"
@@ -226,7 +230,10 @@ export default function ForYouPage() {
               Rate more content to unlock personalized recommendations!
             </p>
             <ScrollableRow className="pb-2">
-              {trendingMovies.slice(0, 20).map((item) => (
+              {trendingMovies
+                .filter(isActionableMedia)
+                .slice(0, 20)
+                .map((item) => (
                 <div
                   key={`trending-${item.media_type}-${item.id}`}
                   className="w-[140px] shrink-0 sm:w-[160px]"

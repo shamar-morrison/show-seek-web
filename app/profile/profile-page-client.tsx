@@ -198,6 +198,14 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Use original titles"
+            description="Show movie and TV titles in their original language when available."
+            checked={preferences.showOriginalTitles}
+            onChange={(value) => updatePreference("showOriginalTitles", value)}
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Hide watched content"
             description="Remove watched movies and shows from search and discovery lists"
             checked={preferences.hideWatchedContent}

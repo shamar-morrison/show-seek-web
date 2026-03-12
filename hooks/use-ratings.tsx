@@ -34,6 +34,17 @@ type RatingsMutationContext = {
   previousRatings: Map<string, Rating> | undefined
 }
 
+export type SaveRatingOptions = {
+  mediaType: "movie" | "tv"
+  mediaId: number
+  rating: number
+  title: string
+  originalTitle?: string
+  posterPath: string | null
+  releaseDate: string | null
+  voteAverage?: number
+}
+
 function ratingsOptimisticConfig<TVariables>(
   queryClient: QueryClient,
   ratingsQueryKey: QueryKey | null,
@@ -119,15 +130,7 @@ export function useRatings() {
   const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
 
   const saveRatingMutation = useMutation({
-    mutationFn: async (variables: {
-      mediaType: "movie" | "tv"
-      mediaId: number
-      rating: number
-      title: string
-      posterPath: string | null
-      releaseDate: string | null
-      voteAverage?: number
-    }) => {
+    mutationFn: async (variables: SaveRatingOptions) => {
       if (!userId) throw new Error("User must be authenticated to rate")
 
       await setRating(userId, {
@@ -137,6 +140,7 @@ export function useRatings() {
         mediaId: variables.mediaId.toString(),
         rating: variables.rating,
         title: variables.title,
+        originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
         releaseDate: variables.releaseDate,
       })
@@ -152,6 +156,7 @@ export function useRatings() {
           mediaType: variables.mediaType,
           rating: variables.rating,
           title: variables.title,
+          originalTitle: variables.originalTitle,
           posterPath: variables.posterPath,
           releaseDate: variables.releaseDate,
           ratedAt: now,
@@ -173,6 +178,7 @@ export function useRatings() {
           movie: {
             movieId: variables.mediaId,
             title: variables.title,
+            originalTitle: variables.originalTitle,
             posterPath: variables.posterPath,
             voteAverage: variables.voteAverage,
             releaseDate: variables.releaseDate,
@@ -300,24 +306,8 @@ export function useRatings() {
   )
 
   const saveRating = useCallback(
-    async (
-      mediaType: "movie" | "tv",
-      mediaId: number,
-      rating: number,
-      title: string,
-      posterPath: string | null,
-      releaseDate: string | null = null,
-      voteAverage?: number,
-    ): Promise<void> => {
-      await saveRatingAsync({
-        mediaType,
-        mediaId,
-        rating,
-        title,
-        posterPath,
-        releaseDate,
-        voteAverage,
-      })
+    async (options: SaveRatingOptions): Promise<void> => {
+      await saveRatingAsync({ ...options })
     },
     [saveRatingAsync],
   )

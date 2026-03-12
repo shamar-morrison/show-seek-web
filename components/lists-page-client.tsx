@@ -13,9 +13,12 @@ import {
 import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { listItemToMedia } from "@/lib/list-media"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { ListMediaItem, UserList } from "@/types/list"
-import type { Genre, TMDBMedia } from "@/types/tmdb"
+import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
   Bookmark02Icon,
   Cancel01Icon,
@@ -38,32 +41,6 @@ export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
   "already-watched": Tick02Icon,
   favorites: FavouriteIcon,
   dropped: Cancel01Icon,
-}
-
-/** Convert ListMediaItem to TMDBMedia for MediaCard compatibility */
-function listItemToMedia(item: ListMediaItem): TMDBMedia {
-  return {
-    id: item.id,
-    media_type: item.media_type,
-    adult: false,
-    backdrop_path: null,
-    poster_path: item.poster_path,
-    title: item.media_type === "movie" ? item.title : undefined,
-    name: item.media_type === "tv" ? item.name || item.title : undefined,
-    overview: "",
-    genre_ids: item.genre_ids || [],
-    popularity: 0,
-    release_date: item.release_date,
-    first_air_date: item.first_air_date,
-    vote_average: item.vote_average ?? 0,
-    vote_count: 0,
-    original_language: "",
-    // Conditionally set original_title/original_name based on media_type
-    // to avoid polluting the object with undefined values
-    ...(item.media_type === "movie"
-      ? { original_title: item.title }
-      : { original_name: item.name || item.title }),
-  }
 }
 
 // Current year for year range filter
@@ -118,6 +95,7 @@ export function ListsPageClient({
   headerAction,
   emptyStateAction,
 }: ListsPageClientProps) {
+  const { preferences } = usePreferences()
   const [internalSelectedListId, setInternalSelectedListId] =
     useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -205,6 +183,18 @@ export function ListsPageClient({
     )
   }, [activeList])
 
+  const getItemDisplayTitle = useCallback(
+    (item: ListMediaItem) =>
+      getDisplayMediaTitle(
+        listItemToMedia(item),
+        preferences.showOriginalTitles,
+      ) ||
+      item.title ||
+      item.name ||
+      "",
+    [preferences.showOriginalTitles],
+  )
+
   // Filter items by all criteria
   const filteredItems = useMemo(() => {
     let items = listItems
@@ -213,7 +203,7 @@ export function ListsPageClient({
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       items = items.filter((item) => {
-        const title = (item.title || item.name || "").toLowerCase()
+        const title = getItemDisplayTitle(item).toLowerCase()
         return title.includes(query)
       })
     }
@@ -243,7 +233,14 @@ export function ListsPageClient({
     }
 
     return items
-  }, [listItems, searchQuery, filterState, yearRange, minRating])
+  }, [
+    filterState,
+    getItemDisplayTitle,
+    listItems,
+    minRating,
+    searchQuery,
+    yearRange,
+  ])
 
   // Sort items
   const sortedItems = useMemo(() => {
@@ -268,8 +265,8 @@ export function ListsPageClient({
           comparison = (a.vote_average ?? 0) - (b.vote_average ?? 0)
           break
         case "title": {
-          const titleA = (a.title || a.name || "").toLowerCase()
-          const titleB = (b.title || b.name || "").toLowerCase()
+          const titleA = getItemDisplayTitle(a).toLowerCase()
+          const titleB = getItemDisplayTitle(b).toLowerCase()
           comparison = titleA.localeCompare(titleB)
           break
         }
@@ -279,7 +276,7 @@ export function ListsPageClient({
     })
 
     return sorted
-  }, [filteredItems, sortState])
+  }, [filteredItems, getItemDisplayTitle, sortState])
 
   // Get item count for each list
   const getItemCount = useCallback(
@@ -295,15 +292,14 @@ export function ListsPageClient({
 
   // Handle trailer click
   const handleWatchTrailer = useCallback(
-    (media: TMDBMedia) => {
-      if (media.media_type === "person") return
+    (media: TMDBActionableMedia) => {
       watchTrailer(
         media.id,
         media.media_type,
-        media.title || media.name || "Trailer",
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
       )
     },
-    [watchTrailer],
+    [preferences.showOriginalTitles, watchTrailer],
   )
 
   // Handle filter change

@@ -13,6 +13,8 @@ import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isActionableMedia } from "@/lib/tmdb-media"
 import type { TMDBMedia } from "@/types/tmdb"
 import { ViewIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -35,10 +37,15 @@ export function CollectionMoviesGrid({
   const { isOpen, activeTrailer, watchTrailer, closeTrailer, loadingMediaId } =
     useTrailer()
   const filteredMovies = useContentFilter(movies)
+  const actionableMovies = filteredMovies.filter(isActionableMedia)
   const watchedMovieIdSet = new Set(watchedMovieIds)
 
   const handleWatchTrailer = (media: TMDBMedia) => {
-    watchTrailer(media.id, "movie", media.title || "Trailer")
+    watchTrailer(
+      media.id,
+      "movie",
+      getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
+    )
   }
 
   const isHidingWatched = isPremium && preferences.hideWatchedContent
@@ -62,7 +69,7 @@ export function CollectionMoviesGrid({
         </Empty>
       ) : (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {filteredMovies.map((movie) => (
+          {actionableMovies.map((movie) => (
             <MediaCardWithActions
               key={`${movie.media_type || "movie"}-${movie.id}`}
               media={movie}

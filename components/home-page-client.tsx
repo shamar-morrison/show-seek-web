@@ -12,8 +12,12 @@ import {
   LIST_BROWSE_URLS,
   PREMIUM_LIST_ID,
 } from "@/lib/home-screen-lists"
+import { listItemToMedia } from "@/lib/list-media"
+import {
+  getDisplayMediaTitle,
+  getDisplayNormalizedTitle,
+} from "@/lib/media-title"
 import type { TrailerItem } from "@/lib/tmdb"
-import type { ListMediaItem } from "@/types/list"
 import { isDefaultList } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
 import dynamic from "next/dynamic"
@@ -60,6 +64,7 @@ export function HomePageClient({
     title: string
   } | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null)
+  const preferOriginalTitles = preferences.showOriginalTitles
 
   // Filter trending list by media type
   const trendingMovies = useMemo(
@@ -69,6 +74,36 @@ export function HomePageClient({
   const trendingTV = useMemo(
     () => trendingList.filter((m) => m.media_type === "tv"),
     [trendingList],
+  )
+  const displayHeroMediaList = useMemo(
+    () =>
+      heroMediaList.map((media) => ({
+        ...media,
+        title:
+          getDisplayNormalizedTitle(
+            {
+              title: media.title,
+              originalTitle: media.originalTitle,
+            },
+            preferOriginalTitles,
+          ) || media.title,
+      })),
+    [heroMediaList, preferOriginalTitles],
+  )
+  const displayLatestTrailers = useMemo(
+    () =>
+      latestTrailers.map((trailer) => ({
+        ...trailer,
+        title:
+          getDisplayNormalizedTitle(
+            {
+              title: trailer.title,
+              originalTitle: trailer.originalTitle,
+            },
+            preferOriginalTitles,
+          ) || trailer.title,
+      })),
+    [latestTrailers, preferOriginalTitles],
   )
 
   // Create mapping of list ID to data/title (for media lists, not trailers)
@@ -124,25 +159,7 @@ export function HomePageClient({
         // Convert ListMediaItem record to TMDBMedia[]
         const items = Object.values(userList.items)
           .sort((a, b) => b.addedAt - a.addedAt) // Sort by added time descending
-          .map(
-            (mediaItem: ListMediaItem): TMDBMedia => ({
-              id: mediaItem.id,
-              media_type: mediaItem.media_type,
-              title: mediaItem.title,
-              name: mediaItem.name || mediaItem.title,
-              poster_path: mediaItem.poster_path,
-              backdrop_path: null,
-              overview: "",
-              vote_average: mediaItem.vote_average || 0,
-              vote_count: 0,
-              popularity: 0,
-              original_language: "en",
-              adult: false,
-              genre_ids: mediaItem.genre_ids || [],
-              release_date: mediaItem.release_date,
-              first_air_date: mediaItem.first_air_date,
-            }),
-          )
+          .map((mediaItem): TMDBMedia => listItemToMedia(mediaItem))
 
         // Determine the correct page based on list type
         const listHref = isDefaultList(item.id)
@@ -180,7 +197,7 @@ export function HomePageClient({
   // Handle opening trailer for Media Cards (fetch on demand)
   const handleCardWatchTrailer = async (media: TMDBMedia) => {
     // For media cards, we might need to fetch the trailer key if not present
-    const title = media.title || media.name || "Trailer"
+    const title = getDisplayMediaTitle(media, preferOriginalTitles) || "Trailer"
     const mediaType =
       (media.media_type as "movie" | "tv") || (media.title ? "movie" : "tv")
     const compositeKey = `${mediaType}-${media.id}`
@@ -212,7 +229,7 @@ export function HomePageClient({
     return (
       <main className="min-h-screen bg-black pb-16">
         <HeroSection
-          mediaList={heroMediaList}
+          mediaList={displayHeroMediaList}
           onWatchTrailer={handleHeroWatchTrailer}
           isPaused={isTrailerOpen}
         />
@@ -236,7 +253,7 @@ export function HomePageClient({
   return (
     <main className="min-h-screen bg-black pb-16">
       <HeroSection
-        mediaList={heroMediaList}
+        mediaList={displayHeroMediaList}
         onWatchTrailer={handleHeroWatchTrailer}
         isPaused={isTrailerOpen}
       />
@@ -244,8 +261,11 @@ export function HomePageClient({
       <div className="relative z-20 -mt-24 pt-32 pointer-events-none">
         <div className="pointer-events-auto space-y-4">
           {/* Trailer Row - shown first if selected */}
-          {showTrailers && latestTrailers.length > 0 && (
-            <TrailerRow title="Latest Trailers" trailers={latestTrailers} />
+          {showTrailers && displayLatestTrailers.length > 0 && (
+            <TrailerRow
+              title="Latest Trailers"
+              trailers={displayLatestTrailers}
+            />
           )}
 
           {/* Media Rows */}
@@ -259,6 +279,7 @@ export function HomePageClient({
               loadingMediaId={loadingMediaId}
               showActions
               scrollable
+              preferOriginalTitles={preferOriginalTitles}
             />
           ))}
         </div>

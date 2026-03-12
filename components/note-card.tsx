@@ -11,6 +11,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayNormalizedTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatRelativeTime } from "@/lib/utils"
 import type { Note } from "@/types/note"
@@ -46,12 +48,21 @@ function timestampToDate(timestamp: Timestamp | Date | number): Date {
  */
 export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const { preferences } = usePreferences()
 
   const posterUrl = note.posterPath
     ? buildImageUrl(note.posterPath, "w185")
     : null
   const mediaUrl = `/${note.mediaType}/${note.mediaId}`
   const relativeTime = formatRelativeTime(timestampToDate(note.updatedAt))
+  const displayTitle =
+    getDisplayNormalizedTitle(
+      {
+        title: note.mediaTitle,
+        originalTitle: note.originalTitle,
+      },
+      preferences.showOriginalTitles,
+    ) || note.mediaTitle
 
   const handleDelete = useCallback(() => {
     onDelete(note)
@@ -65,12 +76,12 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
         <Link href={mediaUrl} className="shrink-0">
           <div className="relative aspect-[2/3] w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
             {posterUrl ? (
-              <img
-                src={posterUrl}
-                alt={note.mediaTitle}
-                className="absolute inset-0 h-full w-full object-cover"
-                sizes="80px"
-              />
+                <img
+                  src={posterUrl}
+                  alt={displayTitle}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  sizes="80px"
+                />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-gray-500">
                 No Image
@@ -86,7 +97,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
             href={mediaUrl}
             className="truncate font-medium text-gray-400 hover:text-primary transition-colors"
           >
-            {note.mediaTitle}
+            {displayTitle}
           </Link>
 
           {/* Note snippet */}
@@ -126,7 +137,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
             <AlertDialogTitle>Delete Note</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete your note for &quot;
-              {note.mediaTitle}&quot;? This action cannot be undone.
+              {displayTitle}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -2,7 +2,9 @@
 
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
+import { usePreferences } from "@/hooks/use-preferences"
 import { Textarea } from "@/components/ui/textarea"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
@@ -16,6 +18,8 @@ interface NotesMediaInfo {
   poster_path?: string | null
   title?: string
   name?: string
+  original_title?: string
+  original_name?: string
 }
 
 interface NotesModalProps {
@@ -40,12 +44,16 @@ export function NotesModal({
   mediaType,
 }: NotesModalProps) {
   const { getNote, saveNote, removeNote } = useNotes()
+  const { preferences } = usePreferences()
   const [noteContent, setNoteContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [hasExistingNote, setHasExistingNote] = useState(false)
   const [originalContent, setOriginalContent] = useState("")
 
-  const title: string = media.title || media.name || "Unknown"
+  const displayTitle =
+    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
+  const title = media.title || media.name || displayTitle
+  const originalTitle = media.original_title || media.original_name || undefined
   const mediaId = media.id
   const posterPath: string | null = media.poster_path ?? null
 
@@ -65,7 +73,14 @@ export function NotesModal({
 
     setIsSaving(true)
     try {
-      await saveNote(mediaType, mediaId, noteContent.trim(), title, posterPath)
+      await saveNote(
+        mediaType,
+        mediaId,
+        noteContent.trim(),
+        title,
+        originalTitle,
+        posterPath,
+      )
       toast.success("Note saved")
       onClose()
     } catch (error) {
@@ -74,7 +89,16 @@ export function NotesModal({
     } finally {
       setIsSaving(false)
     }
-  }, [noteContent, saveNote, mediaType, mediaId, title, posterPath, onClose])
+  }, [
+    noteContent,
+    saveNote,
+    mediaType,
+    mediaId,
+    title,
+    originalTitle,
+    posterPath,
+    onClose,
+  ])
 
   const handleClose = useCallback(() => {
     setNoteContent("")
@@ -114,7 +138,7 @@ export function NotesModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={hasExistingNote ? "Edit Note" : "Add Note"}
-      description={`Personal note for "${title}"`}
+      description={`Personal note for "${displayTitle}"`}
     >
       {/* Note Input */}
       <div className="py-4">

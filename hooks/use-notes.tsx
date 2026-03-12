@@ -35,6 +35,7 @@ export function useNotes() {
       mediaId: number
       content: string
       mediaTitle: string
+      originalTitle?: string
       posterPath: string | null
     }) => {
       if (!userId) {
@@ -47,6 +48,7 @@ export function useNotes() {
         mediaId: variables.mediaId,
         content: variables.content,
         mediaTitle: variables.mediaTitle,
+        originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
       })
     },
@@ -68,6 +70,7 @@ export function useNotes() {
         mediaType: variables.mediaType,
         content: variables.content,
         mediaTitle: variables.mediaTitle,
+        originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
         createdAt: existing?.createdAt ?? Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -139,6 +142,7 @@ export function useNotes() {
       mediaId: number,
       content: string,
       mediaTitle: string,
+      originalTitle: string | undefined,
       posterPath: string | null,
     ): Promise<void> => {
       await saveNoteMutateAsync({
@@ -146,6 +150,7 @@ export function useNotes() {
         mediaId,
         content,
         mediaTitle,
+        originalTitle,
         posterPath,
       })
     },

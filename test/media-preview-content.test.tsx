@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   lists: [] as UserList[],
   preferences: {
     blurPlotSpoilers: false,
+    showOriginalTitles: false,
   },
 }))
 
@@ -59,11 +60,13 @@ function createList(listId: string): UserList {
   }
 }
 
-function createMovie(): TMDBMovieDetails {
+function createMovie(
+  overrides: Partial<Pick<TMDBMovieDetails, "title" | "original_title">> = {},
+): TMDBMovieDetails {
   return {
     id: 123,
-    title: "Test Movie",
-    original_title: "Test Movie",
+    title: overrides.title ?? "Test Movie",
+    original_title: overrides.original_title ?? "Test Movie",
     original_language: "en",
     overview: "Test overview",
     poster_path: null,
@@ -161,5 +164,27 @@ describe("MediaPreviewContent add-to-list button", () => {
     expect(icon).not.toBeNull()
     expect(icon).toHaveAttribute("data-add-to-list-icon", "multiple")
     expect(addButton.className).toContain("border-green-400/40")
+  })
+
+  it("prefers an explicit original-title override over the saved preference", () => {
+    render(
+      <MediaPreviewContent
+        media={createMovie({
+          title: "Spirited Away",
+          original_title: "Sen to Chihiro no Kamikakushi",
+        })}
+        mediaType="movie"
+        preferOriginalTitles={true}
+        onAddToList={vi.fn()}
+        onRate={vi.fn()}
+        onNotes={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Sen to Chihiro no Kamikakushi",
+      }),
+    ).toBeInTheDocument()
   })
 })

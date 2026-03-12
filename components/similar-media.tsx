@@ -2,7 +2,9 @@
 
 import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBMedia } from "@/types/tmdb"
 
 interface SimilarMediaProps {
@@ -20,11 +22,16 @@ interface SimilarMediaProps {
  * Used on detail pages to show similar movies/shows with working trailer buttons
  */
 export function SimilarMedia({ title, items, mediaType }: SimilarMediaProps) {
+  const { preferences } = usePreferences()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const handleWatchTrailer = (media: TMDBMedia) => {
-    watchTrailer(media.id, mediaType, media.title || media.name || "Trailer")
+    watchTrailer(
+      media.id,
+      mediaType,
+      getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
+    )
   }
 
   if (!items || items.length === 0) return null
@@ -38,6 +45,7 @@ export function SimilarMedia({ title, items, mediaType }: SimilarMediaProps) {
         onWatchTrailer={handleWatchTrailer}
         loadingMediaId={loadingMediaId}
         showActions
+        preferOriginalTitles={preferences.showOriginalTitles}
       />
 
       <TrailerModal

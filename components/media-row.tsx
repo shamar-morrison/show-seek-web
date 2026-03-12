@@ -6,7 +6,8 @@ import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { ViewAllLink } from "@/components/ui/view-all-link"
 import { useContentFilter } from "@/hooks/use-content-filter"
-import type { TMDBMedia } from "@/types/tmdb"
+import { isActionableMedia } from "@/lib/tmdb-media"
+import type { TMDBActionableMedia, TMDBMedia } from "@/types/tmdb"
 
 interface MediaRowProps {
   title: string
@@ -20,6 +21,8 @@ interface MediaRowProps {
   limit?: number
   /** If true, shows dropdown actions (Add to List, Rate, Notes) on cards */
   showActions?: boolean
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
 }
 
 export function MediaRow({
@@ -31,6 +34,7 @@ export function MediaRow({
   scrollable = false,
   limit,
   showActions = false,
+  preferOriginalTitles = false,
 }: MediaRowProps) {
   // Filter out watched content
   const filteredItems = useContentFilter(items)
@@ -38,9 +42,7 @@ export function MediaRow({
   // Default limits: 7 for grid, all items for scrollable
   const displayLimit = limit ?? (scrollable ? filteredItems.length : 7)
   const displayItems = filteredItems.slice(0, displayLimit)
-
-  // Choose which card component to render
-  const CardComponent = showActions ? MediaCardWithActions : MediaCard
+  const actionableDisplayItems = displayItems.filter(isActionableMedia)
 
   return (
     <Section
@@ -58,30 +60,56 @@ export function MediaRow({
       ) : scrollable ? (
         /* Horizontal Scroll Layout */
         <ScrollableRow className="pb-2">
-          {displayItems.map((item) => (
-            <div
-              key={`${item.media_type}-${item.id}`}
-              className="w-[140px] shrink-0 sm:w-[160px]"
-            >
-              <CardComponent
-                media={item}
-                onWatchTrailer={onWatchTrailer}
-                isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
-              />
-            </div>
-          ))}
+          {showActions
+            ? actionableDisplayItems.map((item) => (
+                <div
+                  key={`${item.media_type}-${item.id}`}
+                  className="w-[140px] shrink-0 sm:w-[160px]"
+                >
+                  <MediaCardWithActions
+                    media={item}
+                    onWatchTrailer={onWatchTrailer}
+                    isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                    preferOriginalTitles={preferOriginalTitles}
+                  />
+                </div>
+              ))
+            : displayItems.map((item) => (
+                <div
+                  key={`${item.media_type}-${item.id}`}
+                  className="w-[140px] shrink-0 sm:w-[160px]"
+                >
+                  <MediaCard
+                    media={item}
+                    onWatchTrailer={onWatchTrailer}
+                    isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                    preferOriginalTitles={preferOriginalTitles}
+                  />
+                </div>
+              ))}
         </ScrollableRow>
       ) : (
         /* Grid Layout */
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {displayItems.map((item) => (
-            <CardComponent
-              key={`${item.media_type}-${item.id}`}
-              media={item}
-              onWatchTrailer={onWatchTrailer}
-              isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
-            />
-          ))}
+          {showActions
+            ? actionableDisplayItems.map((item) => (
+                <MediaCardWithActions
+                  key={`${item.media_type}-${item.id}`}
+                  media={item}
+                  onWatchTrailer={onWatchTrailer}
+                  isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                  preferOriginalTitles={preferOriginalTitles}
+                />
+              ))
+            : displayItems.map((item) => (
+                <MediaCard
+                  key={`${item.media_type}-${item.id}`}
+                  media={item}
+                  onWatchTrailer={onWatchTrailer}
+                  isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+                  preferOriginalTitles={preferOriginalTitles}
+                />
+              ))}
         </div>
       )}
     </Section>

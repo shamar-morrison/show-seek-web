@@ -3,6 +3,7 @@ import { toast } from "sonner"
 type MovieListPayload = {
   movieId: number
   title: string
+  originalTitle?: string
   posterPath: string | null
   voteAverage?: number
   releaseDate?: string | null
@@ -14,6 +15,7 @@ type AddToListFn = (
   mediaItem: {
     id: number
     title: string
+    original_title?: string
     poster_path: string | null
     media_type: "movie"
     vote_average?: number
@@ -48,6 +50,7 @@ export async function applyMovieRatingListAutomation(params: {
       const wasAdded = await addToList("already-watched", {
         id: movie.movieId,
         title: movie.title,
+        original_title: movie.originalTitle,
         poster_path: movie.posterPath,
         media_type: "movie",
         vote_average: movie.voteAverage,
@@ -96,6 +99,7 @@ export async function applyWatchedMovieListAutomation(params: {
       await addToList("already-watched", {
         id: movie.movieId,
         title: movie.title,
+        original_title: movie.originalTitle,
         poster_path: movie.posterPath,
         media_type: "movie",
         vote_average: movie.voteAverage,

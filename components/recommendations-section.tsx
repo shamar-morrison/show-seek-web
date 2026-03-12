@@ -4,6 +4,8 @@ import { MediaRow } from "@/components/media-row"
 import { TrailerModal } from "@/components/trailer-modal"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { usePreferences } from "@/hooks/use-preferences"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { useRecommendations } from "@/hooks/use-tmdb-queries"
 import { useTrailer } from "@/hooks/use-trailer"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -26,6 +28,7 @@ export function RecommendationsSection({
 }: RecommendationsSectionProps) {
   const hasTriggered = useRef(false)
   const [shouldFetch, setShouldFetch] = useState(false)
+  const { preferences } = usePreferences()
 
   // Trailer hook for modal state
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
@@ -52,7 +55,11 @@ export function RecommendationsSection({
     const type =
       (media.media_type as "movie" | "tv") ||
       (mediaType === "movie" || mediaType === "tv" ? mediaType : "movie")
-    watchTrailer(media.id, type, media.title || media.name || "Trailer")
+    watchTrailer(
+      media.id,
+      type,
+      getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
+    )
   }
 
   // Don't render section if loaded and no recommendations
@@ -75,6 +82,7 @@ export function RecommendationsSection({
           onWatchTrailer={handleWatchTrailer}
           loadingMediaId={loadingMediaId}
           showActions
+          preferOriginalTitles={preferences.showOriginalTitles}
         />
       )}
 

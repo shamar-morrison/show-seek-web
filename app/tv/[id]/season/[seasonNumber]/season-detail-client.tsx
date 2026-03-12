@@ -16,6 +16,7 @@ import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutati
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { formatDateLong } from "@/lib/format-helpers"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
@@ -63,6 +64,8 @@ export function SeasonDetailClient({
   )
   const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
   const showName = tvShow.name
+  const displayShowTitle =
+    getDisplayMediaTitle(tvShow, preferences.showOriginalTitles) || showName
   const showPosterPath = tvShow.poster_path
   const showSeasons = tvShow.seasons
 
@@ -214,7 +217,7 @@ export function SeasonDetailClient({
           className="mb-6 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white"
         >
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
-          Back to {tvShow.name}
+          Back to {displayShowTitle}
         </Link>
 
         <div className="flex flex-col gap-8 md:flex-row">
@@ -237,7 +240,7 @@ export function SeasonDetailClient({
           {/* Season Info */}
           <div className="flex flex-col justify-end">
             <p className="mb-2 text-sm font-medium uppercase tracking-wider text-primary">
-              {tvShow.name}
+              {displayShowTitle}
             </p>
             <h1 className="mb-4 text-3xl font-bold text-white md:text-4xl">
               {season.name}

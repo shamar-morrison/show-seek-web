@@ -8,6 +8,7 @@ import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn } from "@/lib/utils"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -25,6 +26,8 @@ import { useMemo } from "react"
 interface MediaPreviewContentProps {
   media: TMDBMovieDetails | TMDBTVDetails
   mediaType: "movie" | "tv"
+  /** Whether to prefer original-language titles when available */
+  preferOriginalTitles?: boolean
   /** Callback when Add to List button is clicked */
   onAddToList: () => void
   /** Callback when Rate button is clicked */
@@ -84,6 +87,7 @@ function formatDate(dateString: string | null | undefined): string | null {
 export function MediaPreviewContent({
   media,
   mediaType,
+  preferOriginalTitles,
   onAddToList,
   onRate,
   onNotes,
@@ -114,9 +118,10 @@ export function MediaPreviewContent({
 
   // Extract common properties
   const title =
-    mediaType === "movie"
-      ? (media as TMDBMovieDetails).title
-      : (media as TMDBTVDetails).name
+    getDisplayMediaTitle(
+      media,
+      preferOriginalTitles ?? preferences.showOriginalTitles,
+    ) || "Unknown"
   const overview = media.overview || "No description available."
   const rating = Math.round(media.vote_average * 10) / 10
 

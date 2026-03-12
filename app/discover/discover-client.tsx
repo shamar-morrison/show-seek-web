@@ -20,7 +20,10 @@ import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
 import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isActionableMedia } from "@/lib/tmdb-media"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -126,8 +129,14 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
-  const { user, isPremium, loading: authLoading, premiumLoading, premiumStatus } =
-    useAuth()
+  const {
+    user,
+    isPremium,
+    loading: authLoading,
+    premiumLoading,
+    premiumStatus,
+  } = useAuth()
+  const { preferences } = usePreferences()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
@@ -192,14 +201,16 @@ export function DiscoverClient({
   const filteredResults = useContentFilter(results.results, {
     applyHideUnreleasedContent: true,
   })
+  const actionableResults = filteredResults.filter(isActionableMedia)
 
   // Handle watch trailer for a media item
   const handleWatchTrailer = useCallback(
     (media: TMDBMedia) => {
-      const title = media.title || media.name || "Unknown"
+      const title =
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
       watchTrailer(media.id, media.media_type as "movie" | "tv", title)
     },
-    [watchTrailer],
+    [preferences.showOriginalTitles, watchTrailer],
   )
 
   const yearOptions: ComboboxOption[] = useMemo(() => generateYearOptions(), [])
@@ -442,7 +453,7 @@ export function DiscoverClient({
           {/* Results Grid */}
           {!isPending && filteredResults.length > 0 && (
             <div className="mb-12 grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-              {filteredResults.map((media) => (
+              {actionableResults.map((media) => (
                 <MediaCardWithActions
                   key={`${media.media_type}-${media.id}`}
                   media={media}
@@ -450,6 +461,7 @@ export function DiscoverClient({
                   isLoading={
                     loadingMediaId === `${media.media_type}-${media.id}`
                   }
+                  preferOriginalTitles={preferences.showOriginalTitles}
                 />
               ))}
             </div>

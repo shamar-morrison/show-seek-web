@@ -20,9 +20,14 @@ import {
   useMovieRatings,
   useTVRatings,
 } from "@/hooks/use-ratings"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import {
+  getDisplayMediaTitle,
+  getDisplayNormalizedTitle,
+} from "@/lib/media-title"
 import type { Rating } from "@/types/rating"
-import type { TMDBMedia } from "@/types/tmdb"
+import type { TMDBActionableMedia } from "@/types/tmdb"
 import {
   Film01Icon,
   PlayCircle02Icon,
@@ -71,6 +76,7 @@ const USER_RATING_OPTIONS = [
  */
 export function RatingsPageClient() {
   const { loading: authLoading } = useAuth()
+  const { preferences } = usePreferences()
   const [activeTab, setActiveTab] = useState<RatingTab>("movies")
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -107,7 +113,12 @@ export function RatingsPageClient() {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
-        if (!(rating.title || "").toLowerCase().includes(query)) {
+        const canonicalTitle = (rating.title || "").toLowerCase()
+        const originalTitle = (rating.originalTitle || "").toLowerCase()
+        if (
+          !canonicalTitle.includes(query) &&
+          !originalTitle.includes(query)
+        ) {
           return false
         }
       }
@@ -146,11 +157,24 @@ export function RatingsPageClient() {
         case "userRating":
           comparison = (a.rating || 0) - (b.rating || 0)
           break
-        case "title":
-          comparison = (a.title || "")
-            .toLowerCase()
-            .localeCompare((b.title || "").toLowerCase())
+        case "title": {
+          const titleA = getDisplayNormalizedTitle(
+            {
+              title: a.title,
+              originalTitle: a.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          const titleB = getDisplayNormalizedTitle(
+            {
+              title: b.title,
+              originalTitle: b.originalTitle,
+            },
+            preferences.showOriginalTitles,
+          ).toLowerCase()
+          comparison = titleA.localeCompare(titleB)
           break
+        }
       }
 
       return sortState.direction === "asc" ? comparison : -comparison
@@ -163,6 +187,7 @@ export function RatingsPageClient() {
     tvRatings.ratings,
     searchQuery,
     filterState,
+    preferences.showOriginalTitles,
     yearRange,
     sortState,
   ])
@@ -233,15 +258,15 @@ export function RatingsPageClient() {
 
   // Handle trailer click
   const handleWatchTrailer = useCallback(
-    (media: TMDBMedia) => {
-      if (media.media_type === "person") return
+    (media: TMDBActionableMedia) => {
       watchTrailer(
         media.id,
         media.media_type,
-        media.title || media.name || "Trailer",
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) ||
+          "Trailer",
       )
     },
-    [watchTrailer],
+    [preferences.showOriginalTitles, watchTrailer],
   )
 
   // Handle filter change
@@ -282,7 +307,7 @@ export function RatingsPageClient() {
   const ratingToMedia = (
     rating: Rating,
     mediaType: "movie" | "tv",
-  ): TMDBMedia => ({
+  ): TMDBActionableMedia => ({
     id: Number(rating.mediaId),
     media_type: mediaType,
     poster_path: rating.posterPath || null,
@@ -296,14 +321,14 @@ export function RatingsPageClient() {
     adult: false,
     ...(mediaType === "movie"
       ? {
-          title: rating.title || "Untitled",
-          original_title: "",
+          title: rating.title || rating.originalTitle || "Untitled",
+          original_title: rating.originalTitle,
           release_date: rating.releaseDate || "",
           video: false,
         }
       : {
-          name: rating.title || "Untitled",
-          original_name: "",
+          name: rating.title || rating.originalTitle || "Untitled",
+          original_name: rating.originalTitle,
           first_air_date: rating.releaseDate || "",
           origin_country: [],
         }),

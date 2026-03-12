@@ -4,11 +4,11 @@ import { MediaCard } from "@/components/media-card"
 import { MediaPreviewCardWrapper } from "@/components/media-preview-card-wrapper"
 import { useMediaActions } from "@/hooks/use-media-actions"
 import { usePreferences } from "@/hooks/use-preferences"
-import type { TMDBMedia } from "@/types/tmdb"
+import type { TMDBActionableMedia, TMDBMedia } from "@/types/tmdb"
 
 interface MediaCardWithActionsProps {
-  media: TMDBMedia
-  onWatchTrailer?: (media: TMDBMedia) => void
+  media: TMDBActionableMedia
+  onWatchTrailer?: (media: TMDBActionableMedia) => void
   isLoading?: boolean
   priority?: boolean
   buttonText?: string
@@ -16,6 +16,7 @@ interface MediaCardWithActionsProps {
     collectionId: number | null
   }
   isWatched?: boolean
+  preferOriginalTitles?: boolean
 }
 
 /**
@@ -31,12 +32,15 @@ export function MediaCardWithActions({
   buttonText,
   collectionContext,
   isWatched = false,
+  preferOriginalTitles,
 }: MediaCardWithActionsProps) {
   // Determine media type
-  const mediaType = media.media_type === "movie" ? "movie" : "tv"
+  const mediaType = media.media_type
 
   // Get user preferences
   const { preferences } = usePreferences()
+  const resolvedPreferOriginalTitles =
+    preferOriginalTitles ?? preferences.showOriginalTitles
 
   // Use consolidated media actions hook
   const { dropdownItems, userRating, listIds, modals } = useMediaActions({
@@ -48,7 +52,18 @@ export function MediaCardWithActions({
   const cardContent = (
     <MediaCard
       media={media}
-      onWatchTrailer={onWatchTrailer}
+      onWatchTrailer={
+        onWatchTrailer
+          ? (trailerMedia: TMDBMedia) => {
+              if (
+                trailerMedia.media_type === "movie" ||
+                trailerMedia.media_type === "tv"
+              ) {
+                onWatchTrailer(trailerMedia as TMDBActionableMedia)
+              }
+            }
+          : undefined
+      }
       isLoading={isLoading}
       priority={priority}
       buttonText={buttonText}
@@ -56,6 +71,7 @@ export function MediaCardWithActions({
       userRating={userRating?.rating}
       listIds={listIds}
       isWatched={isWatched}
+      preferOriginalTitles={resolvedPreferOriginalTitles}
     />
   )
 
@@ -65,7 +81,18 @@ export function MediaCardWithActions({
         <MediaPreviewCardWrapper
           media={media}
           mediaType={mediaType}
-          onWatchTrailer={onWatchTrailer}
+          onWatchTrailer={
+            onWatchTrailer
+              ? (trailerMedia: TMDBMedia) => {
+                  if (
+                    trailerMedia.media_type === "movie" ||
+                    trailerMedia.media_type === "tv"
+                  ) {
+                    onWatchTrailer(trailerMedia as TMDBActionableMedia)
+                  }
+                }
+              : undefined
+          }
           isLoading={isLoading}
           priority={priority}
           buttonText={buttonText}
@@ -74,6 +101,7 @@ export function MediaCardWithActions({
           listIds={listIds}
           collectionContext={collectionContext}
           isWatched={isWatched}
+          preferOriginalTitles={resolvedPreferOriginalTitles}
         />
       ) : (
         cardContent

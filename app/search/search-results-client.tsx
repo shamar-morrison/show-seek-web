@@ -13,13 +13,16 @@ import {
 } from "@/components/ui/empty"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
+import { useContentFilter } from "@/hooks/use-content-filter"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
-import { useContentFilter } from "@/hooks/use-content-filter"
 import { debounceWithCancel } from "@/lib/debounce"
+import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn } from "@/lib/utils"
 import type {
   MediaType,
+  TMDBActionableMedia,
   TMDBMedia,
   TMDBSearchResponse,
   TMDBSearchResult,
@@ -66,6 +69,7 @@ export function SearchResultsClient({
   initialResults,
 }: SearchResultsClientProps) {
   const router = useRouter()
+  const { preferences } = usePreferences()
 
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(initialResults)
@@ -79,20 +83,20 @@ export function SearchResultsClient({
 
   // Handle watch trailer for MediaCard
   const handleWatchTrailerMedia = useCallback(
-    (media: TMDBMedia) => {
-      if (media.media_type === "person") return
+    (media: TMDBActionableMedia) => {
       watchTrailer(
         media.id,
         media.media_type,
-        media.title || media.name || "Trailer",
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) ||
+          "Trailer",
       )
     },
-    [watchTrailer],
+    [preferences.showOriginalTitles, watchTrailer],
   )
 
   // Convert TMDBSearchResult to TMDBMedia for MediaCard
   const searchResultToMedia = useCallback(
-    (result: TMDBSearchResult): TMDBMedia => ({
+    (result: TMDBSearchResult & { media_type: "movie" | "tv" }): TMDBActionableMedia => ({
       id: result.id,
       media_type: result.media_type,
       adult: result.adult ?? false,
@@ -108,12 +112,10 @@ export function SearchResultsClient({
       vote_average: result.vote_average ?? 0,
       vote_count: 0,
       original_language: "",
-      // Conditionally set original_title/original_name based on media_type
-      // to avoid polluting the object with undefined values
       ...(result.media_type === "movie"
-        ? { original_title: result.title }
+        ? { original_title: result.original_title }
         : result.media_type === "tv"
-          ? { original_name: result.name }
+          ? { original_name: result.original_name }
           : {}),
     }),
     [],
@@ -198,10 +200,19 @@ export function SearchResultsClient({
   // Memoize transformed media objects to prevent re-renders
   const transformedMedia = useMemo(
     () =>
-      filteredSearchResults.map((result) => ({
-        result,
-        media: searchResultToMedia(result),
-      })),
+      filteredSearchResults.map((result) =>
+        result.media_type === "movie" || result.media_type === "tv"
+          ? {
+              result,
+              media: searchResultToMedia(
+                result as TMDBSearchResult & { media_type: "movie" | "tv" },
+              ),
+            }
+          : {
+              result,
+              media: null,
+            },
+      ),
     [filteredSearchResults, searchResultToMedia],
   )
 
@@ -290,7 +301,7 @@ export function SearchResultsClient({
                 }}
                 priority={index < 7}
               />
-            ) : (
+            ) : media ? (
               <MediaCardWithActions
                 key={`${result.media_type}-${result.id}`}
                 media={media}
@@ -298,8 +309,9 @@ export function SearchResultsClient({
                 isLoading={
                   loadingMediaId === `${result.media_type}-${result.id}`
                 }
+                preferOriginalTitles={preferences.showOriginalTitles}
               />
-            ),
+            ) : null,
           )}
         </div>
       ) : query.trim() ? (
