@@ -49,6 +49,7 @@ describe("NotesModal", () => {
     vi.clearAllMocks()
     mocks.getNote.mockReturnValue(null)
     mocks.saveNote.mockResolvedValue(undefined)
+    mocks.removeNote.mockResolvedValue(undefined)
   })
 
   it("saves canonical and original titles together", async () => {
@@ -85,6 +86,78 @@ describe("NotesModal", () => {
         "Sen to Chihiro no Kamikakushi",
         null,
       )
+    })
+  })
+
+  it("loads and saves episode notes with season, episode, and show metadata", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 456,
+          show_id: 456,
+          season_number: 1,
+          episode_number: 2,
+          poster_path: null,
+          title: "Half Loop",
+        }}
+        mediaType="episode"
+      />,
+    )
+
+    expect(mocks.getNote).toHaveBeenCalledWith("episode", 456, 1, 2)
+
+    await user.type(
+      screen.getByPlaceholderText(
+        "Write your thoughts, opinions, or reminders about this title...",
+      ),
+      "Excellent episode",
+    )
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(mocks.saveNote).toHaveBeenCalledWith(
+        "episode",
+        456,
+        "Excellent episode",
+        "Half Loop",
+        undefined,
+        null,
+        1,
+        2,
+        456,
+      )
+    })
+  })
+
+  it("clears episode notes using season and episode metadata", async () => {
+    const user = userEvent.setup()
+
+    mocks.getNote.mockReturnValue({ content: "Existing note" })
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 456,
+          show_id: 456,
+          season_number: 1,
+          episode_number: 2,
+          poster_path: null,
+          title: "Half Loop",
+        }}
+        mediaType="episode"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Clear" }))
+
+    await waitFor(() => {
+      expect(mocks.removeNote).toHaveBeenCalledWith("episode", 456, 1, 2)
     })
   })
 })

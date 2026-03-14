@@ -20,6 +20,9 @@ interface NotesMediaInfo {
   name?: string
   original_title?: string
   original_name?: string
+  show_id?: number
+  season_number?: number
+  episode_number?: number
 }
 
 interface NotesModalProps {
@@ -30,12 +33,12 @@ interface NotesModalProps {
   /** The media item to add notes for */
   media: NotesMediaInfo
   /** Media type */
-  mediaType: "movie" | "tv"
+  mediaType: "movie" | "tv" | "episode"
 }
 
 /**
  * NotesModal Component
- * Modal for adding/editing personal notes on movies and TV shows
+ * Modal for adding/editing personal notes on movies, TV shows, and episodes
  */
 export function NotesModal({
   isOpen,
@@ -56,31 +59,53 @@ export function NotesModal({
   const originalTitle = media.original_title || media.original_name || undefined
   const mediaId = media.id
   const posterPath: string | null = media.poster_path ?? null
+  const seasonNumber = media.season_number
+  const episodeNumber = media.episode_number
+  const showId = media.show_id
 
   // Load existing note when modal opens
   useEffect(() => {
     if (isOpen) {
-      const existingNote = getNote(mediaType, mediaId)
+      const existingNote = getNote(
+        mediaType,
+        mediaId,
+        seasonNumber,
+        episodeNumber,
+      )
       const content = existingNote?.content || ""
       setNoteContent(content)
       setOriginalContent(content)
       setHasExistingNote(!!existingNote)
     }
-  }, [isOpen, getNote, mediaType, mediaId])
+  }, [isOpen, getNote, mediaType, mediaId, seasonNumber, episodeNumber])
 
   const handleSave = useCallback(async () => {
     if (noteContent.trim().length === 0) return
 
     setIsSaving(true)
     try {
-      await saveNote(
-        mediaType,
-        mediaId,
-        noteContent.trim(),
-        title,
-        originalTitle,
-        posterPath,
-      )
+      if (mediaType === "episode") {
+        await saveNote(
+          mediaType,
+          mediaId,
+          noteContent.trim(),
+          title,
+          originalTitle,
+          posterPath,
+          seasonNumber,
+          episodeNumber,
+          showId,
+        )
+      } else {
+        await saveNote(
+          mediaType,
+          mediaId,
+          noteContent.trim(),
+          title,
+          originalTitle,
+          posterPath,
+        )
+      }
       toast.success("Note saved")
       onClose()
     } catch (error) {
@@ -98,6 +123,9 @@ export function NotesModal({
     originalTitle,
     posterPath,
     onClose,
+    seasonNumber,
+    episodeNumber,
+    showId,
   ])
 
   const handleClose = useCallback(() => {
@@ -109,7 +137,11 @@ export function NotesModal({
   const handleClearNote = useCallback(async () => {
     setIsSaving(true)
     try {
-      await removeNote(mediaType, mediaId)
+      if (mediaType === "episode") {
+        await removeNote(mediaType, mediaId, seasonNumber, episodeNumber)
+      } else {
+        await removeNote(mediaType, mediaId)
+      }
       toast.success("Note cleared")
       onClose()
     } catch (error) {
@@ -118,7 +150,7 @@ export function NotesModal({
     } finally {
       setIsSaving(false)
     }
-  }, [removeNote, mediaType, mediaId, onClose])
+  }, [removeNote, mediaType, mediaId, onClose, seasonNumber, episodeNumber])
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

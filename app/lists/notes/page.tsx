@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/page-header"
 
 export const metadata: Metadata = {
   title: "My Notes | ShowSeek",
-  description: "View and manage your personal notes for movies and TV shows",
+  description:
+    "View and manage your personal notes for movies, TV shows, and episodes",
 }
 
 /**

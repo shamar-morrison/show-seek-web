@@ -3,6 +3,7 @@ import { render, screen } from "@/test/utils"
 import userEvent from "@testing-library/user-event"
 import { Timestamp } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { Note } from "@/types/note"
 
 const mocks = vi.hoisted(() => ({
   removeNote: vi.fn(),
@@ -14,9 +15,27 @@ const mocks = vi.hoisted(() => ({
     media: {
       original_title?: string
       original_name?: string
+      season_number?: number
+      episode_number?: number
     }
   } | null,
 }))
+
+function createNote(overrides: Partial<Note>): Note {
+  return {
+    id: "movie-123",
+    userId: "user-1",
+    mediaId: 123,
+    mediaType: "movie",
+    content: "Masterpiece",
+    mediaTitle: "Spirited Away",
+    originalTitle: "Sen to Chihiro no Kamikakushi",
+    posterPath: null,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+    ...overrides,
+  }
+}
 
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
@@ -45,6 +64,9 @@ vi.mock("@/components/note-card", () => ({
     onEdit,
   }: {
     note: {
+      id: string
+      mediaType: string
+      content: string
       mediaTitle: string
       originalTitle?: string
     }
@@ -55,8 +77,13 @@ vi.mock("@/components/note-card", () => ({
       note.mediaTitle
 
     return (
-      <div data-testid="note-card">
+      <div
+        data-testid="note-card"
+        data-note-id={note.id}
+        data-media-type={note.mediaType}
+      >
         <span>{displayTitle}</span>
+        <span>{note.content}</span>
         <button type="button" onClick={() => onEdit(note)}>
           Edit note
         </button>
@@ -71,6 +98,8 @@ vi.mock("@/components/notes-modal", () => ({
     media: {
       original_title?: string
       original_name?: string
+      season_number?: number
+      episode_number?: number
     }
   }) => {
     mocks.lastModalProps = props
@@ -80,6 +109,8 @@ vi.mock("@/components/notes-modal", () => ({
         data-original-title={
           props.media.original_title ?? props.media.original_name ?? ""
         }
+        data-season-number={props.media.season_number ?? ""}
+        data-episode-number={props.media.episode_number ?? ""}
       />
     ) : null
   },
@@ -107,17 +138,7 @@ describe("NotesClient", () => {
     mocks.notes = new Map([
       [
         "movie-123",
-        {
-          userId: "user-1",
-          mediaId: 123,
-          mediaType: "movie",
-          content: "Masterpiece",
-          mediaTitle: "Spirited Away",
-          originalTitle: "Sen to Chihiro no Kamikakushi",
-          posterPath: null,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        },
+        createNote({}),
       ],
     ])
   })
@@ -155,31 +176,17 @@ describe("NotesClient", () => {
     mocks.notes = new Map([
       [
         "movie-123",
-        {
-          userId: "user-1",
-          mediaId: 123,
-          mediaType: "movie",
-          content: "Masterpiece",
-          mediaTitle: "Spirited Away",
-          originalTitle: "Sen to Chihiro no Kamikakushi",
-          posterPath: null,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        },
+        createNote({}),
       ],
       [
         "movie-456",
-        {
-          userId: "user-1",
+        createNote({
+          id: "movie-456",
           mediaId: 456,
-          mediaType: "movie",
           content: "Excellent",
           mediaTitle: "Your Name",
           originalTitle: "Kimi no Na wa.",
-          posterPath: null,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        },
+        }),
       ],
     ])
 
@@ -190,5 +197,126 @@ describe("NotesClient", () => {
     const cards = screen.getAllByTestId("note-card")
     expect(cards[0]).toHaveTextContent("Kimi no Na wa.")
     expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
+  })
+
+  it("shows all notes by default and filters between movies, tv shows, and episodes", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "movie-123",
+        createNote({}),
+      ],
+      [
+        "tv-456",
+        createNote({
+          id: "tv-456",
+          mediaId: 456,
+          mediaType: "tv",
+          mediaTitle: "Severance",
+          originalTitle: undefined,
+          content: "Great mystery",
+        }),
+      ],
+      [
+        "episode-456-1-1",
+        createNote({
+          id: "episode-456-1-1",
+          mediaId: 456,
+          mediaType: "episode",
+          mediaTitle: "Good News About Hell",
+          originalTitle: undefined,
+          content: "Pilot episode note",
+          seasonNumber: 1,
+          episodeNumber: 1,
+          showId: 456,
+        }),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    expect(screen.getAllByTestId("note-card")).toHaveLength(3)
+
+    await user.click(screen.getByRole("button", { name: /Movies/i }))
+    expect(screen.getAllByTestId("note-card")).toHaveLength(1)
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-media-type",
+      "movie",
+    )
+
+    await user.click(screen.getByRole("button", { name: /TV Shows/i }))
+    expect(screen.getAllByTestId("note-card")).toHaveLength(1)
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-media-type",
+      "tv",
+    )
+
+    await user.click(screen.getByRole("button", { name: /Episodes/i }))
+    expect(screen.getAllByTestId("note-card")).toHaveLength(1)
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-media-type",
+      "episode",
+    )
+  })
+
+  it("applies search within the active tab", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "movie-123",
+        createNote({
+          content: "Pilot on a plane",
+        }),
+      ],
+      [
+        "episode-456-1-1",
+        createNote({
+          id: "episode-456-1-1",
+          mediaId: 456,
+          mediaType: "episode",
+          mediaTitle: "Pilot",
+          originalTitle: undefined,
+          content: "Pilot episode note",
+          seasonNumber: 1,
+          episodeNumber: 1,
+          showId: 456,
+        }),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: /Episodes/i }))
+    await user.type(
+      screen.getByPlaceholderText(
+        "Search by media title, original title, or note content...",
+      ),
+      "plane",
+    )
+
+    expect(screen.getByText('No notes match "plane"')).toBeInTheDocument()
+    expect(screen.queryByTestId("note-card")).not.toBeInTheDocument()
+  })
+
+  it("shows a tab-specific empty state when the selected tab has no notes", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "movie-123",
+        createNote({}),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: /Episodes/i }))
+
+    expect(screen.getByText("No episode notes yet")).toBeInTheDocument()
+    expect(
+      screen.getByText("Add notes to episode detail pages to see them here."),
+    ).toBeInTheDocument()
   })
 })

@@ -2,12 +2,28 @@
 
 import { useAuth } from "@/context/auth-context"
 import { deleteNote, fetchNotes, setNote } from "@/lib/firebase/notes"
+import { getNoteId } from "@/lib/note-utils"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import type { Note } from "@/types/note"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Timestamp } from "firebase/firestore"
 import { useCallback } from "react"
+
+interface NoteKeyVariables {
+  mediaType: Note["mediaType"]
+  mediaId: number
+  seasonNumber?: number
+  episodeNumber?: number
+}
+
+interface SaveNoteVariables extends NoteKeyVariables {
+  content: string
+  mediaTitle: string
+  originalTitle?: string
+  posterPath: string | null
+  showId?: number
+}
 
 /**
  * Hook for managing user notes with React Query caching.
@@ -30,19 +46,20 @@ export function useNotes() {
   })
 
   const saveNoteMutation = useMutation({
-    mutationFn: async (variables: {
-      mediaType: "movie" | "tv"
-      mediaId: number
-      content: string
-      mediaTitle: string
-      originalTitle?: string
-      posterPath: string | null
-    }) => {
+    mutationFn: async (variables: SaveNoteVariables) => {
       if (!userId) {
         throw new Error("User must be authenticated to save notes")
       }
 
+      const noteId = getNoteId(
+        variables.mediaType,
+        variables.mediaId,
+        variables.seasonNumber,
+        variables.episodeNumber,
+      )
+
       await setNote(userId, {
+        id: noteId,
         userId,
         mediaType: variables.mediaType,
         mediaId: variables.mediaId,
@@ -50,6 +67,9 @@ export function useNotes() {
         mediaTitle: variables.mediaTitle,
         originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
+        seasonNumber: variables.seasonNumber,
+        episodeNumber: variables.episodeNumber,
+        showId: variables.showId,
       })
     },
     onMutate: async (variables) => {
@@ -61,10 +81,16 @@ export function useNotes() {
       const previousNotes = queryClient.getQueryData<Map<string, Note>>(notesQueryKey)
 
       const nextNotes = new Map(previousNotes ?? [])
-      const key = `${variables.mediaType}-${variables.mediaId}`
+      const key = getNoteId(
+        variables.mediaType,
+        variables.mediaId,
+        variables.seasonNumber,
+        variables.episodeNumber,
+      )
       const existing = nextNotes.get(key)
 
       nextNotes.set(key, {
+        id: key,
         userId: userId ?? "",
         mediaId: variables.mediaId,
         mediaType: variables.mediaType,
@@ -72,6 +98,9 @@ export function useNotes() {
         mediaTitle: variables.mediaTitle,
         originalTitle: variables.originalTitle,
         posterPath: variables.posterPath,
+        seasonNumber: variables.seasonNumber,
+        episodeNumber: variables.episodeNumber,
+        showId: variables.showId,
         createdAt: existing?.createdAt ?? Timestamp.now(),
         updatedAt: Timestamp.now(),
       })
@@ -92,12 +121,18 @@ export function useNotes() {
   })
 
   const removeNoteMutation = useMutation({
-    mutationFn: async (variables: { mediaType: "movie" | "tv"; mediaId: number }) => {
+    mutationFn: async (variables: NoteKeyVariables) => {
       if (!userId) {
         throw new Error("User must be authenticated to remove notes")
       }
 
-      await deleteNote(userId, variables.mediaType, variables.mediaId)
+      await deleteNote(
+        userId,
+        variables.mediaType,
+        variables.mediaId,
+        variables.seasonNumber,
+        variables.episodeNumber,
+      )
     },
     onMutate: async (variables) => {
       if (!notesQueryKey) {
@@ -108,7 +143,14 @@ export function useNotes() {
       const previousNotes = queryClient.getQueryData<Map<string, Note>>(notesQueryKey)
 
       const nextNotes = new Map(previousNotes ?? [])
-      nextNotes.delete(`${variables.mediaType}-${variables.mediaId}`)
+      nextNotes.delete(
+        getNoteId(
+          variables.mediaType,
+          variables.mediaId,
+          variables.seasonNumber,
+          variables.episodeNumber,
+        ),
+      )
 
       queryClient.setQueryData(notesQueryKey, nextNotes)
       return { previousNotes }
@@ -126,9 +168,18 @@ export function useNotes() {
   })
 
   const getNote = useCallback(
-    (mediaType: "movie" | "tv", mediaId: number): Note | null => {
-      const key = `${mediaType}-${mediaId}`
-      return notes.get(key) || null
+    (
+      mediaType: Note["mediaType"],
+      mediaId: number,
+      seasonNumber?: number,
+      episodeNumber?: number,
+    ): Note | null => {
+      try {
+        const key = getNoteId(mediaType, mediaId, seasonNumber, episodeNumber)
+        return notes.get(key) || null
+      } catch {
+        return null
+      }
     },
     [notes],
   )
@@ -138,12 +189,15 @@ export function useNotes() {
 
   const saveNote = useCallback(
     async (
-      mediaType: "movie" | "tv",
+      mediaType: Note["mediaType"],
       mediaId: number,
       content: string,
       mediaTitle: string,
       originalTitle: string | undefined,
       posterPath: string | null,
+      seasonNumber?: number,
+      episodeNumber?: number,
+      showId?: number,
     ): Promise<void> => {
       await saveNoteMutateAsync({
         mediaType,
@@ -152,14 +206,27 @@ export function useNotes() {
         mediaTitle,
         originalTitle,
         posterPath,
+        seasonNumber,
+        episodeNumber,
+        showId,
       })
     },
     [saveNoteMutateAsync],
   )
 
   const removeNote = useCallback(
-    async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
-      await removeNoteMutateAsync({ mediaType, mediaId })
+    async (
+      mediaType: Note["mediaType"],
+      mediaId: number,
+      seasonNumber?: number,
+      episodeNumber?: number,
+    ): Promise<void> => {
+      await removeNoteMutateAsync({
+        mediaType,
+        mediaId,
+        seasonNumber,
+        episodeNumber,
+      })
     },
     [removeNoteMutateAsync],
   )

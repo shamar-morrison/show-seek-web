@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayNormalizedTitle } from "@/lib/media-title"
+import { getNoteHref } from "@/lib/note-utils"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatRelativeTime } from "@/lib/utils"
 import type { Note } from "@/types/note"
@@ -53,7 +54,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const posterUrl = note.posterPath
     ? buildImageUrl(note.posterPath, "w185")
     : null
-  const mediaUrl = `/${note.mediaType}/${note.mediaId}`
+  const mediaUrl = getNoteHref(note)
   const relativeTime = formatRelativeTime(timestampToDate(note.updatedAt))
   const displayTitle =
     getDisplayNormalizedTitle(
@@ -73,32 +74,57 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
     <>
       <div className="group relative flex gap-4 rounded-xl bg-card p-4 transition-colors hover:bg-card/80">
         {/* Media Poster */}
-        <Link href={mediaUrl} className="shrink-0">
-          <div className="relative aspect-[2/3] w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
-            {posterUrl ? (
+        {mediaUrl ? (
+          <Link href={mediaUrl} className="shrink-0">
+            <div className="relative aspect-[2/3] w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
+              {posterUrl ? (
                 <img
                   src={posterUrl}
                   alt={displayTitle}
                   className="absolute inset-0 h-full w-full object-cover"
                   sizes="80px"
                 />
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-gray-500">
-                No Image
-              </div>
-            )}
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-gray-500">
+                  No Image
+                </div>
+              )}
+            </div>
+          </Link>
+        ) : (
+          <div className="shrink-0">
+            <div className="relative aspect-[2/3] w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
+              {posterUrl ? (
+                <img
+                  src={posterUrl}
+                  alt={displayTitle}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  sizes="80px"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-gray-500">
+                  No Image
+                </div>
+              )}
+            </div>
           </div>
-        </Link>
+        )}
 
         {/* Content */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {/* Title */}
-          <Link
-            href={mediaUrl}
-            className="truncate font-medium text-gray-400 hover:text-primary transition-colors"
-          >
-            {displayTitle}
-          </Link>
+          {mediaUrl ? (
+            <Link
+              href={mediaUrl}
+              className="truncate font-medium text-gray-400 transition-colors hover:text-primary"
+            >
+              {displayTitle}
+            </Link>
+          ) : (
+            <span className="truncate font-medium text-gray-400">
+              {displayTitle}
+            </span>
+          )}
 
           {/* Note snippet */}
           <p className="line-clamp-2 text-sm text-white">{note.content}</p>

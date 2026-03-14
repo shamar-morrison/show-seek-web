@@ -4,13 +4,17 @@
 
 import type { Timestamp } from "firebase/firestore"
 
+export type NoteMediaType = "movie" | "tv" | "episode"
+
 export interface Note {
+  /** Stable note identifier derived from the Firestore document ID */
+  id: string
   /** User's Firebase UID */
   userId: string
   /** TMDB media ID */
   mediaId: number
   /** Type of media */
-  mediaType: "movie" | "tv"
+  mediaType: NoteMediaType
   /** Note content (max 120 characters per Firestore rules) */
   content: string
   /** Title of the media for display purposes */
@@ -19,6 +23,12 @@ export interface Note {
   originalTitle?: string
   /** Poster path for display purposes (optional) */
   posterPath: string | null
+  /** Episode-specific season number */
+  seasonNumber?: number
+  /** Episode-specific episode number */
+  episodeNumber?: number
+  /** Optional explicit TV show ID for episode notes */
+  showId?: number
   /** Timestamp when note was created */
   createdAt: Timestamp
   /** Timestamp when note was last updated */

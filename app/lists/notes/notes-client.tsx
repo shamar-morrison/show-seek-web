@@ -2,6 +2,7 @@
 
 import { NoteCard } from "@/components/note-card"
 import { NotesModal } from "@/components/notes-modal"
+import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import {
   Empty,
   EmptyDescription,
@@ -13,13 +14,17 @@ import { FilterSort, SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { useAuth } from "@/context/auth-context"
 import { useNotes } from "@/hooks/use-notes"
+import { getEpisodeNoteMetadata } from "@/lib/note-utils"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayNormalizedTitle } from "@/lib/media-title"
 import type { Note } from "@/types/note"
 import {
+  Film01Icon,
   Loading03Icon,
   Note01Icon,
+  PlayCircle02Icon,
   Search01Icon,
+  Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useMemo, useState } from "react"
@@ -32,6 +37,8 @@ const SORT_FIELDS = [
   { value: "title", label: "Alphabetically" },
 ]
 
+type NoteTab = "all" | Note["mediaType"]
+
 /**
  * NotesClient Component
  * Client component for the notes page with search, sort, grid, and modals
@@ -43,6 +50,7 @@ export function NotesClient() {
   const [searchQuery, setSearchQuery] = useState("")
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<NoteTab>("all")
 
   // Sort state
   const [sortState, setSortState] = useState<SortState>({
@@ -52,10 +60,24 @@ export function NotesClient() {
 
   // Convert notes Map to array
   const notesArray = useMemo(() => Array.from(notes.values()), [notes])
+  const hasActiveSearch = searchQuery.trim().length > 0
+
+  const noteCounts = useMemo(
+    () =>
+      notesArray.reduce(
+        (counts, note) => {
+          counts[note.mediaType] += 1
+          counts.all += 1
+          return counts
+        },
+        { all: 0, movie: 0, tv: 0, episode: 0 },
+      ),
+    [notesArray],
+  )
 
   // Filter notes by media title, original title, or note content
-  const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return notesArray
+  const searchedNotes = useMemo(() => {
+    if (!hasActiveSearch) return notesArray
     const query = searchQuery.toLowerCase()
     return notesArray.filter(
       (note) =>
@@ -63,7 +85,15 @@ export function NotesClient() {
         (note.originalTitle || "").toLowerCase().includes(query) ||
         note.content.toLowerCase().includes(query),
     )
-  }, [notesArray, searchQuery])
+  }, [hasActiveSearch, notesArray, searchQuery])
+
+  const filteredNotes = useMemo(() => {
+    if (activeTab === "all") {
+      return searchedNotes
+    }
+
+    return searchedNotes.filter((note) => note.mediaType === activeTab)
+  }, [activeTab, searchedNotes])
 
   // Sort notes based on sort state
   const sortedNotes = useMemo(() => {
@@ -131,7 +161,19 @@ export function NotesClient() {
   const handleDelete = useCallback(
     async (note: Note) => {
       try {
-        await removeNote(note.mediaType, note.mediaId)
+        if (note.mediaType === "episode") {
+          const episode = getEpisodeNoteMetadata(note)
+
+          await removeNote(
+            note.mediaType,
+            note.mediaId,
+            episode?.seasonNumber,
+            episode?.episodeNumber,
+          )
+        } else {
+          await removeNote(note.mediaType, note.mediaId)
+        }
+
         toast.success(
           `Note for "${getDisplayNormalizedTitle(
             {
@@ -179,8 +221,8 @@ export function NotesClient() {
         <EmptyHeader>
           <EmptyTitle>Sign in to see your notes</EmptyTitle>
           <EmptyDescription>
-            Create personal notes for movies and TV shows to track your
-            thoughts.
+            Create personal notes for movies, TV shows, and episodes to track
+            your thoughts.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -197,7 +239,8 @@ export function NotesClient() {
         <EmptyHeader>
           <EmptyTitle>No notes yet</EmptyTitle>
           <EmptyDescription>
-            Add notes to movies and TV shows from their detail pages.
+            Add notes to movies, TV shows, and episodes from their detail
+            pages.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -226,19 +269,50 @@ export function NotesClient() {
         />
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterTabButton
+          label="All"
+          count={noteCounts.all}
+          isActive={activeTab === "all"}
+          icon={Note01Icon}
+          onClick={() => setActiveTab("all")}
+        />
+        <FilterTabButton
+          label="Movies"
+          count={noteCounts.movie}
+          isActive={activeTab === "movie"}
+          icon={Film01Icon}
+          onClick={() => setActiveTab("movie")}
+        />
+        <FilterTabButton
+          label="TV Shows"
+          count={noteCounts.tv}
+          isActive={activeTab === "tv"}
+          icon={Tv01Icon}
+          onClick={() => setActiveTab("tv")}
+        />
+        <FilterTabButton
+          label="Episodes"
+          count={noteCounts.episode}
+          isActive={activeTab === "episode"}
+          icon={PlayCircle02Icon}
+          onClick={() => setActiveTab("episode")}
+        />
+      </div>
+
       {/* Results */}
       {sortedNotes.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedNotes.map((note) => (
             <NoteCard
-              key={`${note.mediaType}-${note.mediaId}`}
+              key={note.id}
               note={note}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />
           ))}
         </div>
-      ) : (
+      ) : hasActiveSearch ? (
         <Empty className="py-20">
           <EmptyMedia variant="icon">
             <HugeiconsIcon icon={Search01Icon} className="size-6" />
@@ -250,36 +324,91 @@ export function NotesClient() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : (
+        <Empty className="py-20">
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon
+              icon={
+                activeTab === "movie"
+                  ? Film01Icon
+                  : activeTab === "tv"
+                    ? Tv01Icon
+                    : activeTab === "episode"
+                      ? PlayCircle02Icon
+                      : Note01Icon
+              }
+              className="size-6"
+            />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>
+              {activeTab === "movie"
+                ? "No movie notes yet"
+                : activeTab === "tv"
+                  ? "No TV show notes yet"
+                  : "No episode notes yet"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {activeTab === "movie"
+                ? "Add notes to movie detail pages to see them here."
+                : activeTab === "tv"
+                  ? "Add notes to TV show detail pages to see them here."
+                  : "Add notes to episode detail pages to see them here."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {/* Notes Modal for Editing */}
-      {editingNote && (
-        <NotesModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          media={{
-            id: editingNote.mediaId,
-            poster_path: editingNote.posterPath,
-            title:
-              editingNote.mediaType === "movie"
-                ? editingNote.mediaTitle
-                : undefined,
-            original_title:
-              editingNote.mediaType === "movie"
-                ? editingNote.originalTitle
-                : undefined,
-            name:
-              editingNote.mediaType === "tv"
-                ? editingNote.mediaTitle
-                : undefined,
-            original_name:
-              editingNote.mediaType === "tv"
-                ? editingNote.originalTitle
-                : undefined,
-          }}
-          mediaType={editingNote.mediaType}
-        />
-      )}
+      {editingNote &&
+        (() => {
+          const episode = getEpisodeNoteMetadata(editingNote)
+
+          return (
+            <NotesModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              media={{
+                id:
+                  editingNote.mediaType === "episode"
+                    ? episode?.tvShowId ?? editingNote.mediaId
+                    : editingNote.mediaId,
+                poster_path: editingNote.posterPath,
+                title:
+                  editingNote.mediaType === "movie" ||
+                  editingNote.mediaType === "episode"
+                    ? editingNote.mediaTitle
+                    : undefined,
+                original_title:
+                  editingNote.mediaType === "movie" ||
+                  editingNote.mediaType === "episode"
+                    ? editingNote.originalTitle
+                    : undefined,
+                name:
+                  editingNote.mediaType === "tv"
+                    ? editingNote.mediaTitle
+                    : undefined,
+                original_name:
+                  editingNote.mediaType === "tv"
+                    ? editingNote.originalTitle
+                    : undefined,
+                show_id:
+                  editingNote.mediaType === "episode"
+                    ? episode?.tvShowId ?? editingNote.showId ?? editingNote.mediaId
+                    : undefined,
+                season_number:
+                  editingNote.mediaType === "episode"
+                    ? episode?.seasonNumber
+                    : undefined,
+                episode_number:
+                  editingNote.mediaType === "episode"
+                    ? episode?.episodeNumber
+                    : undefined,
+              }}
+              mediaType={editingNote.mediaType}
+            />
+          )
+        })()}
     </div>
   )
 }

@@ -6,6 +6,7 @@
  */
 
 import type { Note, NoteInput } from "@/types/note"
+import { getNoteId } from "@/lib/note-utils"
 import {
   collection,
   deleteDoc,
@@ -19,10 +20,33 @@ import { getFirebaseDb } from "./config"
 
 /**
  * Generate document ID for a note
- * Format: {mediaType}-{mediaId}
+ * Format: {mediaType}-{mediaId} or episode-{mediaId}-{seasonNumber}-{episodeNumber}
  */
-function getNoteDocId(mediaType: "movie" | "tv", mediaId: number): string {
-  return `${mediaType}-${mediaId}`
+function getNoteDocId(
+  mediaType: Note["mediaType"],
+  mediaId: number,
+  seasonNumber?: number,
+  episodeNumber?: number,
+): string {
+  return getNoteId(mediaType, mediaId, seasonNumber, episodeNumber)
+}
+
+function toNote(docId: string, data: Record<string, unknown>): Note {
+  return {
+    id: docId,
+    userId: data.userId as string,
+    mediaId: data.mediaId as number,
+    mediaType: data.mediaType as Note["mediaType"],
+    content: data.content as string,
+    mediaTitle: data.mediaTitle as string,
+    originalTitle: data.originalTitle as string | undefined,
+    posterPath: (data.posterPath as string | null | undefined) ?? null,
+    seasonNumber: data.seasonNumber as number | undefined,
+    episodeNumber: data.episodeNumber as number | undefined,
+    showId: data.showId as number | undefined,
+    createdAt: data.createdAt as Timestamp,
+    updatedAt: data.updatedAt as Timestamp,
+  }
 }
 
 /**
@@ -41,7 +65,7 @@ export async function fetchNotes(userId: string): Promise<Map<string, Note>> {
   const notesMap = new Map<string, Note>()
 
   snapshot.docs.forEach((docSnapshot) => {
-    const note = docSnapshot.data() as Note
+    const note = toNote(docSnapshot.id, docSnapshot.data())
     notesMap.set(docSnapshot.id, note)
   })
 
@@ -53,10 +77,12 @@ export async function fetchNotes(userId: string): Promise<Map<string, Note>> {
  */
 function getNoteRef(
   userId: string,
-  mediaType: "movie" | "tv",
+  mediaType: Note["mediaType"],
   mediaId: number,
+  seasonNumber?: number,
+  episodeNumber?: number,
 ) {
-  const docId = getNoteDocId(mediaType, mediaId)
+  const docId = getNoteDocId(mediaType, mediaId, seasonNumber, episodeNumber)
   return doc(getFirebaseDb(), "users", userId, "notes", docId)
 }
 
@@ -65,17 +91,55 @@ function getNoteRef(
  * Idempotent - safe to call multiple times for the same item
  */
 export async function setNote(userId: string, input: NoteInput): Promise<void> {
-  const noteRef = getNoteRef(userId, input.mediaType, input.mediaId)
+  const expectedId = getNoteDocId(
+    input.mediaType,
+    input.mediaId,
+    input.seasonNumber,
+    input.episodeNumber,
+  )
+
+  if (input.id !== expectedId) {
+    throw new Error(`Note id mismatch: expected ${expectedId}, received ${input.id}`)
+  }
+
+  const noteRef = getNoteRef(
+    userId,
+    input.mediaType,
+    input.mediaId,
+    input.seasonNumber,
+    input.episodeNumber,
+  )
   const now = Timestamp.now()
 
   // Check if note already exists for createdAt handling
   const existingDoc = await getDoc(noteRef)
   const createdAt = existingDoc.exists() ? existingDoc.data().createdAt : now
 
-  const note = {
-    ...input,
+  const note: Record<string, unknown> = {
+    userId: input.userId,
+    mediaType: input.mediaType,
+    mediaId: input.mediaId,
+    content: input.content,
+    mediaTitle: input.mediaTitle,
+    posterPath: input.posterPath,
     createdAt,
     updatedAt: now,
+  }
+
+  if (input.originalTitle !== undefined) {
+    note.originalTitle = input.originalTitle
+  }
+
+  if (input.seasonNumber !== undefined) {
+    note.seasonNumber = input.seasonNumber
+  }
+
+  if (input.episodeNumber !== undefined) {
+    note.episodeNumber = input.episodeNumber
+  }
+
+  if (input.showId !== undefined) {
+    note.showId = input.showId
   }
 
   await setDoc(noteRef, note)
@@ -87,17 +151,25 @@ export async function setNote(userId: string, input: NoteInput): Promise<void> {
  */
 export async function getNote(
   userId: string,
-  mediaType: "movie" | "tv",
+  mediaType: Note["mediaType"],
   mediaId: number,
+  seasonNumber?: number,
+  episodeNumber?: number,
 ): Promise<Note | null> {
-  const noteRef = getNoteRef(userId, mediaType, mediaId)
+  const noteRef = getNoteRef(
+    userId,
+    mediaType,
+    mediaId,
+    seasonNumber,
+    episodeNumber,
+  )
   const snapshot = await getDoc(noteRef)
 
   if (!snapshot.exists()) {
     return null
   }
 
-  return snapshot.data() as Note
+  return toNote(snapshot.id, snapshot.data())
 }
 
 /**
@@ -105,9 +177,17 @@ export async function getNote(
  */
 export async function deleteNote(
   userId: string,
-  mediaType: "movie" | "tv",
+  mediaType: Note["mediaType"],
   mediaId: number,
+  seasonNumber?: number,
+  episodeNumber?: number,
 ): Promise<void> {
-  const noteRef = getNoteRef(userId, mediaType, mediaId)
+  const noteRef = getNoteRef(
+    userId,
+    mediaType,
+    mediaId,
+    seasonNumber,
+    episodeNumber,
+  )
   await deleteDoc(noteRef)
 }
