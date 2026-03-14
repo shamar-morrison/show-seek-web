@@ -379,33 +379,47 @@ export async function buildReleaseCalendarReleases(
   const movieItems = dedupedItems.filter((item) => item.mediaType === "movie")
   const tvItems = dedupedItems.filter((item) => item.mediaType === "tv")
 
-  const [movieDetailsResults, tvDetailsResults] = await Promise.all([
-    mapWithConcurrencyLimit(
-      movieItems,
-      async (item) => ({
-        item,
-        details: await fetchers.fetchMovieDetails(item.id),
-      }),
-      fetchers.concurrency,
-    ),
-    mapWithConcurrencyLimit(
-      tvItems,
-      async (item) => ({
-        item,
-        details: await fetchers.fetchTVDetails(item.id),
-      }),
-      fetchers.concurrency,
-    ),
-  ])
-
   const movieDetailsById = new Map<number, TMDBMovieDetails | null>()
-  for (const { item, details } of movieDetailsResults) {
-    movieDetailsById.set(item.id, details)
-  }
-
   const tvDetailsById = new Map<number, TMDBTVDetails | null>()
-  for (const { item, details } of tvDetailsResults) {
-    tvDetailsById.set(item.id, details)
+
+  const detailRequests = [
+    ...movieItems.map((item) => ({
+      item,
+      mediaType: "movie" as const,
+    })),
+    ...tvItems.map((item) => ({
+      item,
+      mediaType: "tv" as const,
+    })),
+  ]
+
+  const detailResults = await mapWithConcurrencyLimit(
+    detailRequests,
+    async ({ item, mediaType }) => {
+      if (mediaType === "movie") {
+        return {
+          details: await fetchers.fetchMovieDetails(item.id),
+          id: item.id,
+          mediaType,
+        }
+      }
+
+      return {
+        details: await fetchers.fetchTVDetails(item.id),
+        id: item.id,
+        mediaType,
+      }
+    },
+    fetchers.concurrency,
+  )
+
+  for (const result of detailResults) {
+    if (result.mediaType === "movie") {
+      movieDetailsById.set(result.id, result.details)
+      continue
+    }
+
+    tvDetailsById.set(result.id, result.details)
   }
 
   const seasonRequests = buildReleaseCalendarSeasonRequests(

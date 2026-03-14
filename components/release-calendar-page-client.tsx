@@ -16,7 +16,6 @@ import { useReleaseCalendar } from "@/hooks/use-release-calendar"
 import { buildImageUrl } from "@/lib/tmdb"
 import { parseTmdbDate, toLocalDateKey } from "@/lib/tmdb-date"
 import {
-  PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
 } from "@/lib/premium-gating"
 import type {
@@ -471,6 +470,21 @@ export function ReleaseCalendarView({
     return <CalendarSkeleton />
   }
 
+  if (releases.length === 0 && isRefreshing) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2 text-xs text-white/45">
+          <HugeiconsIcon
+            icon={Loading03Icon}
+            className="size-3.5 animate-spin"
+          />
+          <span>Updating releases...</span>
+        </div>
+        <CalendarSkeleton />
+      </div>
+    )
+  }
+
   if (releases.length === 0) {
     return (
       <Empty className="min-h-[420px] rounded-3xl border border-white/10 bg-white/[0.03]">
@@ -597,15 +611,16 @@ export function ReleaseCalendarPageClient() {
     premiumLoading,
     premiumStatus,
   } = useAuth()
-  const { releases, isLoading, isFetching, error } = useReleaseCalendar()
+  const { releases, isBootstrapping, isRefreshing, error } = useReleaseCalendar()
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
   const isPremiumPending = isPremiumStatusPending({
     premiumLoading,
     premiumStatus,
   })
+  const canViewFullCalendar = !isPremiumPending && isPremium
 
-  if (isLoading || isPremiumPending) {
+  if (isBootstrapping) {
     return (
       <div className="flex min-h-[420px] items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-white/60">
@@ -613,11 +628,7 @@ export function ReleaseCalendarPageClient() {
             icon={Loading03Icon}
             className="size-5 animate-spin text-primary"
           />
-          <span>
-            {isPremiumPending && !isLoading
-              ? PREMIUM_LOADING_MESSAGE
-              : "Loading release calendar..."}
-          </span>
+          <span>Loading release calendar...</span>
         </div>
       </div>
     )
@@ -645,8 +656,8 @@ export function ReleaseCalendarPageClient() {
     <>
       <ReleaseCalendarView
         releases={releases}
-        isPremium={isPremium}
-        isRefreshing={isFetching}
+        isPremium={canViewFullCalendar}
+        isRefreshing={isRefreshing}
         onUpgradeClick={() => setShowPremiumModal(true)}
       />
 

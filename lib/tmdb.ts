@@ -871,6 +871,39 @@ export async function getMovieDetails(
 }
 
 /**
+ * Fetch lightweight movie details for the release calendar.
+ * Keeps the payload narrow by omitting credits.
+ */
+export async function getMovieCalendarDetails(
+  movieId: number,
+): Promise<TMDBMovieDetails | null> {
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
+    return null
+  }
+
+  try {
+    const response = await tmdbFetch(
+      `/movie/${movieId}`,
+      { next: { revalidate: 3600 } },
+      { append_to_response: "release_dates" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
+    console.error("Failed to fetch movie calendar details:", error)
+    return null
+  }
+}
+
+/**
  * Fetch full TV show details including credits
  * @param tvId - TMDB TV show ID
  * @returns TV show details with credits or null
@@ -901,6 +934,39 @@ export async function getTVDetails(
       return null
     }
     console.error("Failed to fetch TV details:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch lightweight TV details for the release calendar.
+ * Keeps the payload narrow by omitting credits.
+ */
+export async function getTVCalendarDetails(
+  tvId: number,
+): Promise<TMDBTVDetails | null> {
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
+    return null
+  }
+
+  try {
+    const response = await tmdbFetch(
+      `/tv/${tvId}`,
+      { next: { revalidate: 3600 } },
+      { append_to_response: "content_ratings" },
+    )
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("404")) {
+      return null
+    }
+    console.error("Failed to fetch TV calendar details:", error)
     return null
   }
 }

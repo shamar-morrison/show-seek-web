@@ -1,20 +1,18 @@
 import { useReleaseCalendar } from "@/hooks/use-release-calendar"
+import type { ReleaseCalendarRelease } from "@/types/release-calendar"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const fetchFullTVDetailsMock = vi.fn()
-const fetchMovieDetailsMock = vi.fn()
-const fetchSeasonEpisodesMock = vi.fn()
+const fetchReleaseCalendarReleasesMock = vi.fn()
 const useAuthMock = vi.fn()
 const useListsMock = vi.fn()
 const usePreferencesMock = vi.fn()
 
 vi.mock("@/app/actions", () => ({
-  fetchFullTVDetails: (...args: unknown[]) => fetchFullTVDetailsMock(...args),
-  fetchMovieDetails: (...args: unknown[]) => fetchMovieDetailsMock(...args),
-  fetchSeasonEpisodes: (...args: unknown[]) => fetchSeasonEpisodesMock(...args),
+  fetchReleaseCalendarReleases: (...args: unknown[]) =>
+    fetchReleaseCalendarReleasesMock(...args),
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -27,14 +25,6 @@ vi.mock("@/hooks/use-lists", () => ({
 
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => usePreferencesMock(),
-}))
-
-vi.mock("@/lib/react-query/rate-limited-query", () => ({
-  createRateLimitedQueryFn: function <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => Promise<TResult>,
-  ) {
-    return fn
-  },
 }))
 
 vi.mock("@/lib/tmdb-date", async () => {
@@ -98,46 +88,8 @@ describe("useReleaseCalendar", () => {
     })
   })
 
-  it("loads releases incrementally from list data, then detail data, then season episodes", async () => {
-    const movieDetailsDeferred = createDeferred<{
-      backdrop_path: string | null
-      release_date: string
-      release_dates: {
-        id: number
-        results: Array<{
-          iso_3166_1: string
-          release_dates: Array<{
-            certification: string
-            iso_639_1: string
-            release_date: string
-            type: number
-          }>
-        }>
-      }
-    } | null>()
-    const tvDetailsDeferred = createDeferred<{
-      backdrop_path: string | null
-      name: string
-      next_episode_to_air: {
-        air_date: string
-        episode_number: number
-        name: string
-        season_number: number
-      }
-      seasons: Array<{
-        season_number: number
-      }>
-      status: string
-    } | null>()
-    const seasonEpisodesDeferred = createDeferred<
-      Array<{
-        air_date: string | null
-        episode_number: number
-        id: number
-        name: string
-        runtime: number | null
-      }>
-    >()
+  it("fetches releases with a single batched query and exposes movie fallback data while pending", async () => {
+    const releasesDeferred = createDeferred<ReleaseCalendarRelease[]>()
 
     useListsMock.mockReturnValue({
       error: null,
@@ -173,21 +125,46 @@ describe("useReleaseCalendar", () => {
       loading: false,
     })
 
-    fetchMovieDetailsMock.mockReturnValueOnce(movieDetailsDeferred.promise)
-    fetchFullTVDetailsMock.mockReturnValueOnce(tvDetailsDeferred.promise)
-    fetchSeasonEpisodesMock.mockReturnValueOnce(seasonEpisodesDeferred.promise)
+    fetchReleaseCalendarReleasesMock.mockReturnValueOnce(releasesDeferred.promise)
 
     const { result } = renderHook(() => useReleaseCalendar(), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => {
-      expect(fetchMovieDetailsMock).toHaveBeenCalledWith(1)
-      expect(fetchFullTVDetailsMock).toHaveBeenCalledWith(2)
+      expect(fetchReleaseCalendarReleasesMock).toHaveBeenCalledTimes(1)
     })
 
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.isFetching).toBe(true)
+    expect(fetchReleaseCalendarReleasesMock).toHaveBeenCalledWith({
+      items: [
+        {
+          id: 2,
+          mediaType: "tv",
+          title: "Show",
+          name: "Show",
+          posterPath: "/show.jpg",
+          releaseDate: undefined,
+          firstAirDate: "2024-01-01",
+          sourceList: "currently-watching",
+        },
+        {
+          id: 1,
+          mediaType: "movie",
+          title: "Movie",
+          name: undefined,
+          posterPath: "/movie.jpg",
+          releaseDate: "2026-05-20",
+          firstAirDate: undefined,
+          sourceList: "watchlist",
+        },
+      ],
+      region: "US",
+      todayKey: "2026-05-01",
+    })
+
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.isRefreshing).toBe(true)
+    expect(result.current.error).toBeNull()
     expect(result.current.releases).toEqual([
       expect.objectContaining({
         mediaType: "movie",
@@ -196,95 +173,51 @@ describe("useReleaseCalendar", () => {
       }),
     ])
 
-    movieDetailsDeferred.resolve({
-      backdrop_path: "/movie-backdrop.jpg",
-      release_date: "2026-05-20",
-      release_dates: {
+    releasesDeferred.resolve([
+      {
+        id: 2,
+        mediaType: "tv",
+        title: "Show",
+        posterPath: "/show.jpg",
+        backdropPath: "/show-backdrop.jpg",
+        releaseDate: "2026-05-12",
+        nextEpisode: {
+          seasonNumber: 3,
+          episodeNumber: 1,
+          episodeName: "Premiere",
+        },
+        sourceLists: ["currently-watching"],
+        uniqueKey: "tv-2-s3-e1",
+      },
+      {
         id: 1,
-        results: [
-          {
-            iso_3166_1: "US",
-            release_dates: [
-              {
-                certification: "",
-                iso_639_1: "",
-                release_date: "2026-05-18T00:00:00.000Z",
-                type: 3,
-              },
-            ],
-          },
-        ],
-      },
-    })
-
-    await waitFor(() => {
-      expect(result.current.releases).toEqual([
-        expect.objectContaining({
-          backdropPath: "/movie-backdrop.jpg",
-          releaseDate: "2026-05-18",
-          uniqueKey: "movie-1",
-        }),
-      ])
-    })
-
-    tvDetailsDeferred.resolve({
-      backdrop_path: "/show-backdrop.jpg",
-      name: "Show",
-      next_episode_to_air: {
-        air_date: "2026-05-12",
-        episode_number: 1,
-        name: "Premiere",
-        season_number: 3,
-      },
-      seasons: [{ season_number: 3 }],
-      status: "Returning Series",
-    })
-
-    await waitFor(() => {
-      expect(fetchSeasonEpisodesMock).toHaveBeenCalledWith(2, 3)
-      expect(result.current.releases.map((release) => release.uniqueKey)).toEqual([
-        "tv-2-s3-e1",
-        "movie-1",
-      ])
-    })
-
-    seasonEpisodesDeferred.resolve([
-      {
-        air_date: "2026-05-12",
-        episode_number: 1,
-        id: 101,
-        name: "Premiere",
-        runtime: null,
-      },
-      {
-        air_date: "2026-05-19",
-        episode_number: 2,
-        id: 102,
-        name: "Episode 2",
-        runtime: null,
+        mediaType: "movie",
+        title: "Movie",
+        posterPath: "/movie.jpg",
+        backdropPath: "/movie-backdrop.jpg",
+        releaseDate: "2026-05-18",
+        sourceLists: ["watchlist"],
+        uniqueKey: "movie-1",
       },
     ])
 
     await waitFor(() => {
-      expect(result.current.isFetching).toBe(false)
-      expect(result.current.releases.map((release) => release.uniqueKey)).toEqual([
-        "tv-2-s3-e1",
-        "movie-1",
-        "tv-2-s3-e2",
-      ])
+      expect(result.current.isRefreshing).toBe(false)
     })
+
+    expect(result.current.releases.map((release) => release.uniqueKey)).toEqual([
+      "tv-2-s3-e1",
+      "movie-1",
+    ])
   })
 
-  it("stays in loading state for tv-only results until the first enrichment pass settles", async () => {
-    const tvDetailsDeferred = createDeferred<{
-      backdrop_path: string | null
-      name: string
-      next_episode_to_air: null
-      seasons: Array<{
-        season_number: number
-      }>
-      status: string
-    } | null>()
+  it("does not stay in bootstrap mode for tv-only accounts while preferences or enrichment are pending", async () => {
+    const releasesDeferred = createDeferred<ReleaseCalendarRelease[]>()
+
+    usePreferencesMock.mockReturnValue({
+      isLoading: true,
+      region: "US",
+    })
 
     useListsMock.mockReturnValue({
       error: null,
@@ -307,33 +240,25 @@ describe("useReleaseCalendar", () => {
       loading: false,
     })
 
-    fetchFullTVDetailsMock.mockReturnValueOnce(tvDetailsDeferred.promise)
+    fetchReleaseCalendarReleasesMock.mockReturnValueOnce(releasesDeferred.promise)
 
     const { result } = renderHook(() => useReleaseCalendar(), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => {
-      expect(fetchFullTVDetailsMock).toHaveBeenCalledWith(2)
+      expect(fetchReleaseCalendarReleasesMock).toHaveBeenCalledTimes(1)
     })
 
-    expect(result.current.isLoading).toBe(true)
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.isRefreshing).toBe(true)
     expect(result.current.releases).toEqual([])
 
-    tvDetailsDeferred.resolve({
-      backdrop_path: null,
-      name: "Show",
-      next_episode_to_air: null,
-      seasons: [{ season_number: 2 }],
-      status: "Ended",
-    })
+    releasesDeferred.resolve([])
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-      expect(result.current.isFetching).toBe(false)
+      expect(result.current.isRefreshing).toBe(false)
       expect(result.current.releases).toEqual([])
     })
-
-    expect(fetchSeasonEpisodesMock).not.toHaveBeenCalled()
   })
 })

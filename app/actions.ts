@@ -6,12 +6,14 @@ import {
   getBestTrailer,
   getCollectionDetails,
   getMediaImages,
+  getMovieCalendarDetails,
   getMediaVideos,
   getMovieDetails,
   getRecommendations,
   getReviews,
   getSeasonDetails,
   getTrendingMedia,
+  getTVCalendarDetails,
   getTVDetails,
   multiSearch,
 } from "@/lib/tmdb"
@@ -21,6 +23,7 @@ import { getTraktMediaComments } from "@/lib/trakt"
 import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
 
 const COLLECTION_BATCH_CONCURRENCY = 3
+const CALENDAR_FETCH_CONCURRENCY = 10
 
 /**
  * Server action to search for media.
@@ -40,9 +43,10 @@ export async function fetchReleaseCalendarReleases(
 ) {
   try {
     return await buildReleaseCalendarReleases(input, {
-      fetchMovieDetails: getMovieDetails,
-      fetchTVDetails: getTVDetails,
+      fetchMovieDetails: getMovieCalendarDetails,
+      fetchTVDetails: getTVCalendarDetails,
       fetchSeasonDetails: getSeasonDetails,
+      concurrency: CALENDAR_FETCH_CONCURRENCY,
     })
   } catch (error) {
     console.error(

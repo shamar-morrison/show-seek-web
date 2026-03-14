@@ -507,4 +507,60 @@ describe("buildReleaseCalendarReleases", () => {
       },
     })
   })
+
+  it("caps mixed movie and tv detail enrichment at the shared concurrency limit", async () => {
+    let activeRequests = 0
+    let maxActiveRequests = 0
+
+    const waitForTurn = async () => {
+      activeRequests += 1
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      activeRequests -= 1
+    }
+
+    await buildReleaseCalendarReleases(
+      {
+        region: "US",
+        todayKey: "2026-05-01",
+        items: [
+          ...Array.from({ length: 8 }).map((_, index) => ({
+            id: index + 1,
+            mediaType: "movie" as const,
+            title: `Movie ${index + 1}`,
+            posterPath: null,
+            releaseDate: "2026-05-20",
+            sourceList: "watchlist" as const,
+          })),
+          ...Array.from({ length: 8 }).map((_, index) => ({
+            id: index + 101,
+            mediaType: "tv" as const,
+            title: `Show ${index + 1}`,
+            name: `Show ${index + 1}`,
+            posterPath: null,
+            firstAirDate: "2024-01-01",
+            sourceList: "currently-watching" as const,
+          })),
+        ],
+      },
+      {
+        fetchMovieDetails: vi.fn(async () => {
+          await waitForTurn()
+          return null
+        }),
+        fetchTVDetails: vi.fn(async (tvId: number) => {
+          await waitForTurn()
+          return createTVDetails({
+            id: tvId,
+            status: "Ended",
+            seasons: [],
+          })
+        }),
+        fetchSeasonDetails: vi.fn(async () => null),
+        concurrency: 10,
+      },
+    )
+
+    expect(maxActiveRequests).toBeLessThanOrEqual(10)
+  })
 })

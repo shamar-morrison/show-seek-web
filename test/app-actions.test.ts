@@ -8,6 +8,7 @@ vi.mock("@/lib/tmdb", () => ({
   getBestTrailer: vi.fn(),
   getCollectionDetails: (...args: unknown[]) =>
     getCollectionDetailsMock(...args),
+  getMovieCalendarDetails: vi.fn(),
   getMediaImages: vi.fn(),
   getMediaVideos: vi.fn(),
   getMovieDetails: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@/lib/tmdb", () => ({
   getReviews: vi.fn(),
   getSeasonDetails: vi.fn(),
   getTrendingMedia: vi.fn(),
+  getTVCalendarDetails: vi.fn(),
   getTVDetails: vi.fn(),
   multiSearch: vi.fn(),
 }))

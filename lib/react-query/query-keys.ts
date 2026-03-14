@@ -33,6 +33,20 @@ export const queryKeys = {
   },
 
   calendar: {
+    releases: (
+      userId: string,
+      region: string,
+      todayKey: string,
+      trackedItemsSignature: string,
+    ) =>
+      [
+        "calendar",
+        "releases",
+        userId,
+        region,
+        todayKey,
+        trackedItemsSignature,
+      ] as const,
     movieDetails: (movieId: number) =>
       ["calendar", "movie", movieId, "details"] as const,
     tvDetails: (tvId: number) => ["calendar", "tv", tvId, "details"] as const,
