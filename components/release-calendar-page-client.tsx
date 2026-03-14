@@ -397,15 +397,59 @@ function ReleaseCard({ release }: { release: ReleaseCalendarViewItem }) {
 
 function CalendarSkeleton() {
   return (
-    <div className="space-y-6">
+    <div
+      data-testid="release-calendar-skeleton"
+      className="space-y-6"
+    >
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-11 w-28 rounded-full" />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-36 rounded-full" />
+        <Skeleton className="h-3 w-52 rounded-full" />
+      </div>
+      <div
+        data-testid="release-calendar-skeleton-grid"
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      >
         {Array.from({ length: 8 }).map((_, index) => (
-          <Skeleton key={index} className="h-48 rounded-2xl" />
+          <div
+            key={index}
+            data-testid="release-calendar-skeleton-card"
+            className="flex min-h-[184px] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]"
+          >
+            <div className="flex w-16 shrink-0 flex-col items-center justify-center gap-2 border-r border-white/10 bg-white/[0.03] px-2 py-4">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-3 w-10 rounded-full" />
+            </div>
+
+            <div className="hidden w-24 shrink-0 border-r border-white/10 bg-white/[0.03] sm:block">
+              <Skeleton className="h-full w-full rounded-none" />
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-4/5 rounded-full" />
+                  <Skeleton className="h-4 w-2/3 rounded-full" />
+                  <Skeleton className="h-4 w-1/2 rounded-full" />
+                </div>
+
+                <Skeleton className="h-7 w-20 shrink-0 rounded-full" />
+              </div>
+
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                </div>
+
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -621,17 +665,7 @@ export function ReleaseCalendarPageClient() {
   const canViewFullCalendar = !isPremiumPending && isPremium
 
   if (isBootstrapping) {
-    return (
-      <div className="flex min-h-[420px] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-white/60">
-          <HugeiconsIcon
-            icon={Loading03Icon}
-            className="size-5 animate-spin text-primary"
-          />
-          <span>Loading release calendar...</span>
-        </div>
-      </div>
-    )
+    return <ReleaseCalendarView releases={[]} isLoading isPremium={false} />
   }
 
   if (error) {

@@ -354,6 +354,45 @@ describe("ReleaseCalendarView", () => {
     expect(onUpgradeClick).toHaveBeenCalledTimes(1)
   })
 
+  it("shows card skeletons instead of the empty state while refreshing unresolved data", () => {
+    render(
+      <ReleaseCalendarView
+        releases={[]}
+        isRefreshing
+        isPremium
+      />,
+    )
+
+    expect(screen.getByText("Updating releases...")).toBeInTheDocument()
+    expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
+    expect(screen.getByTestId("release-calendar-skeleton-grid")).toBeInTheDocument()
+    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
+    expect(screen.queryByText("No upcoming releases found")).not.toBeInTheDocument()
+  })
+
+  it("keeps rendered releases visible while showing the refresh indicator", () => {
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({ id: 1, title: "One", uniqueKey: "movie-1" }),
+          createRelease({
+            id: 2,
+            title: "Two",
+            releaseDate: "2099-04-11",
+            uniqueKey: "movie-2",
+          }),
+        ]}
+        isRefreshing
+        isPremium
+      />,
+    )
+
+    expect(screen.getByText("Refreshing releases...")).toBeInTheDocument()
+    expect(screen.getByText("One")).toBeInTheDocument()
+    expect(screen.getByText("Two")).toBeInTheDocument()
+    expect(screen.queryByTestId("release-calendar-skeleton")).not.toBeInTheDocument()
+  })
+
   it("renders the tracked-list empty state when no releases are available", () => {
     render(<ReleaseCalendarView releases={[]} isPremium />)
 

@@ -76,6 +76,27 @@ describe("ReleaseCalendarPageClient", () => {
     expect(screen.queryByText("Previewing first 3")).not.toBeInTheDocument()
   })
 
+  it("shows the calendar skeleton shell during bootstrap instead of a centered loading message", () => {
+    useAuthMock.mockReturnValue({
+      isPremium: false,
+      premiumLoading: false,
+      premiumStatus: "free",
+    })
+
+    useReleaseCalendarMock.mockReturnValue({
+      error: null,
+      isBootstrapping: true,
+      isRefreshing: false,
+      releases: [],
+    })
+
+    render(<ReleaseCalendarPageClient />)
+
+    expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
+    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
+    expect(screen.queryByText("Loading release calendar...")).not.toBeInTheDocument()
+  })
+
   it("shows the inline updating state instead of the full-page loader for tv-only refreshes", () => {
     useAuthMock.mockReturnValue({
       isPremium: false,
@@ -92,8 +113,9 @@ describe("ReleaseCalendarPageClient", () => {
 
     render(<ReleaseCalendarPageClient />)
 
-    expect(screen.queryByText("Loading release calendar...")).not.toBeInTheDocument()
     expect(screen.getByText("Updating releases...")).toBeInTheDocument()
+    expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
+    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
     expect(screen.queryByText("No upcoming releases found")).not.toBeInTheDocument()
   })
 })
