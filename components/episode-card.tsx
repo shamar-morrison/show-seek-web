@@ -29,7 +29,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface EpisodeCardProps {
@@ -115,6 +115,23 @@ export function EpisodeCard({
       tvShowName,
       tvShowPosterPath,
     })
+  const notesMedia = useMemo(
+    () => ({
+      id: tvShowId,
+      show_id: tvShowId,
+      season_number: episode.season_number,
+      episode_number: episode.episode_number,
+      poster_path: tvShowPosterPath,
+      title: episode.name,
+    }),
+    [
+      tvShowId,
+      tvShowPosterPath,
+      episode.season_number,
+      episode.episode_number,
+      episode.name,
+    ],
+  )
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
@@ -448,14 +465,7 @@ export function EpisodeCard({
       <NotesModal
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
-        media={{
-          id: tvShowId,
-          show_id: tvShowId,
-          season_number: episode.season_number,
-          episode_number: episode.episode_number,
-          poster_path: tvShowPosterPath,
-          title: episode.name,
-        }}
+        media={notesMedia}
         mediaType="episode"
       />
 
