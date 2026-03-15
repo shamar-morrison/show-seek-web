@@ -53,12 +53,6 @@ export function PersonContent({ person }: PersonContentProps) {
         person.combined_credits?.crew.filter(
           (c) => c.department === knownFor,
         ) || []
-
-      // Fallback: If the person is known for a department but has no credits listed under that specific department
-      // (e.g. data inconsistency), we might want to check for "Creator" job explicitly if looking for creative roles,
-      // but strictly following known_for_department is the standard TMDB approach.
-      // However, if the result is empty, we could fallback to all crew credits?
-      // Let's stick to strict filtering to be accurate.
     }
 
     // Split credits by media type, deduplicate, and sort by popularity
