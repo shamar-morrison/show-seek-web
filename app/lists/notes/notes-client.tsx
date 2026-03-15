@@ -14,6 +14,7 @@ import { FilterSort, SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { useAuth } from "@/context/auth-context"
 import { useNotes } from "@/hooks/use-notes"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getEpisodeNoteMetadata } from "@/lib/note-utils"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayNormalizedTitle } from "@/lib/media-title"
@@ -46,7 +47,7 @@ type NoteTab = "all" | Note["mediaType"]
 export function NotesClient() {
   const { user, loading: authLoading } = useAuth()
   const { preferences } = usePreferences()
-  const { notes, loading: notesLoading, removeNote } = useNotes()
+  const { notes, loading: notesLoading, removeNote, saveNote } = useNotes()
   const [searchQuery, setSearchQuery] = useState("")
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -174,7 +175,7 @@ export function NotesClient() {
           await removeNote(note.mediaType, note.mediaId)
         }
 
-        toast.success(
+        showActionableSuccessToast(
           `Note for "${getDisplayNormalizedTitle(
             {
               title: note.mediaTitle,
@@ -182,13 +183,47 @@ export function NotesClient() {
             },
             preferences.showOriginalTitles,
           )}" deleted`,
+          {
+            action: {
+              label: "Undo",
+              onClick: async () => {
+                if (note.mediaType === "episode") {
+                  const episode = getEpisodeNoteMetadata(note)
+
+                  await saveNote(
+                    note.mediaType,
+                    note.mediaId,
+                    note.content,
+                    note.mediaTitle,
+                    note.originalTitle,
+                    note.posterPath,
+                    episode?.seasonNumber,
+                    episode?.episodeNumber,
+                    note.showId,
+                  )
+                  return
+                }
+
+                await saveNote(
+                  note.mediaType,
+                  note.mediaId,
+                  note.content,
+                  note.mediaTitle,
+                  note.originalTitle,
+                  note.posterPath,
+                )
+              },
+              errorMessage: "Failed to restore deleted note",
+              logMessage: "Failed to undo note deletion:",
+            },
+          },
         )
       } catch (error) {
         console.error("Error deleting note:", error)
         toast.error("Failed to delete note")
       }
     },
-    [preferences.showOriginalTitles, removeNote],
+    [preferences.showOriginalTitles, removeNote, saveNote],
   )
 
   // Close modal

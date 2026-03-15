@@ -1,10 +1,12 @@
 import { CollectionPageClient } from "@/components/collection-page-client"
-import { render, screen } from "@/test/utils"
+import { render, screen, waitFor, within } from "@/test/utils"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mutateStartMock = vi.fn()
 const mutateStopMock = vi.fn()
+const toastErrorMock = vi.fn()
+const toastSuccessMock = vi.fn()
 const requireAuthMock = vi.fn((action?: () => void | Promise<void>) => {
   if (action) {
     return action()
@@ -22,7 +24,12 @@ const authState = {
 }
 const collectionTrackingState = {
   tracking: {
+    collectionId: 0,
+    name: "",
+    totalMovies: 0,
     watchedMovieIds: [1],
+    startedAt: 0,
+    lastUpdated: 0,
   },
   isTracked: false,
   watchedCount: 0,
@@ -76,6 +83,13 @@ vi.mock("@/hooks/use-collection-tracking", () => ({
   }),
 }))
 
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => toastErrorMock(...args),
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+  },
+}))
+
 vi.mock("@/components/collection-movies-grid", () => ({
   CollectionMoviesGrid: ({
     movies,
@@ -107,7 +121,12 @@ describe("CollectionPageClient", () => {
     canTrackMoreState.maxFreeCollections = 2
     canTrackMoreState.isLoading = false
     collectionTrackingState.tracking = {
+      collectionId: 0,
+      name: "",
+      totalMovies: 0,
       watchedMovieIds: [1],
+      startedAt: 0,
+      lastUpdated: 0,
     }
     collectionTrackingState.isTracked = false
     collectionTrackingState.watchedCount = 0
@@ -157,12 +176,26 @@ describe("CollectionPageClient", () => {
       totalMovies: 1,
       collectionMovieIds: [1],
     })
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Collection tracking started",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
   })
 
   it("passes collection tracking props into the collection grid", () => {
     collectionTrackingState.isTracked = true
     collectionTrackingState.tracking = {
+      collectionId: 0,
+      name: "",
+      totalMovies: 0,
       watchedMovieIds: [1],
+      startedAt: 0,
+      lastUpdated: 0,
     }
 
     render(
@@ -219,7 +252,12 @@ describe("CollectionPageClient", () => {
   it("keeps the stop flow enabled while the tracking limit query is loading", () => {
     collectionTrackingState.isTracked = true
     collectionTrackingState.tracking = {
+      collectionId: 0,
+      name: "",
+      totalMovies: 0,
       watchedMovieIds: [1],
+      startedAt: 0,
+      lastUpdated: 0,
     }
     collectionTrackingState.watchedCount = 1
     collectionTrackingState.totalMovies = 1
@@ -261,7 +299,12 @@ describe("CollectionPageClient", () => {
   it("recomputes the displayed progress when tracked totals are stale", () => {
     collectionTrackingState.isTracked = true
     collectionTrackingState.tracking = {
+      collectionId: 0,
+      name: "",
+      totalMovies: 0,
       watchedMovieIds: [1, 2],
+      startedAt: 0,
+      lastUpdated: 0,
     }
     collectionTrackingState.watchedCount = 2
     collectionTrackingState.totalMovies = 2
@@ -395,6 +438,87 @@ describe("CollectionPageClient", () => {
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
       0,
     )
+  })
+
+  it("restarts tracking from the stop toast undo action", async () => {
+    const user = userEvent.setup()
+    collectionTrackingState.isTracked = true
+    collectionTrackingState.tracking = {
+      collectionId: 250,
+      name: "Blade Collection",
+      totalMovies: 1,
+      watchedMovieIds: [1],
+      startedAt: 1,
+      lastUpdated: 1,
+    }
+    collectionTrackingState.watchedCount = 1
+    collectionTrackingState.totalMovies = 1
+    collectionTrackingState.percentage = 100
+    mutateStopMock.mockResolvedValueOnce([1])
+
+    render(
+      <CollectionPageClient
+        collection={{
+          id: 250,
+          name: "Blade Collection",
+          overview: "",
+          poster_path: null,
+          backdrop_path: null,
+          parts: [
+            {
+              id: 1,
+              media_type: "movie",
+              adult: false,
+              backdrop_path: null,
+              poster_path: null,
+              title: "Blade",
+              overview: "",
+              genre_ids: [],
+              popularity: 1,
+              release_date: "1998-08-21",
+              vote_average: 7,
+              vote_count: 1,
+              original_language: "en",
+            },
+          ],
+        }}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: /stop tracking/i }))
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: /stop tracking/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledWith(
+        "Collection tracking stopped",
+        expect.objectContaining({
+          action: expect.objectContaining({
+            label: "Undo",
+            onClick: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    const toastOptions = toastSuccessMock.mock.calls.at(-1)?.[1] as {
+      action: { onClick: () => void | Promise<void> }
+    }
+
+    toastOptions.action.onClick()
+
+    await waitFor(() => {
+      expect(mutateStartMock).toHaveBeenLastCalledWith({
+        collectionId: 250,
+        name: "Blade Collection",
+        totalMovies: 1,
+        initialWatchedMovieIds: [1],
+        collectionMovieIds: undefined,
+      })
+    })
   })
 
   it("keeps showing loading placeholders while auth state is unresolved", () => {

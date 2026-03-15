@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 import { toast } from "sonner"
 
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import type { FavoriteEpisode } from "@/types/favorite-episode"
 import { buildFavoriteEpisodePayload } from "@/types/favorite-episode"
 
@@ -43,37 +44,58 @@ export function useEpisodeActions({
   tvShowName,
   tvShowPosterPath,
 }: UseEpisodeActionsOptions) {
+  const favoriteEpisodePayload = buildFavoriteEpisodePayload({
+    tvShowId,
+    episode,
+    showName: tvShowName,
+    posterPath: tvShowPosterPath,
+  })
+
   const handleToggleFavorite = useCallback(async () => {
     if (favoriteActionLoading) return
 
     await toggleEpisode({
       isFavorited,
-      episode: buildFavoriteEpisodePayload({
-        tvShowId,
-        episode,
-        showName: tvShowName,
-        posterPath: tvShowPosterPath,
-      }),
+      episode: favoriteEpisodePayload,
     })
   }, [
-    episode,
     favoriteActionLoading,
+    favoriteEpisodePayload,
     isFavorited,
     toggleEpisode,
-    tvShowId,
-    tvShowName,
-    tvShowPosterPath,
   ])
+
+  const runFavoriteToggleWithToast = useCallback(
+    async (nextIsFavorited: boolean) => {
+      if (favoriteActionLoading) return
+
+      await toggleEpisode({
+        isFavorited: nextIsFavorited,
+        episode: favoriteEpisodePayload,
+      })
+
+      const message = nextIsFavorited
+        ? "Removed from favorite episodes"
+        : "Added to favorite episodes"
+
+      showActionableSuccessToast(message, {
+        action: {
+          label: "Undo",
+          onClick: () => runFavoriteToggleWithToast(!nextIsFavorited),
+          errorMessage: nextIsFavorited
+            ? "Failed to restore favorite episode"
+            : "Failed to remove favorite episode",
+          logMessage: "Failed to undo favorite episode toggle:",
+        },
+      })
+    },
+    [favoriteActionLoading, favoriteEpisodePayload, toggleEpisode],
+  )
 
   const handleFavoriteClick = useCallback(() => {
     requireAuth(async () => {
       try {
-        await handleToggleFavorite()
-        toast.success(
-          isFavorited
-            ? "Removed from favorite episodes"
-            : "Added to favorite episodes",
-        )
+        await runFavoriteToggleWithToast(isFavorited)
       } catch (error) {
         console.error("Failed to toggle favorite episode:", error)
         toast.error(
@@ -83,7 +105,7 @@ export function useEpisodeActions({
         )
       }
     }, "Sign in to favorite episodes")
-  }, [handleToggleFavorite, isFavorited, requireAuth])
+  }, [isFavorited, requireAuth, runFavoriteToggleWithToast])
 
   const openNotesModal = useCallback(() => {
     requireAuth(openNotes, "Sign in to add personal notes")

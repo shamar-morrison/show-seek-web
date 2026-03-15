@@ -210,6 +210,28 @@ export async function createList(
 }
 
 /**
+ * Restore a previously deleted custom list using its original document ID.
+ */
+export async function restoreList(
+  userId: string,
+  list: Pick<UserList, "id" | "name" | "items" | "createdAt" | "updatedAt">,
+): Promise<void> {
+  if (DEFAULT_LIST_IDS.has(list.id)) {
+    throw new Error("Cannot restore default lists")
+  }
+
+  const listRef = getListRef(userId, list.id)
+  await setDoc(listRef, sanitizeForFirestore({
+    id: list.id,
+    name: list.name,
+    items: list.items,
+    createdAt: list.createdAt,
+    updatedAt: list.updatedAt,
+    isCustom: true,
+  }))
+}
+
+/**
  * Delete a custom list
  * Throws an error if attempting to delete a default list
  */

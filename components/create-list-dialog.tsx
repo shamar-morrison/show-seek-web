@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -42,7 +43,7 @@ export function CreateListDialog({
   onOpenChange,
 }: CreateListDialogProps) {
   const { user, premiumLoading, premiumStatus } = useAuth()
-  const { createList } = useListMutations()
+  const { createList, deleteList } = useListMutations()
   const [listName, setListName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const isPremiumCheckPending = isPremiumStatusPending({
@@ -103,9 +104,17 @@ export function CreateListDialog({
       }
 
       // Create the list
-      await createList(listName.trim())
+      const createdListName = listName.trim()
+      const listId = await createList(createdListName)
 
-      toast.success(`Created "${listName.trim()}"`)
+      showActionableSuccessToast(`Created "${createdListName}"`, {
+        action: {
+          label: "Undo",
+          onClick: () => deleteList(listId),
+          errorMessage: "Failed to undo list creation",
+          logMessage: "Failed to undo list creation:",
+        },
+      })
       setListName("")
       onOpenChange(false)
     } catch (error) {
@@ -116,6 +125,7 @@ export function CreateListDialog({
     }
   }, [
     createList,
+    deleteList,
     isPremiumCheckPending,
     listName,
     onOpenChange,

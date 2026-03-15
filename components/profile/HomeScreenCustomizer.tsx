@@ -17,6 +17,7 @@ import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
 import type { HomeScreenListItem } from "@/lib/firebase/user"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -158,8 +159,16 @@ export function HomeScreenCustomizer({
   async function handleSave() {
     try {
       setIsSaving(true)
+      const previousHomeScreenLists = savedLists
       await updateHomeScreenLists(selectedLists)
-      toast.success("Home screen updated")
+      showActionableSuccessToast("Home screen updated", {
+        action: {
+          label: "Undo",
+          onClick: () => updateHomeScreenLists(previousHomeScreenLists),
+          errorMessage: "Failed to undo home screen changes",
+          logMessage: "Failed to undo home screen update:",
+        },
+      })
       onOpenChange(false)
     } catch (error) {
       console.error("Failed to save home screen lists:", error)

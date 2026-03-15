@@ -8,6 +8,7 @@ const addWatchMock = vi.fn()
 const addWatchedMovieToTrackedCollectionMock = vi.fn()
 const applyWatchedMovieListAutomationMock = vi.fn()
 const clearWatchesMock = vi.fn()
+const deleteWatchMock = vi.fn()
 const fetchAllTrackedCollectionsMock = vi.fn()
 const fetchMovieDetailsMock = vi.fn()
 const fetchWatchesMock = vi.fn()
@@ -49,6 +50,7 @@ vi.mock("@/lib/firebase/collection-tracking", () => ({
 vi.mock("@/lib/firebase/watched-movies", () => ({
   addWatch: (...args: unknown[]) => addWatchMock(...args),
   clearWatches: (...args: unknown[]) => clearWatchesMock(...args),
+  deleteWatch: (...args: unknown[]) => deleteWatchMock(...args),
   fetchWatches: (...args: unknown[]) => fetchWatchesMock(...args),
   getWatchCount: (...args: unknown[]) => getWatchCountMock(...args),
   WatchInstance: class {},
@@ -98,6 +100,7 @@ describe("useWatchedMovies collection sync", () => {
     getWatchCountMock.mockResolvedValue(0)
     addWatchMock.mockResolvedValue("watch-1")
     clearWatchesMock.mockResolvedValue(undefined)
+    deleteWatchMock.mockResolvedValue(undefined)
     applyWatchedMovieListAutomationMock.mockResolvedValue(undefined)
     addWatchedMovieToTrackedCollectionMock.mockResolvedValue(undefined)
     removeWatchedMovieFromTrackedCollectionMock.mockResolvedValue(undefined)
@@ -136,6 +139,15 @@ describe("useWatchedMovies collection sync", () => {
       501,
     )
     expect(fetchMovieDetailsMock).not.toHaveBeenCalled()
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Marked as watched",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
   })
 
   it("defers collection resolution when the caller does not provide one", async () => {
@@ -218,6 +230,118 @@ describe("useWatchedMovies collection sync", () => {
     expect(removeWatchedMovieFromTrackedCollectionMock).toHaveBeenCalledWith(
       "user-1",
       11,
+      900,
+    )
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Watch history cleared",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
+  })
+
+  it("undoes a newly added watch from the success toast action", async () => {
+    getWatchCountMock
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+
+    const { result } = renderHook(
+      () => useWatchedMovies(501, { enabled: false }),
+      {
+        wrapper: createWrapper(),
+      },
+    )
+
+    await act(async () => {
+      await result.current.addWatchInstance(
+        new Date("2026-03-10T20:00:00.000Z"),
+        {
+          title: "Movie",
+          posterPath: null,
+          collectionId: 44,
+        },
+        false,
+        false,
+      )
+    })
+
+    const toastOptions = toastSuccessMock.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await act(async () => {
+      toastOptions?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(deleteWatchMock).toHaveBeenCalledWith("user-1", 501, "watch-1")
+    expect(removeWatchedMovieFromTrackedCollectionMock).toHaveBeenCalledWith(
+      "user-1",
+      44,
+      501,
+    )
+  })
+
+  it("restores cleared watches from the success toast action", async () => {
+    fetchAllTrackedCollectionsMock.mockResolvedValueOnce([
+      {
+        collectionId: 10,
+        watchedMovieIds: [900],
+      },
+    ])
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-a",
+        movieId: 900,
+        watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+      },
+      {
+        id: "watch-b",
+        movieId: 900,
+        watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+      },
+    ])
+
+    const { result } = renderHook(
+      () => useWatchedMovies(900),
+      {
+        wrapper: createWrapper(),
+      },
+    )
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(2)
+    })
+
+    await act(async () => {
+      await result.current.clearAllWatches()
+    })
+
+    const toastOptions = toastSuccessMock.mock.calls.at(-1)?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await act(async () => {
+      toastOptions?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(addWatchMock).toHaveBeenCalledWith(
+      "user-1",
+      900,
+      new Date("2026-03-09T19:00:00.000Z"),
+    )
+    expect(addWatchMock).toHaveBeenCalledWith(
+      "user-1",
+      900,
+      new Date("2026-03-08T19:00:00.000Z"),
+    )
+    expect(addWatchedMovieToTrackedCollectionMock).toHaveBeenCalledWith(
+      "user-1",
+      10,
       900,
     )
   })

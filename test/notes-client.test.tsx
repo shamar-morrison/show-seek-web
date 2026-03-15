@@ -7,10 +7,12 @@ import type { Note } from "@/types/note"
 
 const mocks = vi.hoisted(() => ({
   removeNote: vi.fn(),
+  saveNote: vi.fn(),
   notes: new Map(),
   preferences: {
     showOriginalTitles: true,
   },
+  toastSuccess: vi.fn(),
   lastModalProps: null as {
     media: {
       original_title?: string
@@ -49,6 +51,7 @@ vi.mock("@/hooks/use-notes", () => ({
     notes: mocks.notes,
     loading: false,
     removeNote: mocks.removeNote,
+    saveNote: mocks.saveNote,
   }),
 }))
 
@@ -62,6 +65,7 @@ vi.mock("@/components/note-card", () => ({
   NoteCard: ({
     note,
     onEdit,
+    onDelete,
   }: {
     note: {
       id: string
@@ -71,6 +75,7 @@ vi.mock("@/components/note-card", () => ({
       originalTitle?: string
     }
     onEdit: (note: unknown) => void
+    onDelete: (note: unknown) => void
   }) => {
     const displayTitle =
       (mocks.preferences.showOriginalTitles && note.originalTitle) ||
@@ -86,6 +91,9 @@ vi.mock("@/components/note-card", () => ({
         <span>{note.content}</span>
         <button type="button" onClick={() => onEdit(note)}>
           Edit note
+        </button>
+        <button type="button" onClick={() => onDelete(note)}>
+          Delete note
         </button>
       </div>
     )
@@ -131,10 +139,18 @@ vi.mock("@/components/ui/filter-sort", () => ({
   ),
 }))
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => mocks.toastSuccess(...args),
+    error: vi.fn(),
+  },
+}))
+
 describe("NotesClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.lastModalProps = null
+    mocks.saveNote.mockResolvedValue(undefined)
     mocks.notes = new Map([
       [
         "movie-123",
@@ -318,5 +334,28 @@ describe("NotesClient", () => {
     expect(
       screen.getByText("Add notes to episode detail pages to see them here."),
     ).toBeInTheDocument()
+  })
+
+  it("restores deleted notes from the success toast action", async () => {
+    const user = userEvent.setup()
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: "Delete note" }))
+
+    const toastOptions = mocks.toastSuccess.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void | Promise<void> } }
+      | undefined
+
+    await toastOptions?.action?.onClick()
+
+    expect(mocks.saveNote).toHaveBeenCalledWith(
+      "movie",
+      123,
+      "Masterpiece",
+      "Spirited Away",
+      "Sen to Chihiro no Kamikakushi",
+      null,
+    )
   })
 })

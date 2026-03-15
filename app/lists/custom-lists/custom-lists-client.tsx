@@ -24,7 +24,10 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
+import { restoreList } from "@/lib/firebase/lists"
 import type { Genre } from "@/types/tmdb"
 import {
   Add01Icon,
@@ -56,6 +59,7 @@ export function CustomListsClient({
   tvGenres = [],
   genreFetchError,
 }: CustomListsClientProps) {
+  const { user } = useAuth()
   const { lists, loading, error, removeList, updateList } = useLists()
   const searchParams = useSearchParams()
   const listIdFromUrl = searchParams.get("listId")
@@ -139,8 +143,16 @@ export function CustomListsClient({
 
     setIsProcessing(true)
     try {
+      const previousName = activeList.name
       await updateList(activeList.id, newName.trim())
-      toast.success("List renamed successfully")
+      showActionableSuccessToast("List renamed successfully", {
+        action: {
+          label: "Undo",
+          onClick: () => updateList(activeList.id, previousName),
+          errorMessage: "Failed to undo list rename",
+          logMessage: "Failed to undo custom list rename:",
+        },
+      })
       setIsRenameDialogOpen(false)
     } catch (error) {
       console.error("Failed to rename list:", error)
@@ -151,12 +163,23 @@ export function CustomListsClient({
   }, [activeList, newName, updateList])
 
   const handleDelete = useCallback(async () => {
-    if (!activeList) return
+    if (!activeList || !user) return
 
     setIsProcessing(true)
     try {
-      await removeList(activeList.id)
-      toast.success("List deleted successfully")
+      const deletedList = activeList
+      await removeList(deletedList.id)
+      showActionableSuccessToast("List deleted successfully", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            await restoreList(user.uid, deletedList)
+            setSelectedListId(deletedList.id)
+          },
+          errorMessage: "Failed to restore deleted list",
+          logMessage: "Failed to undo custom list deletion:",
+        },
+      })
       setIsDeleteDialogOpen(false)
       // Selection update is handled by the useEffect
     } catch (error) {
@@ -165,7 +188,7 @@ export function CustomListsClient({
     } finally {
       setIsProcessing(false)
     }
-  }, [activeList, removeList])
+  }, [activeList, removeList, user])
 
   return (
     <>

@@ -8,6 +8,7 @@
 import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   collection,
+  deleteDoc,
   doc,
   getCountFromServer,
   getDocs,
@@ -88,6 +89,27 @@ export async function addWatch(
   })
 
   return watchId
+}
+
+/**
+ * Delete a single watch instance by its document ID.
+ */
+export async function deleteWatch(
+  userId: string,
+  movieId: number,
+  watchId: string,
+): Promise<void> {
+  const watchRef = doc(
+    getFirebaseDb(),
+    "users",
+    userId,
+    "watched_movies",
+    String(movieId),
+    "watches",
+    watchId,
+  )
+
+  await deleteDoc(watchRef)
 }
 
 /**

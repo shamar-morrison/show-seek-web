@@ -7,6 +7,7 @@ import {
   useFavoritePersonActions,
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
+import { toggleFavoritePersonWithToast } from "@/lib/favorite-person-toast"
 import { FavouriteIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { toast } from "sonner"
@@ -37,18 +38,17 @@ export function FavoritePersonButton({ person }: FavoritePersonButtonProps) {
   const handleClick = () => {
     requireAuth(async () => {
       try {
-        if (isFavorited) {
-          await removePerson(person.id)
-          toast.success(`Removed ${person.name} from favorites`)
-        } else {
-          await addPerson({
+        await toggleFavoritePersonWithToast({
+          addPerson,
+          isFavorited,
+          person: {
             id: person.id,
             name: person.name,
             profile_path: person.profile_path,
             known_for_department: person.known_for_department,
-          })
-          toast.success(`Added ${person.name} to favorites`)
-        }
+          },
+          removePerson,
+        })
       } catch (error) {
         console.error("Failed to toggle favorite:", error)
         toast.error(

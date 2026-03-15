@@ -7,6 +7,7 @@ import {
   useFavoritePersonActions,
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
+import { toggleFavoritePersonWithToast } from "@/lib/favorite-person-toast"
 import type { CrewMember } from "@/types/tmdb"
 import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -37,18 +38,17 @@ export function CrewCard({ crew, priority = false }: CrewCardProps) {
 
     requireAuth(async () => {
       try {
-        if (isFavorited) {
-          await removePerson(crew.id)
-          toast.success(`Removed ${crew.name} from favorites`)
-        } else {
-          await addPerson({
+        await toggleFavoritePersonWithToast({
+          addPerson,
+          isFavorited,
+          person: {
             id: crew.id,
             name: crew.name,
             profile_path: crew.profile_path,
             known_for_department: crew.department || "Crew",
-          })
-          toast.success(`Added ${crew.name} to favorites`)
-        }
+          },
+          removePerson,
+        })
       } catch (error) {
         console.error("Failed to toggle favorite:", error)
         toast.error(

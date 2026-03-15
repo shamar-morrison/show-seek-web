@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   },
   removeFromList: vi.fn(),
   renameList: vi.fn(),
+  restoreList: vi.fn(),
   toastSuccess: vi.fn(),
 }))
 
@@ -57,6 +58,10 @@ vi.mock("@/lib/premium-gating", () => ({
 vi.mock("@/lib/premium-telemetry", () => ({
   createPremiumTelemetryPayload: vi.fn(() => ({})),
   trackPremiumEvent: vi.fn(),
+}))
+
+vi.mock("@/lib/firebase/lists", () => ({
+  restoreList: (...args: unknown[]) => mocks.restoreList(...args),
 }))
 
 vi.mock("@/components/ui/dialog", () => ({
@@ -121,6 +126,7 @@ describe("AddToListModal", () => {
     mocks.removeFromList.mockResolvedValue(undefined)
     mocks.renameList.mockResolvedValue(undefined)
     mocks.deleteList.mockResolvedValue(undefined)
+    mocks.restoreList.mockResolvedValue(undefined)
   })
 
   it("uses the latest display title in the save toast after preferences change", async () => {
@@ -181,6 +187,12 @@ describe("AddToListModal", () => {
     await waitFor(() => {
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
         'Created "Favorites" and added Spirited Away',
+        expect.objectContaining({
+          action: expect.objectContaining({
+            label: "Undo",
+            onClick: expect.any(Function),
+          }),
+        }),
       )
     })
 
@@ -201,7 +213,42 @@ describe("AddToListModal", () => {
     await waitFor(() => {
       expect(mocks.toastSuccess).toHaveBeenLastCalledWith(
         'Created "Classics" and added Sen to Chihiro no Kamikakushi',
+        expect.objectContaining({
+          action: expect.objectContaining({
+            label: "Undo",
+            onClick: expect.any(Function),
+          }),
+        }),
       )
     })
+  })
+
+  it("undoes custom list creation from the success toast action", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Create List" }))
+    await user.type(screen.getByPlaceholderText("List name"), "Favorites")
+    await user.click(screen.getByRole("button", { name: "Create" }))
+
+    await waitFor(() => {
+      expect(mocks.toastSuccess).toHaveBeenCalled()
+    })
+
+    const toastOptions = mocks.toastSuccess.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    toastOptions?.action?.onClick()
+
+    expect(mocks.deleteList).toHaveBeenCalledWith("new-list")
   })
 })

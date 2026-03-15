@@ -4,6 +4,7 @@ import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
 import { usePreferences } from "@/hooks/use-preferences"
 import { Textarea } from "@/components/ui/textarea"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
@@ -84,11 +85,12 @@ export function NotesModal({
 
     setIsSaving(true)
     try {
+      const nextContent = noteContent.trim()
       if (mediaType === "episode") {
         await saveNote(
           mediaType,
           mediaId,
-          noteContent.trim(),
+          nextContent,
           title,
           originalTitle,
           posterPath,
@@ -100,13 +102,54 @@ export function NotesModal({
         await saveNote(
           mediaType,
           mediaId,
-          noteContent.trim(),
+          nextContent,
           title,
           originalTitle,
           posterPath,
         )
       }
-      toast.success("Note saved")
+      showActionableSuccessToast("Note saved", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            if (hasExistingNote && originalContent.trim().length > 0) {
+              if (mediaType === "episode") {
+                await saveNote(
+                  mediaType,
+                  mediaId,
+                  originalContent.trim(),
+                  title,
+                  originalTitle,
+                  posterPath,
+                  seasonNumber,
+                  episodeNumber,
+                  showId,
+                )
+                return
+              }
+
+              await saveNote(
+                mediaType,
+                mediaId,
+                originalContent.trim(),
+                title,
+                originalTitle,
+                posterPath,
+              )
+              return
+            }
+
+            if (mediaType === "episode") {
+              await removeNote(mediaType, mediaId, seasonNumber, episodeNumber)
+              return
+            }
+
+            await removeNote(mediaType, mediaId)
+          },
+          errorMessage: "Failed to undo note changes",
+          logMessage: "Failed to undo note save:",
+        },
+      })
       onClose()
     } catch (error) {
       console.error("Error saving note:", error)
@@ -115,17 +158,20 @@ export function NotesModal({
       setIsSaving(false)
     }
   }, [
-    noteContent,
-    saveNote,
-    mediaType,
+    episodeNumber,
+    hasExistingNote,
     mediaId,
-    title,
+    mediaType,
+    noteContent,
+    onClose,
+    originalContent,
     originalTitle,
     posterPath,
-    onClose,
+    removeNote,
+    saveNote,
     seasonNumber,
-    episodeNumber,
     showId,
+    title,
   ])
 
   const handleClose = useCallback(() => {
@@ -137,12 +183,44 @@ export function NotesModal({
   const handleClearNote = useCallback(async () => {
     setIsSaving(true)
     try {
+      const clearedContent = originalContent.trim()
       if (mediaType === "episode") {
         await removeNote(mediaType, mediaId, seasonNumber, episodeNumber)
       } else {
         await removeNote(mediaType, mediaId)
       }
-      toast.success("Note cleared")
+      showActionableSuccessToast("Note cleared", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            if (mediaType === "episode") {
+              await saveNote(
+                mediaType,
+                mediaId,
+                clearedContent,
+                title,
+                originalTitle,
+                posterPath,
+                seasonNumber,
+                episodeNumber,
+                showId,
+              )
+              return
+            }
+
+            await saveNote(
+              mediaType,
+              mediaId,
+              clearedContent,
+              title,
+              originalTitle,
+              posterPath,
+            )
+          },
+          errorMessage: "Failed to restore cleared note",
+          logMessage: "Failed to undo note clear:",
+        },
+      })
       onClose()
     } catch (error) {
       console.error("Error clearing note:", error)
@@ -150,7 +228,20 @@ export function NotesModal({
     } finally {
       setIsSaving(false)
     }
-  }, [removeNote, mediaType, mediaId, onClose, seasonNumber, episodeNumber])
+  }, [
+    episodeNumber,
+    mediaId,
+    mediaType,
+    onClose,
+    originalContent,
+    originalTitle,
+    posterPath,
+    removeNote,
+    saveNote,
+    seasonNumber,
+    showId,
+    title,
+  ])
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

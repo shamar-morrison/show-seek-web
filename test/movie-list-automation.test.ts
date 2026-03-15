@@ -116,6 +116,8 @@ describe("movie list automation", () => {
     })
 
     it("forwards original_title when auto-adding a rated movie", async () => {
+      addToListMock.mockResolvedValueOnce(true)
+
       await applyMovieRatingListAutomation({
         mediaType: "movie",
         movie: {
@@ -136,6 +138,41 @@ describe("movie list automation", () => {
           original_title: "Sen to Chihiro no Kamikakushi",
         }),
       )
+      expect(toastSuccessMock).toHaveBeenCalledWith(
+        "Added to Already Watched list",
+        expect.objectContaining({
+          action: expect.objectContaining({
+            label: "Undo",
+            onClick: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    it("undoes auto-add to Already Watched from the success toast action", async () => {
+      addToListMock.mockResolvedValueOnce(true)
+
+      await applyMovieRatingListAutomation({
+        mediaType: "movie",
+        movie: {
+          movieId: 123,
+          title: "Spirited Away",
+          originalTitle: "Sen to Chihiro no Kamikakushi",
+          posterPath: null,
+        },
+        autoAddToAlreadyWatched: true,
+        autoRemoveFromShouldWatch: false,
+        addToList: addToListMock,
+        removeFromList: removeFromListMock,
+      })
+
+      const toastOptions = toastSuccessMock.mock.calls[0]?.[1] as
+        | { action?: { onClick: () => void } }
+        | undefined
+
+      toastOptions?.action?.onClick()
+
+      expect(removeFromListMock).toHaveBeenCalledWith("already-watched", "123")
     })
   })
 
