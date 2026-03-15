@@ -51,13 +51,15 @@ function createWrapper() {
 }
 
 function createDeferredPromise<T>() {
-  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  let resolve!: (value: T | PromiseLike<T>) => void
 
-  const promise = new Promise<T>((res) => {
+  const promise = new Promise<T>((res, rej) => {
+    reject = rej
     resolve = res
   })
 
-  return { promise, resolve }
+  return { promise, reject, resolve }
 }
 
 function createFavoriteEpisode(
@@ -205,6 +207,138 @@ describe("useFavoriteEpisodes", () => {
 
     await act(async () => {
       await togglePromise
+    })
+  })
+
+  it("rolls back optimistic favorite add when the mutation fails", async () => {
+    const { queryClient, Wrapper } = createWrapper()
+    const addDeferred = createDeferredPromise<void>()
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries")
+    const favoriteEpisodesQueryKey =
+      queryKeys.firestore.favoriteEpisodes("user-1")
+    const expectedError = new Error("Failed to add favorite episode")
+
+    addFavoriteEpisodeMock.mockImplementationOnce(() => addDeferred.promise)
+
+    const { result } = renderHook(() => useFavoriteEpisodesHarness(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    let togglePromise!: Promise<void>
+
+    await act(async () => {
+      togglePromise = result.current.toggleEpisode({
+        isFavorited: false,
+        episode: {
+          id: "100-1-2",
+          tvShowId: 100,
+          seasonNumber: 1,
+          episodeNumber: 2,
+          episodeName: "Half Loop",
+          showName: "Signal Run",
+          posterPath: "/poster.jpg",
+        },
+      })
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      const episodes =
+        queryClient.getQueryData<FavoriteEpisode[]>(favoriteEpisodesQueryKey)
+
+      expect(episodes).toHaveLength(1)
+      expect(episodes?.[0]?.id).toBe("100-1-2")
+      expect(result.current.isFavorited).toBe(true)
+    })
+
+    await act(async () => {
+      addDeferred.reject(expectedError)
+      await expect(togglePromise).rejects.toThrow(expectedError.message)
+    })
+
+    await waitFor(() => {
+      const episodes =
+        queryClient.getQueryData<FavoriteEpisode[]>(favoriteEpisodesQueryKey)
+
+      expect(episodes ?? []).toHaveLength(0)
+      expect(result.current.isFavorited).toBe(false)
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: favoriteEpisodesQueryKey,
+      })
+    })
+  })
+
+  it("restores optimistic favorite removal when the mutation fails", async () => {
+    const { queryClient, Wrapper } = createWrapper()
+    const removeDeferred = createDeferredPromise<void>()
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries")
+    const favoriteEpisodesQueryKey =
+      queryKeys.firestore.favoriteEpisodes("user-1")
+    const existingEpisode = createFavoriteEpisode()
+    const expectedError = new Error("Failed to remove favorite episode")
+
+    fetchFavoriteEpisodesMock.mockResolvedValue([existingEpisode])
+    removeFavoriteEpisodeMock.mockImplementationOnce(() => removeDeferred.promise)
+
+    const { result } = renderHook(() => useFavoriteEpisodesHarness(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.isFavorited).toBe(true)
+    })
+
+    let togglePromise!: Promise<void>
+
+    await act(async () => {
+      togglePromise = result.current.toggleEpisode({
+        isFavorited: true,
+        episode: {
+          id: "100-1-2",
+          tvShowId: 100,
+          seasonNumber: 1,
+          episodeNumber: 2,
+          episodeName: "Half Loop",
+          showName: "Signal Run",
+          posterPath: "/poster.jpg",
+        },
+      })
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      const episodes =
+        queryClient.getQueryData<FavoriteEpisode[]>(favoriteEpisodesQueryKey)
+
+      expect(episodes).toHaveLength(0)
+      expect(result.current.isFavorited).toBe(false)
+    })
+
+    await act(async () => {
+      removeDeferred.reject(expectedError)
+      await expect(togglePromise).rejects.toThrow(expectedError.message)
+    })
+
+    await waitFor(() => {
+      const episodes =
+        queryClient.getQueryData<FavoriteEpisode[]>(favoriteEpisodesQueryKey)
+
+      expect(episodes).toHaveLength(1)
+      expect(episodes?.[0]).toMatchObject(existingEpisode)
+      expect(result.current.isFavorited).toBe(true)
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: favoriteEpisodesQueryKey,
+      })
     })
   })
 })

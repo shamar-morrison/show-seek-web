@@ -24,7 +24,7 @@ import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
-import { getFavoriteEpisodeId } from "@/types/favorite-episode"
+import { buildFavoriteEpisodePayload } from "@/types/favorite-episode"
 import type {
   CastMember,
   TMDBEpisodeDetails,
@@ -142,24 +142,15 @@ export function EpisodeDetailClient({
 
     await toggleEpisode({
       isFavorited,
-      episode: {
-        id: getFavoriteEpisodeId(
-          tvShowId,
-          episode.season_number,
-          episode.episode_number,
-        ),
+      episode: buildFavoriteEpisodePayload({
         tvShowId,
-        seasonNumber: episode.season_number,
-        episodeNumber: episode.episode_number,
-        episodeName: episode.name,
+        episode,
         showName: tvShow.name,
         posterPath: tvShow.poster_path,
-      },
+      }),
     })
   }, [
-    episode.episode_number,
-    episode.name,
-    episode.season_number,
+    episode,
     favoriteActionLoading,
     isFavorited,
     toggleEpisode,

@@ -2,8 +2,6 @@
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
-import { PremiumModal } from "@/components/premium-modal"
-import { PremiumBadge } from "@/components/premium-badge"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,21 +16,11 @@ import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
-import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { isActionableMedia } from "@/lib/tmdb-media"
-import {
-  PREMIUM_LOADING_MESSAGE,
-  isPremiumStatusPending,
-  shouldEnforcePremiumLock,
-} from "@/lib/premium-gating"
-import {
-  createPremiumTelemetryPayload,
-  trackPremiumEvent,
-} from "@/lib/premium-telemetry"
 import type {
   Genre,
   TMDBDiscoverResponse,
@@ -129,27 +117,11 @@ export function DiscoverClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
-  const {
-    user,
-    isPremium,
-    loading: authLoading,
-    premiumLoading,
-    premiumStatus,
-  } = useAuth()
   const { preferences } = usePreferences()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
 
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
-  const [showPremiumModal, setShowPremiumModal] = useState(false)
-  const isPremiumCheckPending = isPremiumStatusPending({
-    premiumLoading,
-    premiumStatus,
-  })
-  const shouldLockProviderFilter = shouldEnforcePremiumLock({
-    premiumLoading,
-    premiumStatus,
-  })
 
   // Use a ref to access the latest filters inside updateFilters without adding it to dependencies
   const filtersRef = useRef(filters)
@@ -188,13 +160,6 @@ export function DiscoverClient({
     },
     [router],
   )
-
-  // Prevent non-premium users from using provider filter via URL params
-  useEffect(() => {
-    if (!authLoading && shouldLockProviderFilter && filters.provider !== null) {
-      updateFilters({ provider: null })
-    }
-  }, [authLoading, filters.provider, shouldLockProviderFilter, updateFilters])
 
   // Results come from server via initialResults and update on navigation
   const results = initialResults
@@ -373,37 +338,9 @@ export function DiscoverClient({
             />
 
             {/* Streaming Provider */}
-            <div
-              className="relative"
-              onClickCapture={(e) => {
-                if (isPremiumCheckPending) {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  trackPremiumEvent(
-                    "premium_gate_blocked_while_loading",
-                    createPremiumTelemetryPayload({
-                      uid: user?.uid,
-                      premiumStatusBefore: premiumStatus,
-                      premiumStatusAfter: premiumStatus,
-                    }),
-                  )
-                  return
-                }
-
-                if (shouldLockProviderFilter) {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  setShowPremiumModal(true)
-                }
-              }}
-            >
+            <div className="relative">
               <VirtualizedFilterCombobox
-                label={
-                  <div className="flex items-center gap-2">
-                    Streaming
-                    <PremiumBadge isPremium={isPremium} />
-                  </div>
-                }
+                label="Streaming"
                 value={filters.provider?.toString() || null}
                 options={providerOptions}
                 onChange={(val) =>
@@ -411,7 +348,6 @@ export function DiscoverClient({
                 }
                 placeholder="All Providers"
                 popoverClassName="w-[380px]"
-                disabled={isPremiumCheckPending || shouldLockProviderFilter}
               />
             </div>
 
@@ -428,12 +364,6 @@ export function DiscoverClient({
               </Button>
             )}
           </div>
-          {isPremiumCheckPending && (
-            <p className="mb-8 text-xs text-muted-foreground">
-              {PREMIUM_LOADING_MESSAGE}
-            </p>
-          )}
-
           {/* Loading State */}
           {isPending && (
             <div className="mb-8 grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
@@ -514,12 +444,6 @@ export function DiscoverClient({
         isOpen={isOpen}
         onClose={closeTrailer}
         title={activeTrailer?.title}
-      />
-
-      {/* Premium Modal */}
-      <PremiumModal
-        open={showPremiumModal}
-        onOpenChange={setShowPremiumModal}
       />
     </>
   )

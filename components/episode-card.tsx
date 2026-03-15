@@ -16,7 +16,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
-import { getFavoriteEpisodeId } from "@/types/favorite-episode"
+import { buildFavoriteEpisodePayload } from "@/types/favorite-episode"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
@@ -116,24 +116,15 @@ export function EpisodeCard({
 
     await toggleEpisode({
       isFavorited,
-      episode: {
-        id: getFavoriteEpisodeId(
-          tvShowId,
-          episode.season_number,
-          episode.episode_number,
-        ),
+      episode: buildFavoriteEpisodePayload({
         tvShowId,
-        seasonNumber: episode.season_number,
-        episodeNumber: episode.episode_number,
-        episodeName: episode.name,
+        episode,
         showName: tvShowName,
         posterPath: tvShowPosterPath,
-      },
+      }),
     })
   }, [
-    episode.episode_number,
-    episode.name,
-    episode.season_number,
+    episode,
     favoriteActionLoading,
     isFavorited,
     toggleEpisode,
