@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
+import { useEpisodeActions } from "@/hooks/use-episode-actions"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import {
@@ -24,7 +25,6 @@ import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
-import { buildFavoriteEpisodePayload } from "@/types/favorite-episode"
 import type {
   CastMember,
   TMDBEpisodeDetails,
@@ -48,7 +48,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useCallback, useMemo, useState } from "react"
-import { toast } from "sonner"
 
 interface EpisodeDetailClientProps {
   tvShow: TMDBTVDetails
@@ -112,7 +111,18 @@ export function EpisodeDetailClient({
     const key = `${episode.season_number}_${episode.episode_number}`
     return !!tracking?.episodes && key in tracking.episodes
   }, [tracking, episode.season_number, episode.episode_number])
-  const favoriteActionLoading = favoriteStatusLoading || favoriteMutationPending
+  const { favoriteActionLoading, handleFavoriteClick, openNotesModal } =
+    useEpisodeActions({
+      episode,
+      favoriteActionLoading: favoriteStatusLoading || favoriteMutationPending,
+      isFavorited,
+      openNotes: () => setShowNotesModal(true),
+      requireAuth,
+      toggleEpisode,
+      tvShowId,
+      tvShowName: tvShow.name,
+      tvShowPosterPath: tvShow.poster_path,
+    })
   const notesMedia = useMemo(
     () => ({
       id: tvShowId,
@@ -136,48 +146,6 @@ export function EpisodeDetailClient({
     () => computeNextEpisode(episode, season.episodes, tvShow.seasons),
     [season.episodes, episode, tvShow.seasons],
   )
-
-  const handleToggleFavorite = useCallback(async () => {
-    if (favoriteActionLoading) return
-
-    await toggleEpisode({
-      isFavorited,
-      episode: buildFavoriteEpisodePayload({
-        tvShowId,
-        episode,
-        showName: tvShow.name,
-        posterPath: tvShow.poster_path,
-      }),
-    })
-  }, [
-    episode,
-    favoriteActionLoading,
-    isFavorited,
-    toggleEpisode,
-    tvShow.name,
-    tvShow.poster_path,
-    tvShowId,
-  ])
-
-  const handleFavoriteClick = useCallback(() => {
-    requireAuth(async () => {
-      try {
-        await handleToggleFavorite()
-        toast.success(
-          isFavorited
-            ? "Removed from favorite episodes"
-            : "Added to favorite episodes",
-        )
-      } catch (error) {
-        console.error("Failed to toggle favorite episode:", error)
-        toast.error(
-          isFavorited
-            ? "Failed to remove from favorite episodes"
-            : "Failed to add to favorite episodes",
-        )
-      }
-    }, "Sign in to favorite episodes")
-  }, [handleToggleFavorite, isFavorited, requireAuth])
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
@@ -499,12 +467,7 @@ export function EpisodeDetailClient({
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() =>
-                      requireAuth(
-                        () => setShowNotesModal(true),
-                        "Sign in to add personal notes",
-                      )
-                    }
+                    onClick={openNotesModal}
                     disabled={notesLoading}
                     className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
                   >

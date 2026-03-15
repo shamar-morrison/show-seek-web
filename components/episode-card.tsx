@@ -5,6 +5,7 @@ import { AuthModal } from "@/components/auth-modal"
 import { NotesModal } from "@/components/notes-modal"
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
+import { useEpisodeActions } from "@/hooks/use-episode-actions"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import {
   useIsEpisodeFavorited,
@@ -16,7 +17,6 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
-import { buildFavoriteEpisodePayload } from "@/types/favorite-episode"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
@@ -103,55 +103,24 @@ export function EpisodeCard({
     episode.season_number,
     episode.episode_number,
   )
-  const favoriteActionLoading = favoriteStatusLoading || favoriteMutationPending
+  const { favoriteActionLoading, handleFavoriteClick, openNotesModal } =
+    useEpisodeActions({
+      episode,
+      favoriteActionLoading: favoriteStatusLoading || favoriteMutationPending,
+      isFavorited,
+      openNotes: () => setShowNotesModal(true),
+      requireAuth,
+      toggleEpisode,
+      tvShowId,
+      tvShowName,
+      tvShowPosterPath,
+    })
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
     () => computeNextEpisode(episode, allSeasonEpisodes, tvShowSeasons),
     [allSeasonEpisodes, episode, tvShowSeasons],
   )
-
-  const handleToggleFavorite = useCallback(async () => {
-    if (favoriteActionLoading) return
-
-    await toggleEpisode({
-      isFavorited,
-      episode: buildFavoriteEpisodePayload({
-        tvShowId,
-        episode,
-        showName: tvShowName,
-        posterPath: tvShowPosterPath,
-      }),
-    })
-  }, [
-    episode,
-    favoriteActionLoading,
-    isFavorited,
-    toggleEpisode,
-    tvShowId,
-    tvShowName,
-    tvShowPosterPath,
-  ])
-
-  const handleFavoriteClick = useCallback(() => {
-    requireAuth(async () => {
-      try {
-        await handleToggleFavorite()
-        toast.success(
-          isFavorited
-            ? "Removed from favorite episodes"
-            : "Added to favorite episodes",
-        )
-      } catch (error) {
-        console.error("Failed to toggle favorite episode:", error)
-        toast.error(
-          isFavorited
-            ? "Failed to remove from favorite episodes"
-            : "Failed to add to favorite episodes",
-        )
-      }
-    }, "Sign in to favorite episodes")
-  }, [handleToggleFavorite, isFavorited, requireAuth])
 
   const handleMarkWatched = useCallback(async () => {
     const nextEpisode = getNextEpisode()
@@ -216,7 +185,12 @@ export function EpisodeCard({
       seasonNumber: episode.season_number,
       episodeNumber: episode.episode_number,
     })
-  }, [markEpisodeUnwatched, tvShowId, episode.season_number, episode.episode_number])
+  }, [
+    markEpisodeUnwatched,
+    tvShowId,
+    episode.season_number,
+    episode.episode_number,
+  ])
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
@@ -350,7 +324,7 @@ export function EpisodeCard({
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {hasAired && (
                 <>
-                {/* Watched Toggle */}
+                  {/* Watched Toggle */}
                   <button
                     onClick={() =>
                       requireAuth(
@@ -439,12 +413,7 @@ export function EpisodeCard({
               </button>
 
               <button
-                onClick={() =>
-                  requireAuth(
-                    () => setShowNotesModal(true),
-                    "Sign in to add personal notes",
-                  )
-                }
+                onClick={openNotesModal}
                 disabled={notesLoading}
                 className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
                 aria-label={userNote ? "View episode note" : "Add episode note"}
