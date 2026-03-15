@@ -65,6 +65,8 @@ export const queryKeys = {
     lists: (userId: string) => ["firestore", "lists", userId] as const,
     ratings: (userId: string) => ["firestore", "ratings", userId] as const,
     notes: (userId: string) => ["firestore", "notes", userId] as const,
+    favoriteEpisodes: (userId: string) =>
+      ["firestore", "favorite-episodes", userId] as const,
     favoritePersons: (userId: string) =>
       ["firestore", "favorite-persons", userId] as const,
     watchedMovies: (userId: string, movieId: number) =>
