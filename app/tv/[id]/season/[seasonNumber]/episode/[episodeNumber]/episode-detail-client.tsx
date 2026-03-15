@@ -3,6 +3,7 @@
 import { CastRow } from "@/components/cast-row"
 import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { AuthModal } from "@/components/auth-modal"
+import { NotesModal } from "@/components/notes-modal"
 import { PhotoLightbox } from "@/components/photo-lightbox"
 import { RateButton } from "@/components/rate-button"
 import { TrailerModal } from "@/components/trailer-modal"
@@ -10,8 +11,14 @@ import { Button } from "@/components/ui/button"
 import { Section } from "@/components/ui/section"
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
+import { useEpisodeActions } from "@/hooks/use-episode-actions"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
+import {
+  useIsEpisodeFavorited,
+  useToggleFavoriteEpisode,
+} from "@/hooks/use-favorite-episodes"
+import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
@@ -29,7 +36,10 @@ import {
   ArrowRight02Icon,
   Calendar03Icon,
   CheckmarkCircle02Icon,
+  FavouriteIcon,
   Loading03Icon,
+  Note01Icon,
+  NoteDoneIcon,
   PlayIcon,
   StarIcon,
   Tick02Icon,
@@ -58,13 +68,22 @@ export function EpisodeDetailClient({
 }: EpisodeDetailClientProps) {
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
+  const { getNote, loading: notesLoading } = useNotes()
   const { preferences } = usePreferences()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markEpisodeWatched, markEpisodeUnwatched } =
     useEpisodeTrackingMutations()
+  const { isFavorited, loading: favoriteStatusLoading } = useIsEpisodeFavorited(
+    tvShowId,
+    episode.season_number,
+    episode.episode_number,
+  )
+  const { toggleEpisode, isToggling: favoriteMutationPending } =
+    useToggleFavoriteEpisode()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
+  const [showNotesModal, setShowNotesModal] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
@@ -81,11 +100,46 @@ export function EpisodeDetailClient({
     episode.season_number,
     episode.episode_number,
   )
+  const userNote = getNote(
+    "episode",
+    tvShowId,
+    episode.season_number,
+    episode.episode_number,
+  )
 
   const isWatched = useMemo(() => {
     const key = `${episode.season_number}_${episode.episode_number}`
     return !!tracking?.episodes && key in tracking.episodes
   }, [tracking, episode.season_number, episode.episode_number])
+  const { favoriteActionLoading, handleFavoriteClick, openNotesModal } =
+    useEpisodeActions({
+      episode,
+      favoriteActionLoading: favoriteStatusLoading || favoriteMutationPending,
+      isFavorited,
+      openNotes: () => setShowNotesModal(true),
+      requireAuth,
+      toggleEpisode,
+      tvShowId,
+      tvShowName: tvShow.name,
+      tvShowPosterPath: tvShow.poster_path,
+    })
+  const notesMedia = useMemo(
+    () => ({
+      id: tvShowId,
+      show_id: tvShowId,
+      season_number: episode.season_number,
+      episode_number: episode.episode_number,
+      poster_path: tvShow.poster_path,
+      title: episode.name,
+    }),
+    [
+      episode.episode_number,
+      episode.name,
+      episode.season_number,
+      tvShow.poster_path,
+      tvShowId,
+    ],
+  )
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
@@ -379,6 +433,62 @@ export function EpisodeDetailClient({
                     </>
                   )}
 
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={handleFavoriteClick}
+                    disabled={favoriteActionLoading}
+                    className={
+                      isFavorited
+                        ? "border-red-500/50 bg-red-500/20 px-6 font-semibold text-red-400 backdrop-blur-sm transition-all hover:border-red-500 hover:bg-red-500/30"
+                        : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                    }
+                  >
+                    {favoriteActionLoading ? (
+                      <HugeiconsIcon
+                        icon={Loading03Icon}
+                        className="size-5 animate-spin"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={FavouriteIcon}
+                        className={`size-5 ${
+                          isFavorited ? "fill-red-400 text-red-400" : ""
+                        }`}
+                      />
+                    )}
+                    {favoriteActionLoading
+                      ? "Loading..."
+                      : isFavorited
+                        ? "Favorited"
+                        : "Favorite"}
+                  </Button>
+
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={openNotesModal}
+                    disabled={notesLoading}
+                    className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                  >
+                    {notesLoading ? (
+                      <HugeiconsIcon
+                        icon={Loading03Icon}
+                        className="size-5 animate-spin"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={userNote ? NoteDoneIcon : Note01Icon}
+                        className={`size-5 ${userNote ? "text-primary" : ""}`}
+                      />
+                    )}
+                    {notesLoading
+                      ? "Loading..."
+                      : userNote
+                        ? "View Note"
+                        : "Notes"}
+                  </Button>
+
                   {!hasAired && (
                     <div className="rounded-full bg-primary/20 px-6 py-2.5 text-sm font-semibold text-primary backdrop-blur-sm">
                       {episode.air_date
@@ -528,6 +638,13 @@ export function EpisodeDetailClient({
         tvShowId={tvShowId}
         tvShowName={tvShow.name}
         displayTvShowName={displayShowTitle}
+      />
+
+      <NotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        media={notesMedia}
+        mediaType="episode"
       />
 
       {/* Video Modal */}

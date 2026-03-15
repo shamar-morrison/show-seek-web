@@ -120,6 +120,8 @@ export interface FilterSortProps {
 
   /** Optional callback to clear all filters and sort */
   onClearAll?: () => void
+  /** Optional override for whether the clear action should be shown */
+  showClearAll?: boolean
 
   /** Additional class for the dropdown content */
   className?: string
@@ -359,6 +361,7 @@ export function FilterSort({
   yearRange,
   ratingFilter,
   onClearAll,
+  showClearAll,
   className,
   triggerClassName,
 }: FilterSortProps) {
@@ -369,6 +372,7 @@ export function FilterSort({
     ratingFilter,
   )
   const hasActiveFilters = activeFilterCount > 0
+  const shouldShowClearAll = showClearAll ?? hasActiveFilters
 
   return (
     <DropdownMenu>
@@ -432,7 +436,7 @@ export function FilterSort({
         )}
 
         {/* Clear all action */}
-        {onClearAll && hasActiveFilters && (
+        {onClearAll && shouldShowClearAll && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onClearAll} variant="destructive">

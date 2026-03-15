@@ -42,6 +42,7 @@ const listsMenu: NavItemWithSubmenu = {
     { label: "Watch Lists", href: "/lists/watch-lists" },
     { label: "Custom Lists", href: "/lists/custom-lists" },
     { label: "Notes", href: "/lists/notes" },
+    { label: "Favorite Episodes", href: "/lists/favorite-episodes" },
     { label: "Favorite People", href: "/lists/favorite-people" },
   ],
 }
