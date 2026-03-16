@@ -1,3 +1,5 @@
+import { formatTmdbDate } from "@/lib/tmdb-date"
+
 /**
  * Shared formatting utilities for dates and runtimes
  */
@@ -9,7 +11,7 @@
  */
 export function formatDateLong(dateString: string | null): string | null {
   if (!dateString) return null
-  return new Date(dateString).toLocaleDateString("en-US", {
+  return formatTmdbDate(dateString, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -23,7 +25,7 @@ export function formatDateLong(dateString: string | null): string | null {
  */
 export function formatDateShort(dateString: string | null): string | null {
   if (!dateString) return null
-  return new Date(dateString).toLocaleDateString("en-US", {
+  return formatTmdbDate(dateString, {
     month: "short",
     day: "numeric",
     year: "numeric",

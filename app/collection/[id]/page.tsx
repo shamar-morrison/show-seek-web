@@ -1,5 +1,6 @@
 import { CollectionPageClient } from "@/components/collection-page-client"
 import { getCollectionDetails } from "@/lib/tmdb"
+import { compareTmdbDateStrings } from "@/lib/tmdb-date"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -32,9 +33,7 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
     collection.parts?.sort((a, b) => {
       if (!a.release_date) return 1
       if (!b.release_date) return -1
-      return (
-        new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
-      )
+      return compareTmdbDateStrings(a.release_date, b.release_date)
     }) || []
 
   return <CollectionPageClient collection={{ ...collection, parts: sortedParts }} />

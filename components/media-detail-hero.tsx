@@ -20,6 +20,7 @@ import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
+import { formatTmdbDate } from "@/lib/tmdb-date"
 import { cn } from "@/lib/utils"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -94,20 +95,6 @@ function getTVRuntime(runtimes: number[]): string | null {
     runtimes.reduce((a, b) => a + b, 0) / runtimes.length,
   )
   return `${avgRuntime}m per episode`
-}
-
-/**
- * Formats a date string to "Dec. 19, 2025" format
- */
-function formatDate(dateString: string | null | undefined): string | null {
-  if (!dateString) return null
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return null
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
 }
 
 /**
@@ -388,7 +375,7 @@ export function MediaDetailHero({
                         icon={CalendarIcon}
                         className="size-4 text-gray-500"
                       />
-                      {formatDate(releaseDate)}
+                      {formatTmdbDate(releaseDate)}
                     </span>
                   )}
                   {/* Runtime */}

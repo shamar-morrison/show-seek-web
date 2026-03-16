@@ -26,6 +26,7 @@ import {
   getDisplayMediaTitle,
   getDisplayNormalizedTitle,
 } from "@/lib/media-title"
+import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
 import type { Rating } from "@/types/rating"
 import type { TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -131,7 +132,7 @@ export function RatingsPageClient() {
 
       // Year range filter
       if (rating.releaseDate) {
-        const year = new Date(rating.releaseDate).getFullYear()
+        const year = getTmdbDateYear(rating.releaseDate)
         if (year < yearRange[0] || year > yearRange[1]) {
           return false
         }
@@ -149,9 +150,7 @@ export function RatingsPageClient() {
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
           break
         case "releaseDate": {
-          const dateA = a.releaseDate ? new Date(a.releaseDate).getTime() : 0
-          const dateB = b.releaseDate ? new Date(b.releaseDate).getTime() : 0
-          comparison = dateA - dateB
+          comparison = compareTmdbDateStrings(a.releaseDate, b.releaseDate)
           break
         }
         case "userRating":

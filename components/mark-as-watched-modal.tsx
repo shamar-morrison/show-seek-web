@@ -28,6 +28,11 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useState } from "react"
+import {
+  formatTmdbDate,
+  isTmdbDateOnOrBeforeToday,
+  parseTmdbDate,
+} from "@/lib/tmdb-date"
 
 interface MarkAsWatchedModalProps {
   /** Whether the modal is open */
@@ -51,21 +56,19 @@ interface MarkAsWatchedModalProps {
  */
 function isValidPastDate(dateString?: string | null): boolean {
   if (!dateString) return false
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return false
-  return date <= new Date()
+
+  try {
+    return isTmdbDateOnOrBeforeToday(dateString)
+  } catch {
+    return false
+  }
 }
 
 /**
  * Format a date string to display format
  */
 function formatDisplayDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  return formatTmdbDate(dateString)
 }
 
 /**
@@ -114,7 +117,7 @@ export function MarkAsWatchedModal({
     if (!releaseDate) return
     setIsLoading(true)
     try {
-      await onMarkAsWatched(new Date(releaseDate))
+      await onMarkAsWatched(parseTmdbDate(releaseDate))
       handleClose()
     } catch (error) {
       console.error("Error marking as watched:", error)

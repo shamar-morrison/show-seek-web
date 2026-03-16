@@ -3,6 +3,7 @@
 import { fetchSeasonEpisodes, fetchTVShowDetails } from "@/app/actions"
 import { type WatchProgressItem } from "@/hooks/use-episode-tracking"
 import { parseEpisodeKey } from "@/lib/episode-utils"
+import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 /** Concurrency limit for TMDB fetches */
@@ -57,8 +58,6 @@ function computeNextEpisodeFromWatched(
   title: string
   airDate: string | null
 } | null {
-  const today = new Date()
-
   // Sort seasons by number (excluding specials - season 0)
   const sortedSeasons = [...seasons]
     .filter((s) => s.season_number > 0)
@@ -77,8 +76,7 @@ function computeNextEpisodeFromWatched(
       const isWatched = watchedKeys.has(key)
 
       if (!isWatched) {
-        const airDate = ep.air_date ? new Date(ep.air_date) : null
-        if (airDate && airDate <= today) {
+        if (isTmdbDateOnOrBeforeToday(ep.air_date)) {
           return {
             season: season.season_number,
             episode: ep.episode_number,

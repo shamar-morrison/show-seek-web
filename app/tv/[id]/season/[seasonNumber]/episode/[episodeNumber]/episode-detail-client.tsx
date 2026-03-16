@@ -25,6 +25,7 @@ import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
+import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import type {
   CastMember,
   TMDBEpisodeDetails,
@@ -91,8 +92,7 @@ export function EpisodeDetailClient({
     getDisplayMediaTitle(tvShow, preferences.showOriginalTitles) || tvShow.name
 
   // Compute whether episode has aired
-  const today = new Date()
-  const hasAired = episode.air_date && new Date(episode.air_date) <= today
+  const hasAired = isTmdbDateOnOrBeforeToday(episode.air_date)
 
   // Get user's rating for this episode
   const userRating = getEpisodeRating(

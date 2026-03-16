@@ -17,6 +17,7 @@ import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { formatDateLong } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
@@ -58,9 +59,8 @@ export function SeasonDetailClient({
   const [posterFailed, setPosterFailed] = useState(false)
 
   // Get aired episodes only (exclude future episodes)
-  const today = new Date()
   const airedEpisodes = season.episodes.filter(
-    (ep) => ep.air_date && new Date(ep.air_date) <= today,
+    (ep) => isTmdbDateOnOrBeforeToday(ep.air_date),
   )
   const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
   const showName = tvShow.name

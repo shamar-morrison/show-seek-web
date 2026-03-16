@@ -9,6 +9,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { resolveAddToListAppearance } from "@/lib/add-to-list-appearance"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { formatTmdbDate } from "@/lib/tmdb-date"
 import { cn } from "@/lib/utils"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
@@ -64,20 +65,6 @@ function getCreator(media: TMDBTVDetails): Creator[] {
     return media.created_by.map((c) => ({ id: c.id, name: c.name }))
   }
   return []
-}
-
-/**
- * Formats a date string to "Dec. 19, 2025" format
- */
-function formatDate(dateString: string | null | undefined): string | null {
-  if (!dateString) return null
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return null
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
 }
 
 /**
@@ -159,7 +146,7 @@ export function MediaPreviewContent({
               icon={CalendarIcon}
               className="size-3 text-gray-500"
             />
-            {formatDate(releaseDate)}
+            {formatTmdbDate(releaseDate)}
           </span>
         )}
         {/* Episode Count (TV only) */}

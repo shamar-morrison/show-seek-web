@@ -1,3 +1,4 @@
+import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 
 /**
@@ -37,11 +38,9 @@ export function computeNextEpisode(
   allSeasonEpisodes: TMDBSeasonEpisode[],
   tvShowSeasons?: TMDBSeason[],
 ): NextEpisodeInfo | null {
-  const today = new Date()
-
   // Filter to only aired episodes and sort by episode number to ensure correct order
   const airedEpisodes = allSeasonEpisodes
-    .filter((ep) => ep.air_date && new Date(ep.air_date) <= today)
+    .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
     .sort((a, b) => a.episode_number - b.episode_number)
 
   // Find the current episode index in aired episodes

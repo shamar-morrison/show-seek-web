@@ -2,6 +2,7 @@ import { FavoritePersonButton } from "@/components/favorite-person-button"
 import { PageContainer } from "@/components/page-container"
 import { PersonContent } from "@/components/person-content"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
+import { calculateTmdbAge, formatTmdbDate } from "@/lib/tmdb-date"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -9,47 +10,6 @@ interface PersonPageProps {
   params: Promise<{
     id: string
   }>
-}
-
-function calculateAge(
-  birthday: string | null,
-  deathday: string | null = null,
-): string | null {
-  if (!birthday) return null
-  const birthDate = new Date(birthday)
-  const compareDate = deathday ? new Date(deathday) : new Date()
-
-  if (isNaN(birthDate.getTime()) || isNaN(compareDate.getTime())) {
-    return null
-  }
-
-  const birthYear = birthDate.getUTCFullYear()
-  const birthMonth = birthDate.getUTCMonth()
-  const birthDay = birthDate.getUTCDate()
-
-  const compareYear = compareDate.getUTCFullYear()
-  const compareMonth = compareDate.getUTCMonth()
-  const compareDay = compareDate.getUTCDate()
-
-  let years = compareYear - birthYear
-
-  if (
-    compareMonth < birthMonth ||
-    (compareMonth === birthMonth && compareDay < birthDay)
-  ) {
-    years--
-  }
-
-  return years.toString()
-}
-
-function formatDate(dateString: string | null): string | null {
-  if (!dateString) return null
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
 }
 
 export default async function PersonPage({ params }: PersonPageProps) {
@@ -67,8 +27,14 @@ export default async function PersonPage({ params }: PersonPageProps) {
   }
 
   const profileUrl = buildImageUrl(person.profile_path, "original")
-  const age = calculateAge(person.birthday, person.deathday)
-  const formattedBirthday = formatDate(person.birthday)
+  const age = calculateTmdbAge(person.birthday, person.deathday)?.toString()
+  const formattedBirthday = person.birthday
+    ? formatTmdbDate(person.birthday, {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
 
   // Format birthday string like: "August 26, 1997 (29 years old)"
   const birthdayDisplay = formattedBirthday

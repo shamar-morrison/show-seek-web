@@ -2,7 +2,7 @@ import { ListsPageClient } from "@/components/lists-page-client"
 import { render, screen } from "@/test/utils"
 import type { UserList } from "@/types/list"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   preferences: {
@@ -11,6 +11,17 @@ const mocks = vi.hoisted(() => ({
   watchTrailer: vi.fn(),
   closeTrailer: vi.fn(),
 }))
+
+const originalTimeZone = process.env.TZ
+
+function restoreTimeZone() {
+  if (originalTimeZone === undefined) {
+    delete process.env.TZ
+    return
+  }
+
+  process.env.TZ = originalTimeZone
+}
 
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
@@ -31,15 +42,33 @@ vi.mock("@/hooks/use-trailer", () => ({
 vi.mock("@/components/ui/filter-sort", () => ({
   FilterSort: ({
     onSortChange,
+    yearRange,
   }: {
     onSortChange: (state: { field: string; direction: string }) => void
+    yearRange?: { onChange: (range: [number, number]) => void }
   }) => (
-    <button
-      type="button"
-      onClick={() => onSortChange({ field: "title", direction: "asc" })}
-    >
-      Sort title
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => onSortChange({ field: "title", direction: "asc" })}
+      >
+        Sort title
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSortChange({ field: "release_date", direction: "asc" })
+        }
+      >
+        Sort release
+      </button>
+      <button
+        type="button"
+        onClick={() => yearRange?.onChange([2024, 2024])}
+      >
+        Year 2024
+      </button>
+    </>
   ),
 }))
 
@@ -102,10 +131,48 @@ function createLists(): UserList[] {
   ]
 }
 
+function createJanBoundaryLists(): UserList[] {
+  return [
+    {
+      id: "watchlist",
+      name: "Should Watch",
+      createdAt: 0,
+      items: {
+        10: {
+          id: 10,
+          title: "January First",
+          original_title: "January First",
+          poster_path: null,
+          media_type: "movie",
+          vote_average: 8.8,
+          release_date: "2024-01-01",
+          addedAt: 2,
+          genre_ids: [],
+        },
+        11: {
+          id: 11,
+          title: "December Finale",
+          original_title: "December Finale",
+          poster_path: null,
+          media_type: "movie",
+          vote_average: 8.1,
+          release_date: "2023-12-31",
+          addedAt: 1,
+          genre_ids: [],
+        },
+      },
+    },
+  ]
+}
+
 describe("ListsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.preferences.showOriginalTitles = true
+  })
+
+  afterEach(() => {
+    restoreTimeZone()
   })
 
   it("filters by the displayed list title", async () => {
@@ -143,5 +210,42 @@ describe("ListsPageClient", () => {
     const cards = screen.getAllByTestId("media-card")
     expect(cards[0]).toHaveTextContent("Kimi no Na wa.")
     expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
+  })
+
+  it("keeps January 1 list items in the correct release year filter", async () => {
+    process.env.TZ = "America/Jamaica"
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createJanBoundaryLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Year 2024" }))
+
+    expect(screen.getByText("January First")).toBeInTheDocument()
+    expect(screen.queryByText("December Finale")).not.toBeInTheDocument()
+  })
+
+  it("sorts list items by TMDB release dates without timezone drift", async () => {
+    process.env.TZ = "America/Jamaica"
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createJanBoundaryLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Sort release" }))
+
+    const cards = screen.getAllByTestId("media-card")
+    expect(cards[0]).toHaveTextContent("December Finale")
+    expect(cards[1]).toHaveTextContent("January First")
   })
 })

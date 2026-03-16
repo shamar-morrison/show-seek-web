@@ -17,6 +17,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { listItemToMedia } from "@/lib/list-media"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
 import type { ListMediaItem, UserList } from "@/types/list"
 import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -223,7 +224,7 @@ export function ListsPageClient({
     items = items.filter((item) => {
       const dateStr = item.release_date || item.first_air_date
       if (!dateStr) return true // Include items without date
-      const year = new Date(dateStr).getFullYear()
+      const year = getTmdbDateYear(dateStr)
       return year >= yearRange[0] && year <= yearRange[1]
     })
 
@@ -252,13 +253,10 @@ export function ListsPageClient({
           comparison = (a.addedAt || 0) - (b.addedAt || 0)
           break
         case "release_date": {
-          const dateA = new Date(
-            a.release_date || a.first_air_date || 0,
-          ).getTime()
-          const dateB = new Date(
-            b.release_date || b.first_air_date || 0,
-          ).getTime()
-          comparison = dateA - dateB
+          comparison = compareTmdbDateStrings(
+            a.release_date || a.first_air_date,
+            b.release_date || b.first_air_date,
+          )
           break
         }
         case "rating":

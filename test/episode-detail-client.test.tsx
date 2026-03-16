@@ -7,7 +7,7 @@ import type {
   TMDBSeasonDetails,
   TMDBTVDetails,
 } from "@/types/tmdb"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getEpisodeRating: vi.fn(),
@@ -25,6 +25,17 @@ const mocks = vi.hoisted(() => ({
     loading: false,
   },
 }))
+
+const originalTimeZone = process.env.TZ
+
+function restoreTimeZone() {
+  if (originalTimeZone === undefined) {
+    delete process.env.TZ
+    return
+  }
+
+  process.env.TZ = originalTimeZone
+}
 
 vi.mock("@/components/cast-row", () => ({
   CastRow: () => <div>cast-row</div>,
@@ -264,6 +275,11 @@ describe("EpisodeDetailClient", () => {
     }
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+    restoreTimeZone()
+  })
+
   it("toggles favorite episodes using the mobile-compatible payload", async () => {
     const user = userEvent.setup()
 
@@ -337,5 +353,26 @@ describe("EpisodeDetailClient", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: /favorite/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /notes/i })).toBeInTheDocument()
+  })
+
+  it("renders the exact TMDB air date and does not mark the episode aired early", () => {
+    process.env.TZ = "America/Jamaica"
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2024, 2, 26, 23, 30, 0))
+
+    render(
+      <EpisodeDetailClient
+        tvShow={createTvShow()}
+        season={createSeason(createEpisode("2024-03-27"))}
+        episode={createEpisode("2024-03-27")}
+        tvShowId={100}
+      />,
+    )
+
+    expect(screen.getAllByText("March 27, 2024")).not.toHaveLength(0)
+    expect(screen.getByText("Coming March 27, 2024")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /mark watched/i }),
+    ).not.toBeInTheDocument()
   })
 })
