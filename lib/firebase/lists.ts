@@ -69,6 +69,10 @@ function getListsCollectionRef(userId: string) {
   return collection(getFirebaseDb(), "users", userId, "lists")
 }
 
+function getComparableUpdatedAt(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
 /**
  * Fetch all user lists with a one-time read.
  */
@@ -242,17 +246,36 @@ export async function restoreList(
   }
 
   const listRef = getListRef(userId, list.id)
-  await setDoc(
-    listRef,
-    sanitizeForFirestore({
-      id: list.id,
-      name: list.name,
-      items: list.items,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt,
-      isCustom: true,
-    }),
-  )
+  const restoredList = sanitizeForFirestore({
+    id: list.id,
+    name: list.name,
+    items: list.items,
+    createdAt: list.createdAt,
+    updatedAt: list.updatedAt,
+    isCustom: true,
+  })
+
+  await runTransaction(getFirebaseDb(), async (transaction) => {
+    const existingDoc = await transaction.get(listRef)
+
+    if (!existingDoc.exists()) {
+      transaction.set(listRef, restoredList)
+      return
+    }
+
+    const snapshotUpdatedAt = getComparableUpdatedAt(list.updatedAt)
+    const currentUpdatedAt = getComparableUpdatedAt(
+      existingDoc.data()?.updatedAt,
+    )
+
+    if (
+      snapshotUpdatedAt !== null &&
+      currentUpdatedAt !== null &&
+      currentUpdatedAt <= snapshotUpdatedAt
+    ) {
+      transaction.set(listRef, restoredList)
+    }
+  })
 }
 
 /**

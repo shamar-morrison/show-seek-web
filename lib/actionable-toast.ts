@@ -28,9 +28,13 @@ export function showActionableSuccessToast(
         }
 
         isRunning = true
-        void Promise.resolve(config.action.onClick())
+        void Promise.resolve()
+          .then(() => config.action.onClick())
           .catch((error) => {
-            console.error(config.action.logMessage ?? "Toast action failed:", error)
+            console.error(
+              config.action.logMessage ?? "Toast action failed:",
+              error,
+            )
             toast.error(config.action.errorMessage)
           })
           .finally(() => {

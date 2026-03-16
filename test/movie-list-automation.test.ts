@@ -171,6 +171,8 @@ describe("movie list automation", () => {
         | undefined
 
       toastOptions?.action?.onClick()
+      await Promise.resolve()
+      await Promise.resolve()
 
       expect(removeFromListMock).toHaveBeenCalledWith("already-watched", "123")
     })
