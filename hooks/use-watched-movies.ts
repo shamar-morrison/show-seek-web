@@ -3,6 +3,7 @@
 import { fetchMovieDetails } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import {
   addWatchedMovieToTrackedCollection,
   fetchAllTrackedCollections,
@@ -11,6 +12,7 @@ import {
 import {
   addWatch,
   clearWatches,
+  deleteWatch,
   fetchWatches,
   getWatchCount,
   WatchInstance,
@@ -103,7 +105,7 @@ async function syncCollectionTrackingAfterWatch(
 async function syncCollectionTrackingAfterUnwatch(
   userId: string,
   movieId: number,
-) {
+): Promise<number[]> {
   try {
     const trackedCollections = await fetchAllTrackedCollections(userId)
     const affectedCollections = trackedCollections.filter((trackedCollection) =>
@@ -111,7 +113,7 @@ async function syncCollectionTrackingAfterUnwatch(
     )
 
     if (affectedCollections.length === 0) {
-      return
+      return []
     }
 
     const results = await Promise.allSettled(
@@ -123,6 +125,7 @@ async function syncCollectionTrackingAfterUnwatch(
         ),
       ),
     )
+    const removedCollectionIds: number[] = []
 
     results.forEach((result, index) => {
       if (result.status === "rejected") {
@@ -130,13 +133,19 @@ async function syncCollectionTrackingAfterUnwatch(
           `[useWatchedMovies] Failed to remove movie ${movieId} from tracked collection ${affectedCollections[index].collectionId}:`,
           result.reason,
         )
+        return
       }
+
+      removedCollectionIds.push(affectedCollections[index].collectionId)
     })
+
+    return removedCollectionIds
   } catch (error) {
     console.warn(
       `[useWatchedMovies] Failed to sync collection tracking after unwatch for movie ${movieId}:`,
       error,
     )
+    return []
   }
 }
 
@@ -193,7 +202,7 @@ export function useWatchedMovies(
       const isFirstWatch =
         variables.isFirstWatch ?? (await getWatchCount(userId, movieId)) === 0
 
-      await addWatch(userId, movieId, variables.watchedAt)
+      const watchId = await addWatch(userId, movieId, variables.watchedAt)
 
       if (typeof variables.movieData.collectionId === "number") {
         await syncCollectionTrackingAfterWatch(
@@ -232,6 +241,8 @@ export function useWatchedMovies(
         addToList,
         removeFromList,
       })
+
+      return { watchId }
     },
     onMutate: async (variables) => {
       if (!watchesQueryKey) {
@@ -281,7 +292,12 @@ export function useWatchedMovies(
       }
 
       await clearWatches(userId, movieId)
-      await syncCollectionTrackingAfterUnwatch(userId, movieId)
+      const removedCollectionIds = await syncCollectionTrackingAfterUnwatch(
+        userId,
+        movieId,
+      )
+
+      return { removedCollectionIds }
     },
     onMutate: async () => {
       if (!watchesQueryKey) {
@@ -329,33 +345,104 @@ export function useWatchedMovies(
       autoRemoveFromShouldWatch: boolean = false,
     ): Promise<void> => {
       try {
-        await addWatchMutationRef.current({
+        const { watchId } = await addWatchMutationRef.current({
           watchedAt,
           isFirstWatch: instances.length === 0,
           movieData,
           autoAddToAlreadyWatched,
           autoRemoveFromShouldWatch,
         })
-        toast.success("Marked as watched")
+
+        showActionableSuccessToast("Marked as watched", {
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              await deleteWatch(userId as string, movieId, watchId)
+
+              const remainingWatches = await getWatchCount(userId as string, movieId)
+              if (remainingWatches === 0) {
+                const resolvedCollectionId = await resolveCollectionId(
+                  movieId,
+                  movieData.collectionId,
+                )
+
+                if (resolvedCollectionId) {
+                  await removeWatchedMovieFromTrackedCollection(
+                    userId as string,
+                    resolvedCollectionId,
+                    movieId,
+                  )
+                }
+              }
+
+              if (watchesQueryKey) {
+                await queryClient.invalidateQueries({
+                  queryKey: watchesQueryKey,
+                })
+              }
+              await queryClient.invalidateQueries({
+                queryKey: queryKeys.firestore.collectionTrackingRoot,
+              })
+            },
+            errorMessage: "Failed to undo watch mark",
+            logMessage: "Failed to undo watched movie mark:",
+          },
+        })
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error"
         toast.error(`Failed to mark as watched: ${errorMessage}`)
       }
     },
-    [instances.length],
+    [instances.length, movieId, queryClient, userId, watchesQueryKey],
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {
     try {
-      await clearWatchesMutationRef.current()
-      toast.success("Watch history cleared")
+      const previousWatches = instances.map((watch) => ({
+        ...watch,
+        watchedAt: new Date(watch.watchedAt),
+      }))
+      const { removedCollectionIds } = await clearWatchesMutationRef.current()
+
+      showActionableSuccessToast("Watch history cleared", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            await Promise.all(
+              previousWatches.map((watch) =>
+                addWatch(userId as string, movieId, watch.watchedAt),
+              ),
+            )
+            await Promise.all(
+              removedCollectionIds.map((collectionId) =>
+                addWatchedMovieToTrackedCollection(
+                  userId as string,
+                  collectionId,
+                  movieId,
+                ),
+              ),
+            )
+
+            if (watchesQueryKey) {
+              await queryClient.invalidateQueries({
+                queryKey: watchesQueryKey,
+              })
+            }
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.firestore.collectionTrackingRoot,
+            })
+          },
+          errorMessage: "Failed to restore watch history",
+          logMessage: "Failed to undo watch history clear:",
+        },
+      })
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error"
       toast.error(`Failed to clear watch history: ${errorMessage}`)
     }
-  }, [])
+  }, [instances, movieId, queryClient, userId, watchesQueryKey])
 
   return {
     instances,

@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 
 type MovieListPayload = {
   movieId: number
@@ -58,7 +59,14 @@ export async function applyMovieRatingListAutomation(params: {
       })
 
       if (wasAdded) {
-        toast.success("Added to Already Watched list")
+        showActionableSuccessToast("Added to Already Watched list", {
+          action: {
+            label: "Undo",
+            onClick: () => removeFromList("already-watched", String(movie.movieId)),
+            errorMessage: "Failed to remove from Already Watched list",
+            logMessage: "Failed to undo auto-add to Already Watched list:",
+          },
+        })
       }
     } catch (listError) {
       console.error("Failed to auto-add to Already Watched list:", listError)

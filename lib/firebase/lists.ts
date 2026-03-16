@@ -9,7 +9,7 @@ import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   DEFAULT_LIST_IDS,
   DEFAULT_LISTS,
-  ListMediaItem,
+  ListWriteMediaItem,
   UserList,
 } from "@/types/list"
 import {
@@ -17,6 +17,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   runTransaction,
   serverTimestamp,
@@ -68,6 +69,24 @@ function getListsCollectionRef(userId: string) {
   return collection(getFirebaseDb(), "users", userId, "lists")
 }
 
+function isTimestampLike(value: unknown): value is { toMillis: () => number } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "toMillis" in value &&
+    typeof value.toMillis === "function"
+  )
+}
+
+function getComparableUpdatedAt(value: unknown): number | null {
+  if (isTimestampLike(value)) {
+    const millis = value.toMillis()
+    return Number.isFinite(millis) ? millis : null
+  }
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
 /**
  * Fetch all user lists with a one-time read.
  */
@@ -85,6 +104,26 @@ export async function fetchUserLists(userId: string): Promise<UserList[]> {
 }
 
 /**
+ * Fetch a single user list with a one-time read.
+ */
+export async function fetchUserList(
+  userId: string,
+  listId: string,
+): Promise<UserList | null> {
+  const listRef = getListRef(userId, listId)
+  const snapshot = await getDoc(listRef)
+
+  if (!snapshot.exists()) {
+    return null
+  }
+
+  return {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as UserList
+}
+
+/**
  * Add a media item to a list
  * Idempotent - safe to call multiple times for the same item
  * Uses a transaction to atomically check document existence and set createdAt
@@ -93,15 +132,16 @@ export async function fetchUserLists(userId: string): Promise<UserList[]> {
 export async function addToList(
   userId: string,
   listId: string,
-  mediaItem: Omit<ListMediaItem, "addedAt">,
+  mediaItem: ListWriteMediaItem,
 ): Promise<boolean> {
   const listRef = getListRef(userId, listId)
   // Use numeric ID as key to match mobile app format
   const itemKey = String(mediaItem.id)
 
+  const addedAt = mediaItem.addedAt ?? Date.now()
   const sanitizedItem = sanitizeForFirestore({
     ...mediaItem,
-    addedAt: Date.now(),
+    addedAt,
   })
 
   // Get the list name - for default lists, use the name from DEFAULT_LISTS
@@ -111,7 +151,7 @@ export async function addToList(
   return await runTransaction(getFirebaseDb(), async (transaction) => {
     const docSnap = await transaction.get(listRef)
     const isNewDocument = !docSnap.exists()
-    
+
     // Check if item already exists
     let isNewItem = true
     if (!isNewDocument) {
@@ -137,7 +177,7 @@ export async function addToList(
     } else {
       transaction.set(listRef, payload, { merge: true })
     }
-    
+
     return isNewItem
   })
 }
@@ -206,6 +246,55 @@ export async function createList(
     throw new Error(
       `Failed to create list: too many collisions for name "${listName}"`,
     )
+  })
+}
+
+/**
+ * Restore a previously deleted custom list using its original document ID.
+ */
+export async function restoreList(
+  userId: string,
+  list: Pick<UserList, "id" | "name" | "items" | "createdAt" | "updatedAt">,
+): Promise<boolean> {
+  if (DEFAULT_LIST_IDS.has(list.id)) {
+    throw new Error("Cannot restore default lists")
+  }
+
+  const listRef = getListRef(userId, list.id)
+  const restoredList = sanitizeForFirestore({
+    id: list.id,
+    name: list.name,
+    items: list.items,
+    createdAt: list.createdAt,
+    updatedAt: list.updatedAt,
+    isCustom: true,
+  })
+
+  return await runTransaction(getFirebaseDb(), async (transaction) => {
+    const existingDoc = await transaction.get(listRef)
+    let restored = false
+
+    if (!existingDoc.exists()) {
+      transaction.set(listRef, restoredList)
+      restored = true
+      return restored
+    }
+
+    const snapshotUpdatedAt = getComparableUpdatedAt(list.updatedAt)
+    const currentUpdatedAt = getComparableUpdatedAt(
+      existingDoc.data()?.updatedAt,
+    )
+
+    if (
+      snapshotUpdatedAt !== null &&
+      currentUpdatedAt !== null &&
+      currentUpdatedAt <= snapshotUpdatedAt
+    ) {
+      transaction.set(listRef, restoredList)
+      restored = true
+    }
+
+    return restored
   })
 }
 

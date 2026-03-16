@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   preferences: {
     showOriginalTitles: false,
   },
+  toastSuccess: vi.fn(),
 }))
 
 vi.mock("@/hooks/use-notes", () => ({
@@ -42,6 +43,13 @@ vi.mock("@/components/ui/base-media-modal", () => ({
       {children}
     </div>
   ),
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => mocks.toastSuccess(...args),
+    error: vi.fn(),
+  },
 }))
 
 describe("NotesModal", () => {
@@ -87,6 +95,15 @@ describe("NotesModal", () => {
         null,
       )
     })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "Note saved",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
   })
 
   it("loads and saves episode notes with season, episode, and show metadata", async () => {
@@ -159,5 +176,56 @@ describe("NotesModal", () => {
     await waitFor(() => {
       expect(mocks.removeNote).toHaveBeenCalledWith("episode", 456, 1, 2)
     })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "Note cleared",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
+  })
+
+  it("restores a cleared note from the success toast action", async () => {
+    const user = userEvent.setup()
+
+    mocks.getNote.mockReturnValue({ content: "Existing note" })
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 456,
+          show_id: 456,
+          season_number: 1,
+          episode_number: 2,
+          poster_path: null,
+          title: "Half Loop",
+        }}
+        mediaType="episode"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Clear" }))
+
+    const toastOptions = mocks.toastSuccess.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await toastOptions?.action?.onClick()
+
+    expect(mocks.saveNote).toHaveBeenCalledWith(
+      "episode",
+      456,
+      "Existing note",
+      "Half Loop",
+      undefined,
+      null,
+      1,
+      2,
+      456,
+    )
   })
 })

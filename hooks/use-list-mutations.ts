@@ -9,20 +9,23 @@ import {
   renameList as renameListInFirestore,
 } from "@/lib/firebase/lists"
 import { queryKeys } from "@/lib/react-query/query-keys"
-import { DEFAULT_LISTS, type ListMediaItem, type UserList } from "@/types/list"
+import {
+  DEFAULT_LISTS,
+  type ListMediaItem,
+  type ListWriteMediaItem,
+  type UserList,
+} from "@/types/list"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-
-type ListItemInput = Omit<ListMediaItem, "addedAt">
 
 function addItemToCachedLists(
   lists: UserList[],
   listId: string,
-  mediaItem: ListItemInput,
+  mediaItem: ListWriteMediaItem,
 ): UserList[] {
   const itemKey = String(mediaItem.id)
   const addedItem: ListMediaItem = {
     ...mediaItem,
-    addedAt: Date.now(),
+    addedAt: mediaItem.addedAt ?? Date.now(),
   }
 
   const existing = lists.find((list) => list.id === listId)
@@ -94,7 +97,11 @@ export function useListMutations() {
     previousLists: UserList[] | undefined
   } & TExtra
 
-  function useListOptimisticMutation<TVariables, TResult, TExtra extends object = Record<string, never>>({
+  function useListOptimisticMutation<
+    TVariables,
+    TResult,
+    TExtra extends object = Record<string, never>,
+  >({
     mutationFn,
     optimisticUpdate,
   }: {
@@ -142,7 +149,13 @@ export function useListMutations() {
   }
 
   const addToListMutation = useListOptimisticMutation({
-    mutationFn: async ({ listId, mediaItem }: { listId: string; mediaItem: ListItemInput }) => {
+    mutationFn: async ({
+      listId,
+      mediaItem,
+    }: {
+      listId: string
+      mediaItem: ListWriteMediaItem
+    }) => {
       const uid = assertUserId(userId)
       return addToListInFirestore(uid, listId, mediaItem)
     },
@@ -159,7 +172,13 @@ export function useListMutations() {
   })
 
   const removeFromListMutation = useListOptimisticMutation({
-    mutationFn: async ({ listId, mediaId }: { listId: string; mediaId: string }) => {
+    mutationFn: async ({
+      listId,
+      mediaId,
+    }: {
+      listId: string
+      mediaId: string
+    }) => {
       const uid = assertUserId(userId)
       return removeFromListInFirestore(uid, listId, mediaId)
     },
@@ -208,7 +227,13 @@ export function useListMutations() {
   })
 
   const renameListMutation = useListOptimisticMutation({
-    mutationFn: async ({ listId, newName }: { listId: string; newName: string }) => {
+    mutationFn: async ({
+      listId,
+      newName,
+    }: {
+      listId: string
+      newName: string
+    }) => {
       const uid = assertUserId(userId)
       return renameListInFirestore(uid, listId, newName)
     },
@@ -236,7 +261,7 @@ export function useListMutations() {
   })
 
   return {
-    addToList: async (listId: string, mediaItem: ListItemInput) =>
+    addToList: async (listId: string, mediaItem: ListWriteMediaItem) =>
       addToListMutation.mutateAsync({ listId, mediaItem }),
     removeFromList: async (listId: string, mediaId: string) =>
       removeFromListMutation.mutateAsync({ listId, mediaId }),

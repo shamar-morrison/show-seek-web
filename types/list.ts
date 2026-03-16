@@ -21,13 +21,18 @@ export interface ListMediaItem {
   first_air_date?: string
 }
 
+/** Media item payload accepted by list write operations */
+export type ListWriteMediaItem = Omit<ListMediaItem, "addedAt"> & {
+  addedAt?: ListMediaItem["addedAt"]
+}
+
 /** User list containing media items */
 export interface UserList {
   id: string
   name: string
   items: Record<string, ListMediaItem>
   createdAt: number | Timestamp
-  updatedAt?: number
+  updatedAt?: number | Timestamp
   isCustom?: boolean
 }
 

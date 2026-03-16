@@ -27,6 +27,7 @@ import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
 } from "@/lib/premium-gating"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import type { TMDBCollectionDetails } from "@/types/tmdb"
 import {
   Loading03Icon,
@@ -40,6 +41,85 @@ import { toast } from "sonner"
 
 interface CollectionPageClientProps {
   collection: TMDBCollectionDetails
+}
+
+interface StartTrackingWithToastOptions {
+  initialWatchedMovieIds?: number[]
+  name?: string
+  totalMovies?: number
+}
+
+async function runStartTrackingWithToast({
+  collectionId,
+  collectionMovieIds,
+  collectionName,
+  options,
+  setShowStopTrackingDialog,
+  startTracking,
+  stopTracking,
+}: {
+  collectionId: number
+  collectionMovieIds: number[]
+  collectionName: string
+  options?: StartTrackingWithToastOptions
+  setShowStopTrackingDialog: (open: boolean) => void
+  startTracking: (variables: {
+    collectionId: number
+    name: string
+    totalMovies: number
+    initialWatchedMovieIds?: number[]
+    collectionMovieIds?: number[]
+  }) => Promise<unknown>
+  stopTracking: (variables: { collectionId: number }) => Promise<number[]>
+}) {
+  const name = options?.name ?? collectionName
+  const totalMovies = options?.totalMovies ?? collectionMovieIds.length
+
+  await startTracking({
+    collectionId,
+    name,
+    totalMovies,
+    initialWatchedMovieIds: options?.initialWatchedMovieIds,
+    collectionMovieIds:
+      options?.initialWatchedMovieIds === undefined
+        ? collectionMovieIds
+        : undefined,
+  })
+
+  showActionableSuccessToast("Collection tracking started", {
+    action: {
+      label: "Undo",
+      onClick: async () => {
+        const watchedMovieIds = await stopTracking({
+          collectionId,
+        })
+        setShowStopTrackingDialog(false)
+        showActionableSuccessToast("Collection tracking stopped", {
+          action: {
+            label: "Undo",
+            onClick: () =>
+              runStartTrackingWithToast({
+                collectionId,
+                collectionMovieIds,
+                collectionName,
+                options: {
+                  initialWatchedMovieIds: watchedMovieIds,
+                  name,
+                  totalMovies,
+                },
+                setShowStopTrackingDialog,
+                startTracking,
+                stopTracking,
+              }),
+            errorMessage: "Failed to restart collection tracking",
+            logMessage: "Failed to undo collection tracking stop:",
+          },
+        })
+      },
+      errorMessage: "Failed to stop collection tracking",
+      logMessage: "Failed to undo collection tracking start:",
+    },
+  })
 }
 
 function CollectionMoviesGridSkeleton() {
@@ -64,13 +144,8 @@ export function CollectionPageClient({
 }: CollectionPageClientProps) {
   const { loading: authLoading, premiumLoading, premiumStatus } = useAuth()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
-  const {
-    tracking,
-    isTracked,
-    watchedCount,
-    totalMovies,
-    isLoading,
-  } = useCollectionTracking(collection.id)
+  const { tracking, isTracked, watchedCount, totalMovies, isLoading } =
+    useCollectionTracking(collection.id)
   const {
     canTrackMore,
     maxFreeCollections,
@@ -99,6 +174,52 @@ export function CollectionPageClient({
   const displayPercentage =
     displayTotal > 0 ? Math.round((watchedCount / displayTotal) * 100) : 0
 
+  const startTrackingWithToast = useCallback(
+    (options?: StartTrackingWithToastOptions) =>
+      runStartTrackingWithToast({
+        collectionId: collection.id,
+        collectionMovieIds: collectionMovies.map((movie) => movie.id),
+        collectionName: collection.name,
+        options,
+        setShowStopTrackingDialog,
+        startTracking: startTrackingMutation.mutateAsync,
+        stopTracking: stopTrackingMutation.mutateAsync,
+      }),
+    [
+      collection.id,
+      collection.name,
+      collectionMovies,
+      startTrackingMutation,
+      stopTrackingMutation,
+    ],
+  )
+
+  const stopTrackingWithToast = useCallback(async () => {
+    const previousTracking = tracking
+    if (!previousTracking) {
+      return
+    }
+
+    await stopTrackingMutation.mutateAsync({
+      collectionId: collection.id,
+    })
+    setShowStopTrackingDialog(false)
+
+    showActionableSuccessToast("Collection tracking stopped", {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          startTrackingWithToast({
+            name: previousTracking.name,
+            totalMovies: previousTracking.totalMovies,
+            initialWatchedMovieIds: previousTracking.watchedMovieIds,
+          }),
+        errorMessage: "Failed to restart collection tracking",
+        logMessage: "Failed to undo collection tracking stop:",
+      },
+    })
+  }, [collection.id, startTrackingWithToast, stopTrackingMutation, tracking])
+
   const handleStartTracking = useCallback(() => {
     requireAuth(async () => {
       if (isTracked || isPremiumCheckPending) {
@@ -111,13 +232,7 @@ export function CollectionPageClient({
       }
 
       try {
-        await startTrackingMutation.mutateAsync({
-          collectionId: collection.id,
-          name: collection.name,
-          totalMovies: collectionMovies.length,
-          collectionMovieIds: collectionMovies.map((movie) => movie.id),
-        })
-        toast.success("Collection tracking started")
+        await startTrackingWithToast()
       } catch (error) {
         console.error("Failed to start collection tracking:", error)
         toast.error(
@@ -129,27 +244,20 @@ export function CollectionPageClient({
     }, "Sign in to track collection progress")
   }, [
     canTrackMore,
-    collection.id,
-    collection.name,
     isPremiumCheckPending,
     isTracked,
     requireAuth,
-    collectionMovies,
-    startTrackingMutation,
+    startTrackingWithToast,
   ])
 
   const handleStopTracking = useCallback(async () => {
     try {
-      await stopTrackingMutation.mutateAsync({
-        collectionId: collection.id,
-      })
-      setShowStopTrackingDialog(false)
-      toast.success("Collection tracking stopped")
+      await stopTrackingWithToast()
     } catch (error) {
       console.error("Failed to stop collection tracking:", error)
       toast.error("Failed to stop collection tracking")
     }
-  }, [collection.id, stopTrackingMutation])
+  }, [stopTrackingWithToast])
 
   const backdropUrl = collection.backdrop_path
     ? `https://image.tmdb.org/t/p/original${collection.backdrop_path}`

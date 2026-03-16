@@ -81,7 +81,77 @@ describe("useEpisodeActions", () => {
         posterPath: "/poster.jpg",
       },
     })
-    expect(toastSuccessMock).toHaveBeenCalledWith("Added to favorite episodes")
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Added to favorite episodes",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
+  })
+
+  it("wires undo on the success toast to the inverse toggle", async () => {
+    const options = createOptions()
+    const { result } = renderHook(() => useEpisodeActions(options))
+
+    await act(async () => {
+      result.current.handleFavoriteClick()
+      await Promise.resolve()
+    })
+
+    const toastAction = toastSuccessMock.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await act(async () => {
+      toastAction?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(options.toggleEpisode).toHaveBeenNthCalledWith(2, {
+      isFavorited: true,
+      episode: {
+        id: "100-1-2",
+        tvShowId: 100,
+        seasonNumber: 1,
+        episodeNumber: 2,
+        episodeName: "Half Loop",
+        showName: "Signal Run",
+        posterPath: "/poster.jpg",
+      },
+    })
+  })
+
+  it("does not run undo while favorite loading is active", async () => {
+    const toggleEpisode = vi.fn().mockResolvedValue(undefined)
+    let options = createOptions({
+      toggleEpisode,
+    })
+    const { result, rerender } = renderHook(() => useEpisodeActions(options))
+
+    await act(async () => {
+      result.current.handleFavoriteClick()
+      await Promise.resolve()
+    })
+
+    const toastAction = toastSuccessMock.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    options = {
+      ...options,
+      favoriteActionLoading: true,
+    }
+    rerender()
+
+    await act(async () => {
+      toastAction?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(toggleEpisode).toHaveBeenCalledTimes(1)
   })
 
   it("logs and shows an error toast when favorite toggling fails", async () => {
@@ -89,7 +159,9 @@ describe("useEpisodeActions", () => {
     const options = createOptions({
       toggleEpisode: vi.fn().mockRejectedValue(expectedError),
     })
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {})
     const { result } = renderHook(() => useEpisodeActions(options))
 
     await act(async () => {

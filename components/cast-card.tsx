@@ -7,6 +7,7 @@ import {
   useFavoritePersonActions,
   useIsPersonFavorited,
 } from "@/hooks/use-favorite-persons"
+import { toggleFavoritePersonWithToast } from "@/lib/favorite-person-toast"
 import type { CastMember } from "@/types/tmdb"
 import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -43,18 +44,17 @@ export function CastCard({
 
     requireAuth(async () => {
       try {
-        if (isFavorited) {
-          await removePerson(cast.id)
-          toast.success(`Removed ${cast.name} from favorites`)
-        } else {
-          await addPerson({
+        await toggleFavoritePersonWithToast({
+          addPerson,
+          isFavorited,
+          person: {
             id: cast.id,
             name: cast.name,
             profile_path: cast.profile_path,
             known_for_department: "Acting",
-          })
-          toast.success(`Added ${cast.name} to favorites`)
-        }
+          },
+          removePerson,
+        })
       } catch (error) {
         console.error("Failed to toggle favorite:", error)
         toast.error(

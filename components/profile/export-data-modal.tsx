@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/auth-context"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getFirebaseClientConfigErrorMessage } from "@/lib/firebase/config"
 import { exportToCSV, exportToMarkdown } from "@/lib/export-data"
 import { Dialog } from "@base-ui/react/dialog"
@@ -21,7 +22,7 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
   const [exportType, setExportType] = useState<"csv" | "markdown" | null>(null)
   const firebaseUnavailableMessage = getFirebaseClientConfigErrorMessage()
 
-  async function handleExport(type: "csv" | "markdown") {
+  async function runExport(type: "csv" | "markdown") {
     if (!user) return
     if (!firebaseAvailable) {
       toast.error(firebaseUnavailableMessage)
@@ -37,7 +38,14 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
       } else {
         await exportToMarkdown(user.uid)
       }
-      toast.success(`Data exported as ${type.toUpperCase()}`)
+      showActionableSuccessToast(`Data exported as ${type.toUpperCase()}`, {
+        action: {
+          label: "Export again",
+          onClick: () => runExport(type),
+          errorMessage: "Failed to export data. Please try again.",
+          logMessage: "Export retry failed:",
+        },
+      })
       onOpenChange(false)
     } catch (error) {
       console.error("Export error:", error)
@@ -74,7 +82,7 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
 
           <div className="mt-6 space-y-3">
             <button
-              onClick={() => handleExport("csv")}
+              onClick={() => runExport("csv")}
               disabled={!firebaseAvailable || isExporting}
               className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -96,7 +104,7 @@ export function ExportDataModal({ open, onOpenChange }: ExportDataModalProps) {
             </button>
 
             <button
-              onClick={() => handleExport("markdown")}
+              onClick={() => runExport("markdown")}
               disabled={!firebaseAvailable || isExporting}
               className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >

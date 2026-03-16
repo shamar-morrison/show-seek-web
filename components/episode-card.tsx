@@ -15,6 +15,7 @@ import { useListMutations } from "@/hooks/use-list-mutations"
 import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
 import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
@@ -30,7 +31,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useCallback, useMemo, useState } from "react"
-import { toast } from "sonner"
 
 interface EpisodeCardProps {
   episode: TMDBSeasonEpisode
@@ -72,7 +72,7 @@ export function EpisodeCard({
   const { getEpisodeRating } = useRatings()
   const { getNote, loading: notesLoading } = useNotes()
   const { preferences } = usePreferences()
-  const { addToList } = useListMutations()
+  const { addToList, removeFromList } = useListMutations()
   const { markEpisodeWatched, markEpisodeUnwatched } =
     useEpisodeTrackingMutations()
   const { isFavorited, loading: favoriteStatusLoading } = useIsEpisodeFavorited(
@@ -174,7 +174,15 @@ export function EpisodeCard({
       })
 
       if (wasAdded) {
-        toast.success("Added to Watching list")
+        showActionableSuccessToast("Added to Watching list", {
+          action: {
+            label: "Undo",
+            onClick: () =>
+              removeFromList("currently-watching", String(tvShowId)),
+            errorMessage: "Failed to remove from Watching list",
+            logMessage: "Failed to undo auto-add to Watching list:",
+          },
+        })
       }
     } catch (listError) {
       console.error("Failed to auto-add to Watching list:", listError)
@@ -192,6 +200,7 @@ export function EpisodeCard({
     preferences.autoAddToWatching,
     allSeasonEpisodes,
     addToList,
+    removeFromList,
     tvShowVoteAverage,
     tvShowFirstAirDate,
   ])
