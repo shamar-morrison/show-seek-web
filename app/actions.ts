@@ -1,6 +1,9 @@
 "use server"
 
-import { buildReleaseCalendarReleases } from "@/lib/release-calendar"
+import {
+  buildReleaseCalendarReleases,
+  dedupeTrackedItems,
+} from "@/lib/release-calendar"
 import {
   discoverMedia,
   getBestTrailer,
@@ -23,7 +26,20 @@ import { getTraktMediaComments } from "@/lib/trakt"
 import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
 
 const COLLECTION_BATCH_CONCURRENCY = 3
-const CALENDAR_FETCH_CONCURRENCY = 10
+const CALENDAR_FETCH_CONCURRENCY = 5
+
+function summarizeReleaseCalendarInput(input: FetchReleaseCalendarInput) {
+  const dedupedItems = dedupeTrackedItems(input.items)
+  const movieCount = dedupedItems.filter(
+    (item) => item.mediaType === "movie",
+  ).length
+
+  return {
+    chunkSize: dedupedItems.length,
+    movieCount,
+    tvCount: dedupedItems.length - movieCount,
+  }
+}
 
 /**
  * Server action to search for media.
@@ -41,6 +57,12 @@ export async function searchMedia(query: string) {
 export async function fetchReleaseCalendarReleases(
   input: FetchReleaseCalendarInput,
 ) {
+  const inputSummary = summarizeReleaseCalendarInput(input)
+
+  if (process.env.NODE_ENV !== "test") {
+    console.info("[ReleaseCalendar] Fetch chunk", inputSummary)
+  }
+
   try {
     return await buildReleaseCalendarReleases(input, {
       fetchMovieDetails: getMovieCalendarDetails,
@@ -51,6 +73,7 @@ export async function fetchReleaseCalendarReleases(
   } catch (error) {
     console.error(
       "Server Action: Failed to fetch release calendar releases",
+      inputSummary,
       error,
     )
     return []

@@ -14,6 +14,7 @@ import {
   UNAUTHENTICATED_USER_ID,
 } from "@/lib/react-query/query-keys"
 import { getTodayDateKey } from "@/lib/tmdb-date"
+import { mapWithConcurrencyLimit } from "@/lib/utils/concurrency"
 import type {
   ReleaseCalendarRelease,
   ReleaseCalendarTrackedItem,
@@ -27,6 +28,8 @@ const TRACKED_LIST_IDS = [
   "favorites",
   "currently-watching",
 ] as const satisfies readonly TrackedCalendarListId[]
+const RELEASE_CALENDAR_CHUNK_SIZE = 20
+const RELEASE_CALENDAR_FETCH_CONCURRENCY = 2
 
 function createTrackedItems(lists: ReturnType<typeof useLists>["lists"]) {
   const trackedItems: ReleaseCalendarTrackedItem[] = []
@@ -81,6 +84,143 @@ function buildTrackedItemsSignature(
   )
 }
 
+function getTrackedItemKey(
+  item: Pick<ReleaseCalendarTrackedItem, "id" | "mediaType">,
+): string {
+  return `${item.mediaType}-${item.id}`
+}
+
+function buildTrackedItemChunks({
+  trackedItems,
+  dedupedTrackedItems,
+}: {
+  trackedItems: ReleaseCalendarTrackedItem[]
+  dedupedTrackedItems: ReturnType<typeof dedupeTrackedItems>
+}): ReleaseCalendarTrackedItem[][] {
+  const rawItemsByKey = new Map<string, ReleaseCalendarTrackedItem[]>()
+
+  for (const item of trackedItems) {
+    const key = getTrackedItemKey(item)
+    const existingItems = rawItemsByKey.get(key)
+
+    if (existingItems) {
+      existingItems.push(item)
+      continue
+    }
+
+    rawItemsByKey.set(key, [item])
+  }
+
+  const orderedGroups = dedupedTrackedItems
+    .map((item) => rawItemsByKey.get(getTrackedItemKey(item)) ?? [])
+    .filter((items) => items.length > 0)
+
+  const chunks: ReleaseCalendarTrackedItem[][] = []
+  let currentChunk: ReleaseCalendarTrackedItem[] = []
+  let currentChunkUniqueCount = 0
+
+  for (const group of orderedGroups) {
+    if (currentChunkUniqueCount === RELEASE_CALENDAR_CHUNK_SIZE) {
+      chunks.push(currentChunk)
+      currentChunk = []
+      currentChunkUniqueCount = 0
+    }
+
+    currentChunk.push(...group)
+    currentChunkUniqueCount += 1
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk)
+  }
+
+  return chunks
+}
+
+function compareReleaseCalendarReleases(
+  left: ReleaseCalendarRelease,
+  right: ReleaseCalendarRelease,
+): number {
+  if (left.releaseDate !== right.releaseDate) {
+    return left.releaseDate.localeCompare(right.releaseDate)
+  }
+
+  if (left.mediaType !== right.mediaType) {
+    return left.mediaType.localeCompare(right.mediaType)
+  }
+
+  return left.id - right.id
+}
+
+function mergeReleaseCalendarRelease(
+  existingRelease: ReleaseCalendarRelease,
+  nextRelease: ReleaseCalendarRelease,
+): ReleaseCalendarRelease {
+  return {
+    ...existingRelease,
+    ...nextRelease,
+    posterPath: nextRelease.posterPath ?? existingRelease.posterPath,
+    backdropPath: nextRelease.backdropPath ?? existingRelease.backdropPath,
+    releaseDate: nextRelease.releaseDate || existingRelease.releaseDate,
+    nextEpisode: nextRelease.nextEpisode ?? existingRelease.nextEpisode,
+    sourceLists:
+      nextRelease.sourceLists.length > 0
+        ? nextRelease.sourceLists
+        : existingRelease.sourceLists,
+  }
+}
+
+function mergeReleaseCalendarReleases({
+  fallbackReleases,
+  enrichedReleases,
+}: {
+  fallbackReleases: ReleaseCalendarRelease[]
+  enrichedReleases: ReleaseCalendarRelease[]
+}): ReleaseCalendarRelease[] {
+  const releasesByKey = new Map<string, ReleaseCalendarRelease>()
+
+  for (const release of fallbackReleases) {
+    releasesByKey.set(release.uniqueKey, release)
+  }
+
+  for (const release of enrichedReleases) {
+    const existingRelease = releasesByKey.get(release.uniqueKey)
+
+    if (!existingRelease) {
+      releasesByKey.set(release.uniqueKey, release)
+      continue
+    }
+
+    releasesByKey.set(
+      release.uniqueKey,
+      mergeReleaseCalendarRelease(existingRelease, release),
+    )
+  }
+
+  return [...releasesByKey.values()].sort(compareReleaseCalendarReleases)
+}
+
+function logReleaseCalendarChunkFailure(
+  chunk: ReleaseCalendarTrackedItem[],
+  error: unknown,
+): void {
+  if (process.env.NODE_ENV === "test") {
+    return
+  }
+
+  const dedupedChunkItems = dedupeTrackedItems(chunk)
+  const movieCount = dedupedChunkItems.filter(
+    (item) => item.mediaType === "movie",
+  ).length
+
+  console.error("[ReleaseCalendar] Chunk enrichment failed", {
+    chunkSize: dedupedChunkItems.length,
+    movieCount,
+    reason: error instanceof Error ? error.message : "Unknown error",
+    tvCount: dedupedChunkItems.length - movieCount,
+  })
+}
+
 interface UseReleaseCalendarReturn {
   releases: ReleaseCalendarRelease[]
   isBootstrapping: boolean
@@ -103,6 +243,14 @@ export function useReleaseCalendar(): UseReleaseCalendarReturn {
   const trackedItemsSignature = useMemo(
     () => buildTrackedItemsSignature(dedupedTrackedItems),
     [dedupedTrackedItems],
+  )
+  const trackedItemChunks = useMemo(
+    () =>
+      buildTrackedItemChunks({
+        trackedItems,
+        dedupedTrackedItems,
+      }),
+    [dedupedTrackedItems, trackedItems],
   )
 
   const fallbackReleases = useMemo(
@@ -129,12 +277,29 @@ export function useReleaseCalendar(): UseReleaseCalendarReturn {
       todayKey,
       trackedItemsSignature,
     ),
-    queryFn: async () =>
-      fetchReleaseCalendarReleases({
-        items: trackedItems,
-        region,
-        todayKey,
-      }),
+    queryFn: async () => {
+      const chunkedResults = await mapWithConcurrencyLimit(
+        trackedItemChunks,
+        async (chunk) => {
+          try {
+            return await fetchReleaseCalendarReleases({
+              items: chunk,
+              region,
+              todayKey,
+            })
+          } catch (error) {
+            logReleaseCalendarChunkFailure(chunk, error)
+            return []
+          }
+        },
+        RELEASE_CALENDAR_FETCH_CONCURRENCY,
+      )
+
+      return mergeReleaseCalendarReleases({
+        fallbackReleases,
+        enrichedReleases: chunkedResults.flat(),
+      })
+    },
     enabled: enrichmentEnabled,
     placeholderData: (previousData) => previousData ?? fallbackReleases,
   })

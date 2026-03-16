@@ -378,6 +378,8 @@ export async function buildReleaseCalendarReleases(
   const dedupedItems = dedupeTrackedItems(input.items)
   const movieItems = dedupedItems.filter((item) => item.mediaType === "movie")
   const tvItems = dedupedItems.filter((item) => item.mediaType === "tv")
+  const movieCount = movieItems.length
+  const tvCount = tvItems.length
 
   const movieDetailsById = new Map<number, TMDBMovieDetails | null>()
   const tvDetailsById = new Map<number, TMDBTVDetails | null>()
@@ -413,12 +415,20 @@ export async function buildReleaseCalendarReleases(
     fetchers.concurrency,
   )
 
+  let nullMovieDetailCount = 0
+  let nullTVDetailCount = 0
   for (const result of detailResults) {
     if (result.mediaType === "movie") {
+      if (!result.details) {
+        nullMovieDetailCount += 1
+      }
       movieDetailsById.set(result.id, result.details)
       continue
     }
 
+    if (!result.details) {
+      nullTVDetailCount += 1
+    }
     tvDetailsById.set(result.id, result.details)
   }
 
@@ -440,7 +450,13 @@ export async function buildReleaseCalendarReleases(
   )
 
   const seasonDataByShowId = new Map<number, ReleaseCalendarSeasonData>()
+  let nullSeasonDetailCount = 0
   for (const { showId, seasonDetails } of seasonDetailsResults) {
+    if (!seasonDetails) {
+      nullSeasonDetailCount += 1
+      continue
+    }
+
     if (!seasonDetails?.episodes?.length) {
       continue
     }
@@ -452,6 +468,22 @@ export async function buildReleaseCalendarReleases(
         episodeNumber: episode.episode_number,
         seasonNumber: episode.season_number,
       })),
+    })
+  }
+
+  if (
+    process.env.NODE_ENV !== "test" &&
+    (nullMovieDetailCount > 0 ||
+      nullTVDetailCount > 0 ||
+      nullSeasonDetailCount > 0)
+  ) {
+    console.warn("[ReleaseCalendar] Partial enrichment detected", {
+      chunkSize: dedupedItems.length,
+      movieCount,
+      nullMovieDetailCount,
+      nullSeasonDetailCount,
+      nullTVDetailCount,
+      tvCount,
     })
   }
 
