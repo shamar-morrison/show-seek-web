@@ -23,7 +23,7 @@ vi.mock("firebase/firestore", () => ({
   updateDoc: vi.fn(),
 }))
 
-function createRestoreListPayload() {
+function createRestoreListPayload(): Parameters<typeof restoreList>[1] {
   return {
     id: "road-trip",
     name: "Road Trip",
@@ -41,23 +41,28 @@ function createRestoreListPayload() {
   }
 }
 
+function createTimestampLike(millis: number) {
+  return {
+    toMillis: () => millis,
+  }
+}
+
 async function runRestoreListWithCurrentDoc(currentDoc: {
   exists: () => boolean
   data?: () => Record<string, unknown>
-}) {
+}, list: Parameters<typeof restoreList>[1] = createRestoreListPayload()) {
   const transaction = {
     get: vi.fn().mockResolvedValue(currentDoc),
     set: vi.fn(),
   }
 
   vi.mocked(runTransaction).mockImplementation(async (_db, callback) => {
-    await callback(transaction as never)
-    return undefined as never
+    return (await callback(transaction as never)) as never
   })
 
-  await restoreList("user-1", createRestoreListPayload())
+  const restored = await restoreList("user-1", list)
 
-  return transaction
+  return { restored, transaction }
 }
 
 beforeEach(() => {
@@ -105,10 +110,11 @@ describe("fetchUserList", () => {
 
 describe("restoreList", () => {
   it("restores the list when the target document does not exist", async () => {
-    const transaction = await runRestoreListWithCurrentDoc({
+    const { restored, transaction } = await runRestoreListWithCurrentDoc({
       exists: () => false,
     })
 
+    expect(restored).toBe(true)
     expect(doc).toHaveBeenCalledWith(
       dbMock,
       "users",
@@ -138,13 +144,14 @@ describe("restoreList", () => {
   })
 
   it("restores the list when the existing document is not newer", async () => {
-    const transaction = await runRestoreListWithCurrentDoc({
+    const { restored, transaction } = await runRestoreListWithCurrentDoc({
       exists: () => true,
       data: () => ({
         updatedAt: 5678,
       }),
     })
 
+    expect(restored).toBe(true)
     expect(transaction.set).toHaveBeenCalledWith(
       { path: "users/user-1/lists/road-trip" },
       expect.objectContaining({
@@ -155,46 +162,84 @@ describe("restoreList", () => {
   })
 
   it("skips the restore when the existing document is newer", async () => {
-    const transaction = await runRestoreListWithCurrentDoc({
+    const { restored, transaction } = await runRestoreListWithCurrentDoc({
       exists: () => true,
       data: () => ({
         updatedAt: 7000,
       }),
     })
 
+    expect(restored).toBe(false)
     expect(transaction.set).not.toHaveBeenCalled()
   })
 
   it("skips the restore when the existing document updatedAt is not comparable", async () => {
-    const transaction = await runRestoreListWithCurrentDoc({
+    const { restored, transaction } = await runRestoreListWithCurrentDoc({
       exists: () => true,
       data: () => ({}),
     })
 
+    expect(restored).toBe(false)
     expect(transaction.set).not.toHaveBeenCalled()
   })
 
   it("skips the restore when the snapshot updatedAt is missing and the doc exists", async () => {
-    const transaction = {
-      get: vi.fn().mockResolvedValue({
+    const { restored, transaction } = await runRestoreListWithCurrentDoc(
+      {
         exists: () => true,
         data: () => ({
           updatedAt: 1000,
         }),
+      },
+      {
+        ...createRestoreListPayload(),
+        updatedAt: undefined,
+      },
+    )
+
+    expect(restored).toBe(false)
+    expect(transaction.set).not.toHaveBeenCalled()
+  })
+
+  it("restores when both timestamps are timestamp-like and the current doc is older", async () => {
+    const timestampUpdatedAt = createTimestampLike(5678)
+    const { restored, transaction } = await runRestoreListWithCurrentDoc(
+      {
+        exists: () => true,
+        data: () => ({
+          updatedAt: createTimestampLike(5000),
+        }),
+      },
+      {
+        ...createRestoreListPayload(),
+        updatedAt: timestampUpdatedAt as never,
+      },
+    )
+
+    expect(restored).toBe(true)
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/road-trip" },
+      expect.objectContaining({
+        updatedAt: timestampUpdatedAt,
       }),
-      set: vi.fn(),
-    }
+    )
+  })
 
-    vi.mocked(runTransaction).mockImplementation(async (_db, callback) => {
-      await callback(transaction as never)
-      return undefined as never
-    })
+  it("skips when both timestamps are timestamp-like and the current doc is newer", async () => {
+    const { restored, transaction } = await runRestoreListWithCurrentDoc(
+      {
+        exists: () => true,
+        data: () => ({
+          updatedAt: createTimestampLike(8000),
+        }),
+      },
+      {
+        ...createRestoreListPayload(),
+        updatedAt: createTimestampLike(5678) as never,
+      },
+    )
 
-    await restoreList("user-1", {
-      ...createRestoreListPayload(),
-      updatedAt: undefined,
-    })
-
+    expect(restored).toBe(false)
     expect(transaction.set).not.toHaveBeenCalled()
   })
 

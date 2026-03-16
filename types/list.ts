@@ -27,7 +27,7 @@ export interface UserList {
   name: string
   items: Record<string, ListMediaItem>
   createdAt: number | Timestamp
-  updatedAt?: number
+  updatedAt?: number | Timestamp
   isCustom?: boolean
 }
 

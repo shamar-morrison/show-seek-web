@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   renameList: vi.fn(),
   restoreList: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
   toastSuccess: vi.fn(),
 }))
 
@@ -91,7 +92,7 @@ vi.mock("sonner", () => ({
   toast: {
     success: (...args: unknown[]) => mocks.toastSuccess(...args),
     error: (...args: unknown[]) => mocks.toastError(...args),
-    info: vi.fn(),
+    info: (...args: unknown[]) => mocks.toastInfo(...args),
   },
 }))
 
@@ -135,7 +136,7 @@ describe("AddToListModal", () => {
     mocks.renameList.mockResolvedValue(undefined)
     mocks.deleteList.mockResolvedValue(undefined)
     mocks.fetchUserList.mockResolvedValue(null)
-    mocks.restoreList.mockResolvedValue(undefined)
+    mocks.restoreList.mockResolvedValue(true)
   })
 
   it("uses the latest display title in the save toast after preferences change", async () => {
@@ -266,6 +267,72 @@ describe("AddToListModal", () => {
       screen.getByText(/you can undo this from the success toast/i),
     ).toBeInTheDocument()
     expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument()
+  })
+
+  it("shows an info toast when delete undo is skipped because a newer list exists", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {
+          "123": createListItem(),
+        },
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+    mocks.restoreList.mockResolvedValue(false)
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Manage" }))
+
+    const row = screen.getByText("Road Trip").closest("div")
+    expect(row).not.toBeNull()
+
+    await user.click(within(row as HTMLElement).getAllByRole("button")[1])
+    await user.click(screen.getByRole("button", { name: "Delete" }))
+
+    await waitFor(() => {
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        'Deleted "Road Trip"',
+        expect.objectContaining({
+          action: expect.objectContaining({
+            label: "Undo",
+            onClick: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    const toastOptions = mocks.toastSuccess.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await act(async () => {
+      await toastOptions?.action?.onClick()
+    })
+
+    expect(mocks.restoreList).toHaveBeenCalledWith("user-1", {
+      id: "road-trip",
+      name: "Road Trip",
+      items: {
+        "123": createListItem(),
+      },
+      createdAt: 1,
+      isCustom: true,
+    })
+    expect(mocks.toastInfo).toHaveBeenCalledWith(
+      "List was not restored because a newer version already exists.",
+    )
   })
 
   it("undoes custom list creation by deleting an unchanged just-created list", async () => {

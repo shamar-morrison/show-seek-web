@@ -69,7 +69,23 @@ function getListsCollectionRef(userId: string) {
   return collection(getFirebaseDb(), "users", userId, "lists")
 }
 
+function isTimestampLike(
+  value: unknown,
+): value is { toMillis: () => number } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "toMillis" in value &&
+    typeof value.toMillis === "function"
+  )
+}
+
 function getComparableUpdatedAt(value: unknown): number | null {
+  if (isTimestampLike(value)) {
+    const millis = value.toMillis()
+    return Number.isFinite(millis) ? millis : null
+  }
+
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
@@ -240,7 +256,7 @@ export async function createList(
 export async function restoreList(
   userId: string,
   list: Pick<UserList, "id" | "name" | "items" | "createdAt" | "updatedAt">,
-): Promise<void> {
+): Promise<boolean> {
   if (DEFAULT_LIST_IDS.has(list.id)) {
     throw new Error("Cannot restore default lists")
   }
@@ -255,12 +271,14 @@ export async function restoreList(
     isCustom: true,
   })
 
-  await runTransaction(getFirebaseDb(), async (transaction) => {
+  return await runTransaction(getFirebaseDb(), async (transaction) => {
     const existingDoc = await transaction.get(listRef)
+    let restored = false
 
     if (!existingDoc.exists()) {
       transaction.set(listRef, restoredList)
-      return
+      restored = true
+      return restored
     }
 
     const snapshotUpdatedAt = getComparableUpdatedAt(list.updatedAt)
@@ -274,7 +292,10 @@ export async function restoreList(
       currentUpdatedAt <= snapshotUpdatedAt
     ) {
       transaction.set(listRef, restoredList)
+      restored = true
     }
+
+    return restored
   })
 }
 

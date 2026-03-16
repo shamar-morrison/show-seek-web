@@ -664,7 +664,15 @@ export function AddToListModal({
       showActionableSuccessToast(`Deleted "${deletedList.name}"`, {
         action: {
           label: "Undo",
-          onClick: () => restoreList(user.uid, deletedList),
+          onClick: async () => {
+            const restored = await restoreList(user.uid, deletedList)
+
+            if (!restored) {
+              toast.info(
+                "List was not restored because a newer version already exists.",
+              )
+            }
+          },
           errorMessage: "Failed to restore deleted list",
           logMessage: "Failed to undo list deletion:",
         },
