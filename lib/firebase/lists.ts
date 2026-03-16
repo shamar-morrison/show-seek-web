@@ -17,6 +17,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   runTransaction,
   serverTimestamp,
@@ -85,6 +86,26 @@ export async function fetchUserLists(userId: string): Promise<UserList[]> {
 }
 
 /**
+ * Fetch a single user list with a one-time read.
+ */
+export async function fetchUserList(
+  userId: string,
+  listId: string,
+): Promise<UserList | null> {
+  const listRef = getListRef(userId, listId)
+  const snapshot = await getDoc(listRef)
+
+  if (!snapshot.exists()) {
+    return null
+  }
+
+  return {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as UserList
+}
+
+/**
  * Add a media item to a list
  * Idempotent - safe to call multiple times for the same item
  * Uses a transaction to atomically check document existence and set createdAt
@@ -111,7 +132,7 @@ export async function addToList(
   return await runTransaction(getFirebaseDb(), async (transaction) => {
     const docSnap = await transaction.get(listRef)
     const isNewDocument = !docSnap.exists()
-    
+
     // Check if item already exists
     let isNewItem = true
     if (!isNewDocument) {
@@ -137,7 +158,7 @@ export async function addToList(
     } else {
       transaction.set(listRef, payload, { merge: true })
     }
-    
+
     return isNewItem
   })
 }
@@ -221,14 +242,17 @@ export async function restoreList(
   }
 
   const listRef = getListRef(userId, list.id)
-  await setDoc(listRef, sanitizeForFirestore({
-    id: list.id,
-    name: list.name,
-    items: list.items,
-    createdAt: list.createdAt,
-    updatedAt: list.updatedAt,
-    isCustom: true,
-  }))
+  await setDoc(
+    listRef,
+    sanitizeForFirestore({
+      id: list.id,
+      name: list.name,
+      items: list.items,
+      createdAt: list.createdAt,
+      updatedAt: list.updatedAt,
+      isCustom: true,
+    }),
+  )
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
 
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
@@ -35,16 +35,16 @@ interface UseEpisodeActionsOptions {
 
 async function runFavoriteEpisodeToggleWithToast({
   episode,
-  favoriteActionLoading,
+  isFavoriteActionLoading,
   nextIsFavorited,
   toggleEpisode,
 }: {
   episode: Omit<FavoriteEpisode, "addedAt">
-  favoriteActionLoading: boolean
+  isFavoriteActionLoading: () => boolean
   nextIsFavorited: boolean
   toggleEpisode: UseEpisodeActionsOptions["toggleEpisode"]
 }) {
-  if (favoriteActionLoading) return
+  if (isFavoriteActionLoading()) return
 
   await toggleEpisode({
     isFavorited: nextIsFavorited,
@@ -61,7 +61,7 @@ async function runFavoriteEpisodeToggleWithToast({
       onClick: () =>
         runFavoriteEpisodeToggleWithToast({
           episode,
-          favoriteActionLoading,
+          isFavoriteActionLoading,
           nextIsFavorited: !nextIsFavorited,
           toggleEpisode,
         }),
@@ -84,12 +84,38 @@ export function useEpisodeActions({
   tvShowName,
   tvShowPosterPath,
 }: UseEpisodeActionsOptions) {
-  const favoriteEpisodePayload = buildFavoriteEpisodePayload({
-    tvShowId,
-    episode,
-    showName: tvShowName,
-    posterPath: tvShowPosterPath,
-  })
+  const favoriteActionLoadingRef = useRef(favoriteActionLoading)
+
+  useEffect(() => {
+    favoriteActionLoadingRef.current = favoriteActionLoading
+  }, [favoriteActionLoading])
+
+  const isFavoriteActionLoading = useCallback(
+    () => favoriteActionLoadingRef.current,
+    [],
+  )
+
+  const favoriteEpisodePayload = useMemo(
+    () =>
+      buildFavoriteEpisodePayload({
+        tvShowId,
+        episode: {
+          season_number: episode.season_number,
+          episode_number: episode.episode_number,
+          name: episode.name,
+        },
+        showName: tvShowName,
+        posterPath: tvShowPosterPath,
+      }),
+    [
+      tvShowId,
+      episode.season_number,
+      episode.episode_number,
+      episode.name,
+      tvShowName,
+      tvShowPosterPath,
+    ],
+  )
 
   const handleToggleFavorite = useCallback(async () => {
     if (favoriteActionLoading) return
@@ -109,11 +135,11 @@ export function useEpisodeActions({
     (nextIsFavorited: boolean) =>
       runFavoriteEpisodeToggleWithToast({
         episode: favoriteEpisodePayload,
-        favoriteActionLoading,
+        isFavoriteActionLoading,
         nextIsFavorited,
         toggleEpisode,
       }),
-    [favoriteActionLoading, favoriteEpisodePayload, toggleEpisode],
+    [favoriteEpisodePayload, isFavoriteActionLoading, toggleEpisode],
   )
 
   const handleFavoriteClick = useCallback(() => {

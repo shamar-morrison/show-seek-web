@@ -124,12 +124,44 @@ describe("useEpisodeActions", () => {
     })
   })
 
+  it("does not run undo while favorite loading is active", async () => {
+    const toggleEpisode = vi.fn().mockResolvedValue(undefined)
+    let options = createOptions({
+      toggleEpisode,
+    })
+    const { result, rerender } = renderHook(() => useEpisodeActions(options))
+
+    await act(async () => {
+      result.current.handleFavoriteClick()
+      await Promise.resolve()
+    })
+
+    const toastAction = toastSuccessMock.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    options = {
+      ...options,
+      favoriteActionLoading: true,
+    }
+    rerender()
+
+    await act(async () => {
+      toastAction?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(toggleEpisode).toHaveBeenCalledTimes(1)
+  })
+
   it("logs and shows an error toast when favorite toggling fails", async () => {
     const expectedError = new Error("toggle failed")
     const options = createOptions({
       toggleEpisode: vi.fn().mockRejectedValue(expectedError),
     })
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {})
     const { result } = renderHook(() => useEpisodeActions(options))
 
     await act(async () => {

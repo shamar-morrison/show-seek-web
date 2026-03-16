@@ -16,7 +16,7 @@ import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
-import { restoreList } from "@/lib/firebase/lists"
+import { fetchUserList, restoreList } from "@/lib/firebase/lists"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import {
   PREMIUM_LOADING_MESSAGE,
@@ -57,6 +57,21 @@ const LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
 
 type TabType = "default" | "custom"
 type ModalMode = "add" | "manage"
+type PreparedListOperation =
+  | {
+      type: "add"
+      listId: string
+      listName: string
+      mediaItem: Omit<ListMediaItem, "addedAt">
+      rollbackMediaId: string
+    }
+  | {
+      type: "remove"
+      listId: string
+      listName: string
+      mediaId: string
+      rollbackMediaItem: Omit<ListMediaItem, "addedAt">
+    }
 
 interface AddToListModalProps {
   /** Whether the modal is open */
@@ -67,6 +82,60 @@ interface AddToListModalProps {
   media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
   /** Media type */
   mediaType: "movie" | "tv"
+}
+
+function stripAddedAt({
+  addedAt,
+  ...mediaItem
+}: ListMediaItem): Omit<ListMediaItem, "addedAt"> {
+  void addedAt
+  return mediaItem
+}
+
+function getStoredListItemEntry(
+  list: UserList,
+  mediaId: number,
+  mediaKey: string,
+) {
+  const numericKey = String(mediaId)
+  const numericItem = list.items?.[numericKey]
+
+  if (numericItem) {
+    return {
+      item: numericItem,
+      itemKey: numericKey,
+    }
+  }
+
+  const prefixedItem = list.items?.[mediaKey]
+
+  if (prefixedItem) {
+    return {
+      item: prefixedItem,
+      itemKey: mediaKey,
+    }
+  }
+
+  return null
+}
+
+function formatListNames(listNames: string[]) {
+  if (listNames.length === 0) {
+    return ""
+  }
+
+  if (listNames.length === 1) {
+    return `"${listNames[0]}"`
+  }
+
+  if (listNames.length === 2) {
+    return `"${listNames[0]}" and "${listNames[1]}"`
+  }
+
+  return `${listNames
+    .slice(0, -1)
+    .map((name) => `"${name}"`)
+    .join(", ")}, and "${listNames.at(-1)}"`
 }
 
 /**
@@ -230,35 +299,117 @@ export function AddToListModal({
     setIsSaving(true)
 
     try {
-      type ListOperation =
-        | { type: "add"; listId: string }
-        | { type: "remove"; listId: string }
-      const forwardOps: ListOperation[] = []
-      const undoOps: ListOperation[] = []
-
       const mediaItem = buildMediaItem()
+      const mediaIdString = String(mediaId)
+      const forwardOps: PreparedListOperation[] = []
+      const undoOps: PreparedListOperation[] = []
 
-      const applyListOperations = async (operations: ListOperation[]) => {
-        await Promise.all(
-          operations.map((operation) =>
-            operation.type === "add"
-              ? addToList(operation.listId, mediaItem)
-              : removeFromList(operation.listId, String(mediaId)),
-          ),
-        )
+      const applyListOperations = async (
+        operations: PreparedListOperation[],
+      ) => {
+        const successfulOperations: PreparedListOperation[] = []
+
+        for (const operation of operations) {
+          try {
+            if (operation.type === "add") {
+              await addToList(operation.listId, operation.mediaItem)
+            } else {
+              await removeFromList(operation.listId, operation.mediaId)
+            }
+
+            successfulOperations.push(operation)
+          } catch (error) {
+            console.error(
+              `Failed to ${operation.type} item for list "${operation.listName}":`,
+              error,
+            )
+
+            const rollbackFailures: string[] = []
+
+            for (const successfulOperation of [
+              ...successfulOperations,
+            ].reverse()) {
+              try {
+                if (successfulOperation.type === "add") {
+                  await removeFromList(
+                    successfulOperation.listId,
+                    successfulOperation.rollbackMediaId,
+                  )
+                } else {
+                  await addToList(
+                    successfulOperation.listId,
+                    successfulOperation.rollbackMediaItem,
+                  )
+                }
+              } catch (rollbackError) {
+                console.error(
+                  `Failed to rollback ${successfulOperation.type} for list "${successfulOperation.listName}":`,
+                  rollbackError,
+                )
+                rollbackFailures.push(successfulOperation.listName)
+              }
+            }
+
+            const rollbackMessage =
+              rollbackFailures.length === 0
+                ? "Any earlier changes were rolled back."
+                : `Rollback failed for ${formatListNames(rollbackFailures)}.`
+
+            throw new Error(
+              `Failed to update "${operation.listName}". ${rollbackMessage}`,
+            )
+          }
+        }
       }
 
       // Process each list
       lists.forEach((list) => {
         const wasInList = isInList(list.id)
         const isNowSelected = selectedLists.has(list.id)
+        const existingItemEntry = getStoredListItemEntry(
+          list,
+          mediaId,
+          mediaKey,
+        )
 
         if (!wasInList && isNowSelected) {
-          forwardOps.push({ type: "add", listId: list.id })
-          undoOps.push({ type: "remove", listId: list.id })
+          forwardOps.push({
+            type: "add",
+            listId: list.id,
+            listName: list.name,
+            mediaItem,
+            rollbackMediaId: mediaIdString,
+          })
+          undoOps.push({
+            type: "remove",
+            listId: list.id,
+            listName: list.name,
+            mediaId: mediaIdString,
+            rollbackMediaItem: mediaItem,
+          })
         } else if (wasInList && !isNowSelected) {
-          forwardOps.push({ type: "remove", listId: list.id })
-          undoOps.push({ type: "add", listId: list.id })
+          if (!existingItemEntry) {
+            throw new Error(
+              `Couldn't prepare an update for "${list.name}". Please try again.`,
+            )
+          }
+
+          const originalMediaItem = stripAddedAt(existingItemEntry.item)
+
+          forwardOps.push({
+            type: "remove",
+            listId: list.id,
+            listName: list.name,
+            mediaId: existingItemEntry.itemKey,
+            rollbackMediaItem: originalMediaItem,
+          })
+          undoOps.push({
+            type: "add",
+            listId: list.id,
+            listName: list.name,
+            mediaItem: originalMediaItem,
+            rollbackMediaId: mediaIdString,
+          })
         }
       })
 
@@ -270,12 +421,32 @@ export function AddToListModal({
             action: {
               label: "Undo",
               onClick: async () => {
-                await applyListOperations(undoOps)
+                try {
+                  await applyListOperations(undoOps)
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to undo changes",
+                  )
+                  return
+                }
+
                 showActionableSuccessToast("Changes undone", {
                   action: {
                     label: "Redo",
                     onClick: async () => {
-                      await applyListOperations(forwardOps)
+                      try {
+                        await applyListOperations(forwardOps)
+                      } catch (error) {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Failed to redo changes",
+                        )
+                        return
+                      }
+
                       showUpdatedListsToast()
                     },
                     errorMessage: "Failed to redo changes",
@@ -303,7 +474,11 @@ export function AddToListModal({
       handleClose()
     } catch (error) {
       console.error("Error saving lists:", error)
-      toast.error("Failed to update lists. Please try again.")
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update lists. Please try again.",
+      )
     } finally {
       setIsSaving(false)
     }
@@ -315,6 +490,7 @@ export function AddToListModal({
     addToList,
     removeFromList,
     mediaId,
+    mediaKey,
     isInList,
     handleClose,
     displayTitle,
@@ -371,20 +547,54 @@ export function AddToListModal({
       // Create the list
       const listId = await createList(newListName.trim())
       const createdListName = newListName.trim()
-
       const mediaItem = buildMediaItem()
+      const createdMediaId = String(mediaItem.id)
 
       // Add the media to the new list
       await addToList(listId, mediaItem)
+
+      const undoCreateAndAdd = async () => {
+        const currentList = await fetchUserList(user.uid, listId)
+
+        if (!currentList) {
+          return
+        }
+
+        const currentItemEntry = getStoredListItemEntry(
+          currentList,
+          mediaItem.id,
+          mediaKey,
+        )
+        const currentItemCount = Object.keys(currentList.items ?? {}).length
+        const isUnchangedCreatedList =
+          currentList.name === createdListName &&
+          currentItemCount === 1 &&
+          currentItemEntry?.itemKey === createdMediaId
+
+        if (isUnchangedCreatedList) {
+          await deleteList(listId)
+          return
+        }
+
+        if (!currentItemEntry) {
+          console.info(
+            `Undo skipped deleting "${currentList.name}" because the originally added item is already gone.`,
+          )
+          return
+        }
+
+        console.info(
+          `Undo preserved changes to "${currentList.name}" and removed only the originally added item.`,
+        )
+        await removeFromList(listId, currentItemEntry.itemKey)
+      }
 
       showActionableSuccessToast(
         `Created "${createdListName}" and added ${displayTitle}`,
         {
           action: {
             label: "Undo",
-            onClick: async () => {
-              await deleteList(listId)
-            },
+            onClick: undoCreateAndAdd,
             errorMessage: "Failed to undo list creation",
             logMessage: "Failed to undo create-and-add list flow:",
           },
@@ -405,7 +615,9 @@ export function AddToListModal({
     buildMediaItem,
     createList,
     deleteList,
+    removeFromList,
     isPremiumCheckPending,
+    mediaKey,
     newListName,
     premiumStatus,
     shouldRunFreeUserLimitCheck,
@@ -769,7 +981,7 @@ export function AddToListModal({
               Are you sure you want to delete &quot;{listToDelete?.name}&quot;?
               This will remove all{" "}
               {Object.keys(listToDelete?.items || {}).length} items from this
-              list. This action cannot be undone.
+              list. You can undo this from the success toast.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

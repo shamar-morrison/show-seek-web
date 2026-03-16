@@ -1,6 +1,6 @@
-import { restoreList } from "@/lib/firebase/lists"
-import { doc, setDoc } from "firebase/firestore"
-import { describe, expect, it, vi } from "vitest"
+import { fetchUserList, restoreList } from "@/lib/firebase/lists"
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const dbMock = {}
 
@@ -15,12 +15,56 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db, ...segments: string[]) => ({
     path: segments.join("/"),
   })),
+  getDoc: vi.fn(),
   getDocs: vi.fn(),
   runTransaction: vi.fn(),
   serverTimestamp: vi.fn(() => "server-timestamp"),
   setDoc: vi.fn(async () => {}),
   updateDoc: vi.fn(),
 }))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
+describe("fetchUserList", () => {
+  it("returns a single list when the document exists", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Road Trip",
+        items: {},
+        createdAt: 1234,
+        isCustom: true,
+      }),
+      exists: () => true,
+      id: "road-trip",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    await expect(fetchUserList("user-1", "road-trip")).resolves.toEqual({
+      id: "road-trip",
+      name: "Road Trip",
+      items: {},
+      createdAt: 1234,
+      isCustom: true,
+    })
+
+    expect(doc).toHaveBeenCalledWith(
+      dbMock,
+      "users",
+      "user-1",
+      "lists",
+      "road-trip",
+    )
+  })
+
+  it("returns null when the list document does not exist", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      exists: () => false,
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    await expect(fetchUserList("user-1", "missing")).resolves.toBeNull()
+  })
+})
 
 describe("restoreList", () => {
   it("restores a deleted custom list with its original id and items", async () => {
@@ -40,7 +84,13 @@ describe("restoreList", () => {
       updatedAt: 5678,
     })
 
-    expect(doc).toHaveBeenCalledWith(dbMock, "users", "user-1", "lists", "road-trip")
+    expect(doc).toHaveBeenCalledWith(
+      dbMock,
+      "users",
+      "user-1",
+      "lists",
+      "road-trip",
+    )
     expect(setDoc).toHaveBeenCalledWith(
       { path: "users/user-1/lists/road-trip" },
       {
