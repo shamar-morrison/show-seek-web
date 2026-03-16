@@ -1,4 +1,4 @@
-import { fetchUserList, restoreList } from "@/lib/firebase/lists"
+import { addToList, fetchUserList, restoreList } from "@/lib/firebase/lists"
 import { doc, getDoc, runTransaction } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -65,6 +65,24 @@ async function runRestoreListWithCurrentDoc(currentDoc: {
   return { restored, transaction }
 }
 
+async function runAddToListWithCurrentDoc(currentDoc: {
+  exists: () => boolean
+  data?: () => Record<string, unknown>
+}, mediaItem: Parameters<typeof addToList>[2]) {
+  const transaction = {
+    get: vi.fn().mockResolvedValue(currentDoc),
+    set: vi.fn(),
+  }
+
+  vi.mocked(runTransaction).mockImplementation(async (_db, callback) => {
+    return (await callback(transaction as never)) as never
+  })
+
+  const wasAdded = await addToList("user-1", "watchlist", mediaItem)
+
+  return { wasAdded, transaction }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -105,6 +123,84 @@ describe("fetchUserList", () => {
     } as Awaited<ReturnType<typeof getDoc>>)
 
     await expect(fetchUserList("user-1", "missing")).resolves.toBeNull()
+  })
+})
+
+describe("addToList", () => {
+  it("preserves a provided addedAt timestamp", async () => {
+    const { wasAdded, transaction } = await runAddToListWithCurrentDoc(
+      {
+        exists: () => false,
+      },
+      {
+        id: 123,
+        title: "Mad Max",
+        poster_path: null,
+        media_type: "movie",
+        addedAt: 111,
+      },
+    )
+
+    expect(wasAdded).toBe(true)
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/watchlist" },
+      {
+        name: "Should Watch",
+        items: {
+          "123": {
+            id: 123,
+            title: "Mad Max",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 111,
+          },
+        },
+        updatedAt: "server-timestamp",
+        createdAt: "server-timestamp",
+      },
+    )
+  })
+
+  it("defaults addedAt when one is not provided", async () => {
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(9999)
+
+    try {
+      const { wasAdded, transaction } = await runAddToListWithCurrentDoc(
+        {
+          exists: () => true,
+          data: () => ({
+            items: {},
+          }),
+        },
+        {
+          id: 123,
+          title: "Mad Max",
+          poster_path: null,
+          media_type: "movie",
+        },
+      )
+
+      expect(wasAdded).toBe(true)
+      expect(transaction.set).toHaveBeenCalledWith(
+        { path: "users/user-1/lists/watchlist" },
+        {
+          name: "Should Watch",
+          items: {
+            "123": {
+              id: 123,
+              title: "Mad Max",
+              poster_path: null,
+              media_type: "movie",
+              addedAt: 9999,
+            },
+          },
+          updatedAt: "server-timestamp",
+        },
+        { merge: true },
+      )
+    } finally {
+      nowSpy.mockRestore()
+    }
   })
 })
 

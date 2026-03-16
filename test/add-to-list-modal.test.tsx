@@ -141,6 +141,15 @@ describe("AddToListModal", () => {
 
   it("uses the latest display title in the save toast after preferences change", async () => {
     const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {},
+        createdAt: 0,
+        isCustom: false,
+      },
+    ]
     const { rerender } = render(
       <AddToListModal
         isOpen={true}
@@ -150,6 +159,7 @@ describe("AddToListModal", () => {
       />,
     )
 
+    await user.click(screen.getByText("Should Watch"))
     await user.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => {
@@ -169,6 +179,7 @@ describe("AddToListModal", () => {
       />,
     )
 
+    await user.click(screen.getByText("Should Watch"))
     await user.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => {
@@ -269,7 +280,7 @@ describe("AddToListModal", () => {
     expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument()
   })
 
-  it("shows an info toast when delete undo is skipped because a newer list exists", async () => {
+  it("shows a neutral info toast when delete undo is skipped", async () => {
     const user = userEvent.setup()
     mocks.lists = [
       {
@@ -330,9 +341,7 @@ describe("AddToListModal", () => {
       createdAt: 1,
       isCustom: true,
     })
-    expect(mocks.toastInfo).toHaveBeenCalledWith(
-      "List was not restored because a newer version already exists.",
-    )
+    expect(mocks.toastInfo).toHaveBeenCalledWith("List was not restored.")
   })
 
   it("undoes custom list creation by deleting an unchanged just-created list", async () => {
@@ -419,6 +428,38 @@ describe("AddToListModal", () => {
     expect(mocks.deleteList).not.toHaveBeenCalled()
   })
 
+  it("shows an info toast instead of a success toast when there are no changes to save", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {},
+        createdAt: 0,
+        isCustom: false,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={onClose}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(mocks.toastInfo).toHaveBeenCalledWith("No changes to save")
+    })
+
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it("rolls back partial save failures and shows a detailed error", async () => {
     const user = userEvent.setup()
     const removeError = new Error("remove failed")
@@ -473,5 +514,66 @@ describe("AddToListModal", () => {
     )
     expect(mocks.removeFromList).toHaveBeenNthCalledWith(1, "classics", "123")
     expect(mocks.removeFromList).toHaveBeenNthCalledWith(2, "watchlist", "123")
+  })
+
+  it("preserves addedAt when rolling back a removal after a later failure", async () => {
+    const user = userEvent.setup()
+    const addError = new Error("add failed")
+    mocks.lists = [
+      {
+        id: "classics",
+        name: "Classics",
+        items: {
+          "123": createListItem(),
+        },
+        createdAt: 1,
+        isCustom: true,
+      },
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {},
+        createdAt: 0,
+        isCustom: false,
+      },
+    ]
+    mocks.addToList.mockRejectedValueOnce(addError).mockResolvedValueOnce(true)
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByText("Should Watch"))
+    await user.click(screen.getByRole("button", { name: "Custom Lists" }))
+    await user.click(screen.getByText("Classics"))
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        'Failed to update "Should Watch". Any earlier changes were rolled back.',
+      )
+    })
+
+    expect(mocks.removeFromList).toHaveBeenCalledWith("classics", "123")
+    expect(mocks.addToList).toHaveBeenNthCalledWith(
+      1,
+      "watchlist",
+      expect.objectContaining({
+        id: 123,
+      }),
+    )
+    expect(mocks.addToList).toHaveBeenNthCalledWith(
+      2,
+      "classics",
+      expect.objectContaining({
+        id: 123,
+        addedAt: 111,
+      }),
+    )
   })
 })

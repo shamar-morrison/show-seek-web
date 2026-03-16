@@ -9,7 +9,7 @@ import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   DEFAULT_LIST_IDS,
   DEFAULT_LISTS,
-  ListMediaItem,
+  ListWriteMediaItem,
   UserList,
 } from "@/types/list"
 import {
@@ -69,9 +69,7 @@ function getListsCollectionRef(userId: string) {
   return collection(getFirebaseDb(), "users", userId, "lists")
 }
 
-function isTimestampLike(
-  value: unknown,
-): value is { toMillis: () => number } {
+function isTimestampLike(value: unknown): value is { toMillis: () => number } {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -134,15 +132,16 @@ export async function fetchUserList(
 export async function addToList(
   userId: string,
   listId: string,
-  mediaItem: Omit<ListMediaItem, "addedAt">,
+  mediaItem: ListWriteMediaItem,
 ): Promise<boolean> {
   const listRef = getListRef(userId, listId)
   // Use numeric ID as key to match mobile app format
   const itemKey = String(mediaItem.id)
 
+  const addedAt = mediaItem.addedAt ?? Date.now()
   const sanitizedItem = sanitizeForFirestore({
     ...mediaItem,
-    addedAt: Date.now(),
+    addedAt,
   })
 
   // Get the list name - for default lists, use the name from DEFAULT_LISTS

@@ -62,7 +62,7 @@ type PreparedListOperation =
       type: "add"
       listId: string
       listName: string
-      mediaItem: Omit<ListMediaItem, "addedAt">
+      mediaItem: ListMediaItem
       rollbackMediaId: string
     }
   | {
@@ -70,7 +70,7 @@ type PreparedListOperation =
       listId: string
       listName: string
       mediaId: string
-      rollbackMediaItem: Omit<ListMediaItem, "addedAt">
+      rollbackMediaItem: ListMediaItem
     }
 
 interface AddToListModalProps {
@@ -82,14 +82,6 @@ interface AddToListModalProps {
   media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
   /** Media type */
   mediaType: "movie" | "tv"
-}
-
-function stripAddedAt({
-  addedAt,
-  ...mediaItem
-}: ListMediaItem): Omit<ListMediaItem, "addedAt"> {
-  void addedAt
-  return mediaItem
 }
 
 function getStoredListItemEntry(
@@ -261,12 +253,13 @@ export function AddToListModal({
     [lists, mediaId, mediaKey],
   )
 
-  const buildMediaItem = useCallback((): Omit<ListMediaItem, "addedAt"> => {
-    const mediaItem: Omit<ListMediaItem, "addedAt"> = {
+  const buildMediaItem = useCallback((): ListMediaItem => {
+    const mediaItem: ListMediaItem = {
       id: mediaId,
       title: title || "Unknown",
       poster_path: "poster_path" in media ? media.poster_path : null,
       media_type: mediaType,
+      addedAt: Date.now(),
       vote_average: "vote_average" in media ? media.vote_average : 0,
       genre_ids:
         "genre_ids" in media
@@ -394,7 +387,7 @@ export function AddToListModal({
             )
           }
 
-          const originalMediaItem = stripAddedAt(existingItemEntry.item)
+          const originalMediaItem = existingItemEntry.item
 
           forwardOps.push({
             type: "remove",
@@ -415,7 +408,7 @@ export function AddToListModal({
 
       await applyListOperations(forwardOps)
 
-      if (undoOps.length > 0) {
+      if (forwardOps.length > 0) {
         const showUpdatedListsToast = () => {
           showActionableSuccessToast(`Updated lists for ${displayTitle}`, {
             action: {
@@ -462,13 +455,7 @@ export function AddToListModal({
 
         showUpdatedListsToast()
       } else {
-        showActionableSuccessToast(`Updated lists for ${displayTitle}`, {
-          action: {
-            label: "Close",
-            onClick: () => undefined,
-            errorMessage: "Failed to close toast",
-          },
-        })
+        toast.info("No changes to save")
       }
 
       handleClose()
@@ -668,9 +655,7 @@ export function AddToListModal({
             const restored = await restoreList(user.uid, deletedList)
 
             if (!restored) {
-              toast.info(
-                "List was not restored because a newer version already exists.",
-              )
+              toast.info("List was not restored.")
             }
           },
           errorMessage: "Failed to restore deleted list",
