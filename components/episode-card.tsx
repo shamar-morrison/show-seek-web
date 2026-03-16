@@ -31,7 +31,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useCallback, useMemo, useState } from "react"
-import { toast } from "sonner"
 
 interface EpisodeCardProps {
   episode: TMDBSeasonEpisode
@@ -178,7 +177,8 @@ export function EpisodeCard({
         showActionableSuccessToast("Added to Watching list", {
           action: {
             label: "Undo",
-            onClick: () => removeFromList("currently-watching", String(tvShowId)),
+            onClick: () =>
+              removeFromList("currently-watching", String(tvShowId)),
             errorMessage: "Failed to remove from Watching list",
             logMessage: "Failed to undo auto-add to Watching list:",
           },

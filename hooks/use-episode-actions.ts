@@ -33,6 +33,46 @@ interface UseEpisodeActionsOptions {
   tvShowPosterPath: string | null
 }
 
+async function runFavoriteEpisodeToggleWithToast({
+  episode,
+  favoriteActionLoading,
+  nextIsFavorited,
+  toggleEpisode,
+}: {
+  episode: Omit<FavoriteEpisode, "addedAt">
+  favoriteActionLoading: boolean
+  nextIsFavorited: boolean
+  toggleEpisode: UseEpisodeActionsOptions["toggleEpisode"]
+}) {
+  if (favoriteActionLoading) return
+
+  await toggleEpisode({
+    isFavorited: nextIsFavorited,
+    episode,
+  })
+
+  const message = nextIsFavorited
+    ? "Removed from favorite episodes"
+    : "Added to favorite episodes"
+
+  showActionableSuccessToast(message, {
+    action: {
+      label: "Undo",
+      onClick: () =>
+        runFavoriteEpisodeToggleWithToast({
+          episode,
+          favoriteActionLoading,
+          nextIsFavorited: !nextIsFavorited,
+          toggleEpisode,
+        }),
+      errorMessage: nextIsFavorited
+        ? "Failed to restore favorite episode"
+        : "Failed to remove favorite episode",
+      logMessage: "Failed to undo favorite episode toggle:",
+    },
+  })
+}
+
 export function useEpisodeActions({
   episode,
   favoriteActionLoading,
@@ -66,29 +106,13 @@ export function useEpisodeActions({
   ])
 
   const runFavoriteToggleWithToast = useCallback(
-    async (nextIsFavorited: boolean) => {
-      if (favoriteActionLoading) return
-
-      await toggleEpisode({
-        isFavorited: nextIsFavorited,
+    (nextIsFavorited: boolean) =>
+      runFavoriteEpisodeToggleWithToast({
         episode: favoriteEpisodePayload,
-      })
-
-      const message = nextIsFavorited
-        ? "Removed from favorite episodes"
-        : "Added to favorite episodes"
-
-      showActionableSuccessToast(message, {
-        action: {
-          label: "Undo",
-          onClick: () => runFavoriteToggleWithToast(!nextIsFavorited),
-          errorMessage: nextIsFavorited
-            ? "Failed to restore favorite episode"
-            : "Failed to remove favorite episode",
-          logMessage: "Failed to undo favorite episode toggle:",
-        },
-      })
-    },
+        favoriteActionLoading,
+        nextIsFavorited,
+        toggleEpisode,
+      }),
     [favoriteActionLoading, favoriteEpisodePayload, toggleEpisode],
   )
 
