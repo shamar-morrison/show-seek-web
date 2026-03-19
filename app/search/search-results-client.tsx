@@ -1,6 +1,6 @@
 "use client"
 
-import { searchMedia } from "@/app/actions"
+import { searchMedia } from "@/app/server-actions/search"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PersonSearchCard } from "@/components/person-search-card"
 import { TrailerModal } from "@/components/trailer-modal"

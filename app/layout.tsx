@@ -4,8 +4,6 @@ import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
-import NextTopLoader from "nextjs-toploader"
-import { Toaster } from "sonner"
 import "./globals.css"
 
 const inter = Inter({
@@ -64,12 +62,10 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} antialiased font-sans`}>
         <Providers>
-          <NextTopLoader color="#E50914" showSpinner={false} />
           <Navbar />
           {children}
           <Analytics />
           <Footer />
-          <Toaster position="top-center" richColors theme="dark" />
         </Providers>
       </body>
     </html>

@@ -37,7 +37,6 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -48,6 +47,8 @@ interface CustomListsClientProps {
   tvGenres?: Genre[]
   /** Error message if genre fetch failed */
   genreFetchError?: string
+  /** Optional list ID parsed from the URL on the server */
+  initialListId?: string
 }
 
 /**
@@ -58,11 +59,10 @@ export function CustomListsClient({
   movieGenres = [],
   tvGenres = [],
   genreFetchError,
+  initialListId,
 }: CustomListsClientProps) {
   const { user } = useAuth()
   const { lists, loading, error, removeList, updateList } = useLists()
-  const searchParams = useSearchParams()
-  const listIdFromUrl = searchParams.get("listId")
   const [selectedListId, setSelectedListId] = useState<string>("")
 
   // Show toast if genre fetch failed
@@ -81,31 +81,30 @@ export function CustomListsClient({
 
   // Filter to only custom lists
   const customLists = useMemo(() => lists.filter((l) => l.isCustom), [lists])
+  const urlSelectedListId = initialListId?.trim() || null
+  const effectiveSelectedListId = useMemo(() => {
+    if (
+      urlSelectedListId &&
+      customLists.some((list) => list.id === urlSelectedListId)
+    ) {
+      return urlSelectedListId
+    }
+
+    if (
+      selectedListId &&
+      customLists.some((list) => list.id === selectedListId)
+    ) {
+      return selectedListId
+    }
+
+    return customLists[0]?.id ?? ""
+  }, [customLists, selectedListId, urlSelectedListId])
 
   // Get current active list
   const activeList = useMemo(
-    () => customLists.find((l) => l.id === selectedListId),
-    [customLists, selectedListId],
+    () => customLists.find((l) => l.id === effectiveSelectedListId),
+    [customLists, effectiveSelectedListId],
   )
-
-  // Update selected list when lists load or active list is deleted
-  // Prioritize URL param if provided and valid
-  useEffect(() => {
-    if (!loading && customLists.length > 0) {
-      // Prioritize URL param if provided and valid
-      if (listIdFromUrl && customLists.find((l) => l.id === listIdFromUrl)) {
-        setSelectedListId(listIdFromUrl)
-        return
-      }
-      // Fallback to existing logic
-      if (
-        !selectedListId ||
-        !customLists.find((l) => l.id === selectedListId)
-      ) {
-        setSelectedListId(customLists[0].id)
-      }
-    }
-  }, [loading, customLists, selectedListId, listIdFromUrl])
 
   // Action Menu Items
   const menuItems: ActionMenuItem[] = useMemo(
@@ -181,7 +180,6 @@ export function CustomListsClient({
         },
       })
       setIsDeleteDialogOpen(false)
-      // Selection update is handled by the useEffect
     } catch (error) {
       console.error("Failed to delete list:", error)
       toast.error("Failed to delete list")
@@ -201,7 +199,7 @@ export function CustomListsClient({
         noListsMessage="Create your first custom list to organize your favorites"
         movieGenres={movieGenres}
         tvGenres={tvGenres}
-        selectedListId={selectedListId}
+        selectedListId={effectiveSelectedListId}
         onListSelect={setSelectedListId}
         showDynamicHeader={true}
         headerAction={

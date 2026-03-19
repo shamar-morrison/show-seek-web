@@ -7,11 +7,22 @@ export const metadata: Metadata = {
   description: "Manage your custom movie and TV show lists",
 }
 
+interface CustomListsPageProps {
+  searchParams: Promise<{ listId?: string | string[] }>
+}
+
 /**
  * Custom Lists Page
  * Displays user's custom lists with tab navigation and search filtering
  */
-export default async function CustomListsPage() {
+export default async function CustomListsPage({
+  searchParams,
+}: CustomListsPageProps) {
+  const params = await searchParams
+  const initialListId = Array.isArray(params.listId)
+    ? params.listId[0]
+    : params.listId
+
   // Fetch genres in parallel - these are cached indefinitely
   const [movieGenres, tvGenres] = await Promise.all([
     getMovieGenres(),
@@ -30,6 +41,7 @@ export default async function CustomListsPage() {
         movieGenres={movieGenres}
         tvGenres={tvGenres}
         genreFetchError={genreFetchError}
+        initialListId={initialListId}
       />
     </>
   )
