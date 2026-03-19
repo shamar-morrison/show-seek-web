@@ -6,7 +6,7 @@ import {
   createList as createListInFirestore,
   deleteList as deleteListInFirestore,
   removeFromList as removeFromListInFirestore,
-  renameList as renameListInFirestore,
+  updateList as updateListInFirestore,
 } from "@/lib/firebase/lists"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import {
@@ -77,6 +77,37 @@ function removeItemFromCachedLists(
       items: nextItems,
       updatedAt: Date.now(),
     }
+  })
+}
+
+function updateListInCachedLists(
+  lists: UserList[],
+  listId: string,
+  newName: string,
+  description?: string,
+): UserList[] {
+  const trimmedName = newName.trim()
+  const hasDescriptionUpdate = description !== undefined
+  const trimmedDescription = description?.trim()
+
+  return lists.map((list) => {
+    if (list.id !== listId) return list
+
+    const nextList: UserList = {
+      ...list,
+      name: trimmedName,
+      updatedAt: Date.now(),
+    }
+
+    if (hasDescriptionUpdate) {
+      if (trimmedDescription) {
+        nextList.description = trimmedDescription
+      } else {
+        delete nextList.description
+      }
+    }
+
+    return nextList
   })
 }
 
@@ -228,22 +259,27 @@ export function useListMutations() {
     },
   })
 
-  const renameListMutation = useListOptimisticMutation({
+  const updateListMutation = useListOptimisticMutation({
     mutationFn: async ({
       listId,
       newName,
+      description,
     }: {
       listId: string
       newName: string
+      description?: string
     }) => {
       const uid = assertUserId(userId)
-      return renameListInFirestore(uid, listId, newName)
+      return updateListInFirestore(uid, listId, newName, description)
     },
     optimisticUpdate: ({ previousLists, variables }) => {
       if (!previousLists) return {}
       return {
-        nextLists: previousLists.map((list) =>
-          list.id === variables.listId ? { ...list, name: variables.newName } : list,
+        nextLists: updateListInCachedLists(
+          previousLists,
+          variables.listId,
+          variables.newName,
+          variables.description,
         ),
       }
     },
@@ -269,15 +305,25 @@ export function useListMutations() {
       removeFromListMutation.mutateAsync({ listId, mediaId }),
     createList: async (name: string, description?: string) =>
       createListMutation.mutateAsync({ name, description }),
-    renameList: async (listId: string, newName: string) =>
-      renameListMutation.mutateAsync({ listId, newName }),
+    updateList: async (
+      listId: string,
+      newName: string,
+      description?: string,
+    ) =>
+      updateListMutation.mutateAsync({ listId, newName, description }),
+    renameList: async (
+      listId: string,
+      newName: string,
+      description?: string,
+    ) =>
+      updateListMutation.mutateAsync({ listId, newName, description }),
     deleteList: async (listId: string) =>
       deleteListMutation.mutateAsync({ listId }),
     isMutating:
       addToListMutation.isPending ||
       removeFromListMutation.isPending ||
       createListMutation.isPending ||
-      renameListMutation.isPending ||
+      updateListMutation.isPending ||
       deleteListMutation.isPending,
   }
 }

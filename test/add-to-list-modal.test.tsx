@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
     showOriginalTitles: false,
   },
   removeFromList: vi.fn(),
-  renameList: vi.fn(),
+  updateList: vi.fn(),
   restoreList: vi.fn(),
   toastError: vi.fn(),
   toastInfo: vi.fn(),
@@ -36,7 +36,8 @@ vi.mock("@/hooks/use-list-mutations", () => ({
     addToList: mocks.addToList,
     removeFromList: mocks.removeFromList,
     createList: mocks.createList,
-    renameList: mocks.renameList,
+    updateList: mocks.updateList,
+    renameList: mocks.updateList,
     deleteList: mocks.deleteList,
   }),
 }))
@@ -133,7 +134,7 @@ describe("AddToListModal", () => {
     mocks.createList.mockResolvedValue("new-list")
     mocks.addToList.mockResolvedValue(true)
     mocks.removeFromList.mockResolvedValue(undefined)
-    mocks.renameList.mockResolvedValue(undefined)
+    mocks.updateList.mockResolvedValue(undefined)
     mocks.deleteList.mockResolvedValue(undefined)
     mocks.fetchUserList.mockResolvedValue(null)
     mocks.restoreList.mockResolvedValue(true)
@@ -268,6 +269,53 @@ describe("AddToListModal", () => {
       expect(mocks.createList).toHaveBeenCalledWith(
         "Favorites",
         "Weekend picks",
+      )
+    })
+  })
+
+  it("passes both the edited name and description through when updating a list from the manage modal", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        description: "Weekend plans",
+        items: {
+          "123": createListItem(),
+        },
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Manage" }))
+
+    const row = screen.getByTestId("custom-list-row-road-trip")
+    await user.click(within(row).getAllByRole("button")[0])
+
+    await user.clear(screen.getByLabelText("List name"))
+    await user.type(screen.getByLabelText("List name"), "Desert Escape")
+    await user.clear(screen.getByLabelText("Description (optional)"))
+    await user.type(
+      screen.getByLabelText("Description (optional)"),
+      "Sand and sunsets",
+    )
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    await waitFor(() => {
+      expect(mocks.updateList).toHaveBeenCalledWith(
+        "road-trip",
+        "Desert Escape",
+        "Sand and sunsets",
       )
     })
   })

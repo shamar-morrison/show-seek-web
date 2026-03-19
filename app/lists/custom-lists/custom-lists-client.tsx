@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
@@ -37,7 +38,7 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface CustomListsClientProps {
@@ -73,11 +74,14 @@ export function CustomListsClient({
   }, [genreFetchError])
 
   // Dialog states
-  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newName, setNewName] = useState("")
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const editListNameId = useId()
+  const editListDescriptionId = useId()
 
   // Filter to only custom lists
   const customLists = useMemo(() => lists.filter((l) => l.isCustom), [lists])
@@ -112,12 +116,13 @@ export function CustomListsClient({
       {
         type: "action",
         key: "edit",
-        label: "Edit List Name",
+        label: "Edit List Details",
         icon: Edit02Icon,
         onClick: () => {
           if (activeList) {
-            setNewName(activeList.name)
-            setIsRenameDialogOpen(true)
+            setEditName(activeList.name)
+            setEditDescription(activeList.description?.trim() || "")
+            setIsEditDialogOpen(true)
           }
         },
       },
@@ -137,29 +142,37 @@ export function CustomListsClient({
     [activeList],
   )
 
-  const handleRename = useCallback(async () => {
-    if (!activeList || !newName.trim()) return
+  const handleEdit = useCallback(async () => {
+    if (!activeList || !user || !editName.trim()) return
 
     setIsProcessing(true)
     try {
+      const listId = activeList.id
       const previousName = activeList.name
-      await updateList(activeList.id, newName.trim())
-      showActionableSuccessToast("List renamed successfully", {
+      const previousDescription = activeList.description?.trim() || ""
+      const nextName = editName.trim()
+      const nextDescription = editDescription
+
+      await updateList(listId, nextName, nextDescription)
+      showActionableSuccessToast("List details updated successfully", {
         action: {
           label: "Undo",
-          onClick: () => updateList(activeList.id, previousName),
-          errorMessage: "Failed to undo list rename",
-          logMessage: "Failed to undo custom list rename:",
+          onClick: () =>
+            updateList(listId, previousName, previousDescription),
+          errorMessage: "Failed to undo list edit",
+          logMessage: "Failed to undo custom list edit:",
         },
       })
-      setIsRenameDialogOpen(false)
+      setIsEditDialogOpen(false)
+      setEditName("")
+      setEditDescription("")
     } catch (error) {
-      console.error("Failed to rename list:", error)
-      toast.error("Failed to rename list")
+      console.error("Failed to update list:", error)
+      toast.error("Failed to update list")
     } finally {
       setIsProcessing(false)
     }
-  }, [activeList, newName, updateList])
+  }, [activeList, editDescription, editName, updateList, user])
 
   const handleDelete = useCallback(async () => {
     if (!activeList || !user) return
@@ -187,6 +200,13 @@ export function CustomListsClient({
       setIsProcessing(false)
     }
   }, [activeList, removeList, user])
+
+  const handleCloseEditDialog = useCallback(() => {
+    if (isProcessing) return
+    setIsEditDialogOpen(false)
+    setEditName("")
+    setEditDescription("")
+  }, [isProcessing])
 
   return (
     <>
@@ -227,23 +247,38 @@ export function CustomListsClient({
         }
       />
 
-      {/* Rename Dialog */}
-      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent>
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={handleCloseEditDialog}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename List</DialogTitle>
+            <DialogTitle>Edit List Details</DialogTitle>
             <DialogDescription>
-              Enter a new name for your list.
+              Update the name and description for your custom list.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor={editListNameId}>List name</Label>
               <Input
-                id="name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="List Name"
+                id={editListNameId}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="List name"
+                disabled={isProcessing}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={editListDescriptionId}>
+                Description (optional)
+              </Label>
+              <Textarea
+                id={editListDescriptionId}
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="What is this list for?"
+                maxLength={120}
+                rows={4}
+                className="min-h-24 resize-none"
                 disabled={isProcessing}
               />
             </div>
@@ -251,14 +286,14 @@ export function CustomListsClient({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsRenameDialogOpen(false)}
+              onClick={handleCloseEditDialog}
               disabled={isProcessing}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleRename}
-              disabled={isProcessing || !activeList || !newName.trim()}
+              onClick={handleEdit}
+              disabled={isProcessing || !activeList || !user || !editName.trim()}
             >
               {isProcessing && (
                 <HugeiconsIcon

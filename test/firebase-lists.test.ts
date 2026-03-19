@@ -3,8 +3,15 @@ import {
   createList,
   fetchUserList,
   restoreList,
+  updateList,
 } from "@/lib/firebase/lists"
-import { doc, getDoc, runTransaction } from "firebase/firestore"
+import {
+  deleteField,
+  doc,
+  getDoc,
+  runTransaction,
+  updateDoc,
+} from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const dbMock = {}
@@ -16,7 +23,7 @@ vi.mock("@/lib/firebase/config", () => ({
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(),
   deleteDoc: vi.fn(),
-  deleteField: vi.fn(),
+  deleteField: vi.fn(() => "delete-field-token"),
   doc: vi.fn((_db, ...segments: string[]) => ({
     path: segments.join("/"),
   })),
@@ -170,6 +177,53 @@ describe("createList", () => {
         items: {},
         createdAt: "server-timestamp",
         isCustom: true,
+      },
+    )
+  })
+})
+
+describe("updateList", () => {
+  it("trims the name and description when updating a list", async () => {
+    await updateList(
+      "user-1",
+      "road-trip",
+      "  Road Trip  ",
+      "  Weekend plans for the drive  ",
+    )
+
+    expect(updateDoc).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/road-trip" },
+      {
+        name: "Road Trip",
+        description: "Weekend plans for the drive",
+        updatedAt: "server-timestamp",
+      },
+    )
+    expect(deleteField).not.toHaveBeenCalled()
+  })
+
+  it("clears the description when blank text is provided", async () => {
+    await updateList("user-1", "road-trip", "Road Trip", "   ")
+
+    expect(deleteField).toHaveBeenCalled()
+    expect(updateDoc).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/road-trip" },
+      {
+        name: "Road Trip",
+        description: "delete-field-token",
+        updatedAt: "server-timestamp",
+      },
+    )
+  })
+
+  it("leaves the description untouched when it is omitted", async () => {
+    await updateList("user-1", "road-trip", "Road Trip")
+
+    expect(updateDoc).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/road-trip" },
+      {
+        name: "Road Trip",
+        updatedAt: "server-timestamp",
       },
     )
   })

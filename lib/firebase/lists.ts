@@ -322,21 +322,33 @@ export async function deleteList(
 }
 
 /**
- * Rename a custom list
- * Throws an error if attempting to rename a default list
+ * Update a custom list's name and optional description.
+ * Throws an error if attempting to update a default list.
  */
-export async function renameList(
+export async function updateList(
   userId: string,
   listId: string,
   newName: string,
+  description?: string,
 ): Promise<void> {
   if (DEFAULT_LIST_IDS.has(listId)) {
-    throw new Error("Cannot rename default lists")
+    throw new Error("Cannot update default lists")
   }
 
   const listRef = getListRef(userId, listId)
-  await updateDoc(listRef, {
-    name: newName,
+  const trimmedName = newName.trim()
+  const trimmedDescription = description?.trim()
+
+  const payload: Record<string, unknown> = {
+    name: trimmedName,
     updatedAt: serverTimestamp(),
-  })
+  }
+
+  if (description !== undefined) {
+    payload.description = trimmedDescription ? trimmedDescription : deleteField()
+  }
+
+  await updateDoc(listRef, payload)
 }
+
+export const renameList = updateList

@@ -29,7 +29,7 @@ function normalizeTimestamp(value: number | Timestamp | undefined): number {
  */
 export function useLists() {
   const { user, loading: authLoading } = useAuth()
-  const { deleteList, renameList } = useListMutations()
+  const { deleteList, updateList: updateListMutation } = useListMutations()
 
   const userId = user && !user.isAnonymous ? user.uid : null
 
@@ -94,9 +94,13 @@ export function useLists() {
     await deleteList(listId)
   }
 
-  const updateList = async (listId: string, newName: string) => {
+  const updateList = async (
+    listId: string,
+    newName: string,
+    description?: string,
+  ) => {
     if (!userId) throw new Error("User must be logged in")
-    await renameList(listId, newName)
+    await updateListMutation(listId, newName, description)
   }
 
   return { lists, loading, error: (error as Error | null) ?? null, removeList, updateList }

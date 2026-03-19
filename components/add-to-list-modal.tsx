@@ -135,7 +135,7 @@ function formatListNames(listNames: string[]) {
 /**
  * AddToListModal Component
  * Modal for adding/removing media items from default and custom lists
- * Also supports creating, renaming, and deleting custom lists
+ * Also supports creating, editing, and deleting custom lists
  */
 export function AddToListModal({
   isOpen,
@@ -146,7 +146,7 @@ export function AddToListModal({
   const { user, premiumLoading, premiumStatus } = useAuth()
   const { lists, loading: listsLoading } = useLists()
   const { preferences } = usePreferences()
-  const { addToList, removeFromList, createList, renameList, deleteList } =
+  const { addToList, removeFromList, createList, updateList, deleteList } =
     useListMutations()
   const [activeTab, setActiveTab] = useState<TabType>("default")
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set())
@@ -161,10 +161,13 @@ export function AddToListModal({
   const createListNameId = useId()
   const createListDescriptionId = useId()
 
-  // Rename modal state
-  const [listToRename, setListToRename] = useState<UserList | null>(null)
-  const [renameValue, setRenameValue] = useState("")
-  const [isRenaming, setIsRenaming] = useState(false)
+  // Edit list modal state
+  const [listToEdit, setListToEdit] = useState<UserList | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
+  const editListNameId = useId()
+  const editListDescriptionId = useId()
 
   // Delete confirmation state
   const [listToDelete, setListToDelete] = useState<UserList | null>(null)
@@ -225,7 +228,9 @@ export function AddToListModal({
     setShowCreateModal(false)
     setNewListName("")
     setNewListDescription("")
-    setListToRename(null)
+    setListToEdit(null)
+    setEditName("")
+    setEditDescription("")
     setListToDelete(null)
     onClose()
   }, [onClose])
@@ -635,32 +640,38 @@ export function AddToListModal({
     resetCreateModalState,
   ])
 
-  // Handle rename list
-  const handleRenameList = useCallback(async () => {
-    if (!user || !listToRename || !renameValue.trim()) return
+  // Handle edit list details
+  const handleEditList = useCallback(async () => {
+    if (!user || !listToEdit || !editName.trim()) return
 
-    setIsRenaming(true)
+    setIsEditing(true)
 
     try {
-      const previousName = listToRename.name
-      await renameList(listToRename.id, renameValue.trim())
-      showActionableSuccessToast(`Renamed list to "${renameValue.trim()}"`, {
+      const listId = listToEdit.id
+      const previousName = listToEdit.name
+      const previousDescription = listToEdit.description?.trim() || ""
+      const nextName = editName.trim()
+      const nextDescription = editDescription
+
+      await updateList(listId, nextName, nextDescription)
+      showActionableSuccessToast(`Updated "${nextName}"`, {
         action: {
           label: "Undo",
-          onClick: () => renameList(listToRename.id, previousName),
-          errorMessage: "Failed to undo list rename",
-          logMessage: "Failed to undo list rename:",
+          onClick: () => updateList(listId, previousName, previousDescription),
+          errorMessage: "Failed to undo list edit",
+          logMessage: "Failed to undo list edit:",
         },
       })
-      setListToRename(null)
-      setRenameValue("")
+      setListToEdit(null)
+      setEditName("")
+      setEditDescription("")
     } catch (error) {
-      console.error("Error renaming list:", error)
-      toast.error("Failed to rename list. Please try again.")
+      console.error("Error updating list:", error)
+      toast.error("Failed to update list. Please try again.")
     } finally {
-      setIsRenaming(false)
+      setIsEditing(false)
     }
-  }, [user, listToRename, renameValue, renameList])
+  }, [editDescription, editName, listToEdit, updateList, user])
 
   // Handle delete list
   const handleDeleteList = useCallback(async () => {
@@ -694,11 +705,19 @@ export function AddToListModal({
     }
   }, [user, listToDelete, deleteList])
 
-  // Open rename modal
-  const openRenameModal = useCallback((list: UserList) => {
-    setListToRename(list)
-    setRenameValue(list.name)
+  // Open edit modal
+  const openEditModal = useCallback((list: UserList) => {
+    setListToEdit(list)
+    setEditName(list.name)
+    setEditDescription(list.description?.trim() || "")
   }, [])
+
+  const handleCloseEditModal = useCallback(() => {
+    if (isEditing) return
+    setListToEdit(null)
+    setEditName("")
+    setEditDescription("")
+  }, [isEditing])
 
   const currentLists = activeTab === "default" ? defaultLists : customLists
 
@@ -714,7 +733,7 @@ export function AddToListModal({
             <DialogDescription>
               {mode === "add"
                 ? `Save "${displayTitle}" to your lists`
-                : "Rename or delete your custom lists"}
+                : "Edit details or delete your custom lists"}
             </DialogDescription>
           </DialogHeader>
 
@@ -821,7 +840,7 @@ export function AddToListModal({
                     variant="ghost"
                     size="icon"
                     className="size-8 text-gray-400 hover:text-white"
-                    onClick={() => openRenameModal(list)}
+                    onClick={() => openEditModal(list)}
                   >
                     <HugeiconsIcon icon={PencilEdit01Icon} className="size-4" />
                   </Button>
@@ -973,38 +992,61 @@ export function AddToListModal({
         </DialogContent>
       </Dialog>
 
-      {/* Rename List Modal */}
+      {/* Edit List Modal */}
       <Dialog
-        open={!!listToRename}
-        onOpenChange={(open) => !open && setListToRename(null)}
+        open={!!listToEdit}
+        onOpenChange={(open) => !open && handleCloseEditModal()}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename List</DialogTitle>
+            <DialogTitle>Edit List Details</DialogTitle>
             <DialogDescription>
-              Enter a new name for &quot;{listToRename?.name}&quot;
+              Update the name and description for &quot;{listToEdit?.name}
+              &quot;
             </DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="New list name"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && renameValue.trim()) {
-                handleRenameList()
-              }
-            }}
-            autoFocus
-          />
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor={editListNameId}>List name</Label>
+              <Input
+                id={editListNameId}
+                placeholder="List name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && editName.trim()) {
+                    handleEditList()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={editListDescriptionId}>Description (optional)</Label>
+              <Textarea
+                id={editListDescriptionId}
+                placeholder="What is this list for?"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                maxLength={120}
+                rows={4}
+                className="min-h-24 resize-none"
+              />
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setListToRename(null)}>
+            <Button
+              variant="outline"
+              onClick={handleCloseEditModal}
+              disabled={isEditing}
+            >
               Cancel
             </Button>
             <Button
-              onClick={handleRenameList}
-              disabled={!renameValue.trim() || isRenaming}
+              onClick={handleEditList}
+              disabled={!editName.trim() || isEditing}
             >
-              {isRenaming ? (
+              {isEditing ? (
                 <>
                   <HugeiconsIcon
                     icon={Loading03Icon}
@@ -1013,7 +1055,7 @@ export function AddToListModal({
                   Saving...
                 </>
               ) : (
-                "Save"
+                "Save Changes"
               )}
             </Button>
           </DialogFooter>
