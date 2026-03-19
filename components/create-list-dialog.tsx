@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
@@ -24,7 +26,7 @@ import {
 } from "@/lib/premium-telemetry"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useState } from "react"
+import { useCallback, useId, useState } from "react"
 import { toast } from "sonner"
 
 interface CreateListDialogProps {
@@ -45,7 +47,10 @@ export function CreateListDialog({
   const { user, premiumLoading, premiumStatus } = useAuth()
   const { createList, deleteList } = useListMutations()
   const [listName, setListName] = useState("")
+  const [listDescription, setListDescription] = useState("")
   const [isCreating, setIsCreating] = useState(false)
+  const listNameId = useId()
+  const listDescriptionId = useId()
   const isPremiumCheckPending = isPremiumStatusPending({
     premiumLoading,
     premiumStatus,
@@ -105,7 +110,11 @@ export function CreateListDialog({
 
       // Create the list
       const createdListName = listName.trim()
-      const listId = await createList(createdListName)
+      const createdListDescription = listDescription.trim()
+      const listId = await createList(
+        createdListName,
+        createdListDescription || undefined,
+      )
 
       showActionableSuccessToast(`Created "${createdListName}"`, {
         action: {
@@ -116,6 +125,7 @@ export function CreateListDialog({
         },
       })
       setListName("")
+      setListDescription("")
       onOpenChange(false)
     } catch (error) {
       console.error("Error creating list:", error)
@@ -128,6 +138,7 @@ export function CreateListDialog({
     deleteList,
     isPremiumCheckPending,
     listName,
+    listDescription,
     onOpenChange,
     premiumStatus,
     shouldRunFreeUserLimitCheck,
@@ -137,28 +148,49 @@ export function CreateListDialog({
   const handleClose = useCallback(() => {
     if (!isCreating) {
       setListName("")
+      setListDescription("")
       onOpenChange(false)
     }
   }, [isCreating, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Custom List</DialogTitle>
-          <DialogDescription>Enter a name for your new list</DialogDescription>
+          <DialogDescription>
+            Enter a name and optional description for your new list
+          </DialogDescription>
         </DialogHeader>
-        <Input
-          placeholder="List name"
-          value={listName}
-          onChange={(e) => setListName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && listName.trim()) {
-              handleCreate()
-            }
-          }}
-          autoFocus
-        />
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor={listNameId}>List name</Label>
+            <Input
+              id={listNameId}
+              placeholder="List name"
+              value={listName}
+              onChange={(e) => setListName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && listName.trim()) {
+                  handleCreate()
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={listDescriptionId}>Description (optional)</Label>
+            <Textarea
+              id={listDescriptionId}
+              placeholder="What is this list for?"
+              value={listDescription}
+              onChange={(e) => setListDescription(e.target.value)}
+              maxLength={120}
+              rows={4}
+              className="min-h-24 resize-none"
+            />
+          </div>
+        </div>
         {isPremiumCheckPending && (
           <p className="text-xs text-muted-foreground">
             {PREMIUM_LOADING_MESSAGE}

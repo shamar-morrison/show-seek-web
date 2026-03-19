@@ -30,6 +30,7 @@ export type ListWriteMediaItem = Omit<ListMediaItem, "addedAt"> & {
 export interface UserList {
   id: string
   name: string
+  description?: string
   items: Record<string, ListMediaItem>
   createdAt: number | Timestamp
   updatedAt?: number | Timestamp

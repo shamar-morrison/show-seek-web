@@ -213,9 +213,11 @@ export async function removeFromList(
 export async function createList(
   userId: string,
   listName: string,
+  description?: string,
 ): Promise<string> {
   const baseSlug = generateSlug(listName)
   const MAX_ATTEMPTS = 100
+  const trimmedDescription = description?.trim()
 
   return await runTransaction(getFirebaseDb(), async (transaction) => {
     let listId = baseSlug
@@ -227,13 +229,14 @@ export async function createList(
       const existing = await transaction.get(listRef)
 
       if (!existing.exists()) {
-        const newList = {
+        const newList = sanitizeForFirestore({
           id: listId,
           name: listName,
+          description: trimmedDescription ? trimmedDescription : undefined,
           items: {},
           createdAt: serverTimestamp(),
           isCustom: true,
-        }
+        })
         transaction.set(listRef, newList)
         return listId
       }
@@ -254,7 +257,10 @@ export async function createList(
  */
 export async function restoreList(
   userId: string,
-  list: Pick<UserList, "id" | "name" | "items" | "createdAt" | "updatedAt">,
+  list: Pick<
+    UserList,
+    "id" | "name" | "description" | "items" | "createdAt" | "updatedAt"
+  >,
 ): Promise<boolean> {
   if (DEFAULT_LIST_IDS.has(list.id)) {
     throw new Error("Cannot restore default lists")
@@ -264,6 +270,7 @@ export async function restoreList(
   const restoredList = sanitizeForFirestore({
     id: list.id,
     name: list.name,
+    description: list.description?.trim() || undefined,
     items: list.items,
     createdAt: list.createdAt,
     updatedAt: list.updatedAt,

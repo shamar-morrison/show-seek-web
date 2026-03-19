@@ -195,16 +195,17 @@ export function useListMutations() {
   })
 
   const createListMutation = useListOptimisticMutation<
-    { name: string },
+    { name: string; description?: string },
     string,
     { optimisticId: string }
   >({
-    mutationFn: async ({ name }) => {
+    mutationFn: async ({ name, description }) => {
       const uid = assertUserId(userId)
-      return createListInFirestore(uid, name)
+      return createListInFirestore(uid, name, description)
     },
     optimisticUpdate: ({ previousLists, variables }) => {
       const optimisticId = `temp-${Date.now()}`
+      const description = variables.description?.trim()
 
       if (!previousLists) {
         return { extraContext: { optimisticId } }
@@ -216,6 +217,7 @@ export function useListMutations() {
           {
             id: optimisticId,
             name: variables.name,
+            description: description ? description : undefined,
             items: {},
             createdAt: Date.now(),
             isCustom: true,
@@ -265,7 +267,8 @@ export function useListMutations() {
       addToListMutation.mutateAsync({ listId, mediaItem }),
     removeFromList: async (listId: string, mediaId: string) =>
       removeFromListMutation.mutateAsync({ listId, mediaId }),
-    createList: async (name: string) => createListMutation.mutateAsync({ name }),
+    createList: async (name: string, description?: string) =>
+      createListMutation.mutateAsync({ name, description }),
     renameList: async (listId: string, newName: string) =>
       renameListMutation.mutateAsync({ listId, newName }),
     deleteList: async (listId: string) =>

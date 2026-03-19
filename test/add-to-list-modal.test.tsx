@@ -244,6 +244,34 @@ describe("AddToListModal", () => {
     })
   })
 
+  it("passes the description through when creating a list from the modal", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Create List" }))
+    await user.type(screen.getByLabelText("List name"), "Favorites")
+    await user.type(
+      screen.getByLabelText("Description (optional)"),
+      "Weekend picks",
+    )
+    await user.click(screen.getByRole("button", { name: "Create" }))
+
+    await waitFor(() => {
+      expect(mocks.createList).toHaveBeenCalledWith(
+        "Favorites",
+        "Weekend picks",
+      )
+    })
+  })
+
   it("tells the user list deletion can be undone from the success toast", async () => {
     const user = userEvent.setup()
     mocks.lists = [
@@ -269,10 +297,9 @@ describe("AddToListModal", () => {
 
     await user.click(screen.getByRole("button", { name: "Manage" }))
 
-    const row = screen.getByText("Road Trip").closest("div")
-    expect(row).not.toBeNull()
+    const row = screen.getByTestId("custom-list-row-road-trip")
 
-    await user.click(within(row as HTMLElement).getAllByRole("button")[1])
+    await user.click(within(row).getAllByRole("button")[1])
 
     expect(
       screen.getByText(/you can undo this from the success toast/i),
@@ -306,10 +333,9 @@ describe("AddToListModal", () => {
 
     await user.click(screen.getByRole("button", { name: "Manage" }))
 
-    const row = screen.getByText("Road Trip").closest("div")
-    expect(row).not.toBeNull()
+    const row = screen.getByTestId("custom-list-row-road-trip")
 
-    await user.click(within(row as HTMLElement).getAllByRole("button")[1])
+    await user.click(within(row).getAllByRole("button")[1])
     await user.click(screen.getByRole("button", { name: "Delete" }))
 
     await waitFor(() => {

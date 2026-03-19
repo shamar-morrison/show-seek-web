@@ -248,4 +248,28 @@ describe("ListsPageClient", () => {
     expect(cards[0]).toHaveTextContent("December Finale")
     expect(cards[1]).toHaveTextContent("January First")
   })
+
+  it("renders the active list description in the dynamic header", () => {
+    render(
+      <ListsPageClient
+        lists={[
+          {
+            id: "road-trip",
+            name: "Road Trip",
+            description: "Weekend picks for the drive",
+            createdAt: 0,
+            items: {},
+          },
+        ]}
+        loading={false}
+        error={null}
+        showDynamicHeader={true}
+      />,
+    )
+
+    expect(
+      screen.getByRole("heading", { name: "Road Trip" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Weekend picks for the drive")).toBeInTheDocument()
+  })
 })

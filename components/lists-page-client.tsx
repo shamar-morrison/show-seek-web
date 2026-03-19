@@ -396,8 +396,12 @@ export function ListsPageClient({
     <div className="space-y-8 pb-12">
       {/* Dynamic Header */}
       {showDynamicHeader && activeList && (
-        <div className="flex items-center gap-4">
-          <PageHeader title={activeList.name} className="mb-0" />
+        <div className="flex items-start gap-4">
+          <PageHeader
+            title={activeList.name}
+            description={activeList.description?.trim() || undefined}
+            className="mb-0 flex-1 min-w-0"
+          />
           {headerAction}
         </div>
       )}

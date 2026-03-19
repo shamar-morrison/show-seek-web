@@ -1,4 +1,9 @@
-import { addToList, fetchUserList, restoreList } from "@/lib/firebase/lists"
+import {
+  addToList,
+  createList,
+  fetchUserList,
+  restoreList,
+} from "@/lib/firebase/lists"
 import { doc, getDoc, runTransaction } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -27,6 +32,7 @@ function createRestoreListPayload(): Parameters<typeof restoreList>[1] {
   return {
     id: "road-trip",
     name: "Road Trip",
+    description: "Weekend plans",
     items: {
       "123": {
         id: 123,
@@ -39,6 +45,26 @@ function createRestoreListPayload(): Parameters<typeof restoreList>[1] {
     createdAt: 1234,
     updatedAt: 5678,
   }
+}
+
+async function runCreateListWithCurrentDoc(currentDoc: {
+  exists: () => boolean
+  data?: () => Record<string, unknown>
+},
+listName = "Road Trip",
+description = "  Weekend plans  ") {
+  const transaction = {
+    get: vi.fn().mockResolvedValue(currentDoc),
+    set: vi.fn(),
+  }
+
+  vi.mocked(runTransaction).mockImplementation(async (_db, callback) => {
+    return (await callback(transaction as never)) as never
+  })
+
+  const listId = await createList("user-1", listName, description)
+
+  return { listId, transaction }
 }
 
 function createTimestampLike(millis: number) {
@@ -92,6 +118,7 @@ describe("fetchUserList", () => {
     vi.mocked(getDoc).mockResolvedValue({
       data: () => ({
         name: "Road Trip",
+        description: "Weekend plans",
         items: {},
         createdAt: 1234,
         isCustom: true,
@@ -103,6 +130,7 @@ describe("fetchUserList", () => {
     await expect(fetchUserList("user-1", "road-trip")).resolves.toEqual({
       id: "road-trip",
       name: "Road Trip",
+      description: "Weekend plans",
       items: {},
       createdAt: 1234,
       isCustom: true,
@@ -123,6 +151,27 @@ describe("fetchUserList", () => {
     } as Awaited<ReturnType<typeof getDoc>>)
 
     await expect(fetchUserList("user-1", "missing")).resolves.toBeNull()
+  })
+})
+
+describe("createList", () => {
+  it("stores a trimmed description on the created list", async () => {
+    const { listId, transaction } = await runCreateListWithCurrentDoc({
+      exists: () => false,
+    })
+
+    expect(listId).toBe("road-trip")
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/road-trip" },
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        description: "Weekend plans",
+        items: {},
+        createdAt: "server-timestamp",
+        isCustom: true,
+      },
+    )
   })
 })
 
@@ -223,6 +272,7 @@ describe("restoreList", () => {
       {
         id: "road-trip",
         name: "Road Trip",
+        description: "Weekend plans",
         items: {
           "123": {
             id: 123,

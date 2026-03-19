@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
@@ -43,7 +45,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 /** Map list IDs to icons for default lists */
@@ -154,7 +156,10 @@ export function AddToListModal({
   // Create list modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newListName, setNewListName] = useState("")
+  const [newListDescription, setNewListDescription] = useState("")
   const [isCreating, setIsCreating] = useState(false)
+  const createListNameId = useId()
+  const createListDescriptionId = useId()
 
   // Rename modal state
   const [listToRename, setListToRename] = useState<UserList | null>(null)
@@ -219,10 +224,22 @@ export function AddToListModal({
     setMode("add")
     setShowCreateModal(false)
     setNewListName("")
+    setNewListDescription("")
     setListToRename(null)
     setListToDelete(null)
     onClose()
   }, [onClose])
+
+  const resetCreateModalState = useCallback(() => {
+    setNewListName("")
+    setNewListDescription("")
+  }, [])
+
+  const handleCloseCreateModal = useCallback(() => {
+    if (isCreating) return
+    resetCreateModalState()
+    setShowCreateModal(false)
+  }, [isCreating, resetCreateModalState])
 
   // Toggle list selection
   const toggleList = useCallback((listId: string) => {
@@ -532,7 +549,11 @@ export function AddToListModal({
       }
 
       // Create the list
-      const listId = await createList(newListName.trim())
+      const trimmedDescription = newListDescription.trim()
+      const listId = await createList(
+        newListName.trim(),
+        trimmedDescription || undefined,
+      )
       const createdListName = newListName.trim()
       const mediaItem = buildMediaItem()
       const createdMediaId = String(mediaItem.id)
@@ -587,8 +608,8 @@ export function AddToListModal({
           },
         },
       )
+      resetCreateModalState()
       setShowCreateModal(false)
-      setNewListName("")
       // Switch to custom tab to show the new list
       setActiveTab("custom")
     } catch (error) {
@@ -606,10 +627,12 @@ export function AddToListModal({
     isPremiumCheckPending,
     mediaKey,
     newListName,
+    newListDescription,
     premiumStatus,
     shouldRunFreeUserLimitCheck,
     user,
     displayTitle,
+    resetCreateModalState,
   ])
 
   // Handle rename list
@@ -774,13 +797,23 @@ export function AddToListModal({
               customLists.map((list) => (
                 <div
                   key={list.id}
+                  data-testid={`custom-list-row-${list.id}`}
                   className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-white/5"
                 >
                   <HugeiconsIcon
                     icon={FolderLibraryIcon}
                     className="size-5 text-gray-400"
                   />
-                  <span className="flex-1 text-sm text-white">{list.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-white">
+                      {list.name}
+                    </span>
+                    {list.description?.trim() ? (
+                      <span className="block truncate text-xs text-gray-500">
+                        {list.description.trim()}
+                      </span>
+                    ) : null}
+                  </div>
                   <span className="mr-2 text-xs text-gray-500">
                     {Object.keys(list.items || {}).length} items
                   </span>
@@ -859,25 +892,52 @@ export function AddToListModal({
       </Dialog>
 
       {/* Create List Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="sm:max-w-sm">
+      <Dialog
+        open={showCreateModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseCreateModal()
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create Custom List</DialogTitle>
             <DialogDescription>
-              Enter a name for your new list
+              Enter a name and optional description for your new list
             </DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="List name"
-            value={newListName}
-            onChange={(e) => setNewListName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && newListName.trim()) {
-                handleCreateList()
-              }
-            }}
-            autoFocus
-          />
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor={createListNameId}>List name</Label>
+              <Input
+                id={createListNameId}
+                placeholder="List name"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newListName.trim()) {
+                    handleCreateList()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={createListDescriptionId}>
+                Description (optional)
+              </Label>
+              <Textarea
+                id={createListDescriptionId}
+                placeholder="What is this list for?"
+                value={newListDescription}
+                onChange={(e) => setNewListDescription(e.target.value)}
+                maxLength={120}
+                rows={4}
+                className="min-h-24 resize-none"
+              />
+            </div>
+          </div>
           {isPremiumCheckPending && (
             <p className="text-xs text-muted-foreground">
               {PREMIUM_LOADING_MESSAGE}
@@ -886,10 +946,8 @@ export function AddToListModal({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setShowCreateModal(false)
-                setNewListName("")
-              }}
+              onClick={handleCloseCreateModal}
+              disabled={isCreating}
             >
               Cancel
             </Button>
