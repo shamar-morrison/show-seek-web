@@ -27,7 +27,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
   }
 
   const profileUrl = buildImageUrl(person.profile_path, "original")
-  const age = calculateTmdbAge(person.birthday, person.deathday)?.toString()
+  const age = calculateTmdbAge(person.birthday, person.deathday)
   const formattedBirthday = person.birthday
     ? formatTmdbDate(person.birthday, {
         month: "long",
@@ -36,9 +36,15 @@ export default async function PersonPage({ params }: PersonPageProps) {
       })
     : null
 
-  // Format birthday string like: "August 26, 1997 (29 years old)"
+  const ageDisplay =
+    age === null
+      ? ""
+      : person.deathday
+        ? ` (${age} years old at death)`
+        : ` (${age} years old)`
+
   const birthdayDisplay = formattedBirthday
-    ? `${formattedBirthday}${age ? ` (${age} years old)` : ""}`
+    ? `${formattedBirthday}${ageDisplay}`
     : "N/A"
 
   return (
@@ -47,7 +53,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Left Sidebar (Profile Info) */}
           <div className="w-full md:w-1/4 lg:w-1/5">
-            <div className="sticky top-24 space-y-6">
+            <div className="space-y-6">
               {/* Profile Image */}
               <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-gray-900 shadow-lg">
                 {profileUrl ? (

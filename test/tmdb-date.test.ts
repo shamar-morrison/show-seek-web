@@ -81,4 +81,16 @@ describe("tmdb date helpers", () => {
       ).toBe(34)
     })
   })
+
+  it("uses the death date as the age endpoint when present", () => {
+    withTimeZone("America/Jamaica", () => {
+      expect(
+        calculateTmdbAge(
+          "1990-06-15",
+          "2020-06-14",
+          new Date(2024, 5, 20, 12, 0, 0),
+        ),
+      ).toBe(29)
+    })
+  })
 })
