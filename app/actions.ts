@@ -1,369 +1,123 @@
 "use server"
 
-import {
-  buildReleaseCalendarReleases,
-  dedupeTrackedItems,
-} from "@/lib/release-calendar"
-import {
-  discoverMedia,
-  getBestTrailer,
-  getCollectionDetails,
-  getMediaImages,
-  getMovieCalendarDetails,
-  getMediaVideos,
-  getMovieDetails,
-  getRecommendations,
-  getReviews,
-  getSeasonDetails,
-  getTrendingMedia,
-  getTVCalendarDetails,
-  getTVDetails,
-  multiSearch,
-} from "@/lib/tmdb"
-import { mapWithConcurrencyLimit } from "@/lib/utils/concurrency"
 import type { FetchReleaseCalendarInput } from "@/types/release-calendar"
-import { getTraktMediaComments } from "@/lib/trakt"
-import type { TMDBCollectionDetails, TMDBMedia } from "@/types/tmdb"
 
-const COLLECTION_BATCH_CONCURRENCY = 3
-const CALENDAR_FETCH_CONCURRENCY = 5
-
-function summarizeReleaseCalendarInput(input: FetchReleaseCalendarInput) {
-  const dedupedItems = dedupeTrackedItems(input.items)
-  const movieCount = dedupedItems.filter(
-    (item) => item.mediaType === "movie",
-  ).length
-
-  return {
-    chunkSize: dedupedItems.length,
-    movieCount,
-    tvCount: dedupedItems.length - movieCount,
-  }
-}
-
-/**
- * Server action to search for media.
- * This wraps the server-only multiSearch function.
- */
 export async function searchMedia(query: string) {
-  try {
-    return await multiSearch(query)
-  } catch (error) {
-    console.error("Server Action: Failed to search media", error)
-    return { page: 1, results: [], total_pages: 0, total_results: 0 }
-  }
+  return (await import("./server-actions/search")).searchMedia(query)
 }
 
 export async function fetchReleaseCalendarReleases(
   input: FetchReleaseCalendarInput,
 ) {
-  const inputSummary = summarizeReleaseCalendarInput(input)
-
-  if (process.env.NODE_ENV !== "test") {
-    console.info("[ReleaseCalendar] Fetch chunk", inputSummary)
-  }
-
-  try {
-    return await buildReleaseCalendarReleases(input, {
-      fetchMovieDetails: getMovieCalendarDetails,
-      fetchTVDetails: getTVCalendarDetails,
-      fetchSeasonDetails: getSeasonDetails,
-      concurrency: CALENDAR_FETCH_CONCURRENCY,
-    })
-  } catch (error) {
-    console.error(
-      "Server Action: Failed to fetch release calendar releases",
-      inputSummary,
-      error,
-    )
-    return []
-  }
+  return (await import("./server-actions/release-calendar")).fetchReleaseCalendarReleases(
+    input,
+  )
 }
 
-/** TV show details for progress calculation */
-export interface TVShowDetailsData {
-  totalEpisodes: number
-  avgRuntime: number
-  seasons: Array<{
-    season_number: number
-    episode_count: number
-    air_date: string | null
-  }>
+export async function fetchTVShowDetails(tvShowId: number) {
+  return (await import("./server-actions/tmdb")).fetchTVShowDetails(tvShowId)
 }
 
-/**
- * Server action to fetch TV show details for progress calculation.
- * Used for episode tracking and watch progress features.
- */
-export async function fetchTVShowDetails(
-  tvShowId: number,
-): Promise<TVShowDetailsData | null> {
-  try {
-    const details = await getTVDetails(tvShowId)
-    if (!details) return null
-
-    const avgRuntime =
-      details.episode_run_time && details.episode_run_time.length > 0
-        ? details.episode_run_time[0]
-        : 45
-
-    return {
-      totalEpisodes: details.number_of_episodes || 0,
-      avgRuntime,
-      seasons:
-        details.seasons?.map((s) => ({
-          season_number: s.season_number,
-          episode_count: s.episode_count,
-          air_date: s.air_date || null,
-        })) || [],
-    }
-  } catch (error) {
-    console.error("Server Action: Failed to fetch TV show details", error)
-    return null
-  }
-}
-
-/** Episode data for progress tracking */
-export interface SeasonEpisodeData {
-  id: number
-  episode_number: number
-  name: string
-  air_date: string | null
-  runtime: number | null
-}
-
-export type CollectionArtworkData = Pick<
-  TMDBCollectionDetails,
-  "poster_path" | "backdrop_path"
->
-
-/**
- * Server action to fetch season episodes.
- * Used for episode tracking features.
- */
 export async function fetchSeasonEpisodes(
   tvShowId: number,
   seasonNumber: number,
-): Promise<SeasonEpisodeData[]> {
-  try {
-    const seasonData = await getSeasonDetails(tvShowId, seasonNumber)
-    return seasonData?.episodes || []
-  } catch (error) {
-    console.error("Server Action: Failed to fetch season episodes", error)
-    return []
-  }
+) {
+  return (await import("./server-actions/tmdb")).fetchSeasonEpisodes(
+    tvShowId,
+    seasonNumber,
+  )
 }
 
-/**
- * Server action to fetch a trailer for a specific media item.
- * This wraps the server-only getMediaVideos function and uses getBestTrailer.
- */
 export async function fetchTrailerKey(
   mediaId: number,
   mediaType: "movie" | "tv",
 ) {
-  try {
-    const videos = await getMediaVideos(mediaId, mediaType)
-    return getBestTrailer(videos)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch trailer", error)
-    return null
-  }
+  return (await import("./server-actions/tmdb")).fetchTrailerKey(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Server action to fetch media images (posters and backdrops).
- * Used for lazy-loading the photos section.
- */
 export async function fetchMediaImages(
   mediaId: number,
   mediaType: "movie" | "tv",
 ) {
-  try {
-    return await getMediaImages(mediaId, mediaType)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch media images", error)
-    return null
-  }
+  return (await import("./server-actions/tmdb")).fetchMediaImages(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Server action to fetch media videos.
- * Used for lazy-loading the videos section.
- */
 export async function fetchMediaVideos(
   mediaId: number,
   mediaType: "movie" | "tv",
 ) {
-  try {
-    return await getMediaVideos(mediaId, mediaType)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch media videos", error)
-    return null
-  }
+  return (await import("./server-actions/tmdb")).fetchMediaVideos(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Server action to fetch recommendations.
- * Used for lazy-loading the recommendations section.
- */
 export async function fetchRecommendations(
   mediaId: number,
   mediaType: "movie" | "tv",
 ) {
-  try {
-    return await getRecommendations(mediaId, mediaType)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch recommendations", error)
-    return []
-  }
+  return (await import("./server-actions/tmdb")).fetchRecommendations(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Server action to fetch reviews.
- * Used for lazy-loading the reviews section.
- */
-export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
-  try {
-    return await getReviews(mediaId, mediaType)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch reviews", error)
-    return null
-  }
+export async function fetchReviews(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+) {
+  return (await import("./server-actions/tmdb")).fetchReviews(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Fetch collection details
- */
 export async function fetchCollection(collectionId: number) {
-  return await getCollectionDetails(collectionId)
-}
-
-export async function fetchCollectionsBatch(
-  collectionIds: number[],
-): Promise<Array<CollectionArtworkData | null>> {
-  if (collectionIds.length === 0) {
-    return []
-  }
-
-  const uniqueCollectionIds: number[] = []
-  const seenCollectionIds = new Set<number>()
-
-  collectionIds.forEach((collectionId) => {
-    if (seenCollectionIds.has(collectionId)) {
-      return
-    }
-
-    seenCollectionIds.add(collectionId)
-    uniqueCollectionIds.push(collectionId)
-  })
-
-  const artworkByCollectionId = new Map<number, CollectionArtworkData | null>()
-
-  await mapWithConcurrencyLimit(
-    uniqueCollectionIds,
-    async (collectionId) => {
-      try {
-        const collection = await getCollectionDetails(collectionId)
-
-        if (!collection) {
-          artworkByCollectionId.set(collectionId, null)
-          return
-        }
-
-        artworkByCollectionId.set(collectionId, {
-          poster_path: collection.poster_path ?? null,
-          backdrop_path: collection.backdrop_path ?? null,
-        })
-      } catch (error) {
-        console.error(
-          `Server Action: Failed to fetch collection ${collectionId} in batch`,
-          error,
-        )
-        artworkByCollectionId.set(collectionId, null)
-      }
-    },
-    COLLECTION_BATCH_CONCURRENCY,
-  )
-
-  return collectionIds.map(
-    (collectionId) => artworkByCollectionId.get(collectionId) ?? null,
+  return (await import("./server-actions/collections")).fetchCollection(
+    collectionId,
   )
 }
 
-/**
- * Fetch movie details for enrichment
- * Used by ratings page to get poster and title info
- */
+export async function fetchCollectionsBatch(collectionIds: number[]) {
+  return (await import("./server-actions/collections")).fetchCollectionsBatch(
+    collectionIds,
+  )
+}
+
 export async function fetchMovieDetails(movieId: number) {
-  try {
-    return await getMovieDetails(movieId)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch movie details", error)
-    return null
-  }
+  return (await import("./server-actions/tmdb")).fetchMovieDetails(movieId)
 }
 
-/**
- * Fetch full TV show details for enrichment
- * Used by ratings page to get poster and title info
- */
 export async function fetchFullTVDetails(tvId: number) {
-  try {
-    return await getTVDetails(tvId)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch TV details", error)
-    return null
-  }
+  return (await import("./server-actions/tmdb")).fetchFullTVDetails(tvId)
 }
 
-/**
- * Fetch Trakt reviews/comments for a media item.
- * Used for lazy-loading the Trakt reviews section.
- */
 export async function fetchTraktReviews(
   mediaId: number,
   mediaType: "movie" | "tv",
 ) {
-  try {
-    return await getTraktMediaComments(mediaId, mediaType)
-  } catch (error) {
-    console.error("Server Action: Failed to fetch Trakt reviews", error)
-    return []
-  }
+  return (await import("./server-actions/trakt")).fetchTraktReviews(
+    mediaId,
+    mediaType,
+  )
 }
 
-/**
- * Fetch hidden gems (high-rated, low-popularity movies).
- * Used for the "Hidden Gems" section in For You recommendations.
- */
-export async function fetchDiscoverHiddenGems(): Promise<TMDBMedia[]> {
-  try {
-    const res = await discoverMedia({
-      mediaType: "movie",
-      sortBy: "top_rated",
-      rating: 7.5,
-    })
-    // Filter for low popularity (hidden gems)
-    return res.results
-      .filter((m) => m.popularity < 50)
-      .slice(0, 20)
-      .map((m) => ({ ...m, media_type: "movie" as const }))
-  } catch (error) {
-    console.error("Server Action: Failed to fetch hidden gems", error)
-    return []
-  }
+export async function fetchDiscoverHiddenGems() {
+  return (await import("./server-actions/discovery")).fetchDiscoverHiddenGems()
 }
 
-/**
- * Fetch trending content for the week.
- * Used as fallback in For You recommendations when user has insufficient data.
- */
-export async function fetchTrendingWeek(): Promise<TMDBMedia[]> {
-  try {
-    return await getTrendingMedia("week")
-  } catch (error) {
-    console.error("Server Action: Failed to fetch weekly trending", error)
-    return []
-  }
+export async function fetchTrendingWeek() {
+  return (await import("./server-actions/discovery")).fetchTrendingWeek()
 }
+
+export type {
+  SeasonEpisodeData,
+  TVShowDetailsData,
+} from "./server-actions/tmdb"
+export type { CollectionArtworkData } from "./server-actions/collections"

@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NEXT_PRIVATE_WORKER_THREADS=1 NODE_OPTIONS=\"--max-old-space-size=4096\" next dev --webpack",
+    "dev": "next dev --turbopack",
+    "dev:cf": "SHOWSEEK_ENABLE_CLOUDFLARE_DEV=1 NEXT_PRIVATE_WORKER_THREADS=1 NODE_OPTIONS=\"--max-old-space-size=4096\" next dev --webpack",
     "build": "node scripts/validate-build-env.mjs && next build",
     "start": "next start",
     "test": "node scripts/run-tests.mjs",

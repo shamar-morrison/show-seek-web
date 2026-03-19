@@ -3,7 +3,6 @@
 import { ListsPageClient } from "@/components/lists-page-client"
 import { useLists } from "@/hooks/use-lists"
 import type { Genre } from "@/types/tmdb"
-import { useSearchParams } from "next/navigation"
 import { useMemo, useState } from "react"
 
 interface WatchListsClientProps {
@@ -11,6 +10,8 @@ interface WatchListsClientProps {
   movieGenres?: Genre[]
   /** TV genres for filter options */
   tvGenres?: Genre[]
+  /** Optional list ID parsed from the URL on the server */
+  initialListId?: string
 }
 
 /**
@@ -20,21 +21,21 @@ interface WatchListsClientProps {
 export function WatchListsClient({
   movieGenres = [],
   tvGenres = [],
+  initialListId,
 }: WatchListsClientProps) {
   const { lists, loading, error } = useLists()
-  const searchParams = useSearchParams()
-  const listIdFromUrl = searchParams.get("listId")
   const [selectedListId, setSelectedListId] = useState<string>("")
 
   // Filter to only default lists (non-custom)
   const defaultLists = useMemo(() => lists.filter((l) => !l.isCustom), [lists])
+  const urlSelectedListId = initialListId?.trim() || null
 
   const effectiveSelectedListId = useMemo(() => {
     if (
-      listIdFromUrl &&
-      defaultLists.some((list) => list.id === listIdFromUrl)
+      urlSelectedListId &&
+      defaultLists.some((list) => list.id === urlSelectedListId)
     ) {
-      return listIdFromUrl
+      return urlSelectedListId
     }
 
     if (
@@ -45,7 +46,7 @@ export function WatchListsClient({
     }
 
     return defaultLists[0]?.id ?? ""
-  }, [defaultLists, listIdFromUrl, selectedListId])
+  }, [defaultLists, selectedListId, urlSelectedListId])
 
   return (
     <ListsPageClient

@@ -62,7 +62,9 @@ vi.mock("firebase/functions", () => ({
 }))
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 import { AuthProvider, useAuth } from "../context/auth-context"

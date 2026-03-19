@@ -1,6 +1,6 @@
 "use client"
 
-import { searchMedia } from "@/app/actions"
+import { searchMedia } from "@/app/server-actions/search"
 import { SearchResultItem } from "@/components/search-result-item"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

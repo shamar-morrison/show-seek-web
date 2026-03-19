@@ -1,11 +1,8 @@
 "use client"
 
-import { AuthModal } from "@/components/auth-modal"
-import { SearchDropdown } from "@/components/search-dropdown"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/context/auth-context"
 import { SHOWSEEK_ICON } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -18,8 +15,30 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { default as Link, default as NextLink } from "next/link"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+
+const DesktopSearchDropdown = dynamic(
+  () => import("@/components/search-dropdown").then((mod) => mod.SearchDropdown),
+  {
+    loading: () => (
+      <div className="hidden h-9 w-48 rounded-full bg-white/5 lg:block lg:w-64" />
+    ),
+    ssr: false,
+  },
+)
+
+const NavbarAuthSection = dynamic(
+  () =>
+    import("@/components/navbar-auth-section").then(
+      (mod) => mod.NavbarAuthSection,
+    ),
+  {
+    loading: () => <Skeleton className="h-9 w-[100px] rounded-lg" />,
+    ssr: false,
+  },
+)
 
 /** Navigation item with sublinks */
 interface NavItemWithSubmenu {
@@ -182,7 +201,7 @@ function MobileAccordionItem({
  */
 export function Navbar() {
   const router = useRouter()
-  const { user, loading } = useAuth()
+  const { user } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileSearchQuery, setMobileSearchQuery] = useState("")
@@ -312,16 +331,9 @@ export function Navbar() {
           {/* Right Section - Search & Auth */}
           <div className="flex items-center gap-3">
             {/* Search Bar (Desktop only - on mobile, search is in the dropdown menu) */}
-            <SearchDropdown className="hidden lg:block" />
+            <DesktopSearchDropdown className="hidden lg:block" />
 
-            {/* Auth Section - Sign In or User Menu */}
-            {loading ? (
-              <Skeleton className="h-9 w-[100px] rounded-lg" />
-            ) : user ? (
-              <UserMenu />
-            ) : (
-              <AuthModal />
-            )}
+            <NavbarAuthSection />
 
             {/* Mobile Menu Toggle */}
             <Button

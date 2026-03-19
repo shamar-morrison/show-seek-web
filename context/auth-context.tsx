@@ -503,28 +503,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!currentUser) {
         clearServerSessionSyncState()
-        return
       }
-
-      void ensureServerSession(currentUser)
-        .then((result) => {
-          if (!result.ok) {
-            console.error("Server session sync failed:", {
-              reason: result.error,
-              uidSuffix: currentUser.uid.slice(-6),
-            })
-          }
-        })
-        .catch((error) => {
-          console.error("Server session sync rejected:", {
-            reason: error instanceof Error ? error.message : "Unknown error",
-            uidSuffix: currentUser.uid.slice(-6),
-          })
-        })
     })
 
     return unsubscribe
-  }, [clearServerSessionSyncState, ensureServerSession, firebaseAvailable, getAuth])
+  }, [clearServerSessionSyncState, firebaseAvailable, getAuth])
 
   useEffect(() => {
     if (!firebaseAvailable || !user) {

@@ -2,8 +2,9 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
 import type { NextConfig } from "next"
 
 const isDev = process.env.NODE_ENV === "development"
+const enableCloudflareDev = process.env.SHOWSEEK_ENABLE_CLOUDFLARE_DEV === "1"
 
-if (isDev) {
+if (isDev && enableCloudflareDev) {
   void initOpenNextCloudflareForDev()
 }
 
