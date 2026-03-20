@@ -140,7 +140,7 @@ describe("AuthModal", () => {
       uid: "user-1",
     })
 
-    createUserDocumentMock.mockResolvedValue(undefined)
+    createUserDocumentMock.mockResolvedValue(true)
     getFirebaseAuthMock.mockReturnValue(authInstance)
 
     vi.spyOn(console, "info").mockImplementation(() => {})
@@ -210,6 +210,74 @@ describe("AuthModal", () => {
     expect(
       ensureServerSessionMock.mock.invocationCallOrder[0],
     ).toBeGreaterThan(createUserDocumentMock.mock.invocationCallOrder[0])
+  })
+
+  it("shows an auth error and stops when user document creation returns false", async () => {
+    const onAuthSuccess = vi.fn()
+    const signedInUser = {
+      email: "user@example.com",
+      providerData: [{ providerId: "password" }],
+      uid: "user-1",
+    }
+
+    createUserDocumentMock.mockResolvedValue(false)
+    signInWithEmailAndPasswordMock.mockResolvedValue({
+      user: signedInUser,
+    })
+
+    render(<AuthModal isOpen onAuthSuccess={onAuthSuccess} />)
+
+    fireEvent.change(screen.getByPlaceholderText("Email address"), {
+      target: { value: "user@example.com" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Password"), {
+      target: { value: "secret123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText(
+        "We couldn't finish setting up your account. Please try again.",
+      ),
+    ).toBeInTheDocument()
+    expect(ensureServerSessionMock).not.toHaveBeenCalled()
+    expect(onAuthSuccess).not.toHaveBeenCalled()
+  })
+
+  it("shows an auth error and stops when user document creation throws", async () => {
+    const onAuthSuccess = vi.fn()
+    const signedInUser = {
+      email: "user@example.com",
+      providerData: [{ providerId: "password" }],
+      uid: "user-1",
+    }
+
+    createUserDocumentMock.mockRejectedValue(new Error("firestore down"))
+    signInWithEmailAndPasswordMock.mockResolvedValue({
+      user: signedInUser,
+    })
+
+    render(<AuthModal isOpen onAuthSuccess={onAuthSuccess} />)
+
+    fireEvent.change(screen.getByPlaceholderText("Email address"), {
+      target: { value: "user@example.com" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Password"), {
+      target: { value: "secret123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText(
+        "We couldn't finish setting up your account. Please try again.",
+      ),
+    ).toBeInTheDocument()
+    expect(ensureServerSessionMock).not.toHaveBeenCalled()
+    expect(onAuthSuccess).not.toHaveBeenCalled()
+    expect(console.error).toHaveBeenCalledWith(
+      "Failed to create user document during auth completion:",
+      expect.any(Error),
+    )
   })
 
   it("prompts to create an account when sign-in fails for a missing email account", async () => {

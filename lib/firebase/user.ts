@@ -35,9 +35,9 @@ export interface UserDocument {
  * Create or update a user document in Firestore.
  * Idempotent - safe to call on every sign-in.
  */
-export async function createUserDocument(user: User): Promise<void> {
+export async function createUserDocument(user: User): Promise<boolean> {
   if (!user || user.isAnonymous) {
-    return // Don't create documents for anonymous users
+    return false // Don't create documents for anonymous users
   }
 
   const userRef = doc(getFirebaseDb(), "users", user.uid)
@@ -66,7 +66,7 @@ export async function createUserDocument(user: User): Promise<void> {
 
       if (!existingData) {
         console.warn("Invalid user document shape in Firestore")
-        return
+        return false
       }
 
       const updates: Partial<UserDocument> = {}
@@ -86,6 +86,8 @@ export async function createUserDocument(user: User): Promise<void> {
       if (Object.keys(updates).length > 0) {
         await setDoc(userRef, updates, { merge: true })
       }
+
+      return true
     } else {
       // Create new document
       const userData: UserDocument = {
@@ -96,8 +98,11 @@ export async function createUserDocument(user: User): Promise<void> {
         createdAt: serverTimestamp(),
       }
       await setDoc(userRef, userData)
+
+      return true
     }
   } catch (error) {
     console.warn("Failed to create/update user document:", error)
+    return false
   }
 }

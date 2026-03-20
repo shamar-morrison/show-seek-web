@@ -254,7 +254,18 @@ export function AuthModal({
   }
 
   const completeAuth = async (user: User) => {
-    await createUserDocument(user)
+    try {
+      const userDocumentCreated = await createUserDocument(user)
+
+      if (!userDocumentCreated) {
+        setAuthError("We couldn't finish setting up your account. Please try again.")
+        return
+      }
+    } catch (error) {
+      console.error("Failed to create user document during auth completion:", error)
+      setAuthError("We couldn't finish setting up your account. Please try again.")
+      return
+    }
 
     const sessionSyncResult = await ensureServerSession(user)
 
