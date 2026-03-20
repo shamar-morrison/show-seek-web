@@ -5,6 +5,7 @@ import { EpisodeRatingModal } from "@/components/episode-rating-modal"
 import { AuthModal } from "@/components/auth-modal"
 import { NotesModal } from "@/components/notes-modal"
 import { PhotoLightbox } from "@/components/photo-lightbox"
+import { SeasonEpisodesRail } from "./season-episodes-rail"
 import { RateButton } from "@/components/rate-button"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,6 @@ import type {
 } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
-  ArrowRight02Icon,
   Calendar03Icon,
   CheckmarkCircle02Icon,
   FavouriteIcon,
@@ -111,6 +111,17 @@ export function EpisodeDetailClient({
     const key = `${episode.season_number}_${episode.episode_number}`
     return !!tracking?.episodes && key in tracking.episodes
   }, [tracking, episode.season_number, episode.episode_number])
+  const watchedEpisodes = useMemo(() => {
+    if (!tracking?.episodes) return {}
+
+    return Object.keys(tracking.episodes).reduce<Record<string, boolean>>(
+      (episodeMap, key) => {
+        episodeMap[key] = true
+        return episodeMap
+      },
+      {},
+    )
+  }, [tracking])
   const { favoriteActionLoading, handleFavoriteClick, openNotesModal } =
     useEpisodeActions({
       episode,
@@ -242,17 +253,6 @@ export function EpisodeDetailClient({
 
   // Get stills for photos section
   const stills = episode.images?.stills || []
-
-  // Pagination: find prev/next episodes in same season
-  const currentIndex = season.episodes.findIndex(
-    (ep) => ep.episode_number === episode.episode_number,
-  )
-  const prevEpisode =
-    currentIndex > 0 ? season.episodes[currentIndex - 1] : null
-  const nextEpisode =
-    currentIndex < season.episodes.length - 1
-      ? season.episodes[currentIndex + 1]
-      : null
 
   return (
     <div>
@@ -579,46 +579,13 @@ export function EpisodeDetailClient({
           </Section>
         )}
 
-        {/* Episode Pagination */}
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-          <div className="mt-8 pb-12 flex items-center justify-between gap-4">
-            {/* Previous Episode */}
-            {prevEpisode ? (
-              <Link
-                href={`/tv/${tvShowId}/season/${episode.season_number}/episode/${prevEpisode.episode_number}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/20"
-              >
-                <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
-                <span className="hidden sm:inline">
-                  E{prevEpisode.episode_number}:
-                </span>
-                <span className="line-clamp-1 max-w-[150px]">
-                  {prevEpisode.name}
-                </span>
-              </Link>
-            ) : (
-              <div />
-            )}
-
-            {/* Next Episode */}
-            {nextEpisode ? (
-              <Link
-                href={`/tv/${tvShowId}/season/${episode.season_number}/episode/${nextEpisode.episode_number}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/20"
-              >
-                <span className="hidden sm:inline">
-                  E{nextEpisode.episode_number}:
-                </span>
-                <span className="line-clamp-1 max-w-[150px]">
-                  {nextEpisode.name}
-                </span>
-                <HugeiconsIcon icon={ArrowRight02Icon} className="size-4" />
-              </Link>
-            ) : (
-              <div />
-            )}
-          </div>
-        </div>
+        <SeasonEpisodesRail
+          tvShowId={tvShowId}
+          seasonNumber={episode.season_number}
+          episodes={season.episodes}
+          currentEpisodeNumber={episode.episode_number}
+          watchedEpisodes={watchedEpisodes}
+        />
       </div>
 
       {/* Lightbox */}

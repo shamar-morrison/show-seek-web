@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     isFavorited: false,
     loading: false,
   },
+  tracking: null as { episodes: Record<string, unknown> } | null,
 }))
 
 const originalTimeZone = process.env.TZ
@@ -139,7 +140,9 @@ vi.mock("@/hooks/use-episode-tracking-mutations", () => ({
 
 vi.mock("@/hooks/use-episode-tracking-show", () => ({
   useEpisodeTrackingShow: () => ({
-    tracking: null,
+    tracking: mocks.tracking,
+    loading: false,
+    error: null,
   }),
 }))
 
@@ -242,7 +245,10 @@ function createEpisode(airDate: string): TMDBEpisodeDetails {
   } as TMDBEpisodeDetails
 }
 
-function createSeason(episode: TMDBEpisodeDetails): TMDBSeasonDetails {
+function createSeason(
+  episode: TMDBEpisodeDetails,
+  episodeNumbers: number[] = [1, 2],
+): TMDBSeasonDetails {
   return {
     id: 1,
     name: "Season 1",
@@ -251,15 +257,17 @@ function createSeason(episode: TMDBEpisodeDetails): TMDBSeasonDetails {
     poster_path: "/poster.jpg",
     season_number: 1,
     vote_average: 8,
-    episodes: [
-      {
-        ...episode,
-        id: 199,
-        episode_number: 1,
-        name: "Cold Start",
-      },
-      episode,
-    ],
+    episodes: episodeNumbers.map((episodeNumber) => ({
+      ...episode,
+      id: episode.id + episodeNumber,
+      episode_number: episodeNumber,
+      name:
+        episodeNumber === episode.episode_number
+          ? episode.name
+          : episodeNumber === 1
+            ? "Cold Start"
+            : `Episode ${episodeNumber}`,
+    })),
   } as TMDBSeasonDetails
 }
 
@@ -269,6 +277,7 @@ describe("EpisodeDetailClient", () => {
     mocks.getEpisodeRating.mockReturnValue(null)
     mocks.getNote.mockReturnValue(null)
     mocks.toggleEpisode.mockResolvedValue(undefined)
+    mocks.tracking = null
     mocks.useIsEpisodeFavorited = {
       isFavorited: false,
       loading: false,
@@ -353,6 +362,66 @@ describe("EpisodeDetailClient", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: /favorite/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /notes/i })).toBeInTheDocument()
+  })
+
+  it("renders a season episode rail with links for non-current episodes only", () => {
+    render(
+      <EpisodeDetailClient
+        tvShow={createTvShow()}
+        season={createSeason(createEpisode("2024-01-08"), [1, 2, 3])}
+        episode={createEpisode("2024-01-08")}
+        tvShowId={100}
+      />,
+    )
+
+    expect(screen.getByRole("heading", { name: "More Episodes" })).toBeInTheDocument()
+
+    expect(
+      screen.getByRole("link", { name: "Open episode 1: Cold Start" }),
+    ).toHaveAttribute("href", "/tv/100/season/1/episode/1")
+    expect(
+      screen.getByRole("link", { name: "Open episode 3: Episode 3" }),
+    ).toHaveAttribute("href", "/tv/100/season/1/episode/3")
+    expect(
+      screen.queryByRole("link", { name: "Open episode 2: Half Loop" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("marks the current episode and shows watched badges from tracking state", () => {
+    mocks.tracking = {
+      episodes: {
+        "1_1": { watchedAt: "2024-01-10T00:00:00.000Z" },
+      },
+    }
+
+    render(
+      <EpisodeDetailClient
+        tvShow={createTvShow()}
+        season={createSeason(createEpisode("2024-01-08"), [1, 2, 3])}
+        episode={createEpisode("2024-01-08")}
+        tvShowId={100}
+      />,
+    )
+
+    expect(
+      screen.getByLabelText("Current episode 2: Half Loop"),
+    ).toHaveAttribute("aria-current", "page")
+    expect(screen.getByLabelText("Episode 1 watched")).toBeInTheDocument()
+  })
+
+  it("hides the rail when the season only has one episode", () => {
+    render(
+      <EpisodeDetailClient
+        tvShow={createTvShow()}
+        season={createSeason(createEpisode("2024-01-08"), [2])}
+        episode={createEpisode("2024-01-08")}
+        tvShowId={100}
+      />,
+    )
+
+    expect(
+      screen.queryByRole("heading", { name: "More Episodes" }),
+    ).not.toBeInTheDocument()
   })
 
   it("renders the exact TMDB air date and does not mark the episode aired early", () => {
