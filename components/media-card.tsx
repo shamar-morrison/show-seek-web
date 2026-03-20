@@ -9,11 +9,13 @@ import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { getMediaUrl } from "@/lib/utils"
+import { DEFAULT_LISTS, isDefaultList } from "@/types/list"
 import type { TMDBMedia } from "@/types/tmdb"
 import {
   BookmarkIcon,
   CheckmarkCircle02Icon,
   FavouriteIcon,
+  FolderLibraryIcon,
   Loading03Icon,
   PlayIcon,
   StarIcon,
@@ -21,6 +23,8 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
+
+const DEFAULT_LIST_INDICATOR_ORDER = DEFAULT_LISTS.map(({ id }) => id)
 
 interface MediaCardProps {
   media: TMDBMedia
@@ -38,6 +42,37 @@ interface MediaCardProps {
   isWatched?: boolean
   /** Whether to prefer original-language titles when available */
   preferOriginalTitles?: boolean
+}
+
+function getVisibleListIndicators(listIds: string[] = []) {
+  const defaultListIds = DEFAULT_LIST_INDICATOR_ORDER.filter((listId) =>
+    listIds.includes(listId),
+  )
+  const hasCustomList = listIds.some((listId) => !isDefaultList(listId))
+
+  return hasCustomList ? [...defaultListIds, "custom"] : defaultListIds
+}
+
+function getListIndicatorStyle(listId: string) {
+  switch (listId) {
+    case "favorites":
+      return { icon: FavouriteIcon, color: "text-red-500 fill-red-500" }
+    case "watchlist":
+      return { icon: BookmarkIcon, color: "text-blue-500 fill-blue-500" }
+    case "currently-watching":
+      return { icon: PlayIcon, color: "text-amber-500 fill-amber-500" }
+    case "already-watched":
+      return {
+        icon: CheckmarkCircle02Icon,
+        color: "text-green-500 fill-green-500",
+      }
+    case "dropped":
+      return { icon: StopCircleIcon, color: "text-red-500" }
+    case "custom":
+      return { icon: FolderLibraryIcon, color: "text-violet-400 fill-violet-400" }
+    default:
+      return null
+  }
 }
 
 export function MediaCard({
@@ -59,26 +94,7 @@ export function MediaCard({
   const posterUrl = buildImageUrl(media.poster_path, "w500")
   const hasRating = (media.vote_average || 0) > 0
   const detailUrl = getMediaUrl(media.media_type, media.id)
-
-  const getListIcon = (listId: string) => {
-    switch (listId) {
-      case "favorites":
-        return { icon: FavouriteIcon, color: "text-red-500 fill-red-500" }
-      case "watchlist":
-        return { icon: BookmarkIcon, color: "text-blue-500 fill-blue-500" }
-      case "currently-watching":
-        return { icon: PlayIcon, color: "text-amber-500 fill-amber-500" }
-      case "already-watched":
-        return {
-          icon: CheckmarkCircle02Icon,
-          color: "text-green-500 fill-green-500",
-        }
-      case "dropped":
-        return { icon: StopCircleIcon, color: "text-red-500" }
-      default:
-        return null
-    }
-  }
+  const visibleListIndicators = getVisibleListIndicators(listIds)
 
   return (
     <Link href={detailUrl} className="block">
@@ -128,16 +144,17 @@ export function MediaCard({
             )}
 
             {/* List Indicators */}
-            {listIds && listIds.length > 0 && (
+            {visibleListIndicators.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {listIds.map((listId) => {
-                  const indicator = getListIcon(listId)
+                {visibleListIndicators.map((listId) => {
+                  const indicator = getListIndicatorStyle(listId)
                   if (!indicator) return null
                   return (
                     <div
                       key={listId}
+                      data-list-indicator={listId}
+                      title={listId === "custom" ? "custom" : listId}
                       className="flex items-center justify-center rounded-md bg-black/80 p-1.5 backdrop-blur-sm"
-                      title={listId}
                     >
                       <HugeiconsIcon
                         icon={indicator.icon}
