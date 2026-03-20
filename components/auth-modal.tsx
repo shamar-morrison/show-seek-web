@@ -2,6 +2,16 @@
 
 import { Button } from "@/components/ui/button"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,7 +22,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
 import { SHOWSEEK_ICON } from "@/lib/constants"
-import { getEmailAuthErrorMessage, signInWithGoogle } from "@/lib/firebase/auth"
+import {
+  getCreateAccountErrorMessage,
+  getEmailAuthErrorMessage,
+  shouldOfferEmailAccountCreation,
+  signInWithGoogle,
+} from "@/lib/firebase/auth"
 import {
   getFirebaseAuth,
   getFirebaseClientConfigErrorMessage,
@@ -21,17 +36,28 @@ import { createUserDocument } from "@/lib/firebase/user"
 import { cn } from "@/lib/utils"
 import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  type User,
+} from "firebase/auth"
 import { useState } from "react"
 import { z } from "zod"
 
 /** Validation schema for sign-in form */
 const signInSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().trim().email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .pipe(z.string().min(6, "Password must be at least 6 characters")),
 })
 
 type SignInFormData = z.infer<typeof signInSchema>
+type PendingEmailAccountCreation = {
+  email: string
+  password: string
+}
 
 /** Google Logo SVG Component */
 function GoogleLogo({ className }: { className?: string }) {
@@ -81,8 +107,7 @@ function logAuthDebug(user: {
 
 /**
  * AuthModal Component
- * Sign-in/Sign-up modal with Google auth and email/password form
- * Supports switching between sign-in and sign-up views
+ * Single auth modal with Google auth and email/password form.
  *
  * Can be used in two modes:
  * 1. Trigger mode (default): Renders a "Sign In" button that opens the modal
@@ -106,13 +131,14 @@ export function AuthModal({
   message,
 }: AuthModalProps = {}) {
   const { ensureServerSession, firebaseAvailable } = useAuth()
-  const [view, setView] = useState<"sign-in" | "sign-up">("sign-in")
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<SignInFormData>({
     email: "",
     password: "",
   })
+  const [pendingEmailAccountCreation, setPendingEmailAccountCreation] =
+    useState<PendingEmailAccountCreation | null>(null)
   const [errors, setErrors] = useState<Partial<SignInFormData>>({})
   const [authError, setAuthError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -131,6 +157,7 @@ export function AuthModal({
   /** Reset form state when modal closes or view changes */
   const resetForm = () => {
     setFormData({ email: "", password: "" })
+    setPendingEmailAccountCreation(null)
     setErrors({})
     setAuthError(null)
     setShowPassword(false)
@@ -147,14 +174,7 @@ export function AuthModal({
     }
     if (!open) {
       resetForm()
-      setView("sign-in")
     }
-  }
-
-  /** Switch between sign-in and sign-up views */
-  const switchView = (newView: "sign-in" | "sign-up") => {
-    resetForm()
-    setView(newView)
   }
 
   const handleAuthSuccess = async () => {
@@ -170,6 +190,9 @@ export function AuthModal({
   /** Handle form input changes */
   const handleInputChange = (field: keyof SignInFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    if (pendingEmailAccountCreation) {
+      setPendingEmailAccountCreation(null)
+    }
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }))
@@ -189,7 +212,9 @@ export function AuthModal({
       const fieldErrors: Partial<SignInFormData> = {}
       result.error.issues.forEach((issue) => {
         const field = issue.path[0] as keyof SignInFormData
-        fieldErrors[field] = issue.message
+        if (!fieldErrors[field]) {
+          fieldErrors[field] = issue.message
+        }
       })
       setErrors(fieldErrors)
       return
@@ -202,6 +227,7 @@ export function AuthModal({
 
     setIsLoading(true)
     setAuthError(null)
+    setPendingEmailAccountCreation(null)
 
     try {
       const auth = getFirebaseAuth()
@@ -211,31 +237,74 @@ export function AuthModal({
         result.data.password,
       )
 
-      // Sync Firestore user document
-      await createUserDocument(userCredential.user)
-
-      const sessionSyncResult = await ensureServerSession(userCredential.user)
-
-      if (!sessionSyncResult.ok) {
-        setAuthError(
-          sessionSyncResult.error ??
-            "We couldn't start your session. Please try again.",
-        )
-        return
-      }
-
-      logAuthDebug(userCredential.user)
-
-      await handleAuthSuccess()
+      await completeAuth(userCredential.user)
     } catch (error) {
       const firebaseError = error as { code?: string; message?: string }
-      setAuthError(getEmailAuthErrorMessage(firebaseError))
+      if (shouldOfferEmailAccountCreation(firebaseError.code)) {
+        setPendingEmailAccountCreation({
+          email: result.data.email,
+          password: result.data.password,
+        })
+      } else {
+        setAuthError(getEmailAuthErrorMessage(firebaseError))
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
-  /** Handle Google sign-in/sign-up */
+  const completeAuth = async (user: User) => {
+    await createUserDocument(user)
+
+    const sessionSyncResult = await ensureServerSession(user)
+
+    if (!sessionSyncResult.ok) {
+      setAuthError(
+        sessionSyncResult.error ??
+          "We couldn't start your session. Please try again.",
+      )
+      return
+    }
+
+    logAuthDebug(user)
+
+    await handleAuthSuccess()
+  }
+
+  const handleCreateAccount = async () => {
+    if (!pendingEmailAccountCreation) {
+      return
+    }
+
+    if (!firebaseAvailable) {
+      setAuthError(firebaseUnavailableMessage)
+      setPendingEmailAccountCreation(null)
+      return
+    }
+
+    setIsLoading(true)
+    setAuthError(null)
+
+    try {
+      const auth = getFirebaseAuth()
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        pendingEmailAccountCreation.email,
+        pendingEmailAccountCreation.password,
+      )
+
+      setPendingEmailAccountCreation(null)
+      await completeAuth(userCredential.user)
+    } catch (error) {
+      const firebaseError = error as { code?: string; message?: string }
+      setPendingEmailAccountCreation(null)
+      setAuthError(getCreateAccountErrorMessage(firebaseError))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  /** Handle Google sign-in */
   const handleGoogleAuth = async () => {
     if (!firebaseAvailable) {
       setAuthError(firebaseUnavailableMessage)
@@ -249,22 +318,7 @@ export function AuthModal({
       const result = await signInWithGoogle()
 
       if (result.success) {
-        // Create user document in Firestore
-        await createUserDocument(result.user)
-
-        const sessionSyncResult = await ensureServerSession(result.user)
-
-        if (!sessionSyncResult.ok) {
-          setAuthError(
-            sessionSyncResult.error ??
-              "We couldn't start your session. Please try again.",
-          )
-          return
-        }
-
-        logAuthDebug(result.user)
-
-        await handleAuthSuccess()
+        await completeAuth(result.user)
       } else if (!result.cancelled && result.error) {
         setAuthError(result.error)
       }
@@ -303,11 +357,7 @@ export function AuthModal({
 
           {/* Subtitle - show custom message if provided */}
           <DialogDescription>
-            {message
-              ? message
-              : view === "sign-in"
-                ? "Sign in to continue."
-                : "Create your account."}
+            {message ? message : "Sign in to continue."}
           </DialogDescription>
         </DialogHeader>
 
@@ -342,132 +392,125 @@ export function AuthModal({
             ) : (
               <GoogleLogo />
             )}
-            {view === "sign-in" ? "Sign in with Google" : "Sign up with Google"}
+            Continue with Google
           </Button>
 
-          {/* Only show email/password form for sign-in view */}
-          {view === "sign-in" && (
-            <>
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs font-medium text-muted-foreground">
-                  OR
-                </span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium text-muted-foreground">
+              OR
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
-              {/* Email/Password Form */}
-              <form onSubmit={handleSignIn} className="flex flex-col gap-3">
-                {/* Email Input */}
-                <div className="flex flex-col gap-1.5">
-                  <Input
-                    type="email"
-                    placeholder="Email address"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    disabled={!firebaseAvailable || isLoading || isGoogleLoading}
-                    className={cn(
-                      errors.email &&
-                        "border-destructive focus-visible:ring-destructive",
-                    )}
-                    aria-invalid={!!errors.email}
-                    aria-describedby={errors.email ? "email-error" : undefined}
-                  />
-                  {errors.email && (
-                    <p id="email-error" className="text-xs text-destructive">
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
+          {/* Email/Password Form */}
+          <form onSubmit={handleSignIn} className="flex flex-col gap-3">
+            {/* Email Input */}
+            <div className="flex flex-col gap-1.5">
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                disabled={!firebaseAvailable || isLoading || isGoogleLoading}
+                className={cn(
+                  errors.email &&
+                    "border-destructive focus-visible:ring-destructive",
+                )}
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+              {errors.email && (
+                <p id="email-error" className="text-xs text-destructive">
+                  {errors.email}
+                </p>
+              )}
+            </div>
 
-                {/* Password Input */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        handleInputChange("password", e.target.value)
-                      }
-                      disabled={!firebaseAvailable || isLoading || isGoogleLoading}
-                      className={cn(
-                        "pr-10",
-                        errors.password &&
-                          "border-destructive focus-visible:ring-destructive",
-                      )}
-                      aria-invalid={!!errors.password}
-                      aria-describedby={
-                        errors.password ? "password-error" : undefined
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      disabled={!firebaseAvailable || isLoading || isGoogleLoading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                    >
-                      <HugeiconsIcon
-                        icon={showPassword ? ViewOffIcon : ViewIcon}
-                        className="size-4"
-                      />
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p id="password-error" className="text-xs text-destructive">
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
-
-                {/* Sign In Button */}
-                <Button
-                  type="submit"
-                  className="w-full"
+            {/* Password Input */}
+            <div className="flex flex-col gap-1.5">
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   disabled={!firebaseAvailable || isLoading || isGoogleLoading}
-                >
-                  {isLoading ? (
-                    <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : (
-                    "Sign In"
+                  className={cn(
+                    "pr-10",
+                    errors.password &&
+                      "border-destructive focus-visible:ring-destructive",
                   )}
-                </Button>
-              </form>
-            </>
-          )}
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={!firebaseAvailable || isLoading || isGoogleLoading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <HugeiconsIcon
+                    icon={showPassword ? ViewOffIcon : ViewIcon}
+                    className="size-4"
+                  />
+                </button>
+              </div>
+              {errors.password && (
+                <p id="password-error" className="text-xs text-destructive">
+                  {errors.password}
+                </p>
+              )}
+            </div>
 
-          {/* View Switch Link */}
-          <p className="text-center text-sm text-muted-foreground">
-            {view === "sign-in" ? (
-              <>
-                Don&apos;t have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchView("sign-up")}
-                  className="font-medium text-primary transition-colors hover:text-primary/80"
-                >
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchView("sign-in")}
-                  className="font-medium text-primary transition-colors hover:text-primary/80"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!firebaseAvailable || isLoading || isGoogleLoading}
+            >
+              {isLoading ? (
+                <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                "Continue with email"
+              )}
+            </Button>
+          </form>
         </div>
       </DialogContent>
+
+      <AlertDialog
+        open={pendingEmailAccountCreation !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingEmailAccountCreation(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create an account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We couldn&apos;t find an account for{" "}
+              {pendingEmailAccountCreation?.email ?? "this email"}. Create one
+              with these credentials?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCreateAccount} disabled={isLoading}>
+              {isLoading ? (
+                <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                "Create account"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

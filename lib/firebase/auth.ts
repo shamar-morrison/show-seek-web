@@ -105,3 +105,27 @@ export function getEmailAuthErrorMessage(error: {
       return error?.message || "Unable to sign in. Please try again."
   }
 }
+
+export function shouldOfferEmailAccountCreation(code?: string): boolean {
+  return code === "auth/user-not-found" || code === "auth/invalid-credential"
+}
+
+export function getCreateAccountErrorMessage(error: {
+  code?: string
+  message?: string
+}): string {
+  switch (error?.code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try signing in again or use the original sign-in method."
+    case "auth/weak-password":
+      return "Password must be at least 6 characters."
+    case "auth/invalid-email":
+      return "Please enter a valid email address."
+    case "auth/network-request-failed":
+      return "Network error. Please check your internet connection."
+    case "auth/too-many-requests":
+      return "Too many attempts. Please try again later."
+    default:
+      return error?.message || "Unable to create your account. Please try again."
+  }
+}
