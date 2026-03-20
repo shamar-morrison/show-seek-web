@@ -59,6 +59,11 @@ type PendingEmailAccountCreation = {
   password: string
 }
 
+const ACCOUNT_SETUP_ERROR_MESSAGE =
+  "We couldn't finish setting up your account. Please try again."
+const SESSION_START_ERROR_MESSAGE =
+  "We couldn't start your session. Please try again."
+
 /** Google Logo SVG Component */
 function GoogleLogo({ className }: { className?: string }) {
   return (
@@ -254,32 +259,49 @@ export function AuthModal({
   }
 
   const completeAuth = async (user: User) => {
+    let currentStep:
+      | "createUserDocument"
+      | "ensureServerSession"
+      | "finalizeAuth" = "createUserDocument"
+
     try {
       const userDocumentCreated = await createUserDocument(user)
 
       if (!userDocumentCreated) {
-        setAuthError("We couldn't finish setting up your account. Please try again.")
+        setAuthError(ACCOUNT_SETUP_ERROR_MESSAGE)
         return
       }
+
+      currentStep = "ensureServerSession"
+      const sessionSyncResult = await ensureServerSession(user)
+
+      if (!sessionSyncResult.ok) {
+        setAuthError(sessionSyncResult.error ?? SESSION_START_ERROR_MESSAGE)
+        return
+      }
+
+      currentStep = "finalizeAuth"
+      logAuthDebug(user)
+      await handleAuthSuccess()
     } catch (error) {
-      console.error("Failed to create user document during auth completion:", error)
-      setAuthError("We couldn't finish setting up your account. Please try again.")
+      if (currentStep === "ensureServerSession") {
+        console.error(
+          "Failed to ensure server session during auth completion:",
+          error,
+        )
+        setAuthError(SESSION_START_ERROR_MESSAGE)
+        return
+      }
+
+      const logMessage =
+        currentStep === "createUserDocument"
+          ? "Failed to create user document during auth completion:"
+          : "Failed to finalize auth completion:"
+
+      console.error(logMessage, error)
+      setAuthError(ACCOUNT_SETUP_ERROR_MESSAGE)
       return
     }
-
-    const sessionSyncResult = await ensureServerSession(user)
-
-    if (!sessionSyncResult.ok) {
-      setAuthError(
-        sessionSyncResult.error ??
-          "We couldn't start your session. Please try again.",
-      )
-      return
-    }
-
-    logAuthDebug(user)
-
-    await handleAuthSuccess()
   }
 
   const handleCreateAccount = async () => {

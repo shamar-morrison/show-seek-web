@@ -280,6 +280,107 @@ describe("AuthModal", () => {
     )
   })
 
+  it("shows the session fallback message when server session sync returns not ok", async () => {
+    const onAuthSuccess = vi.fn()
+    const signedInUser = {
+      email: "user@example.com",
+      providerData: [{ providerId: "password" }],
+      uid: "user-1",
+    }
+
+    ensureServerSessionMock.mockResolvedValue({
+      error: null,
+      ok: false,
+      status: "error",
+      uid: "user-1",
+    })
+    signInWithEmailAndPasswordMock.mockResolvedValue({
+      user: signedInUser,
+    })
+
+    render(<AuthModal isOpen onAuthSuccess={onAuthSuccess} />)
+
+    fireEvent.change(screen.getByPlaceholderText("Email address"), {
+      target: { value: "user@example.com" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Password"), {
+      target: { value: "secret123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText("We couldn't start your session. Please try again."),
+    ).toBeInTheDocument()
+    expect(onAuthSuccess).not.toHaveBeenCalled()
+  })
+
+  it("shows an auth error when server session sync throws", async () => {
+    const onAuthSuccess = vi.fn()
+    const signedInUser = {
+      email: "user@example.com",
+      providerData: [{ providerId: "password" }],
+      uid: "user-1",
+    }
+
+    ensureServerSessionMock.mockRejectedValue(new Error("session sync exploded"))
+    signInWithEmailAndPasswordMock.mockResolvedValue({
+      user: signedInUser,
+    })
+
+    render(<AuthModal isOpen onAuthSuccess={onAuthSuccess} />)
+
+    fireEvent.change(screen.getByPlaceholderText("Email address"), {
+      target: { value: "user@example.com" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Password"), {
+      target: { value: "secret123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText("We couldn't start your session. Please try again."),
+    ).toBeInTheDocument()
+    expect(onAuthSuccess).not.toHaveBeenCalled()
+    expect(console.error).toHaveBeenCalledWith(
+      "Failed to ensure server session during auth completion:",
+      expect.any(Error),
+    )
+  })
+
+  it("shows an auth error when auth success handling throws", async () => {
+    const onAuthSuccess = vi.fn().mockRejectedValue(new Error("callback failed"))
+    const signedInUser = {
+      email: "user@example.com",
+      providerData: [{ providerId: "password" }],
+      uid: "user-1",
+    }
+
+    signInWithEmailAndPasswordMock.mockResolvedValue({
+      user: signedInUser,
+    })
+
+    render(<AuthModal isOpen onAuthSuccess={onAuthSuccess} />)
+
+    fireEvent.change(screen.getByPlaceholderText("Email address"), {
+      target: { value: "user@example.com" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Password"), {
+      target: { value: "secret123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText(
+        "We couldn't finish setting up your account. Please try again.",
+      ),
+    ).toBeInTheDocument()
+    expect(onAuthSuccess).toHaveBeenCalledTimes(1)
+    expect(console.error).toHaveBeenCalledWith(
+      "Failed to finalize auth completion:",
+      expect.any(Error),
+    )
+  })
+
   it("prompts to create an account when sign-in fails for a missing email account", async () => {
     signInWithEmailAndPasswordMock.mockRejectedValue({
       code: "auth/user-not-found",

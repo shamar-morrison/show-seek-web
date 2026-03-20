@@ -41,6 +41,15 @@ export async function createUserDocument(user: User): Promise<boolean> {
   }
 
   const userRef = doc(getFirebaseDb(), "users", user.uid)
+  const authProfileUpdates: Pick<
+    UserDocument,
+    "uid" | "displayName" | "email" | "photoURL"
+  > = {
+    uid: user.uid,
+    displayName: user.displayName,
+    email: user.email,
+    photoURL: user.photoURL,
+  }
 
   try {
     const existingDoc = await getDoc(userRef)
@@ -52,6 +61,7 @@ export async function createUserDocument(user: User): Promise<boolean> {
       // Runtime guard: validate data shape before accessing fields
       const existingData =
         rawData &&
+        typeof rawData.uid === "string" &&
         (typeof rawData.photoURL === "string" ||
           rawData.photoURL === null ||
           rawData.photoURL === undefined) &&
@@ -65,8 +75,9 @@ export async function createUserDocument(user: User): Promise<boolean> {
           : null
 
       if (!existingData) {
-        console.warn("Invalid user document shape in Firestore")
-        return false
+        console.warn("Invalid user document shape in Firestore, repairing")
+        await setDoc(userRef, authProfileUpdates, { merge: true })
+        return true
       }
 
       const updates: Partial<UserDocument> = {}
@@ -91,10 +102,7 @@ export async function createUserDocument(user: User): Promise<boolean> {
     } else {
       // Create new document
       const userData: UserDocument = {
-        uid: user.uid,
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
+        ...authProfileUpdates,
         createdAt: serverTimestamp(),
       }
       await setDoc(userRef, userData)
