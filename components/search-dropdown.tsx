@@ -21,9 +21,36 @@ import {
 
 const DEBOUNCE_DELAY = 300
 const MAX_RESULTS = 6
+const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)"
 
 interface SearchDropdownProps {
   className?: string
+}
+
+function isEditableElement(element: Element | null) {
+  if (!(element instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = element.tagName
+
+  return (
+    element.isContentEditable ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "SELECT"
+  )
+}
+
+function getShortcutHint(): string {
+  if (typeof navigator === "undefined") {
+    return "CtrlK"
+  }
+
+  const platformDescriptor = `${navigator.platform} ${navigator.userAgent}`
+  const isApplePlatform = /Mac|iPhone|iPad|iPod/i.test(platformDescriptor)
+
+  return isApplePlatform ? "⌘K" : "CtrlK"
 }
 
 /**
@@ -39,6 +66,7 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const shortcutHint = useMemo(() => getShortcutHint(), [])
 
   // Perform search
   const performSearch = useCallback(async (searchQuery: string) => {
@@ -76,6 +104,46 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
       debouncedSearch.cancel()
     }
   }, [debouncedSearch])
+
+  useEffect(() => {
+    const handleGlobalShortcut = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.shiftKey ||
+        (!event.metaKey && !event.ctrlKey) ||
+        event.key.toLowerCase() !== "k"
+      ) {
+        return
+      }
+
+      if (!window.matchMedia(DESKTOP_MEDIA_QUERY).matches) {
+        return
+      }
+
+      const input = inputRef.current
+
+      if (!input) {
+        return
+      }
+
+      const activeElement = document.activeElement
+
+      if (activeElement !== input && isEditableElement(activeElement)) {
+        return
+      }
+
+      event.preventDefault()
+      input.focus()
+      input.select()
+    }
+
+    document.addEventListener("keydown", handleGlobalShortcut)
+
+    return () => {
+      document.removeEventListener("keydown", handleGlobalShortcut)
+    }
+  }, [])
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,6 +233,7 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
 
   const hasResults = results.length > 0
   const showNoResults = isOpen && query.trim() && !isPending && !hasResults
+  const showShortcutHint = query.trim().length === 0
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
@@ -181,13 +250,24 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
           id="navbar-search-input"
           ref={inputRef}
           type="text"
+          aria-keyshortcuts="Meta+K Control+K"
           placeholder="Search..."
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
-          className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 lg:w-64"
+          className="h-9 w-48 rounded-full border-white/10 bg-white/5 pl-9 pr-18 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 lg:w-64"
         />
+        {showShortcutHint && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] font-medium text-gray-500/75"
+          >
+            <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-md border border-white/8 bg-white/[0.04] px-1.5 font-sans shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              {shortcutHint}
+            </kbd>
+          </div>
+        )}
       </div>
 
       {/* Dropdown */}
