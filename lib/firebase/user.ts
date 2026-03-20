@@ -35,12 +35,21 @@ export interface UserDocument {
  * Create or update a user document in Firestore.
  * Idempotent - safe to call on every sign-in.
  */
-export async function createUserDocument(user: User): Promise<void> {
+export async function createUserDocument(user: User): Promise<boolean> {
   if (!user || user.isAnonymous) {
-    return // Don't create documents for anonymous users
+    return false // Don't create documents for anonymous users
   }
 
   const userRef = doc(getFirebaseDb(), "users", user.uid)
+  const authProfileUpdates: Pick<
+    UserDocument,
+    "uid" | "displayName" | "email" | "photoURL"
+  > = {
+    uid: user.uid,
+    displayName: user.displayName,
+    email: user.email,
+    photoURL: user.photoURL,
+  }
 
   try {
     const existingDoc = await getDoc(userRef)
@@ -52,6 +61,7 @@ export async function createUserDocument(user: User): Promise<void> {
       // Runtime guard: validate data shape before accessing fields
       const existingData =
         rawData &&
+        typeof rawData.uid === "string" &&
         (typeof rawData.photoURL === "string" ||
           rawData.photoURL === null ||
           rawData.photoURL === undefined) &&
@@ -65,8 +75,9 @@ export async function createUserDocument(user: User): Promise<void> {
           : null
 
       if (!existingData) {
-        console.warn("Invalid user document shape in Firestore")
-        return
+        console.warn("Invalid user document shape in Firestore, repairing")
+        await setDoc(userRef, authProfileUpdates, { merge: true })
+        return true
       }
 
       const updates: Partial<UserDocument> = {}
@@ -86,18 +97,20 @@ export async function createUserDocument(user: User): Promise<void> {
       if (Object.keys(updates).length > 0) {
         await setDoc(userRef, updates, { merge: true })
       }
+
+      return true
     } else {
       // Create new document
       const userData: UserDocument = {
-        uid: user.uid,
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
+        ...authProfileUpdates,
         createdAt: serverTimestamp(),
       }
       await setDoc(userRef, userData)
+
+      return true
     }
   } catch (error) {
     console.warn("Failed to create/update user document:", error)
+    return false
   }
 }
