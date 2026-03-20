@@ -4,14 +4,18 @@ import { fetchTrailerKey } from "@/app/actions"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { TrailerModal } from "@/components/trailer-modal"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
+import { ViewAllLink } from "@/components/ui/view-all-link"
 import { usePreferences } from "@/hooks/use-preferences"
-import { getDisplayMediaTitle } from "@/lib/media-title"
 import {
-  PersonCastMember,
-  PersonCrewMember,
-  TMDBActionableMedia,
-  TMDBPersonDetails,
-} from "@/types/tmdb"
+  buildPersonCredits,
+  getPersonCreditTypeLabel,
+  getPersonCreditTypeOrder,
+  PERSON_CREDIT_PREVIEW_LIMIT,
+  type PersonCreditType,
+} from "@/lib/person-credits"
+import { getDisplayMediaTitle } from "@/lib/media-title"
+import { TMDBActionableMedia, TMDBPersonDetails } from "@/types/tmdb"
 import { Film01Icon, Tv01Icon } from "@hugeicons/core-free-icons"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -20,14 +24,11 @@ interface PersonContentProps {
   person: TMDBPersonDetails
 }
 
-// Helper to deduplicate items by id using Set (O(n) instead of O(n²))
-const deduplicateById = <T extends { id: number }>(items: T[]): T[] => {
-  const seen = new Set<number>()
-  return items.filter((item) => {
-    if (seen.has(item.id)) return false
-    seen.add(item.id)
-    return true
-  })
+type PersonCreditSection = {
+  key: PersonCreditType
+  title: string
+  href: string
+  items: TMDBActionableMedia[]
 }
 
 export function PersonContent({ person }: PersonContentProps) {
@@ -39,49 +40,18 @@ export function PersonContent({ person }: PersonContentProps) {
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
   const { preferences } = usePreferences()
 
-  const { movieCredits, tvCredits, mediaItems, creditLabel } = useMemo(() => {
-    const knownFor = person.known_for_department
-    let credits: (PersonCastMember | PersonCrewMember)[] = []
-    const label = knownFor
+  const creditsByTab = useMemo(() => buildPersonCredits(person), [person])
 
-    if (knownFor === "Acting") {
-      credits = person.combined_credits?.cast || []
-    } else {
-      // For non-acting departments (Directing, Writing, Production, etc.),
-      // filter crew credits by that department
-      credits =
-        person.combined_credits?.crew.filter(
-          (c) => c.department === knownFor,
-        ) || []
-    }
-
-    // Split credits by media type, deduplicate, and sort by popularity
-    const movies = deduplicateById(
-      credits.filter((c) => c.media_type === "movie" && c.poster_path),
-    ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-
-    const tv = deduplicateById(
-      credits.filter((c) => c.media_type === "tv" && c.poster_path),
-    ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-
-    const current = activeTab === "movie" ? movies : tv
-
-    // Map to TMDBMedia for MediaCard
-    const items: TMDBActionableMedia[] = current.map((credit) => ({
-      ...credit,
-      original_language: "",
-      ...(credit.media_type === "movie"
-        ? { original_title: credit.original_title }
-        : { original_name: credit.original_name }),
-    }))
-
-    return {
-      movieCredits: movies,
-      tvCredits: tv,
-      mediaItems: items,
-      creditLabel: label,
-    }
-  }, [person, activeTab])
+  const currentTabCredits = creditsByTab[activeTab]
+  const allSections: PersonCreditSection[] = getPersonCreditTypeOrder(
+    person.known_for_department,
+  ).map((creditType) => ({
+    key: creditType,
+    title: `${getPersonCreditTypeLabel(creditType)} (${currentTabCredits[creditType].length})`,
+    href: `/person/${person.id}/credits?mediaType=${activeTab}&creditType=${creditType}`,
+    items: currentTabCredits[creditType],
+  }))
+  const sections = allSections.filter((section) => section.items.length > 0)
 
   const handleWatchTrailer = async (media: TMDBActionableMedia) => {
     setLoadingMediaId(media.id)
@@ -107,44 +77,54 @@ export function PersonContent({ person }: PersonContentProps) {
       <div className="mb-8 flex flex-wrap gap-2 border-b border-white/10 pb-4">
         <FilterTabButton
           label="Movies"
-          count={movieCredits.length}
+          count={creditsByTab.movie.count}
           isActive={activeTab === "movie"}
           icon={Film01Icon}
           onClick={() => setActiveTab("movie")}
         />
         <FilterTabButton
           label="TV Shows"
-          count={tvCredits.length}
+          count={creditsByTab.tv.count}
           isActive={activeTab === "tv"}
           icon={Tv01Icon}
           onClick={() => setActiveTab("tv")}
         />
       </div>
 
-      {/* Header for list */}
-      <h2 className="mb-6 text-xl font-bold text-white">
-        {activeTab === "movie" ? "Movie" : "TV Show"} Credits ({creditLabel})
-      </h2>
-
-      {/* Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {mediaItems.map((media) => (
-          <MediaCardWithActions
-            key={`${media.media_type}-${media.id}`}
-            media={media}
-            buttonText="Trailer"
-            onWatchTrailer={handleWatchTrailer}
-            isLoading={loadingMediaId === media.id}
-            preferOriginalTitles={preferences.showOriginalTitles}
-          />
-        ))}
-
-        {mediaItems.length === 0 && (
-          <div className="col-span-full py-12 text-center text-gray-500">
-            No {activeTab === "movie" ? "movies" : "TV shows"} found.
-          </div>
-        )}
-      </div>
+      {sections.length === 0 ? (
+        <div className="py-12 text-center text-gray-500">
+          No {activeTab === "movie" ? "movies" : "TV shows"} found.
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {sections.map((section) => (
+            <section key={section.key}>
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <h2 className="text-xl font-bold text-white">{section.title}</h2>
+                <ViewAllLink href={section.href} />
+              </div>
+              <ScrollableRow className="pb-2">
+                {section.items
+                  .slice(0, PERSON_CREDIT_PREVIEW_LIMIT)
+                  .map((media) => (
+                    <div
+                      key={`${section.key}-${media.media_type}-${media.id}`}
+                      className="w-[140px] shrink-0 sm:w-[160px]"
+                    >
+                      <MediaCardWithActions
+                        media={media}
+                        buttonText="Trailer"
+                        onWatchTrailer={handleWatchTrailer}
+                        isLoading={loadingMediaId === media.id}
+                        preferOriginalTitles={preferences.showOriginalTitles}
+                      />
+                    </div>
+                  ))}
+              </ScrollableRow>
+            </section>
+          ))}
+        </div>
+      )}
 
       <TrailerModal
         isOpen={isModalOpen}

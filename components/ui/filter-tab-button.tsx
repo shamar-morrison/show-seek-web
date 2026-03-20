@@ -11,8 +11,8 @@ interface FilterTabButtonProps {
   count: number
   /** Whether this tab is currently active */
   isActive: boolean
-  /** Icon component from @hugeicons/core-free-icons */
-  icon: Parameters<typeof HugeiconsIcon>[0]["icon"]
+  /** Optional icon component from @hugeicons/core-free-icons */
+  icon?: Parameters<typeof HugeiconsIcon>[0]["icon"]
   /** Click handler */
   onClick: () => void
   /** Optional additional class names */
@@ -36,18 +36,20 @@ export function FilterTabButton({
       variant={isActive ? "default" : "ghost"}
       onClick={onClick}
       className={cn(
-        "shrink-0 gap-2",
+        "shrink-0",
+        icon ? "gap-2" : "gap-1.5",
         isActive
           ? "bg-primary text-white hover:bg-primary/90"
           : "text-gray-400 hover:bg-white/10 hover:text-white",
         className,
       )}
     >
-      <HugeiconsIcon icon={icon} className="size-4" />
+      {icon ? <HugeiconsIcon icon={icon} className="size-4" /> : null}
       {label}
       <span
         className={cn(
-          "ml-1 rounded-full px-2 py-0.5 text-xs",
+          "rounded-full px-2 py-0.5 text-xs",
+          icon ? "ml-1" : "",
           isActive ? "bg-white/20" : "bg-white/10 text-gray-500",
         )}
       >
