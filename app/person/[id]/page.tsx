@@ -1,5 +1,6 @@
 import { FavoritePersonButton } from "@/components/favorite-person-button"
 import { PageContainer } from "@/components/page-container"
+import { PersonBiography } from "@/components/person-biography"
 import { PersonContent } from "@/components/person-content"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
 import { calculateTmdbAge, formatTmdbDate } from "@/lib/tmdb-date"
@@ -127,15 +128,10 @@ export default async function PersonPage({ params }: PersonPageProps) {
           <div className="w-full md:w-2/3 lg:w-3/4">
             <h1 className="mb-6 text-4xl font-bold">{person.name}</h1>
 
-            <div className="mb-8">
-              <h2 className="mb-2 text-xl font-bold">Biography</h2>
-              <div className="prose prose-invert max-w-none text-gray-300">
-                <p className="whitespace-pre-wrap leading-relaxed">
-                  {person.biography ||
-                    `We don't have a biography for ${person.name}.`}
-                </p>
-              </div>
-            </div>
+            <PersonBiography
+              biography={person.biography}
+              personName={person.name}
+            />
 
             <PersonContent person={person} />
           </div>

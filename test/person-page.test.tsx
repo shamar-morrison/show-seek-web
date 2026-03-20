@@ -31,6 +31,10 @@ vi.mock("@/components/page-container", () => ({
   }) => <div className={className}>{children}</div>,
 }))
 
+vi.mock("@/components/person-biography", () => ({
+  PersonBiography: () => <div>person-biography</div>,
+}))
+
 vi.mock("@/components/person-content", () => ({
   PersonContent: () => <div>person-content</div>,
 }))
