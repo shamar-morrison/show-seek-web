@@ -15,6 +15,7 @@ import {
   deleteWatch,
   fetchWatches,
   getWatchCount,
+  updateWatch,
   WatchInstance,
 } from "@/lib/firebase/watched-movies"
 import { applyWatchedMovieListAutomation } from "@/lib/movie-list-automation"
@@ -46,6 +47,8 @@ interface UseWatchedMoviesReturn {
     autoRemoveFromShouldWatch?: boolean,
   ) => Promise<void>
   clearAllWatches: () => Promise<void>
+  deleteWatchInstance: (watchId: string) => Promise<void>
+  updateWatchInstance: (watchId: string, watchedAt: Date) => Promise<void>
 }
 
 interface WatchMutationContext {
@@ -330,6 +333,96 @@ export function useWatchedMovies(
     clearWatchesMutationRef.current = clearWatchesMutation.mutateAsync
   }, [clearWatchesMutation.mutateAsync])
 
+  const deleteWatchMutation = useMutation({
+    mutationFn: async ({ watchId }: { watchId: string }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to delete watch history")
+      }
+
+      await deleteWatch(userId, movieId, watchId)
+    },
+    onMutate: async ({ watchId }) => {
+      if (!watchesQueryKey) {
+        return { previousWatches: undefined } satisfies WatchMutationContext
+      }
+
+      await queryClient.cancelQueries({ queryKey: watchesQueryKey })
+      const previousWatches =
+        queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
+
+      queryClient.setQueryData<WatchInstance[]>(
+        watchesQueryKey,
+        (currentWatches) =>
+          (currentWatches ?? []).filter((watch) => watch.id !== watchId),
+      )
+
+      return { previousWatches } satisfies WatchMutationContext
+    },
+    onError: (_error, _variables, context) => {
+      if (!watchesQueryKey || !context) return
+      queryClient.setQueryData(watchesQueryKey, context.previousWatches)
+    },
+    onSettled: () => {
+      if (!watchesQueryKey) return
+      queryClient.invalidateQueries({ queryKey: watchesQueryKey })
+    },
+  })
+
+  const deleteWatchMutationRef = useRef(deleteWatchMutation.mutateAsync)
+
+  useEffect(() => {
+    deleteWatchMutationRef.current = deleteWatchMutation.mutateAsync
+  }, [deleteWatchMutation.mutateAsync])
+
+  const updateWatchMutation = useMutation({
+    mutationFn: async ({
+      watchId,
+      watchedAt,
+    }: {
+      watchId: string
+      watchedAt: Date
+    }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to edit watch history")
+      }
+
+      await updateWatch(userId, movieId, watchId, watchedAt)
+    },
+    onMutate: async ({ watchId, watchedAt }) => {
+      if (!watchesQueryKey) {
+        return { previousWatches: undefined } satisfies WatchMutationContext
+      }
+
+      await queryClient.cancelQueries({ queryKey: watchesQueryKey })
+      const previousWatches =
+        queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
+
+      queryClient.setQueryData<WatchInstance[]>(watchesQueryKey, (current) =>
+        [...(current ?? [])]
+          .map((watch) =>
+            watch.id === watchId ? { ...watch, watchedAt } : watch,
+          )
+          .sort((left, right) => right.watchedAt.getTime() - left.watchedAt.getTime()),
+      )
+
+      return { previousWatches } satisfies WatchMutationContext
+    },
+    onError: (_error, _variables, context) => {
+      if (!watchesQueryKey || !context) return
+      queryClient.setQueryData(watchesQueryKey, context.previousWatches)
+    },
+    onSettled: () => {
+      if (!watchesQueryKey) return
+      queryClient.invalidateQueries({ queryKey: watchesQueryKey })
+    },
+  })
+
+  const updateWatchMutationRef = useRef(updateWatchMutation.mutateAsync)
+
+  useEffect(() => {
+    updateWatchMutationRef.current = updateWatchMutation.mutateAsync
+  }, [updateWatchMutation.mutateAsync])
+
   const addWatchInstance = useCallback(
     async (
       watchedAt: Date,
@@ -441,8 +534,102 @@ export function useWatchedMovies(
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error"
       toast.error(`Failed to clear watch history: ${errorMessage}`)
+      throw error
     }
   }, [instances, movieId, queryClient, userId, watchesQueryKey])
+
+  const deleteWatchInstance = useCallback(
+    async (watchId: string): Promise<void> => {
+      const deletedWatch =
+        (
+          (watchesQueryKey
+            ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
+            : undefined) ?? instances
+        ).find((watch) => watch.id === watchId) ?? null
+      const previousWatch = deletedWatch
+        ? {
+            ...deletedWatch,
+            watchedAt: new Date(deletedWatch.watchedAt),
+          }
+        : null
+
+      try {
+        await deleteWatchMutationRef.current({ watchId })
+
+        const remainingWatchCount =
+          (watchesQueryKey
+            ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)?.length
+            : undefined) ??
+          (userId ? await getWatchCount(userId, movieId) : 0)
+        let removedCollectionIds: number[] = []
+
+        if (remainingWatchCount === 0 && userId) {
+          removedCollectionIds = await syncCollectionTrackingAfterUnwatch(
+            userId,
+            movieId,
+          )
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.firestore.collectionTrackingRoot,
+          })
+        }
+
+        if (!previousWatch) {
+          toast.success("Watch deleted")
+          return
+        }
+
+        showActionableSuccessToast("Watch deleted", {
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              await addWatch(userId as string, movieId, previousWatch.watchedAt)
+              await Promise.all(
+                removedCollectionIds.map((collectionId) =>
+                  addWatchedMovieToTrackedCollection(
+                    userId as string,
+                    collectionId,
+                    movieId,
+                  ),
+                ),
+              )
+
+              if (watchesQueryKey) {
+                await queryClient.invalidateQueries({
+                  queryKey: watchesQueryKey,
+                })
+              }
+              await queryClient.invalidateQueries({
+                queryKey: queryKeys.firestore.collectionTrackingRoot,
+              })
+            },
+            errorMessage: "Failed to restore deleted watch",
+            logMessage: "Failed to undo watch deletion:",
+          },
+        })
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error"
+        toast.error(`Failed to delete watch: ${errorMessage}`)
+        throw error
+      }
+    },
+    [instances, movieId, queryClient, userId, watchesQueryKey],
+  )
+
+  const updateWatchInstance = useCallback(
+    async (watchId: string, watchedAt: Date): Promise<void> => {
+      try {
+        await updateWatchMutationRef.current({ watchId, watchedAt })
+        toast.success("Watch date updated")
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error"
+        toast.error(`Failed to update watch: ${errorMessage}`)
+        throw error
+      }
+    },
+    [],
+  )
 
   return {
     instances,
@@ -451,5 +638,7 @@ export function useWatchedMovies(
     isLoading: authLoading || (enabled && isLoading),
     addWatchInstance,
     clearAllWatches,
+    deleteWatchInstance,
+    updateWatchInstance,
   }
 }

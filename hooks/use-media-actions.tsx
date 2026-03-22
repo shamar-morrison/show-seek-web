@@ -117,13 +117,13 @@ export function useMediaActions({
   const { getNote } = useNotes()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
-  // Watch history for movies only
-  // Watch history for movies only - Disable subscription for performance
-  const {
-    count: watchCount,
-    addWatchInstance,
-    clearAllWatches,
-  } = useWatchedMovies(mediaType === "movie" ? media.id : 0, { enabled: false })
+  // Card and dropdown flows only need the mutation helpers, not full history.
+  const { addWatchInstance } = useWatchedMovies(
+    mediaType === "movie" ? media.id : 0,
+    {
+      enabled: false,
+    },
+  )
 
   // Check if media is in "already-watched" list (alternative to real-time subscription)
   const isWatched = useMemo(() => {
@@ -388,9 +388,7 @@ export function useMediaActions({
                     : "Movie"
               }
               releaseDate={(mediaForModal as TMDBMovieDetails).release_date}
-              watchCount={watchCount}
               onMarkAsWatched={handleModalMarkAsWatched}
-              onClearAll={clearAllWatches}
             />
           )}
 
@@ -415,9 +413,7 @@ export function useMediaActions({
       closeModal,
       mediaForModal,
       mediaType,
-      watchCount,
       handleModalMarkAsWatched,
-      clearAllWatches,
     ],
   )
 

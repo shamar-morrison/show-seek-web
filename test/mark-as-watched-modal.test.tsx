@@ -1,7 +1,7 @@
 import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import { render, screen, waitFor } from "@/test/utils"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 const originalTimeZone = process.env.TZ
@@ -38,44 +38,72 @@ vi.mock("@/components/ui/base-media-modal", () => ({
 
 vi.mock("@/components/ui/button", () => ({
   Button: ({
+    "aria-label": ariaLabel,
     children,
+    className,
     disabled,
     onClick,
-  }: {
-    children?: ReactNode
-    disabled?: boolean
-    onClick?: () => void
-  }) => (
-    <button disabled={disabled} onClick={onClick} type="button">
+    type,
+  }: ComponentProps<"button">) => (
+    <button
+      aria-label={ariaLabel}
+      className={className}
+      disabled={disabled}
+      onClick={onClick}
+      type={type ?? "button"}
+    >
       {children}
     </button>
   ),
 }))
 
 vi.mock("@/components/ui/calendar", () => ({
-  Calendar: () => null,
+  Calendar: ({
+    onSelect,
+  }: {
+    onSelect?: (date: Date) => void
+  }) => (
+    <button
+      onClick={() => onSelect?.(new Date("2024-03-25T00:00:00.000Z"))}
+      type="button"
+    >
+      Select Mar 25, 2024
+    </button>
+  ),
 }))
 
 vi.mock("@/components/ui/dialog", () => ({
-  Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Dialog: ({
+    children,
+    open,
+  }: {
+    children?: ReactNode
+    open?: boolean
+  }) => (open === false ? null : <div>{children}</div>),
   DialogContent: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
+  DialogDescription: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogFooter: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock("@/components/ui/alert-dialog", () => ({
-  AlertDialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  AlertDialog: ({
+    children,
+    open,
+  }: {
+    children?: ReactNode
+    open?: boolean
+  }) => (open === false ? null : <div>{children}</div>),
   AlertDialogAction: ({
     children,
     disabled,
     onClick,
-  }: {
-    children?: ReactNode
-    disabled?: boolean
-    onClick?: () => void
-  }) => (
+  }: ComponentProps<"button">) => (
     <button disabled={disabled} onClick={onClick} type="button">
       {children}
     </button>
@@ -83,10 +111,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialogCancel: ({
     children,
     disabled,
-  }: {
-    children?: ReactNode
-    disabled?: boolean
-  }) => (
+  }: ComponentProps<"button">) => (
     <button disabled={disabled} type="button">
       {children}
     </button>
@@ -100,6 +125,10 @@ vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialogFooter: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   AlertDialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   AlertDialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock("@/components/ui/scroll-area", () => ({
+  ScrollArea: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }))
 
 afterEach(() => {
@@ -119,9 +148,7 @@ describe("MarkAsWatchedModal", () => {
         onClose={vi.fn()}
         movieTitle="Example Movie"
         releaseDate="2024-03-27"
-        watchCount={0}
         onMarkAsWatched={onMarkAsWatched}
-        onClearAll={vi.fn().mockResolvedValue(undefined)}
       />,
     )
 
@@ -139,5 +166,24 @@ describe("MarkAsWatchedModal", () => {
     expect(watchedDate.getFullYear()).toBe(2024)
     expect(watchedDate.getMonth()).toBe(2)
     expect(watchedDate.getDate()).toBe(27)
+  })
+
+  it("does not render watch-history actions in the modal", () => {
+    render(
+      <MarkAsWatchedModal
+        isOpen
+        onClose={vi.fn()}
+        movieTitle="Example Movie"
+        releaseDate="2024-03-27"
+        onMarkAsWatched={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "View watch history" }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Clear all watch history" }),
+    ).not.toBeInTheDocument()
   })
 })

@@ -2,8 +2,8 @@
 
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
-import { MarkAsWatchedButton } from "@/components/mark-as-watched-button"
 import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
+import { MarkAsWatchedSplitButton } from "@/components/mark-as-watched-split-button"
 import { NotesModal } from "@/components/notes-modal"
 import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
@@ -173,10 +173,13 @@ export function MediaDetailHero({
 
   // Watch history for movies only
   const {
+    instances,
     count: watchCount,
     addWatchInstance,
     clearAllWatches,
+    deleteWatchInstance,
     isLoading: watchedLoading,
+    updateWatchInstance,
   } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
 
   // Get user's rating for this media
@@ -502,15 +505,23 @@ export function MediaDetailHero({
 
                   {/* Mark as Watched - Movies only */}
                   {mediaType === "movie" && (
-                    <MarkAsWatchedButton
+                    <MarkAsWatchedSplitButton
+                      movieTitle={title}
+                      instances={instances}
                       watchCount={watchCount}
-                      isLoading={isQuickMarkLoading || watchedLoading}
-                      onClick={() =>
+                      isMarkAsWatchedLoading={
+                        isQuickMarkLoading || watchedLoading
+                      }
+                      isWatchHistoryLoading={watchedLoading}
+                      onMarkAsWatched={() =>
                         requireAuth(
                           handleMarkAsWatched,
                           "Sign in to mark movies as watched",
                         )
                       }
+                      onClearWatchHistory={clearAllWatches}
+                      onDeleteWatch={deleteWatchInstance}
+                      onUpdateWatch={updateWatchInstance}
                     />
                   )}
 
@@ -603,9 +614,7 @@ export function MediaDetailHero({
           onClose={() => setIsMarkAsWatchedOpen(false)}
           movieTitle={title}
           releaseDate={(media as TMDBMovieDetails).release_date}
-          watchCount={watchCount}
           onMarkAsWatched={handleModalMarkAsWatched}
-          onClearAll={clearAllWatches}
         />
       )}
 

@@ -2,15 +2,18 @@ import { render } from "@/test/utils"
 import { useMediaActions } from "@/hooks/use-media-actions"
 import type { UserList } from "@/types/list"
 import type { TMDBMedia } from "@/types/tmdb"
-import { renderHook } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   addWatchInstance: vi.fn(),
   clearAllWatches: vi.fn(),
   closeModal: vi.fn(),
+  deleteWatchInstance: vi.fn(),
   getNote: vi.fn(),
   getRating: vi.fn(),
+  instances: [] as Array<{ id: string; movieId: number; watchedAt: Date }>,
+  isLoading: false,
   lists: [] as UserList[],
   preferences: {
     showListIndicators: false,
@@ -19,6 +22,8 @@ const mocks = vi.hoisted(() => ({
     autoRemoveFromShouldWatch: false,
   },
   requireAuth: vi.fn((callback?: () => void) => callback?.()),
+  updateWatchInstance: vi.fn(),
+  useWatchedMovies: vi.fn(),
 }))
 
 vi.mock("next/dynamic", () => ({
@@ -61,11 +66,17 @@ vi.mock("@/hooks/use-ratings", () => ({
 }))
 
 vi.mock("@/hooks/use-watched-movies", () => ({
-  useWatchedMovies: () => ({
-    count: 0,
-    addWatchInstance: mocks.addWatchInstance,
-    clearAllWatches: mocks.clearAllWatches,
-  }),
+  useWatchedMovies: (...args: unknown[]) => mocks.useWatchedMovies(...args),
+}))
+
+mocks.useWatchedMovies.mockImplementation(() => ({
+  instances: mocks.instances,
+  count: 0,
+  isLoading: mocks.isLoading,
+  addWatchInstance: mocks.addWatchInstance,
+  clearAllWatches: mocks.clearAllWatches,
+  deleteWatchInstance: mocks.deleteWatchInstance,
+  updateWatchInstance: mocks.updateWatchInstance,
 }))
 
 function createList(listId: string, itemKey: string): UserList {
@@ -109,9 +120,13 @@ describe("useMediaActions", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.lists = []
+    mocks.instances = []
+    mocks.isLoading = false
     mocks.preferences.showListIndicators = false
+    mocks.preferences.quickMarkAsWatched = false
     mocks.getRating.mockReturnValue(null)
     mocks.getNote.mockReturnValue(null)
+    mocks.useWatchedMovies.mockClear()
   })
 
   it("uses add-to-list appearance for the dropdown even when list indicators are disabled", () => {
@@ -145,5 +160,42 @@ describe("useMediaActions", () => {
     expect(icon).toHaveAttribute("data-add-to-list-icon", "custom")
     expect(icon.getAttribute("class") ?? "").toContain("menu-icon")
     expect(icon.getAttribute("class") ?? "").toContain("text-violet-400")
+  })
+
+  it("keeps watched history queries disabled for card dropdown flows", () => {
+    const movie: TMDBMedia = {
+      ...createMedia(),
+      media_type: "movie",
+      title: "Test Movie",
+      original_title: "Test Movie",
+      release_date: "2024-03-27",
+    } as TMDBMedia
+
+    const { result } = renderHook(() =>
+      useMediaActions({
+        media: movie,
+        mediaType: "movie",
+      }),
+    )
+
+    expect(mocks.useWatchedMovies).toHaveBeenLastCalledWith(123, {
+      enabled: false,
+    })
+
+    const watchedItem = result.current.dropdownItems.find(
+      (item) => item.id === "mark-as-watched",
+    )
+
+    if (!watchedItem?.onClick) {
+      throw new Error("Expected mark-as-watched dropdown item")
+    }
+
+    act(() => {
+      watchedItem.onClick?.()
+    })
+
+    expect(mocks.useWatchedMovies).toHaveBeenLastCalledWith(123, {
+      enabled: false,
+    })
   })
 })

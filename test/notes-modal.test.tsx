@@ -150,6 +150,35 @@ describe("NotesModal", () => {
     })
   })
 
+  it("accepts up to 200 characters and prevents longer notes", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 123,
+          poster_path: null,
+          title: "Spirited Away",
+        }}
+        mediaType="movie"
+      />,
+    )
+
+    const textarea = screen.getByPlaceholderText(
+      "Write your thoughts, opinions, or reminders about this title...",
+    )
+    const withinLimit = "a".repeat(200)
+    const overLimit = `${withinLimit}b`
+
+    await user.type(textarea, overLimit)
+
+    expect(textarea).toHaveValue(withinLimit)
+    expect(textarea).toHaveAttribute("maxlength", "200")
+    expect(screen.getByText("200/200")).toBeInTheDocument()
+  })
+
   it("clears episode notes using season and episode metadata", async () => {
     const user = userEvent.setup()
 
