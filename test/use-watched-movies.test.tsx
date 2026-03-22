@@ -400,7 +400,15 @@ describe("useWatchedMovies collection sync", () => {
     })
 
     expect(deleteWatchMock).toHaveBeenCalledWith("user-1", 900, "watch-a")
-    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Watch deleted",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
   })
 
   it("syncs collection tracking when deleting the last watch instance", async () => {
@@ -442,7 +450,15 @@ describe("useWatchedMovies collection sync", () => {
         900,
       )
     })
-    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Watch deleted",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
   })
 
   it("does not sync collection tracking when a concurrent add leaves another watch in cache", async () => {
@@ -495,7 +511,61 @@ describe("useWatchedMovies collection sync", () => {
     expect(fetchAllTrackedCollectionsMock).not.toHaveBeenCalled()
     expect(removeWatchedMovieFromTrackedCollectionMock).not.toHaveBeenCalled()
     expect(getWatchCountMock).not.toHaveBeenCalled()
-    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Watch deleted",
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Undo",
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
+  })
+
+  it("restores a deleted watch and collection tracking from the success toast action", async () => {
+    const deletedWatchDate = new Date("2026-03-09T19:00:00.000Z")
+
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-a",
+        movieId: 900,
+        watchedAt: deletedWatchDate,
+      },
+    ])
+    fetchAllTrackedCollectionsMock.mockResolvedValueOnce([
+      {
+        collectionId: 10,
+        watchedMovieIds: [900],
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(1)
+    })
+
+    await act(async () => {
+      await result.current.deleteWatchInstance("watch-a")
+    })
+
+    const toastOptions = toastSuccessMock.mock.calls.at(-1)?.[1] as
+      | { action?: { onClick: () => void } }
+      | undefined
+
+    await act(async () => {
+      toastOptions?.action?.onClick()
+      await Promise.resolve()
+    })
+
+    expect(addWatchMock).toHaveBeenCalledWith("user-1", 900, deletedWatchDate)
+    expect(addWatchedMovieToTrackedCollectionMock).toHaveBeenCalledWith(
+      "user-1",
+      10,
+      900,
+    )
   })
 
   it("shows an error toast when deleting a watch fails", async () => {

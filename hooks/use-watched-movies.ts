@@ -540,6 +540,19 @@ export function useWatchedMovies(
 
   const deleteWatchInstance = useCallback(
     async (watchId: string): Promise<void> => {
+      const deletedWatch =
+        (
+          (watchesQueryKey
+            ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)
+            : undefined) ?? instances
+        ).find((watch) => watch.id === watchId) ?? null
+      const previousWatch = deletedWatch
+        ? {
+            ...deletedWatch,
+            watchedAt: new Date(deletedWatch.watchedAt),
+          }
+        : null
+
       try {
         await deleteWatchMutationRef.current({ watchId })
 
@@ -548,14 +561,51 @@ export function useWatchedMovies(
             ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)?.length
             : undefined) ??
           (userId ? await getWatchCount(userId, movieId) : 0)
+        let removedCollectionIds: number[] = []
 
         if (remainingWatchCount === 0 && userId) {
-          await syncCollectionTrackingAfterUnwatch(userId, movieId)
+          removedCollectionIds = await syncCollectionTrackingAfterUnwatch(
+            userId,
+            movieId,
+          )
           await queryClient.invalidateQueries({
             queryKey: queryKeys.firestore.collectionTrackingRoot,
           })
         }
-        toast.success("Watch deleted")
+
+        if (!previousWatch) {
+          toast.success("Watch deleted")
+          return
+        }
+
+        showActionableSuccessToast("Watch deleted", {
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              await addWatch(userId as string, movieId, previousWatch.watchedAt)
+              await Promise.all(
+                removedCollectionIds.map((collectionId) =>
+                  addWatchedMovieToTrackedCollection(
+                    userId as string,
+                    collectionId,
+                    movieId,
+                  ),
+                ),
+              )
+
+              if (watchesQueryKey) {
+                await queryClient.invalidateQueries({
+                  queryKey: watchesQueryKey,
+                })
+              }
+              await queryClient.invalidateQueries({
+                queryKey: queryKeys.firestore.collectionTrackingRoot,
+              })
+            },
+            errorMessage: "Failed to restore deleted watch",
+            logMessage: "Failed to undo watch deletion:",
+          },
+        })
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error"
@@ -563,7 +613,7 @@ export function useWatchedMovies(
         throw error
       }
     },
-    [movieId, queryClient, userId, watchesQueryKey],
+    [instances, movieId, queryClient, userId, watchesQueryKey],
   )
 
   const updateWatchInstance = useCallback(
