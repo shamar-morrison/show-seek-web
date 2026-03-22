@@ -15,7 +15,7 @@ export interface Note {
   mediaId: number
   /** Type of media */
   mediaType: NoteMediaType
-  /** Note content (max 120 characters per Firestore rules) */
+  /** Note content (max 200 characters per Firestore rules) */
   content: string
   /** Title of the media for display purposes */
   mediaTitle: string
@@ -41,6 +41,6 @@ export interface Note {
 export type NoteInput = Omit<Note, "createdAt" | "updatedAt">
 
 /**
- * Maximum character limit for note content (enforced by Firestore rules)
+ * Maximum character limit for note content (aligned with Firestore rules)
  */
-export const NOTE_MAX_LENGTH = 120
+export const NOTE_MAX_LENGTH = 200
