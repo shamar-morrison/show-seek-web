@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Loading03Icon, Tick02Icon, ViewIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -15,6 +16,8 @@ interface MarkAsWatchedButtonProps {
   disabled?: boolean
   /** Button size - defaults to lg */
   size?: "sm" | "lg"
+  /** Optional class name override */
+  className?: string
 }
 
 /**
@@ -22,12 +25,19 @@ interface MarkAsWatchedButtonProps {
  * Shows "Mark as Watched" when not watched, "Watched X time(s)" when watched
  * Uses green styling when watched, gray when not
  */
+export function getMarkAsWatchedToneClassName(hasWatched: boolean) {
+  return hasWatched
+    ? "border-green-500/50 bg-green-500/20 hover:border-green-500 hover:bg-green-500/30"
+    : "border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10"
+}
+
 export function MarkAsWatchedButton({
   watchCount,
   onClick,
   isLoading = false,
   disabled = false,
   size = "lg",
+  className,
 }: MarkAsWatchedButtonProps) {
   const hasWatched = watchCount > 0
 
@@ -44,11 +54,12 @@ export function MarkAsWatchedButton({
       variant="outline"
       onClick={onClick}
       disabled={disabled || isLoading}
-      className={
-        hasWatched
-          ? `border-green-500/50 bg-green-500/20 ${size === "lg" ? "px-6" : ""} font-semibold backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30`
-          : `border-white/20 bg-white/5 ${size === "lg" ? "px-6" : ""} font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10`
-      }
+      className={cn(
+        getMarkAsWatchedToneClassName(hasWatched),
+        size === "lg" && "px-6",
+        "font-semibold backdrop-blur-sm transition-all",
+        className,
+      )}
     >
       {isLoading ? (
         <HugeiconsIcon

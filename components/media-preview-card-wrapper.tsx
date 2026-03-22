@@ -87,7 +87,6 @@ export function MediaPreviewCardWrapper({
   const {
     count: watchCount,
     addWatchInstance,
-    clearAllWatches,
   } = useWatchedMovies(mediaType === "movie" ? media.id : 0)
 
   // Only fetch when preview card is opened (lazy loading)
@@ -307,9 +306,7 @@ export function MediaPreviewCardWrapper({
                     : "Movie"
               }
               releaseDate={(detailedMedia as TMDBMovieDetails).release_date}
-              watchCount={watchCount}
               onMarkAsWatched={handleModalMarkAsWatched}
-              onClearAll={clearAllWatches}
             />
           )}
         </>

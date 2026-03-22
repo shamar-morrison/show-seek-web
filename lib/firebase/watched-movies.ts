@@ -14,6 +14,7 @@ import {
   getDocs,
   setDoc,
   Timestamp,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore"
 
@@ -110,6 +111,30 @@ export async function deleteWatch(
   )
 
   await deleteDoc(watchRef)
+}
+
+/**
+ * Update the watched date for a single watch instance.
+ */
+export async function updateWatch(
+  userId: string,
+  movieId: number,
+  watchId: string,
+  watchedAt: Date,
+): Promise<void> {
+  const watchRef = doc(
+    getFirebaseDb(),
+    "users",
+    userId,
+    "watched_movies",
+    String(movieId),
+    "watches",
+    watchId,
+  )
+
+  await updateDoc(watchRef, {
+    watchedAt: Timestamp.fromDate(watchedAt),
+  })
 }
 
 /**

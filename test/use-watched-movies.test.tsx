@@ -16,6 +16,7 @@ const getWatchCountMock = vi.fn()
 const removeWatchedMovieFromTrackedCollectionMock = vi.fn()
 const toastErrorMock = vi.fn()
 const toastSuccessMock = vi.fn()
+const updateWatchMock = vi.fn()
 
 vi.mock("@/app/actions", () => ({
   fetchMovieDetails: (...args: unknown[]) => fetchMovieDetailsMock(...args),
@@ -53,6 +54,7 @@ vi.mock("@/lib/firebase/watched-movies", () => ({
   deleteWatch: (...args: unknown[]) => deleteWatchMock(...args),
   fetchWatches: (...args: unknown[]) => fetchWatchesMock(...args),
   getWatchCount: (...args: unknown[]) => getWatchCountMock(...args),
+  updateWatch: (...args: unknown[]) => updateWatchMock(...args),
   WatchInstance: class {},
 }))
 
@@ -105,6 +107,7 @@ describe("useWatchedMovies collection sync", () => {
     addWatchedMovieToTrackedCollectionMock.mockResolvedValue(undefined)
     removeWatchedMovieFromTrackedCollectionMock.mockResolvedValue(undefined)
     fetchAllTrackedCollectionsMock.mockResolvedValue([])
+    updateWatchMock.mockResolvedValue(undefined)
   })
 
   it("syncs collection tracking immediately when collection id is provided", async () => {
@@ -343,6 +346,211 @@ describe("useWatchedMovies collection sync", () => {
       "user-1",
       10,
       900,
+    )
+  })
+
+  it("optimistically removes a single watch instance before delete resolves", async () => {
+    const deleteDeferred = createDeferredPromise<void>()
+    deleteWatchMock.mockReturnValueOnce(deleteDeferred.promise)
+    getWatchCountMock.mockResolvedValueOnce(1)
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-a",
+        movieId: 900,
+        watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+      },
+      {
+        id: "watch-b",
+        movieId: 900,
+        watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(2)
+    })
+
+    let deletePromise!: Promise<void>
+    await act(async () => {
+      deletePromise = result.current.deleteWatchInstance("watch-a")
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toEqual([
+        {
+          id: "watch-b",
+          movieId: 900,
+          watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+        },
+      ])
+    })
+
+    deleteDeferred.resolve(undefined)
+
+    await act(async () => {
+      await deletePromise
+    })
+
+    expect(deleteWatchMock).toHaveBeenCalledWith("user-1", 900, "watch-a")
+    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+  })
+
+  it("syncs collection tracking when deleting the last watch instance", async () => {
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-a",
+        movieId: 900,
+        watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+      },
+    ])
+    getWatchCountMock.mockResolvedValueOnce(0)
+    fetchAllTrackedCollectionsMock.mockResolvedValueOnce([
+      {
+        collectionId: 10,
+        watchedMovieIds: [900],
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(1)
+    })
+
+    await act(async () => {
+      await result.current.deleteWatchInstance("watch-a")
+    })
+
+    expect(deleteWatchMock).toHaveBeenCalledWith("user-1", 900, "watch-a")
+    await waitFor(() => {
+      expect(fetchAllTrackedCollectionsMock).toHaveBeenCalledWith("user-1")
+    })
+    await waitFor(() => {
+      expect(removeWatchedMovieFromTrackedCollectionMock).toHaveBeenCalledWith(
+        "user-1",
+        10,
+        900,
+      )
+    })
+    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+  })
+
+  it("shows an error toast when deleting a watch fails", async () => {
+    deleteWatchMock.mockRejectedValueOnce(new Error("delete failed"))
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-a",
+        movieId: 900,
+        watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(1)
+    })
+
+    await expect(
+      result.current.deleteWatchInstance("watch-a"),
+    ).rejects.toThrow("delete failed")
+
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Failed to delete watch: delete failed",
+    )
+  })
+
+  it("optimistically updates and re-sorts a watch instance after editing", async () => {
+    const updateDeferred = createDeferredPromise<void>()
+    updateWatchMock.mockReturnValueOnce(updateDeferred.promise)
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-new",
+        movieId: 900,
+        watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+      },
+      {
+        id: "watch-old",
+        movieId: 900,
+        watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(2)
+    })
+
+    const updatedDate = new Date("2026-03-10T19:00:00.000Z")
+
+    let updatePromise!: Promise<void>
+    await act(async () => {
+      updatePromise = result.current.updateWatchInstance("watch-old", updatedDate)
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances.map((watch) => watch.id)).toEqual([
+        "watch-old",
+        "watch-new",
+      ])
+    })
+    expect(result.current.instances[0]?.watchedAt).toEqual(updatedDate)
+
+    updateDeferred.resolve(undefined)
+
+    await act(async () => {
+      await updatePromise
+    })
+
+    expect(updateWatchMock).toHaveBeenCalledWith(
+      "user-1",
+      900,
+      "watch-old",
+      updatedDate,
+    )
+    expect(toastSuccessMock).toHaveBeenCalledWith("Watch date updated")
+  })
+
+  it("shows an error toast when updating a watch fails", async () => {
+    updateWatchMock.mockRejectedValueOnce(new Error("update failed"))
+    fetchWatchesMock.mockResolvedValueOnce([
+      {
+        id: "watch-old",
+        movieId: 900,
+        watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+      },
+    ])
+
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(1)
+    })
+
+    await expect(
+      result.current.updateWatchInstance(
+        "watch-old",
+        new Date("2026-03-10T19:00:00.000Z"),
+      ),
+    ).rejects.toThrow("update failed")
+
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Failed to update watch: update failed",
     )
   })
 })

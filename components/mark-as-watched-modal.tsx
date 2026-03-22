@@ -1,28 +1,17 @@
 "use client"
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { BaseMediaModal } from "@/components/ui/base-media-modal"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { BaseMediaModal } from "@/components/ui/base-media-modal"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Calendar03Icon,
   Clock02Icon,
-  Delete02Icon,
   Loading03Icon,
   PlayIcon,
 } from "@hugeicons/core-free-icons"
@@ -43,12 +32,8 @@ interface MarkAsWatchedModalProps {
   movieTitle: string
   /** Movie release date in YYYY-MM-DD format */
   releaseDate?: string | null
-  /** Number of times already watched (to show clear option) */
-  watchCount: number
   /** Callback to mark as watched with selected date */
   onMarkAsWatched: (date: Date) => Promise<void>
-  /** Callback to clear all watch history */
-  onClearAll: () => Promise<void>
 }
 
 /**
@@ -80,14 +65,11 @@ export function MarkAsWatchedModal({
   onClose,
   movieTitle,
   releaseDate,
-  watchCount,
   onMarkAsWatched,
-  onClearAll,
 }: MarkAsWatchedModalProps) {
   const [showCalendar, setShowCalendar] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(false)
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const canUseReleaseDate = isValidPastDate(releaseDate)
 
@@ -145,20 +127,6 @@ export function MarkAsWatchedModal({
     [onMarkAsWatched, handleClose],
   )
 
-  // Handle clear all confirmation
-  const handleClearAll = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      await onClearAll()
-      setShowClearConfirm(false)
-      handleClose()
-    } catch (error) {
-      console.error("Error clearing watch history:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [onClearAll, handleClose])
-
   return (
     <>
       <BaseMediaModal
@@ -212,57 +180,8 @@ export function MarkAsWatchedModal({
             <HugeiconsIcon icon={Calendar03Icon} className="size-5" />
             Choose a date
           </Button>
-
-          {/* Clear history option (only if watched before) */}
-          {watchCount > 0 && (
-            <>
-              <div className="my-2 border-t border-white/10" />
-              <Button
-                variant="ghost"
-                size="lg"
-                className="justify-start gap-3 text-red-500 hover:bg-red-500/10 hover:text-red-400"
-                onClick={() => setShowClearConfirm(true)}
-                disabled={isLoading}
-              >
-                <HugeiconsIcon icon={Delete02Icon} className="size-5" />
-                Clear all watch history
-              </Button>
-            </>
-          )}
         </div>
       </BaseMediaModal>
-
-      {/* Clear confirmation dialog */}
-      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear watch history?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Clear all watch history for this movie? This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleClearAll}
-              disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isLoading ? (
-                <>
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="size-4 animate-spin"
-                  />
-                  Clearing...
-                </>
-              ) : (
-                "Clear All"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Date picker dialog */}
       <Dialog open={showCalendar} onOpenChange={setShowCalendar}>
