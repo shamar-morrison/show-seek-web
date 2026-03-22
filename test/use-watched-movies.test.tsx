@@ -1,4 +1,5 @@
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
+import { queryKeys } from "@/lib/react-query/query-keys"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
@@ -70,14 +71,16 @@ vi.mock("sonner", () => ({
   },
 }))
 
-function createWrapper() {
-  const queryClient = new QueryClient({
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: {
       queries: { retry: false },
       mutations: { retry: false },
     },
   })
+}
 
+function createWrapper(queryClient = createTestQueryClient()) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -439,6 +442,59 @@ describe("useWatchedMovies collection sync", () => {
         900,
       )
     })
+    expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
+  })
+
+  it("does not sync collection tracking when a concurrent add leaves another watch in cache", async () => {
+    const deleteDeferred = createDeferredPromise<void>()
+    const concurrentWatch = {
+      id: "watch-b",
+      movieId: 900,
+      watchedAt: new Date("2026-03-08T19:00:00.000Z"),
+    }
+
+    deleteWatchMock.mockReturnValueOnce(deleteDeferred.promise)
+    fetchWatchesMock
+      .mockResolvedValueOnce([
+        {
+          id: "watch-a",
+          movieId: 900,
+          watchedAt: new Date("2026-03-09T19:00:00.000Z"),
+        },
+      ])
+      .mockResolvedValue([concurrentWatch])
+
+    const queryClient = createTestQueryClient()
+    const { result } = renderHook(() => useWatchedMovies(900), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(result.current.instances).toHaveLength(1)
+    })
+
+    let deletePromise!: Promise<void>
+    await act(async () => {
+      deletePromise = result.current.deleteWatchInstance("watch-a")
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      queryClient.setQueryData(
+        queryKeys.firestore.watchedMovies("user-1", 900),
+        [concurrentWatch],
+      )
+    })
+
+    deleteDeferred.resolve(undefined)
+
+    await act(async () => {
+      await deletePromise
+    })
+
+    expect(fetchAllTrackedCollectionsMock).not.toHaveBeenCalled()
+    expect(removeWatchedMovieFromTrackedCollectionMock).not.toHaveBeenCalled()
+    expect(getWatchCountMock).not.toHaveBeenCalled()
     expect(toastSuccessMock).toHaveBeenCalledWith("Watch deleted")
   })
 

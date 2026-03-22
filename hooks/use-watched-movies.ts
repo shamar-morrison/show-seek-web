@@ -540,12 +540,16 @@ export function useWatchedMovies(
 
   const deleteWatchInstance = useCallback(
     async (watchId: string): Promise<void> => {
-      const isDeletingLastWatch =
-        instances.length === 1 && instances[0]?.id === watchId
-
       try {
         await deleteWatchMutationRef.current({ watchId })
-        if (isDeletingLastWatch && userId) {
+
+        const remainingWatchCount =
+          (watchesQueryKey
+            ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)?.length
+            : undefined) ??
+          (userId ? await getWatchCount(userId, movieId) : 0)
+
+        if (remainingWatchCount === 0 && userId) {
           await syncCollectionTrackingAfterUnwatch(userId, movieId)
           await queryClient.invalidateQueries({
             queryKey: queryKeys.firestore.collectionTrackingRoot,
@@ -559,7 +563,7 @@ export function useWatchedMovies(
         throw error
       }
     },
-    [instances, movieId, queryClient, userId],
+    [movieId, queryClient, userId, watchesQueryKey],
   )
 
   const updateWatchInstance = useCallback(
