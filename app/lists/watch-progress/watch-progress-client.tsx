@@ -7,6 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { FilterSort, type SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { WatchProgressCard } from "@/components/watch-progress-card"
 import { useAuth } from "@/context/auth-context"
@@ -19,6 +20,17 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useMemo, useState } from "react"
+
+const SORT_FIELDS = [
+  { value: "lastWatched", label: "Last Watched" },
+  { value: "progress", label: "Progress" },
+  { value: "alphabetical", label: "Alphabetically" },
+] as const
+
+const DEFAULT_SORT_STATE: SortState = {
+  field: "lastWatched",
+  direction: "desc",
+}
 
 /**
  * WatchProgressClient Component
@@ -36,6 +48,7 @@ export function WatchProgressClient() {
     watchedEpisodesByShow,
   )
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT_STATE)
 
   // Filter progress: exclude 100% complete shows and apply search
   const filteredProgress = useMemo(() => {
@@ -46,6 +59,31 @@ export function WatchProgressClient() {
     const query = searchQuery.toLowerCase()
     return inProgress.filter((p) => p.tvShowName.toLowerCase().includes(query))
   }, [enrichedProgress, searchQuery])
+
+  const sortedProgress = useMemo(() => {
+    const sorted = [...filteredProgress]
+
+    sorted.sort((left, right) => {
+      let comparison = 0
+
+      switch (sortState.field) {
+        case "progress":
+          comparison = left.percentage - right.percentage
+          break
+        case "alphabetical":
+          comparison = left.tvShowName.localeCompare(right.tvShowName)
+          break
+        case "lastWatched":
+        default:
+          comparison = left.lastUpdated - right.lastUpdated
+          break
+      }
+
+      return sortState.direction === "asc" ? comparison : -comparison
+    })
+
+    return sorted
+  }, [filteredProgress, sortState])
 
   const isLoading = authLoading || trackingLoading
 
@@ -82,16 +120,23 @@ export function WatchProgressClient() {
     <div className="space-y-8 pb-12">
       {/* Search Input with Enrichment Indicator */}
       <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <SearchInput
-            id="watch-progress-search-input"
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search TV shows..."
-          />
-        </div>
+        <SearchInput
+          id="watch-progress-search-input"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search TV shows..."
+          className="flex-1"
+        />
+        <FilterSort
+          filters={[]}
+          filterState={{}}
+          onFilterChange={() => {}}
+          sortFields={SORT_FIELDS.map((field) => ({ ...field }))}
+          sortState={sortState}
+          onSortChange={setSortState}
+        />
         {isEnriching && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
             <HugeiconsIcon
               icon={Loading03Icon}
               className="size-4 animate-spin"
@@ -102,9 +147,9 @@ export function WatchProgressClient() {
       </div>
 
       {/* Results */}
-      {filteredProgress.length > 0 ? (
+      {sortedProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProgress.map((progress) => (
+          {sortedProgress.map((progress) => (
             <WatchProgressCard key={progress.tvShowId} progress={progress} />
           ))}
         </div>
