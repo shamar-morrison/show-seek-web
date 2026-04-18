@@ -11,6 +11,7 @@ import {
   resolveAddToListAppearance,
   type AddToListAppearance,
 } from "@/lib/add-to-list-appearance"
+import { hasStoredListItem } from "@/lib/list-item-keys"
 import { cn } from "@/lib/utils"
 import type { Note } from "@/types/note"
 import type { Rating } from "@/types/rating"
@@ -129,11 +130,7 @@ export function useMediaActions({
   const isWatched = useMemo(() => {
     if (mediaType !== "movie") return false
     const list = lists.find((l) => l.id === "already-watched")
-    if (!list?.items) return false
-    const numericKey = String(media.id)
-    // Keys in lists are stored as numeric ID strings (from mobile) or sometimes other formats
-    // We check the numeric ID which handles most cases
-    return !!list.items[numericKey]
+    return hasStoredListItem(list?.items, "movie", media.id)
   }, [lists, media.id, mediaType])
 
   // Get user's rating for this media

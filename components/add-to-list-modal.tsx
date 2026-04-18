@@ -19,6 +19,10 @@ import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { fetchUserList, restoreList } from "@/lib/firebase/lists"
+import {
+  getStoredListItemEntry,
+  hasStoredListItem,
+} from "@/lib/list-item-keys"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import {
   PREMIUM_LOADING_MESSAGE,
@@ -84,33 +88,6 @@ interface AddToListModalProps {
   media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
   /** Media type */
   mediaType: "movie" | "tv"
-}
-
-function getStoredListItemEntry(
-  list: UserList,
-  mediaId: number,
-  mediaKey: string,
-) {
-  const numericKey = String(mediaId)
-  const numericItem = list.items?.[numericKey]
-
-  if (numericItem) {
-    return {
-      item: numericItem,
-      itemKey: numericKey,
-    }
-  }
-
-  const prefixedItem = list.items?.[mediaKey]
-
-  if (prefixedItem) {
-    return {
-      item: prefixedItem,
-      itemKey: mediaKey,
-    }
-  }
-
-  return null
 }
 
 function formatListNames(listNames: string[]) {
@@ -185,7 +162,6 @@ export function AddToListModal({
   const originalName =
     ("original_name" in media ? media.original_name : undefined) || undefined
   const mediaId = media.id
-  const mediaKey = `${mediaType}-${mediaId}`
   const isPremiumCheckPending = isPremiumStatusPending({
     premiumLoading,
     premiumStatus,
@@ -205,20 +181,12 @@ export function AddToListModal({
 
     const initialSelected = new Set<string>()
     lists.forEach((list) => {
-      if (!list.items) return
-
-      // Check for item using both key formats:
-      // - Numeric ID (mobile app format): "83533"
-      // - Prefixed format (web format): "movie-83533"
-      const numericKey = String(mediaId)
-      const prefixedKey = mediaKey
-
-      if (list.items[numericKey] || list.items[prefixedKey]) {
+      if (hasStoredListItem(list.items, mediaType, mediaId)) {
         initialSelected.add(list.id)
       }
     })
     setSelectedLists(initialSelected)
-  }, [isOpen, lists, mediaId, mediaKey, listsLoading])
+  }, [isOpen, lists, mediaId, mediaType, listsLoading])
 
   // Reset state when modal closes
   const handleClose = useCallback(() => {
@@ -268,11 +236,9 @@ export function AddToListModal({
   const isInList = useCallback(
     (listId: string) => {
       const list = lists.find((l) => l.id === listId)
-      if (!list?.items) return false
-      const numericKey = String(mediaId)
-      return !!list.items[numericKey] || !!list.items[mediaKey]
+      return hasStoredListItem(list?.items, mediaType, mediaId)
     },
-    [lists, mediaId, mediaKey],
+    [lists, mediaId, mediaType],
   )
 
   const buildMediaItem = useCallback((): ListMediaItem => {
@@ -382,9 +348,9 @@ export function AddToListModal({
         const wasInList = isInList(list.id)
         const isNowSelected = selectedLists.has(list.id)
         const existingItemEntry = getStoredListItemEntry(
-          list,
+          list.items,
+          mediaType,
           mediaId,
-          mediaKey,
         )
 
         if (!wasInList && isNowSelected) {
@@ -499,7 +465,6 @@ export function AddToListModal({
     addToList,
     removeFromList,
     mediaId,
-    mediaKey,
     isInList,
     handleClose,
     displayTitle,
@@ -574,9 +539,9 @@ export function AddToListModal({
         }
 
         const currentItemEntry = getStoredListItemEntry(
-          currentList,
+          currentList.items,
+          mediaType,
           mediaItem.id,
-          mediaKey,
         )
         const currentItemCount = Object.keys(currentList.items ?? {}).length
         const isUnchangedCreatedList =
@@ -630,7 +595,7 @@ export function AddToListModal({
     deleteList,
     removeFromList,
     isPremiumCheckPending,
-    mediaKey,
+    mediaType,
     newListName,
     newListDescription,
     premiumStatus,

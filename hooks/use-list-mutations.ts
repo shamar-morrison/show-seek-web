@@ -5,9 +5,14 @@ import {
   addToList as addToListInFirestore,
   createList as createListInFirestore,
   deleteList as deleteListInFirestore,
+  removeMediaFromList as removeMediaFromListInFirestore,
   removeFromList as removeFromListInFirestore,
   updateList as updateListInFirestore,
 } from "@/lib/firebase/lists"
+import {
+  getListItemCandidateKeys,
+  type ListItemMediaType,
+} from "@/lib/list-item-keys"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import {
   DEFAULT_LISTS,
@@ -71,6 +76,31 @@ function removeItemFromCachedLists(
 
     const nextItems = { ...(list.items || {}) }
     delete nextItems[mediaId]
+
+    return {
+      ...list,
+      items: nextItems,
+      updatedAt: Date.now(),
+    }
+  })
+}
+
+function removeMediaFromCachedLists(
+  lists: UserList[],
+  listId: string,
+  mediaId: number,
+  mediaType: ListItemMediaType,
+): UserList[] {
+  const candidateKeys = getListItemCandidateKeys(mediaType, mediaId)
+
+  return lists.map((list) => {
+    if (list.id !== listId) return list
+
+    const nextItems = { ...(list.items || {}) }
+
+    candidateKeys.forEach((itemKey) => {
+      delete nextItems[itemKey]
+    })
 
     return {
       ...list,
@@ -225,6 +255,32 @@ export function useListMutations() {
     },
   })
 
+  const removeMediaFromListMutation = useListOptimisticMutation({
+    mutationFn: async ({
+      listId,
+      mediaId,
+      mediaType,
+    }: {
+      listId: string
+      mediaId: number
+      mediaType: ListItemMediaType
+    }) => {
+      const uid = assertUserId(userId)
+      return removeMediaFromListInFirestore(uid, listId, mediaId, mediaType)
+    },
+    optimisticUpdate: ({ previousLists, variables }) => {
+      if (!previousLists) return {}
+      return {
+        nextLists: removeMediaFromCachedLists(
+          previousLists,
+          variables.listId,
+          variables.mediaId,
+          variables.mediaType,
+        ),
+      }
+    },
+  })
+
   const createListMutation = useListOptimisticMutation<
     { name: string; description?: string },
     string,
@@ -303,6 +359,11 @@ export function useListMutations() {
       addToListMutation.mutateAsync({ listId, mediaItem }),
     removeFromList: async (listId: string, mediaId: string) =>
       removeFromListMutation.mutateAsync({ listId, mediaId }),
+    removeMediaFromList: async (
+      listId: string,
+      mediaId: number,
+      mediaType: ListItemMediaType,
+    ) => removeMediaFromListMutation.mutateAsync({ listId, mediaId, mediaType }),
     createList: async (name: string, description?: string) =>
       createListMutation.mutateAsync({ name, description }),
     updateList: async (
@@ -322,6 +383,7 @@ export function useListMutations() {
     isMutating:
       addToListMutation.isPending ||
       removeFromListMutation.isPending ||
+      removeMediaFromListMutation.isPending ||
       createListMutation.isPending ||
       updateListMutation.isPending ||
       deleteListMutation.isPending,

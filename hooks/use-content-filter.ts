@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { hasStoredListItem } from "@/lib/list-item-keys"
 import { useMemo } from "react"
 import { useLists } from "./use-lists"
 import { usePreferences } from "./use-preferences"
@@ -70,12 +71,15 @@ export const useContentFilter = <T extends MediaItem>(
     const alreadyWatchedList = lists.find((list) => list.id === "already-watched")
     if (!alreadyWatchedList?.items) return filteredItems
 
-    // 'items' in the list object is a map where keys are media IDs
-    const watchedIds = new Set(Object.keys(alreadyWatchedList.items).map(Number))
-
     return filteredItems.filter((item) => {
       if (item.media_type === "person") return true
-      return !watchedIds.has(item.id)
+      if (item.media_type !== "movie" && item.media_type !== "tv") return true
+
+      return !hasStoredListItem(
+        alreadyWatchedList.items,
+        item.media_type,
+        item.id,
+      )
     })
   }, [
     items,

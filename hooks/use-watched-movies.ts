@@ -160,7 +160,8 @@ export function useWatchedMovies(
   options: { enabled?: boolean } = { enabled: true },
 ): UseWatchedMoviesReturn {
   const { user, loading: authLoading } = useAuth()
-  const { addToList, removeFromList } = useListMutations()
+  const { addToList, removeFromList, removeMediaFromList } =
+    useListMutations()
   const queryClient = useQueryClient()
 
   const userId = user && !user.isAnonymous ? user.uid : null
@@ -243,6 +244,7 @@ export function useWatchedMovies(
         autoRemoveFromShouldWatch: variables.autoRemoveFromShouldWatch,
         addToList,
         removeFromList,
+        removeMediaFromList,
       })
 
       return { watchId }

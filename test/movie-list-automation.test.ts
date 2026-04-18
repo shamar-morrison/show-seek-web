@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const addToListMock = vi.fn()
 const removeFromListMock = vi.fn()
+const removeMediaFromListMock = vi.fn()
 const toastErrorMock = vi.fn()
 const toastSuccessMock = vi.fn()
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>
@@ -23,6 +24,7 @@ describe("movie list automation", () => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     addToListMock.mockResolvedValue(false)
     removeFromListMock.mockResolvedValue(undefined)
+    removeMediaFromListMock.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -42,9 +44,14 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
     })
 
     it("does not auto-remove when the preference is disabled", async () => {
@@ -59,9 +66,10 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: false,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).not.toHaveBeenCalled()
+      expect(removeMediaFromListMock).not.toHaveBeenCalled()
     })
 
     it("auto-removes even when there is no warm lists cache", async () => {
@@ -76,9 +84,14 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
     })
 
     it("auto-removes even when the cache would be stale", async () => {
@@ -93,9 +106,14 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
     })
 
     it("does not auto-remove when rating TV content", async () => {
@@ -110,9 +128,10 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).not.toHaveBeenCalled()
+      expect(removeMediaFromListMock).not.toHaveBeenCalled()
     })
 
     it("forwards original_title when auto-adding a rated movie", async () => {
@@ -130,6 +149,7 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: false,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
       expect(addToListMock).toHaveBeenCalledWith(
@@ -164,6 +184,7 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: false,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
       const toastOptions = toastSuccessMock.mock.calls[0]?.[1] as
@@ -191,9 +212,14 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
       expect(toastErrorMock).not.toHaveBeenCalled()
     })
 
@@ -209,9 +235,14 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
     })
 
     it("auto-removes when marking watched even if the cache would be stale", async () => {
@@ -226,13 +257,18 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: true,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
     })
 
     it("keeps the watch flow successful when auto-remove fails", async () => {
-      removeFromListMock.mockRejectedValueOnce(new Error("remove failed"))
+      removeMediaFromListMock.mockRejectedValueOnce(new Error("remove failed"))
 
       await expect(
         applyWatchedMovieListAutomation({
@@ -246,10 +282,15 @@ describe("movie list automation", () => {
           autoRemoveFromShouldWatch: true,
           addToList: addToListMock,
           removeFromList: removeFromListMock,
+          removeMediaFromList: removeMediaFromListMock,
         }),
       ).resolves.toBeUndefined()
 
-      expect(removeFromListMock).toHaveBeenCalledWith("watchlist", "123")
+      expect(removeMediaFromListMock).toHaveBeenCalledWith(
+        "watchlist",
+        123,
+        "movie",
+      )
       expect(toastErrorMock).not.toHaveBeenCalled()
     })
 
@@ -266,6 +307,7 @@ describe("movie list automation", () => {
         autoRemoveFromShouldWatch: false,
         addToList: addToListMock,
         removeFromList: removeFromListMock,
+        removeMediaFromList: removeMediaFromListMock,
       })
 
       expect(addToListMock).toHaveBeenCalledWith(

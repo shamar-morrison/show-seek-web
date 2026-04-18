@@ -26,6 +26,11 @@ type AddToListFn = (
 ) => Promise<boolean>
 
 type RemoveFromListFn = (listId: string, mediaId: string) => Promise<void>
+type RemoveMediaFromListFn = (
+  listId: string,
+  mediaId: number,
+  mediaType: "movie" | "tv",
+) => Promise<void>
 
 export async function applyMovieRatingListAutomation(params: {
   mediaType: "movie" | "tv"
@@ -34,6 +39,7 @@ export async function applyMovieRatingListAutomation(params: {
   autoRemoveFromShouldWatch: boolean
   addToList: AddToListFn
   removeFromList: RemoveFromListFn
+  removeMediaFromList: RemoveMediaFromListFn
 }): Promise<void> {
   const {
     mediaType,
@@ -42,6 +48,7 @@ export async function applyMovieRatingListAutomation(params: {
     autoRemoveFromShouldWatch,
     addToList,
     removeFromList,
+    removeMediaFromList,
   } = params
 
   if (mediaType !== "movie") return
@@ -78,7 +85,7 @@ export async function applyMovieRatingListAutomation(params: {
 
   if (autoRemoveFromShouldWatch) {
     try {
-      await removeFromList("watchlist", String(movie.movieId))
+      await removeMediaFromList("watchlist", movie.movieId, "movie")
     } catch (listError) {
       console.error("Failed to auto-remove from Should Watch list:", listError)
     }
@@ -92,6 +99,7 @@ export async function applyWatchedMovieListAutomation(params: {
   autoRemoveFromShouldWatch: boolean
   addToList: AddToListFn
   removeFromList: RemoveFromListFn
+  removeMediaFromList: RemoveMediaFromListFn
 }): Promise<void> {
   const {
     movie,
@@ -99,7 +107,7 @@ export async function applyWatchedMovieListAutomation(params: {
     autoAddToAlreadyWatched,
     autoRemoveFromShouldWatch,
     addToList,
-    removeFromList,
+    removeMediaFromList,
   } = params
 
   if (isFirstWatch && autoAddToAlreadyWatched) {
@@ -126,7 +134,7 @@ export async function applyWatchedMovieListAutomation(params: {
 
   if (autoRemoveFromShouldWatch) {
     try {
-      await removeFromList("watchlist", String(movie.movieId))
+      await removeMediaFromList("watchlist", movie.movieId, "movie")
     } catch (listError) {
       console.error(
         'Failed to auto-remove movie from "Should Watch" list:',

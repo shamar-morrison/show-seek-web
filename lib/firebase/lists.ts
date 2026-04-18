@@ -7,6 +7,11 @@
 
 import { getFirebaseDb } from "@/lib/firebase/config"
 import {
+  buildListItemKey,
+  getLegacyListItemKey,
+  type ListItemMediaType,
+} from "@/lib/list-item-keys"
+import {
   DEFAULT_LIST_IDS,
   DEFAULT_LISTS,
   ListWriteMediaItem,
@@ -199,6 +204,33 @@ export async function removeFromList(
     {
       items: {
         [itemKey]: deleteField(),
+      },
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  )
+}
+
+/**
+ * Remove a media item from a list while tolerating both legacy and prefixed
+ * stored key formats in a single write.
+ */
+export async function removeMediaFromList(
+  userId: string,
+  listId: string,
+  mediaId: number,
+  mediaType: ListItemMediaType,
+): Promise<void> {
+  const listRef = getListRef(userId, listId)
+  const legacyKey = getLegacyListItemKey(mediaId)
+  const prefixedKey = buildListItemKey(mediaType, mediaId)
+
+  await setDoc(
+    listRef,
+    {
+      items: {
+        [legacyKey]: deleteField(),
+        [prefixedKey]: deleteField(),
       },
       updatedAt: serverTimestamp(),
     },

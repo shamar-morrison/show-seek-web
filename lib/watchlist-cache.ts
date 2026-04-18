@@ -1,4 +1,5 @@
 import { queryKeys } from "@/lib/react-query/query-keys"
+import { hasStoredListItem } from "@/lib/list-item-keys"
 import type { UserList } from "@/types/list"
 import type { QueryClient } from "@tanstack/react-query"
 
@@ -14,7 +15,5 @@ export function isMovieInCachedWatchlist(
   )
   const watchlist = lists?.find((list) => list.id === "watchlist")
 
-  if (!watchlist?.items) return false
-
-  return Object.hasOwn(watchlist.items, String(movieId))
+  return hasStoredListItem(watchlist?.items, "movie", movieId)
 }

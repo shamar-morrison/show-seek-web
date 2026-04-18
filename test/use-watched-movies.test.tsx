@@ -36,6 +36,7 @@ vi.mock("@/context/auth-context", () => ({
 vi.mock("@/hooks/use-list-mutations", () => ({
   useListMutations: () => ({
     addToList: vi.fn(),
+    removeMediaFromList: vi.fn(),
     removeFromList: vi.fn(),
   }),
 }))

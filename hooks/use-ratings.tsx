@@ -125,7 +125,8 @@ export function useRatingsData() {
  */
 export function useRatings() {
   const { preferences } = usePreferences()
-  const { addToList, removeFromList } = useListMutations()
+  const { addToList, removeFromList, removeMediaFromList } =
+    useListMutations()
   const queryClient = useQueryClient()
   const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
 
@@ -187,6 +188,7 @@ export function useRatings() {
           autoRemoveFromShouldWatch: preferences.autoRemoveFromShouldWatch,
           addToList,
           removeFromList,
+          removeMediaFromList,
         })
       })()
     },

@@ -1,4 +1,5 @@
 import { isDefaultList, type UserList } from "@/types/list"
+import { hasStoredListItem } from "@/lib/list-item-keys"
 import {
   Bookmark02Icon,
   Cancel01Icon,
@@ -105,14 +106,8 @@ export function getMediaListIds(
   mediaId: number,
   mediaType: "movie" | "tv",
 ): string[] {
-  const numericKey = String(mediaId)
-  const prefixedKey = `${mediaType}-${mediaId}`
-
   return lists
-    .filter((list) => {
-      const items = list.items
-      return Boolean(items?.[numericKey] || items?.[prefixedKey])
-    })
+    .filter((list) => hasStoredListItem(list.items, mediaType, mediaId))
     .map((list) => list.id)
 }
 

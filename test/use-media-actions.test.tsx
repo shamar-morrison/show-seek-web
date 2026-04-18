@@ -79,7 +79,11 @@ mocks.useWatchedMovies.mockImplementation(() => ({
   updateWatchInstance: mocks.updateWatchInstance,
 }))
 
-function createList(listId: string, itemKey: string): UserList {
+function createList(
+  listId: string,
+  itemKey: string,
+  mediaType: "movie" | "tv" = "tv",
+): UserList {
   return {
     id: listId,
     name: listId,
@@ -88,7 +92,7 @@ function createList(listId: string, itemKey: string): UserList {
         id: 123,
         title: "Test Title",
         poster_path: null,
-        media_type: "tv",
+        media_type: mediaType,
         addedAt: 0,
       },
     },
@@ -198,4 +202,31 @@ describe("useMediaActions", () => {
       enabled: false,
     })
   })
+
+  it.each(["123", "movie-123"])(
+    'marks a movie as watched when "already-watched" contains %s',
+    (itemKey) => {
+      mocks.lists = [createList("already-watched", itemKey, "movie")]
+
+      const movie: TMDBMedia = {
+        ...createMedia(),
+        media_type: "movie",
+        title: "Test Movie",
+        original_title: "Test Movie",
+        release_date: "2024-03-27",
+      } as TMDBMedia
+
+      const { result } = renderHook(() =>
+        useMediaActions({
+          media: movie,
+          mediaType: "movie",
+        }),
+      )
+
+      expect(
+        result.current.dropdownItems.find((item) => item.id === "mark-as-watched")
+          ?.label,
+      ).toBe("Watched")
+    },
+  )
 })

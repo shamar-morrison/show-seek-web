@@ -2,6 +2,7 @@ import {
   addToList,
   createList,
   fetchUserList,
+  removeMediaFromList,
   restoreList,
   updateList,
 } from "@/lib/firebase/lists"
@@ -10,6 +11,7 @@ import {
   doc,
   getDoc,
   runTransaction,
+  setDoc,
   updateDoc,
 } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -304,6 +306,24 @@ describe("addToList", () => {
     } finally {
       nowSpy.mockRestore()
     }
+  })
+})
+
+describe("removeMediaFromList", () => {
+  it("removes both legacy and prefixed keys in one write", async () => {
+    await removeMediaFromList("user-1", "watchlist", 123, "movie")
+
+    expect(setDoc).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/watchlist" },
+      {
+        items: {
+          "123": "delete-field-token",
+          "movie-123": "delete-field-token",
+        },
+        updatedAt: "server-timestamp",
+      },
+      { merge: true },
+    )
   })
 })
 
