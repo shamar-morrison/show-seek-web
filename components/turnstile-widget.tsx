@@ -1,7 +1,10 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
+
+const TURNSTILE_SCRIPT_SELECTOR =
+  'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]'
 
 type TurnstileRenderOptions = {
   action?: string
@@ -33,7 +36,11 @@ interface TurnstileWidgetProps {
 }
 
 export function TurnstileWidget({ action, className }: TurnstileWidgetProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const reactId = useId()
+  const containerId = useMemo(
+    () => `turnstile-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
+    [reactId],
+  )
   const widgetIdRef = useRef<string | null>(null)
   const [token, setToken] = useState("")
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? ""
@@ -44,10 +51,15 @@ export function TurnstileWidget({ action, className }: TurnstileWidgetProps) {
     }
 
     let disposed = false
+    let loadListenerScript: HTMLScriptElement | null = null
     let retryIntervalId: number | null = null
 
     const renderWidget = () => {
-      if (disposed || widgetIdRef.current || !containerRef.current) {
+      if (
+        disposed ||
+        widgetIdRef.current ||
+        !document.getElementById(containerId)
+      ) {
         return
       }
 
@@ -57,7 +69,7 @@ export function TurnstileWidget({ action, className }: TurnstileWidgetProps) {
         return
       }
 
-      widgetIdRef.current = turnstile.render(containerRef.current, {
+      widgetIdRef.current = turnstile.render(`#${containerId}`, {
         sitekey: siteKey,
         action,
         "response-field": false,
@@ -70,9 +82,21 @@ export function TurnstileWidget({ action, className }: TurnstileWidgetProps) {
         window.clearInterval(retryIntervalId)
         retryIntervalId = null
       }
+
+      if (loadListenerScript) {
+        loadListenerScript.removeEventListener("load", renderWidget)
+        loadListenerScript = null
+      }
     }
 
     renderWidget()
+
+    if (!widgetIdRef.current) {
+      loadListenerScript = document.querySelector<HTMLScriptElement>(
+        TURNSTILE_SCRIPT_SELECTOR,
+      )
+      loadListenerScript?.addEventListener("load", renderWidget)
+    }
 
     if (!widgetIdRef.current) {
       retryIntervalId = window.setInterval(renderWidget, 250)
@@ -85,21 +109,18 @@ export function TurnstileWidget({ action, className }: TurnstileWidgetProps) {
         window.clearInterval(retryIntervalId)
       }
 
+      loadListenerScript?.removeEventListener("load", renderWidget)
+
       if (widgetIdRef.current) {
         window.turnstile?.remove?.(widgetIdRef.current)
         widgetIdRef.current = null
       }
     }
-  }, [action, siteKey])
+  }, [action, containerId, siteKey])
 
   return (
     <div className={cn("min-h-[65px]", className)}>
-      <div
-        ref={containerRef}
-        className="cf-turnstile"
-        data-sitekey={siteKey}
-        data-action={action}
-      />
+      <div id={containerId} />
       <input
         type="hidden"
         name="cf-turnstile-response"

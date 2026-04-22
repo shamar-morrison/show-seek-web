@@ -62,7 +62,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
           async
           defer
         />

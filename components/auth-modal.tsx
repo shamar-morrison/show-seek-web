@@ -69,6 +69,8 @@ const ACCOUNT_SETUP_ERROR_MESSAGE =
   "We couldn't finish setting up your account. Please try again."
 const SESSION_START_ERROR_MESSAGE =
   "We couldn't start your session. Please try again."
+const TURNSTILE_SECURITY_ERROR_MESSAGE =
+  "Security check failed. Please try again."
 
 /** Google Logo SVG Component */
 function GoogleLogo({ className }: { className?: string }) {
@@ -119,7 +121,7 @@ function logAuthDebug(user: {
 function getTurnstileToken(form: HTMLFormElement): string {
   const token = new FormData(form).get("cf-turnstile-response")
 
-  return typeof token === "string" ? token : ""
+  return typeof token === "string" ? token.trim() : ""
 }
 
 function createPasswordAuthRouteError({
@@ -345,6 +347,14 @@ export function AuthModal({
       return
     }
 
+    const turnstileToken = getTurnstileToken(form)
+
+    if (!turnstileToken) {
+      setAuthError(TURNSTILE_SECURITY_ERROR_MESSAGE)
+      setLoginTurnstileResetKey((currentKey) => currentKey + 1)
+      return
+    }
+
     setIsLoading(true)
     setAuthError(null)
     setPendingEmailAccountCreation(null)
@@ -355,7 +365,7 @@ export function AuthModal({
         endpoint: "/api/auth/login",
         email: result.data.email,
         password: result.data.password,
-        turnstileToken: getTurnstileToken(form),
+        turnstileToken,
       })
       const userCredential = await signInWithCustomToken(
         auth,
@@ -461,6 +471,14 @@ export function AuthModal({
       return
     }
 
+    const turnstileToken = getTurnstileToken(e.currentTarget)
+
+    if (!turnstileToken) {
+      setAuthError(TURNSTILE_SECURITY_ERROR_MESSAGE)
+      setSignupTurnstileResetKey((currentKey) => currentKey + 1)
+      return
+    }
+
     setIsLoading(true)
     setAuthError(null)
 
@@ -470,7 +488,7 @@ export function AuthModal({
         endpoint: "/api/auth/signup",
         email: pendingEmailAccountCreation.email,
         password: pendingEmailAccountCreation.password,
-        turnstileToken: getTurnstileToken(e.currentTarget),
+        turnstileToken,
       })
       const userCredential = await signInWithCustomToken(
         auth,

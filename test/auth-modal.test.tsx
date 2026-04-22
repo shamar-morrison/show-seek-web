@@ -128,7 +128,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   })
 }
 
-function installTurnstileMock() {
+function createTurnstileMock({ issueToken = true } = {}) {
   const turnstile = {
     remove: vi.fn(),
     render: vi.fn(
@@ -139,19 +139,45 @@ function installTurnstileMock() {
           callback?: (token: string) => void
         },
       ) => {
-        options.callback?.(`${options.action ?? "auth"}-turnstile-token`)
+        if (issueToken) {
+          options.callback?.(`${options.action ?? "auth"}-turnstile-token`)
+        }
+
         return `${options.action ?? "auth"}-widget`
       },
     ),
     reset: vi.fn(),
   }
 
+  return turnstile
+}
+
+function setWindowTurnstile(turnstile: unknown) {
   Object.defineProperty(window, "turnstile", {
     configurable: true,
     value: turnstile,
   })
+}
+
+function installTurnstileMock(
+  options?: Parameters<typeof createTurnstileMock>[0],
+) {
+  const turnstile = createTurnstileMock(options)
+
+  setWindowTurnstile(turnstile)
 
   return turnstile
+}
+
+function appendTurnstileScript() {
+  const script = document.createElement("script")
+
+  script.src =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+  script.dataset.testTurnstileScript = "true"
+  document.head.appendChild(script)
+
+  return script
 }
 
 async function waitForTurnstileToken(
@@ -180,6 +206,9 @@ describe("AuthModal", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "test-site-key")
+    document.head
+      .querySelectorAll("[data-test-turnstile-script]")
+      .forEach((script) => script.remove())
     installTurnstileMock()
 
     useAuthMock.mockReturnValue({
@@ -209,6 +238,9 @@ describe("AuthModal", () => {
   })
 
   it("renders the email auth form with a Turnstile widget", async () => {
+    const turnstile = window.turnstile as ReturnType<
+      typeof installTurnstileMock
+    >
     const { container } = render(<AuthModal isOpen />)
 
     expect(screen.getByText("Sign in to continue.")).toBeInTheDocument()
@@ -218,10 +250,61 @@ describe("AuthModal", () => {
     expect(
       screen.getByRole("button", { name: "Continue with email" }),
     ).toBeInTheDocument()
-    expect(
-      container.querySelector('.cf-turnstile[data-action="login"]'),
-    ).toBeInTheDocument()
+    expect(container.querySelector('[id^="turnstile-"]')).toBeInTheDocument()
     await waitForTurnstileToken(container, "login-turnstile-token")
+    expect(turnstile.render).toHaveBeenCalledWith(
+      expect.stringMatching(/^#turnstile-/),
+      expect.objectContaining({
+        action: "login",
+        "response-field": false,
+        sitekey: "test-site-key",
+      }),
+    )
+  })
+
+  it("waits for the Turnstile script API before rendering", async () => {
+    const turnstile = createTurnstileMock()
+    const script = appendTurnstileScript()
+
+    setWindowTurnstile(undefined)
+
+    const { container } = render(<AuthModal isOpen />)
+
+    expect(turnstile.render).not.toHaveBeenCalled()
+
+    setWindowTurnstile(turnstile)
+    script.dispatchEvent(new Event("load"))
+
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalledWith(
+        expect.stringMatching(/^#turnstile-/),
+        expect.objectContaining({ action: "login" }),
+      )
+    })
+    await waitForTurnstileToken(container, "login-turnstile-token")
+  })
+
+  it("removes the old widget and renders a fresh one when reopened", async () => {
+    const turnstile = window.turnstile as ReturnType<
+      typeof installTurnstileMock
+    >
+    const { rerender } = render(<AuthModal isOpen />)
+
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalledTimes(1)
+    })
+
+    rerender(<AuthModal isOpen={false} />)
+
+    await waitFor(() => {
+      expect(turnstile.remove).toHaveBeenCalledWith("login-widget")
+    })
+
+    rerender(<AuthModal isOpen />)
+
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalledTimes(2)
+    })
   })
 
   it("posts email login with the Turnstile token and completes auth setup", async () => {
@@ -416,6 +499,28 @@ describe("AuthModal", () => {
     expect(
       await screen.findByText("Security check failed. Please try again."),
     ).toBeInTheDocument()
+    expect(signInWithCustomTokenMock).not.toHaveBeenCalled()
+  })
+
+  it("blocks email login locally when the Turnstile token is empty", async () => {
+    const turnstile = installTurnstileMock({ issueToken: false })
+    const fetchMock = vi.fn()
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<AuthModal isOpen />)
+
+    await waitFor(() => {
+      expect(turnstile.render).toHaveBeenCalled()
+    })
+    fillEmailForm()
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText("Security check failed. Please try again."),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(signInWithCustomTokenMock).not.toHaveBeenCalled()
   })
 
