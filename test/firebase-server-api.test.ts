@@ -28,6 +28,12 @@ function createAccessTokenResponse(
   )
 }
 
+function decodeJwtSegment(segment: string): Record<string, unknown> {
+  return JSON.parse(
+    Buffer.from(segment, "base64url").toString("utf8"),
+  ) as Record<string, unknown>
+}
+
 async function waitForAssertion(assertion: () => void): Promise<void> {
   let lastError: unknown
 
@@ -67,7 +73,8 @@ describe("firebase server api", () => {
     if (originalEnv.FIREBASE_ADMIN_PROJECT_ID === undefined) {
       Reflect.deleteProperty(process.env, "FIREBASE_ADMIN_PROJECT_ID")
     } else {
-      process.env.FIREBASE_ADMIN_PROJECT_ID = originalEnv.FIREBASE_ADMIN_PROJECT_ID
+      process.env.FIREBASE_ADMIN_PROJECT_ID =
+        originalEnv.FIREBASE_ADMIN_PROJECT_ID
     }
 
     if (originalEnv.FIREBASE_ADMIN_CLIENT_EMAIL === undefined) {
@@ -80,7 +87,8 @@ describe("firebase server api", () => {
     if (originalEnv.FIREBASE_ADMIN_PRIVATE_KEY === undefined) {
       Reflect.deleteProperty(process.env, "FIREBASE_ADMIN_PRIVATE_KEY")
     } else {
-      process.env.FIREBASE_ADMIN_PRIVATE_KEY = originalEnv.FIREBASE_ADMIN_PRIVATE_KEY
+      process.env.FIREBASE_ADMIN_PRIVATE_KEY =
+        originalEnv.FIREBASE_ADMIN_PRIVATE_KEY
     }
 
     vi.unstubAllGlobals()
@@ -89,7 +97,7 @@ describe("firebase server api", () => {
   it("shares a single in-flight access token refresh across concurrent callers", async () => {
     const fetchDeferred = createDeferred<Response>()
     const fetchMock = vi.fn(async () => fetchDeferred.promise)
-    const importKeyMock = vi.fn(async () => ({} as CryptoKey))
+    const importKeyMock = vi.fn(async () => ({}) as CryptoKey)
     const signMock = vi.fn(async () => new Uint8Array([1, 2, 3]).buffer)
 
     vi.stubGlobal("fetch", fetchMock)
@@ -121,9 +129,10 @@ describe("firebase server api", () => {
 
     fetchDeferred.resolve(createAccessTokenResponse("shared-token"))
 
-    await expect(
-      Promise.all([tokenPromiseA, tokenPromiseB]),
-    ).resolves.toEqual(["shared-token", "shared-token"])
+    await expect(Promise.all([tokenPromiseA, tokenPromiseB])).resolves.toEqual([
+      "shared-token",
+      "shared-token",
+    ])
     expect(importKeyMock).toHaveBeenCalledTimes(1)
     expect(signMock).toHaveBeenCalledTimes(1)
   })
@@ -139,7 +148,7 @@ describe("firebase server api", () => {
     vi.stubGlobal("fetch", fetchMock)
     vi.stubGlobal("crypto", {
       subtle: {
-        importKey: vi.fn(async () => ({} as CryptoKey)),
+        importKey: vi.fn(async () => ({}) as CryptoKey),
         sign: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
       },
     })
@@ -188,5 +197,41 @@ describe("firebase server api", () => {
     await expect(getGoogleAccessToken()).resolves.toBe("token")
     expect(importKeyMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("creates Firebase custom tokens with the expected JWT payload", async () => {
+    const importKeyMock = vi.fn(async () => ({}) as CryptoKey)
+    const signMock = vi.fn(async () => new Uint8Array([1, 2, 3]).buffer)
+
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000)
+    vi.stubGlobal("crypto", {
+      subtle: {
+        importKey: importKeyMock,
+        sign: signMock,
+      },
+    })
+
+    const { createFirebaseCustomToken } =
+      await import("../lib/firebase/server-api")
+
+    const customToken = await createFirebaseCustomToken("user-123")
+    const [headerSegment, payloadSegment, signatureSegment] =
+      customToken.split(".")
+
+    expect(decodeJwtSegment(headerSegment ?? "")).toEqual({
+      alg: "RS256",
+      typ: "JWT",
+    })
+    expect(decodeJwtSegment(payloadSegment ?? "")).toEqual({
+      iss: "service-account@example.com",
+      sub: "service-account@example.com",
+      aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
+      iat: 1_700_000_000,
+      exp: 1_700_003_600,
+      uid: "user-123",
+    })
+    expect(signatureSegment).toBe("AQID")
+    expect(importKeyMock).toHaveBeenCalledTimes(1)
+    expect(signMock).toHaveBeenCalledTimes(1)
   })
 })

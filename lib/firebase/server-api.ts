@@ -3,6 +3,8 @@ import "server-only"
 const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 const GOOGLE_CLOUD_PLATFORM_SCOPE =
   "https://www.googleapis.com/auth/cloud-platform"
+const FIREBASE_CUSTOM_TOKEN_AUDIENCE =
+  "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit"
 const ACCESS_TOKEN_SKEW_SECONDS = 60
 const GOOGLE_REQUEST_TIMEOUT_MS = 10_000
 
@@ -25,6 +27,15 @@ export interface FirebaseServiceAccountConfig {
   projectId: string
   clientEmail: string
   privateKey: string
+}
+
+export interface FirebaseCustomTokenPayload {
+  aud: typeof FIREBASE_CUSTOM_TOKEN_AUDIENCE
+  exp: number
+  iat: number
+  iss: string
+  sub: string
+  uid: string
 }
 
 let accessTokenCache: AccessTokenCache | null = null
@@ -70,7 +81,10 @@ export async function getGoogleAccessToken(): Promise<string | null> {
 
   const nowSeconds = Math.floor(Date.now() / 1000)
 
-  if (accessTokenCache?.kind === "resolved" && accessTokenCache.value.expiresAt > nowSeconds) {
+  if (
+    accessTokenCache?.kind === "resolved" &&
+    accessTokenCache.value.expiresAt > nowSeconds
+  ) {
     return accessTokenCache.value.accessToken
   }
 
@@ -102,6 +116,32 @@ export async function getGoogleAccessToken(): Promise<string | null> {
 
     throw error
   }
+}
+
+export async function createFirebaseCustomToken(uid: string): Promise<string> {
+  const config = getFirebaseServiceAccountConfig()
+  const normalizedUid = uid.trim()
+
+  if (!config) {
+    throw new Error("Firebase service account credentials are not configured")
+  }
+
+  if (normalizedUid.length === 0 || normalizedUid.length > 128) {
+    throw new Error("Firebase custom token UID must be 1-128 characters")
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const header = { alg: "RS256", typ: "JWT" }
+  const payload: FirebaseCustomTokenPayload = {
+    iss: config.clientEmail,
+    sub: config.clientEmail,
+    aud: FIREBASE_CUSTOM_TOKEN_AUDIENCE,
+    iat: nowSeconds,
+    exp: nowSeconds + 3600,
+    uid: normalizedUid,
+  }
+
+  return signServiceAccountJwt(header, payload, config.privateKey)
 }
 
 async function refreshGoogleAccessToken(
@@ -139,7 +179,9 @@ async function refreshGoogleAccessToken(
     }
 
     if (!data.access_token || typeof data.expires_in !== "number") {
-      throw new Error("Google access token response was missing required fields")
+      throw new Error(
+        "Google access token response was missing required fields",
+      )
     }
 
     return {
@@ -172,10 +214,18 @@ async function createServiceAccountAssertion(
     exp: nowSeconds + 3600,
   }
 
+  return signServiceAccountJwt(header, payload, config.privateKey)
+}
+
+async function signServiceAccountJwt(
+  header: unknown,
+  payload: unknown,
+  privateKey: string,
+): Promise<string> {
   const encodedHeader = encodeJsonSegment(header)
   const encodedPayload = encodeJsonSegment(payload)
   const unsignedToken = `${encodedHeader}.${encodedPayload}`
-  const signingKey = await getSigningKey(config.privateKey)
+  const signingKey = await getSigningKey(privateKey)
   const signature = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     signingKey,
@@ -193,19 +243,21 @@ async function getSigningKey(privateKey: string): Promise<CryptoKey> {
     return cachedSigningKeyPromise
   }
 
-  const signingKeyPromise = crypto.subtle.importKey(
-    "pkcs8",
-    pemToArrayBuffer(privateKey),
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      hash: "SHA-256",
-    },
-    false,
-    ["sign"],
-  ).catch((error) => {
-    signingKeyCache.delete(cacheKey)
-    throw error
-  })
+  const signingKeyPromise = crypto.subtle
+    .importKey(
+      "pkcs8",
+      pemToArrayBuffer(privateKey),
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: "SHA-256",
+      },
+      false,
+      ["sign"],
+    )
+    .catch((error) => {
+      signingKeyCache.delete(cacheKey)
+      throw error
+    })
 
   signingKeyCache.set(cacheKey, signingKeyPromise)
   return signingKeyPromise

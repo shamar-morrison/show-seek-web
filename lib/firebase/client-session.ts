@@ -21,6 +21,11 @@ type ServerSessionSyncManagerArgs = {
   uid: string
 }
 
+type ServerSessionReadyArgs = {
+  token: string
+  uid: string
+}
+
 type ServerSessionSyncState = {
   inFlightPromise: Promise<ServerSessionSyncResult> | null
   inFlightSyncVersion: number | null
@@ -86,7 +91,9 @@ function getServerSessionSyncErrorMessage(error: unknown): string {
 }
 
 export function createServerSessionSyncManager(
-  syncServerSession: (idToken: string) => Promise<void> = syncServerSessionWithIdToken,
+  syncServerSession: (
+    idToken: string,
+  ) => Promise<void> = syncServerSessionWithIdToken,
   onSnapshotChange?: (snapshot: ServerSessionSyncSnapshot) => void,
 ) {
   let state: ServerSessionSyncState = {
@@ -138,6 +145,30 @@ export function createServerSessionSyncManager(
     },
     getSnapshot(): ServerSessionSyncSnapshot {
       return state.snapshot
+    },
+    markReady({ token, uid }: ServerSessionReadyArgs): ServerSessionSyncResult {
+      updateSnapshot({
+        error: null,
+        status: "ready",
+        uid,
+      })
+
+      state = {
+        ...state,
+        inFlightPromise: null,
+        inFlightSyncVersion: null,
+        inFlightToken: null,
+        inFlightUid: null,
+        syncedToken: token,
+        syncedUid: uid,
+      }
+
+      return {
+        error: null,
+        ok: true,
+        status: "ready",
+        uid,
+      }
     },
     ensure({
       isCurrentUser = () => true,

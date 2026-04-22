@@ -60,14 +60,20 @@ interface AuthContextType {
   premiumLoading: boolean
   premiumStatus: PremiumStatus
   serverSessionSync: ServerSessionSyncSnapshot
-  ensureServerSession: (candidateUser?: User | null) => Promise<ServerSessionSyncResult>
+  ensureServerSession: (
+    candidateUser?: User | null,
+  ) => Promise<ServerSessionSyncResult>
+  markServerSessionReady: (
+    candidateUser: User,
+  ) => Promise<ServerSessionSyncResult>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const RECONCILE_ATTEMPT_KEY_PREFIX = "premium_reconcile_attempted_v2_"
-const RECONCILE_DEPENDENCY_LOGGED_KEY_PREFIX = "premium_reconcile_dependency_logged_"
+const RECONCILE_DEPENDENCY_LOGGED_KEY_PREFIX =
+  "premium_reconcile_dependency_logged_"
 const RECONCILE_DEPENDENCY_ERROR_CODES = new Set([
   "functions/not-found",
   "functions/unimplemented",
@@ -205,7 +211,8 @@ const parseReconcilePremiumStatusResponse = (
           ? source
           : "firestore",
       reconciledAt:
-        candidate.reconciledAt === null || typeof candidate.reconciledAt === "string"
+        candidate.reconciledAt === null ||
+        typeof candidate.reconciledAt === "string"
           ? candidate.reconciledAt
           : null,
     }
@@ -219,7 +226,10 @@ const parseReconcilePremiumStatusResponse = (
       source === "both" ||
       source === "none"
     ) ||
-    !(candidate.reconciledAt === null || typeof candidate.reconciledAt === "string")
+    !(
+      candidate.reconciledAt === null ||
+      typeof candidate.reconciledAt === "string"
+    )
   ) {
     const error = new Error("Invalid reconcile response payload")
     ;(error as { code?: string }).code = "invalid-response"
@@ -241,9 +251,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(firebaseAvailable)
   const [premiumStatus, setPremiumStatus] = useState<PremiumStatus>("free")
   const [premiumLoading, setPremiumLoading] = useState(false)
-  const [premiumLastCheckedAt, setPremiumLastCheckedAt] = useState<string | null>(
-    null,
-  )
+  const [premiumLastCheckedAt, setPremiumLastCheckedAt] = useState<
+    string | null
+  >(null)
   const [serverSessionSync, setServerSessionSync] =
     useState<ServerSessionSyncSnapshot>({
       error: null,
@@ -261,7 +271,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const reconcileAttemptedUsersRef = useRef<Set<string>>(new Set())
   const reconcileDependencyLoggedUsersRef = useRef<Set<string>>(new Set())
   const reconcileCallablesRef = useRef(
-    new Map<ReconcileCallableName, ReturnType<typeof httpsCallable<unknown, unknown>>>(),
+    new Map<
+      ReconcileCallableName,
+      ReturnType<typeof httpsCallable<unknown, unknown>>
+    >(),
   )
 
   const getAuth = useCallback(() => getFirebaseAuth(), [])
@@ -273,7 +286,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return cachedCallable
     }
 
-    const callable = httpsCallable<unknown, unknown>(getFirebaseFunctions(), name)
+    const callable = httpsCallable<unknown, unknown>(
+      getFirebaseFunctions(),
+      name,
+    )
     reconcileCallablesRef.current.set(name, callable)
     return callable
   }, [])
@@ -352,7 +368,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [clearServerSessionSyncState, firebaseAvailable, firebaseUnavailableMessage, getAuth],
+    [
+      clearServerSessionSyncState,
+      firebaseAvailable,
+      firebaseUnavailableMessage,
+      getAuth,
+    ],
+  )
+
+  const markServerSessionReady = useCallback(
+    async (candidateUser: User): Promise<ServerSessionSyncResult> => {
+      if (!firebaseAvailable) {
+        clearServerSessionSyncState()
+        return {
+          error: firebaseUnavailableMessage,
+          ok: false,
+          status: "error",
+          uid: candidateUser.uid,
+        }
+      }
+
+      if (!candidateUser || candidateUser.isAnonymous) {
+        clearServerSessionSyncState()
+        return {
+          error: "Missing authenticated user",
+          ok: false,
+          status: "error",
+          uid: candidateUser?.uid ?? "anonymous",
+        }
+      }
+
+      try {
+        const idToken = await candidateUser.getIdToken()
+        return serverSessionSyncManagerRef.current.markReady({
+          token: idToken,
+          uid: candidateUser.uid,
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : "Failed to fetch authentication token"
+
+        return {
+          error: message,
+          ok: false,
+          status: "error",
+          uid: candidateUser.uid,
+        }
+      }
+    },
+    [
+      clearServerSessionSyncState,
+      firebaseAvailable,
+      firebaseUnavailableMessage,
+    ],
   )
 
   const reconcilePremium = useCallback(
@@ -426,7 +496,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             const errorCode = getReconcileErrorCode(error)
 
-            if (isReconcileDependencyError(errorCode) && !hasLoggedDependencyError(userId)) {
+            if (
+              isReconcileDependencyError(errorCode) &&
+              !hasLoggedDependencyError(userId)
+            ) {
               markDependencyErrorLogged(userId)
               console.error("[PremiumReconcileDependencyMissing]", {
                 attempted: true,
@@ -608,7 +681,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 
     return unsubscribe
-  }, [firebaseAvailable, getAuth, getDb, hasAttemptedReconcile, reconcilePremium, user])
+  }, [
+    firebaseAvailable,
+    getAuth,
+    getDb,
+    hasAttemptedReconcile,
+    reconcilePremium,
+    user,
+  ])
 
   const signOut = async () => {
     try {
@@ -643,6 +723,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         premiumLastCheckedAt,
         serverSessionSync,
         ensureServerSession,
+        markServerSessionReady,
         signOut,
       }}
     >

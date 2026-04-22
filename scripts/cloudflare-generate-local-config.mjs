@@ -14,6 +14,7 @@ const REQUIRED_PUBLIC_KEYS = [
 ]
 const OPTIONAL_LOCAL_VAR_KEYS = [
   "NEXT_PUBLIC_ENABLE_PREMIUM_RECONCILE",
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID",
   "NEXT_PUBLIC_ANDROID_PACKAGE_NAME",
   "TRAKT_REDIRECT_URI",
@@ -215,7 +216,9 @@ function buildLocalVars(parsedEnv, nextjsEnvOverride, envFile) {
     const value = parsedEnv[key]
 
     if (typeof value !== "string" || value === "") {
-      console.error(`Missing required local deploy env var ${key} in ${envFile}.`)
+      console.error(
+        `Missing required local deploy env var ${key} in ${envFile}.`,
+      )
       process.exit(1)
     }
 

@@ -48,6 +48,7 @@ Build-time values still come from `.env`, including:
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
 The generated local Wrangler config includes only non-secret worker vars. The tracked `wrangler.jsonc` stays clean, and `.wrangler/` stays ignored by Git.
@@ -65,6 +66,7 @@ Keep the Worker runtime configuration populated as well. The current runtime sec
 - `FIREBASE_ADMIN_PROJECT_ID`
 - `FIREBASE_ADMIN_CLIENT_EMAIL`
 - `FIREBASE_ADMIN_PRIVATE_KEY`
+- `TURNSTILE_SECRET_KEY`
 - `TRAKT_CLIENT_ID`
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
@@ -73,6 +75,11 @@ Run this after changing any of those secrets in `.env`:
 ```bash
 pnpm cf:secret:sync
 ```
+
+For Turnstile, keep `TURNSTILE_SECRET_KEY` server-side only. Local Next.js
+development can supply it from `.env.local`, and production must set it as a
+Cloudflare Worker secret. The public widget key is
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
 
 Non-secret runtime vars such as `NEXTJS_ENV`, the Firebase public web config, and optional public flags are generated into `.wrangler/wrangler.local.jsonc` from `.env`.
 

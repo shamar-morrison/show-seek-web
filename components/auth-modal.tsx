@@ -34,13 +34,10 @@ import {
 } from "@/lib/firebase/config"
 import { createUserDocument } from "@/lib/firebase/user"
 import { cn } from "@/lib/utils"
+import { TurnstileWidget } from "@/components/turnstile-widget"
 import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  type User,
-} from "firebase/auth"
+import { signInWithCustomToken, type User } from "firebase/auth"
 import { useState } from "react"
 import { z } from "zod"
 
@@ -57,6 +54,15 @@ type SignInFormData = z.infer<typeof signInSchema>
 type PendingEmailAccountCreation = {
   email: string
   password: string
+}
+type PasswordAuthRouteResponse = {
+  customToken?: string
+  uid?: string
+}
+type PasswordAuthRouteError = Error & {
+  code?: string
+  isPasswordAuthRouteError?: true
+  status?: number
 }
 
 const ACCOUNT_SETUP_ERROR_MESSAGE =
@@ -110,6 +116,109 @@ function logAuthDebug(user: {
   })
 }
 
+function getTurnstileToken(form: HTMLFormElement): string {
+  const token = new FormData(form).get("cf-turnstile-response")
+
+  return typeof token === "string" ? token : ""
+}
+
+function createPasswordAuthRouteError({
+  code,
+  message,
+  status,
+}: {
+  code?: unknown
+  message: string
+  status: number
+}): PasswordAuthRouteError {
+  const error = new Error(message) as PasswordAuthRouteError
+  error.code = typeof code === "string" ? code : undefined
+  error.status = status
+  error.isPasswordAuthRouteError = true
+  return error
+}
+
+function isPasswordAuthRouteError(
+  error: unknown,
+): error is PasswordAuthRouteError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "isPasswordAuthRouteError" in error &&
+    (error as PasswordAuthRouteError).isPasswordAuthRouteError === true
+  )
+}
+
+async function readPasswordAuthErrorMessage(
+  response: Response,
+): Promise<{ code?: unknown; message: string }> {
+  try {
+    const data = (await response.json()) as Record<string, unknown>
+    const message =
+      (typeof data.error === "string" ? data.error : "") ||
+      (typeof data.message === "string" ? data.message : "")
+
+    return {
+      code: data.code,
+      message:
+        message ||
+        (response.status >= 500
+          ? "Authentication service temporarily unavailable"
+          : "Unable to sign in. Please try again."),
+    }
+  } catch {
+    return {
+      message:
+        response.status >= 500
+          ? "Authentication service temporarily unavailable"
+          : "Unable to sign in. Please try again.",
+    }
+  }
+}
+
+async function submitPasswordAuthRequest({
+  email,
+  endpoint,
+  password,
+  turnstileToken,
+}: {
+  email: string
+  endpoint: "/api/auth/login" | "/api/auth/signup"
+  password: string
+  turnstileToken: string
+}): Promise<{ customToken: string; uid: string }> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      turnstileToken,
+    }),
+    credentials: "same-origin",
+  })
+
+  if (!response.ok) {
+    const failure = await readPasswordAuthErrorMessage(response)
+    throw createPasswordAuthRouteError({
+      code: failure.code,
+      message: failure.message,
+      status: response.status,
+    })
+  }
+
+  const data = (await response.json()) as PasswordAuthRouteResponse
+
+  if (!data.customToken || !data.uid) {
+    throw new Error("Password auth response was missing required fields")
+  }
+
+  return {
+    customToken: data.customToken,
+    uid: data.uid,
+  }
+}
+
 /**
  * AuthModal Component
  * Single auth modal with Google auth and email/password form.
@@ -135,7 +244,8 @@ export function AuthModal({
   onAuthSuccess,
   message,
 }: AuthModalProps = {}) {
-  const { ensureServerSession, firebaseAvailable } = useAuth()
+  const { ensureServerSession, firebaseAvailable, markServerSessionReady } =
+    useAuth()
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<SignInFormData>({
@@ -148,6 +258,8 @@ export function AuthModal({
   const [authError, setAuthError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [loginTurnstileResetKey, setLoginTurnstileResetKey] = useState(0)
+  const [signupTurnstileResetKey, setSignupTurnstileResetKey] = useState(0)
   const shouldShowProviderGuidance =
     authError !== null &&
     authError
@@ -166,6 +278,8 @@ export function AuthModal({
     setErrors({})
     setAuthError(null)
     setShowPassword(false)
+    setLoginTurnstileResetKey((currentKey) => currentKey + 1)
+    setSignupTurnstileResetKey((currentKey) => currentKey + 1)
   }
 
   /** Handle modal open state change */
@@ -210,6 +324,7 @@ export function AuthModal({
   /** Handle email/password sign-in form submission */
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
+    const form = e.currentTarget as HTMLFormElement
 
     // Validate form data
     const result = signInSchema.safeParse(formData)
@@ -236,61 +351,90 @@ export function AuthModal({
 
     try {
       const auth = getFirebaseAuth()
-      const userCredential = await signInWithEmailAndPassword(
+      const authResult = await submitPasswordAuthRequest({
+        endpoint: "/api/auth/login",
+        email: result.data.email,
+        password: result.data.password,
+        turnstileToken: getTurnstileToken(form),
+      })
+      const userCredential = await signInWithCustomToken(
         auth,
-        result.data.email,
-        result.data.password,
+        authResult.customToken,
       )
 
-      await completeAuth(userCredential.user)
+      const completed = await completeAuth(userCredential.user, {
+        serverSessionAlreadyCreated: true,
+      })
+
+      if (!completed) {
+        setLoginTurnstileResetKey((currentKey) => currentKey + 1)
+      }
     } catch (error) {
-      const firebaseError = error as { code?: string; message?: string }
-      if (shouldOfferEmailAccountCreation(firebaseError.code)) {
-        setPendingEmailAccountCreation({
-          email: result.data.email,
-          password: result.data.password,
-        })
+      setLoginTurnstileResetKey((currentKey) => currentKey + 1)
+
+      if (isPasswordAuthRouteError(error)) {
+        if (shouldOfferEmailAccountCreation(error.code)) {
+          setPendingEmailAccountCreation({
+            email: result.data.email,
+            password: result.data.password,
+          })
+        } else {
+          setAuthError(getEmailAuthErrorMessage(error))
+        }
       } else {
-        setAuthError(getEmailAuthErrorMessage(firebaseError))
+        console.error("Password auth completion failed:", error)
+        setAuthError(SESSION_START_ERROR_MESSAGE)
       }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const completeAuth = async (user: User) => {
+  const completeAuth = async (
+    user: User,
+    options: { serverSessionAlreadyCreated?: boolean } = {},
+  ): Promise<boolean> => {
     let currentStep:
       | "createUserDocument"
       | "ensureServerSession"
-      | "finalizeAuth" = "createUserDocument"
+      | "finalizeAuth"
+      | "markServerSessionReady" = "createUserDocument"
 
     try {
       const userDocumentCreated = await createUserDocument(user)
 
       if (!userDocumentCreated) {
         setAuthError(ACCOUNT_SETUP_ERROR_MESSAGE)
-        return
+        return false
       }
 
-      currentStep = "ensureServerSession"
-      const sessionSyncResult = await ensureServerSession(user)
+      currentStep = options.serverSessionAlreadyCreated
+        ? "markServerSessionReady"
+        : "ensureServerSession"
+      const sessionSyncResult = options.serverSessionAlreadyCreated
+        ? await markServerSessionReady(user)
+        : await ensureServerSession(user)
 
       if (!sessionSyncResult.ok) {
         setAuthError(sessionSyncResult.error ?? SESSION_START_ERROR_MESSAGE)
-        return
+        return false
       }
 
       currentStep = "finalizeAuth"
       logAuthDebug(user)
       await handleAuthSuccess()
+      return true
     } catch (error) {
-      if (currentStep === "ensureServerSession") {
+      if (
+        currentStep === "ensureServerSession" ||
+        currentStep === "markServerSessionReady"
+      ) {
         console.error(
           "Failed to ensure server session during auth completion:",
           error,
         )
         setAuthError(SESSION_START_ERROR_MESSAGE)
-        return
+        return false
       }
 
       const logMessage =
@@ -300,11 +444,13 @@ export function AuthModal({
 
       console.error(logMessage, error)
       setAuthError(ACCOUNT_SETUP_ERROR_MESSAGE)
-      return
+      return false
     }
   }
 
-  const handleCreateAccount = async () => {
+  const handleCreateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
     if (!pendingEmailAccountCreation) {
       return
     }
@@ -320,18 +466,35 @@ export function AuthModal({
 
     try {
       const auth = getFirebaseAuth()
-      const userCredential = await createUserWithEmailAndPassword(
+      const authResult = await submitPasswordAuthRequest({
+        endpoint: "/api/auth/signup",
+        email: pendingEmailAccountCreation.email,
+        password: pendingEmailAccountCreation.password,
+        turnstileToken: getTurnstileToken(e.currentTarget),
+      })
+      const userCredential = await signInWithCustomToken(
         auth,
-        pendingEmailAccountCreation.email,
-        pendingEmailAccountCreation.password,
+        authResult.customToken,
       )
 
       setPendingEmailAccountCreation(null)
-      await completeAuth(userCredential.user)
+      const completed = await completeAuth(userCredential.user, {
+        serverSessionAlreadyCreated: true,
+      })
+
+      if (!completed) {
+        setSignupTurnstileResetKey((currentKey) => currentKey + 1)
+      }
     } catch (error) {
-      const firebaseError = error as { code?: string; message?: string }
+      setSignupTurnstileResetKey((currentKey) => currentKey + 1)
       setPendingEmailAccountCreation(null)
-      setAuthError(getCreateAccountErrorMessage(firebaseError))
+
+      if (isPasswordAuthRouteError(error)) {
+        setAuthError(getCreateAccountErrorMessage(error))
+      } else {
+        console.error("Password account creation completion failed:", error)
+        setAuthError(SESSION_START_ERROR_MESSAGE)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -478,7 +641,9 @@ export function AuthModal({
                       "border-destructive focus-visible:ring-destructive",
                   )}
                   aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? "password-error" : undefined}
+                  aria-describedby={
+                    errors.password ? "password-error" : undefined
+                  }
                 />
                 <button
                   type="button"
@@ -499,6 +664,8 @@ export function AuthModal({
                 </p>
               )}
             </div>
+
+            <TurnstileWidget key={loginTurnstileResetKey} action="login" />
 
             <Button
               type="submit"
@@ -524,24 +691,29 @@ export function AuthModal({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Create an account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              We couldn&apos;t find an account for{" "}
-              {pendingEmailAccountCreation?.email ?? "this email"}. Create one
-              with these credentials?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreateAccount} disabled={isLoading}>
-              {isLoading ? (
-                <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                "Create account"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <form onSubmit={handleCreateAccount} className="flex flex-col gap-4">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Create an account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                We couldn&apos;t find an account for{" "}
+                {pendingEmailAccountCreation?.email ?? "this email"}. Create one
+                with these credentials?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <TurnstileWidget key={signupTurnstileResetKey} action="signup" />
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button" disabled={isLoading}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  "Create account"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </Dialog>

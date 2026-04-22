@@ -60,6 +60,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          async
+          defer
+        />
+      </head>
       <body className={`${inter.variable} antialiased font-sans`}>
         <Providers>
           <Navbar />
