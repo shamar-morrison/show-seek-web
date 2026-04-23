@@ -37,6 +37,7 @@ export function useLists() {
     data: firestoreLists = [],
     isLoading,
     error,
+    refetch,
   } = useQuery({
     ...queryCacheProfiles.status,
     queryKey: queryKeys.firestore.lists(userId ?? UNAUTHENTICATED_USER_ID),
@@ -103,5 +104,12 @@ export function useLists() {
     await updateListMutation(listId, newName, description)
   }
 
-  return { lists, loading, error: (error as Error | null) ?? null, removeList, updateList }
+  return {
+    lists,
+    loading,
+    error: (error as Error | null) ?? null,
+    refetch,
+    removeList,
+    updateList,
+  }
 }

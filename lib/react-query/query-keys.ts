@@ -16,6 +16,13 @@ export const queryKeys = {
       [mediaType, mediaId, "reviews"] as const,
     recommendations: (mediaId: number, mediaType: "movie" | "tv") =>
       [mediaType, mediaId, "recommendations"] as const,
+    watchProviders: (
+      region: string,
+      mediaType: "movie" | "tv",
+      mediaId: number,
+    ) => ["watch-providers", region, mediaType, mediaId] as const,
+    watchProviderCatalog: (region: string, mediaType: "movie" | "tv") =>
+      ["watch-provider-catalog", region, mediaType] as const,
   },
 
   trakt: {
@@ -59,7 +66,13 @@ export const queryKeys = {
     collectionTrackingAll: (userId: string) =>
       ["firestore", "collection-tracking", userId, "all"] as const,
     collectionTrackingSingle: (userId: string, collectionId: number) =>
-      ["firestore", "collection-tracking", userId, "single", collectionId] as const,
+      [
+        "firestore",
+        "collection-tracking",
+        userId,
+        "single",
+        collectionId,
+      ] as const,
     collectionTrackingCount: (userId: string) =>
       ["firestore", "collection-tracking", userId, "count"] as const,
     lists: (userId: string) => ["firestore", "lists", userId] as const,

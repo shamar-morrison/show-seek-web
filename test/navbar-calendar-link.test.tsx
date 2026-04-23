@@ -90,9 +90,7 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
     ),
     Popup: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     Arrow: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-    Viewport: ({ children }: { children?: ReactNode }) => (
-      <div>{children}</div>
-    ),
+    Viewport: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     Link: ({
       children,
       render,
@@ -106,20 +104,20 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
       closeOnClick?: boolean
       [key: string]: unknown
     }) =>
-      render
-        ? React.cloneElement(
-            render as React.ReactElement<Record<string, unknown>>,
-            {
-              href,
-              ...(props as Record<string, unknown>),
-            },
-            children,
-          )
-        : (
-            <a href={href} {...props}>
-              {children}
-            </a>
-          ),
+      render ? (
+        React.cloneElement(
+          render as React.ReactElement<Record<string, unknown>>,
+          {
+            href,
+            ...(props as Record<string, unknown>),
+          },
+          children,
+        )
+      ) : (
+        <a href={href} {...props}>
+          {children}
+        </a>
+      ),
   },
 }))
 
@@ -140,6 +138,7 @@ describe("Navbar calendar link", () => {
     render(<Navbar />)
 
     expect(screen.getAllByText("Calendar").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Where to Watch").length).toBeGreaterThan(0)
   })
 
   it("hides the calendar link for signed-out users", async () => {
@@ -149,5 +148,6 @@ describe("Navbar calendar link", () => {
     render(<Navbar />)
 
     expect(screen.queryByText("Calendar")).not.toBeInTheDocument()
+    expect(screen.queryByText("Where to Watch")).not.toBeInTheDocument()
   })
 })

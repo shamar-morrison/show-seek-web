@@ -2,6 +2,8 @@
 
 import {
   getBestTrailer,
+  getWatchProviderList,
+  getWatchProviders,
   getMediaImages,
   getMediaVideos,
   getMovieDetails,
@@ -10,6 +12,8 @@ import {
   getSeasonDetails,
   getTVDetails,
 } from "@/lib/tmdb"
+import type { SupportedRegionCode } from "@/lib/regions"
+import type { WatchProvider } from "@/types/tmdb"
 
 /** TV show details for progress calculation */
 export interface TVShowDetailsData {
@@ -155,6 +159,49 @@ export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
   } catch (error) {
     console.error("Server Action: Failed to fetch reviews", error)
     return null
+  }
+}
+
+/**
+ * Server action to fetch regional watch providers for one media item.
+ */
+export async function fetchWatchProviders(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+  region: SupportedRegionCode,
+) {
+  try {
+    return await getWatchProviders(mediaId, mediaType, region)
+  } catch (error) {
+    console.error("Server Action: Failed to fetch watch providers", error)
+    return null
+  }
+}
+
+/**
+ * Server action to fetch the regional watch provider catalog.
+ */
+export async function fetchWatchProviderCatalog(
+  mediaType: "movie" | "tv",
+  region: SupportedRegionCode,
+): Promise<WatchProvider[]> {
+  try {
+    const providers = await getWatchProviderList(mediaType, region)
+
+    return providers
+      .map((provider) => ({
+        display_priority: provider.display_priorities?.[region] ?? 999,
+        logo_path: provider.logo_path,
+        provider_id: provider.provider_id,
+        provider_name: provider.provider_name,
+      }))
+      .sort((a, b) => a.display_priority - b.display_priority)
+  } catch (error) {
+    console.error(
+      "Server Action: Failed to fetch watch provider catalog",
+      error,
+    )
+    return []
   }
 }
 
