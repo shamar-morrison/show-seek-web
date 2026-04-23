@@ -186,6 +186,42 @@ describe("useWatchProviderEnrichment", () => {
     expect(result.current.providerMap.size).toBe(2)
   })
 
+  it("does not expose cached success data while disabled", async () => {
+    let capturedQueries: Array<{ enabled: boolean }> = []
+
+    mockUseQueries.mockImplementation(({ queries }) => {
+      capturedQueries = queries
+      return queries.map((_: unknown, index: number) => ({
+        data: { flatrate: [{ provider_id: index + 1 }] },
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+      }))
+    })
+
+    const { useWatchProviderEnrichment } =
+      await import("@/hooks/use-watch-provider-enrichment")
+
+    const { result } = renderHook(() =>
+      useWatchProviderEnrichment(
+        [
+          createListItem({ id: 1, media_type: "movie" }),
+          createListItem({ id: 2, media_type: "tv" }),
+        ],
+        "US",
+        false,
+      ),
+    )
+
+    expect(capturedQueries[0].enabled).toBe(false)
+    expect(capturedQueries[1].enabled).toBe(false)
+    expect(result.current.providerMap.get("movie-1")).toBeNull()
+    expect(result.current.providerMap.get("tv-2")).toBeNull()
+    expect(result.current.providerMap.size).toBe(2)
+    expect(result.current.enrichmentProgress).toBe(0)
+    expect(result.current.isLoadingEnrichment).toBe(false)
+  })
+
   it("reports loading only while enabled queries are loading", async () => {
     let capturedQueries: Array<{ enabled: boolean }> = []
 

@@ -442,61 +442,63 @@ describe("ReleaseCalendarView", () => {
       value: scrollIntoViewMock,
     })
 
-    render(
-      <ReleaseCalendarView
-        releases={[
-          createRelease({
-            id: 1,
-            title: "April",
-            releaseDate: "2099-04-10",
-            uniqueKey: "movie-1",
-          }),
-          createRelease({
-            id: 2,
-            title: "May",
-            releaseDate: "2099-05-01",
-            uniqueKey: "movie-2",
-          }),
-        ]}
-        isPremium
-      />,
-    )
-
-    expect(
-      screen.getByTestId("release-calendar-temporal-tab-all-dates"),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByTestId("release-calendar-temporal-tab-all-dates"),
-    ).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByText("April")).toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    await user.click(
-      screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
-    )
-
-    expect(scrollIntoViewMock).not.toHaveBeenCalled()
-    expect(
-      screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
-    ).toHaveAttribute("aria-pressed", "true")
-    expect(screen.queryByText("April")).not.toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    await user.click(
-      screen.getByTestId("release-calendar-temporal-tab-all-dates"),
-    )
-
-    expect(screen.getByText("April")).toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    if (originalScrollIntoView) {
-      Object.defineProperty(
-        Element.prototype,
-        "scrollIntoView",
-        originalScrollIntoView,
+    try {
+      render(
+        <ReleaseCalendarView
+          releases={[
+            createRelease({
+              id: 1,
+              title: "April",
+              releaseDate: "2099-04-10",
+              uniqueKey: "movie-1",
+            }),
+            createRelease({
+              id: 2,
+              title: "May",
+              releaseDate: "2099-05-01",
+              uniqueKey: "movie-2",
+            }),
+          ]}
+          isPremium
+        />,
       )
-    } else {
-      Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      ).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByText("April")).toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+
+      await user.click(
+        screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
+      )
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled()
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
+      ).toHaveAttribute("aria-pressed", "true")
+      expect(screen.queryByText("April")).not.toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+
+      await user.click(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      )
+
+      expect(screen.getByText("April")).toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(
+          Element.prototype,
+          "scrollIntoView",
+          originalScrollIntoView,
+        )
+      } else {
+        Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+      }
     }
   })
 

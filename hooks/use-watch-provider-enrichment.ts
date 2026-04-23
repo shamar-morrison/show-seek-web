@@ -77,21 +77,24 @@ export function useWatchProviderEnrichment(
       }
 
       const providerKey = `${target.mediaType}-${target.id}`
-      if (query.data !== undefined) {
-        map.set(providerKey, query.data)
+      if (!enabled) {
+        map.set(providerKey, null)
+      } else if (query.isSuccess) {
+        map.set(providerKey, query.data ?? null)
       } else if (query.isError) {
         map.set(providerKey, null)
       }
     })
 
     return map
-  }, [enrichmentQueries, targets])
+  }, [enabled, enrichmentQueries, targets])
 
-  const completedCount = enrichmentQueries.filter(
-    (query) => query.isSuccess || query.isError,
-  ).length
+  const completedCount = enabled
+    ? enrichmentQueries.filter((query) => query.isSuccess || query.isError)
+        .length
+    : 0
   const enrichmentProgress =
-    targets.length > 0 ? completedCount / targets.length : 0
+    enabled && targets.length > 0 ? completedCount / targets.length : 0
   const isLoadingEnrichment =
     enabled && enrichmentQueries.some((query) => query.isLoading)
 

@@ -95,7 +95,6 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
       children,
       render,
       href,
-      closeOnClick: _closeOnClick,
       ...props
     }: {
       children?: ReactNode
@@ -103,21 +102,25 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
       href?: string
       closeOnClick?: boolean
       [key: string]: unknown
-    }) =>
-      render ? (
+    }) => {
+      const { closeOnClick, ...safeProps } = props
+      void closeOnClick
+
+      return render ? (
         React.cloneElement(
           render as React.ReactElement<Record<string, unknown>>,
           {
             href,
-            ...(props as Record<string, unknown>),
+            ...(safeProps as Record<string, unknown>),
           },
           children,
         )
       ) : (
-        <a href={href} {...props}>
+        <a href={href} {...(safeProps as ComponentProps<"a">)}>
           {children}
         </a>
-      ),
+      )
+    },
   },
 }))
 

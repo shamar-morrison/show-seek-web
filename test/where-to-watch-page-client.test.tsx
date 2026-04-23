@@ -290,6 +290,69 @@ describe("WhereToWatchPageClient", () => {
     )
   })
 
+  it("treats a selected list that no longer exists as inactive", async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<WhereToWatchPageClient />)
+
+    await user.selectOptions(
+      screen.getByTestId("where-to-watch-list-selector"),
+      "watchlist",
+    )
+
+    expect(screen.getByTestId("where-to-watch-list-selector")).toHaveValue(
+      "watchlist",
+    )
+
+    listsState.lists = []
+    rerender(<WhereToWatchPageClient />)
+
+    expect(screen.getByTestId("where-to-watch-list-selector")).toHaveValue("")
+    expect(screen.getByTestId("where-to-watch-service-selector")).toBeDisabled()
+    expect(screen.getAllByText("Choose a list").length).toBeGreaterThan(0)
+  })
+
+  it("treats a selected service with no current matches as inactive", async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<WhereToWatchPageClient />)
+
+    await user.selectOptions(
+      screen.getByTestId("where-to-watch-list-selector"),
+      "watchlist",
+    )
+    await user.selectOptions(
+      screen.getByTestId("where-to-watch-service-selector"),
+      "8",
+    )
+
+    expect(screen.getByTestId("where-to-watch-service-selector")).toHaveValue(
+      "8",
+    )
+    expect(screen.getByText("Movie A")).toBeInTheDocument()
+
+    enrichmentState.providerMap = new Map<string, unknown>([
+      [
+        "movie-101",
+        {
+          flatrate: [
+            {
+              provider_id: 2,
+              provider_name: "Apple TV",
+              logo_path: "/apple.png",
+              display_priority: 2,
+            },
+          ],
+        },
+      ],
+    ])
+    rerender(<WhereToWatchPageClient />)
+
+    expect(screen.getByTestId("where-to-watch-service-selector")).toHaveValue("")
+    expect(
+      screen.getAllByText("Choose a streaming service").length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText("Movie A")).not.toBeInTheDocument()
+  })
+
   it("shows the premium gate for free users and opens the premium modal", async () => {
     const user = userEvent.setup()
     authState.isPremium = false

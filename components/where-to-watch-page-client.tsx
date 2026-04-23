@@ -34,7 +34,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 const PROVIDER_LIST_GC_TIME = Infinity
 
@@ -183,8 +183,6 @@ export function WhereToWatchPageClient() {
   const [selectedService, setSelectedService] = useState<WatchProvider | null>(
     null,
   )
-  const [pendingServiceValidation, setPendingServiceValidation] =
-    useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
   const isPremiumPending = isPremiumStatusPending({
@@ -193,9 +191,14 @@ export function WhereToWatchPageClient() {
   })
   const canUseWhereToWatch = !isPremiumPending && isPremium
 
-  const selectedList = useMemo(
-    () => lists.find((list) => list.id === selectedListId) ?? null,
+  const activeSelectedListId = useMemo(
+    () =>
+      lists.some((list) => list.id === selectedListId) ? selectedListId : "",
     [lists, selectedListId],
+  )
+  const selectedList = useMemo(
+    () => lists.find((list) => list.id === activeSelectedListId) ?? null,
+    [activeSelectedListId, lists],
   )
   const selectedListItems = useMemo(
     () =>
@@ -268,13 +271,27 @@ export function WhereToWatchPageClient() {
     )
   }, [isLoadingEnrichment, mergedProviders, providerCounts])
 
+  const activeSelectedService = useMemo(() => {
+    if (!selectedService) {
+      return null
+    }
+
+    if (isLoadingEnrichment) {
+      return selectedService
+    }
+
+    return (providerCounts.get(selectedService.provider_id) || 0) > 0
+      ? selectedService
+      : null
+  }, [isLoadingEnrichment, providerCounts, selectedService])
+
   const selectedServiceLogoUrl = buildImageUrl(
-    selectedService?.logo_path || null,
+    activeSelectedService?.logo_path || null,
     "w92",
   )
 
   const filteredItems = useMemo(() => {
-    if (!selectedService) {
+    if (!activeSelectedService) {
       return []
     }
 
@@ -284,54 +301,19 @@ export function WhereToWatchPageClient() {
         providerMap
           .get(providerKey)
           ?.flatrate?.some(
-            (provider) => provider.provider_id === selectedService.provider_id,
+            (provider) =>
+              provider.provider_id === activeSelectedService.provider_id,
           ) ?? false
       )
     })
-  }, [providerMap, selectedListItems, selectedService])
+  }, [activeSelectedService, providerMap, selectedListItems])
 
   const hasProviderFetchError =
     movieProvidersQuery.isError || tvProvidersQuery.isError
   const isProviderFetchLoading =
     movieProvidersQuery.isLoading || tvProvidersQuery.isLoading
 
-  useEffect(() => {
-    if (!selectedListId) {
-      return
-    }
-
-    const listStillExists = lists.some((list) => list.id === selectedListId)
-    if (!listStillExists) {
-      setSelectedListId("")
-      setSelectedService(null)
-      setPendingServiceValidation(false)
-    }
-  }, [lists, selectedListId])
-
-  useEffect(() => {
-    if (!selectedService || isLoadingEnrichment) {
-      return
-    }
-
-    if ((providerCounts.get(selectedService.provider_id) || 0) === 0) {
-      setSelectedService(null)
-    }
-
-    if (pendingServiceValidation) {
-      setPendingServiceValidation(false)
-    }
-  }, [
-    isLoadingEnrichment,
-    pendingServiceValidation,
-    providerCounts,
-    selectedService,
-  ])
-
   function handleListSelect(listId: string) {
-    if (selectedService && selectedListId !== listId) {
-      setPendingServiceValidation(true)
-    }
-
     setSelectedListId(listId)
   }
 
@@ -373,7 +355,7 @@ export function WhereToWatchPageClient() {
           <SelectorShell label="List" icon={FolderLibraryIcon}>
             <select
               data-testid="where-to-watch-list-selector"
-              value={selectedListId}
+              value={activeSelectedListId}
               disabled={listsLoading || !!listsError || lists.length === 0}
               onChange={(event) => handleListSelect(event.target.value)}
               className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-black pl-10 pr-10 text-sm font-semibold text-white outline-none transition-colors hover:bg-white/[0.04] focus:border-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
@@ -398,7 +380,11 @@ export function WhereToWatchPageClient() {
           <SelectorShell label="Streaming Service" icon={Tv01Icon}>
             <select
               data-testid="where-to-watch-service-selector"
-              value={selectedService ? String(selectedService.provider_id) : ""}
+              value={
+                activeSelectedService
+                  ? String(activeSelectedService.provider_id)
+                  : ""
+              }
               disabled={
                 !selectedList ||
                 !canUseWhereToWatch ||
@@ -478,7 +464,7 @@ export function WhereToWatchPageClient() {
               description="Try again later. Your lists are available, but the provider catalog could not be loaded."
               icon={Search01Icon}
             />
-          ) : !selectedService ? (
+          ) : !activeSelectedService ? (
             <EmptyWhereToWatchState
               title="Choose a streaming service"
               description="Services are filtered to providers that have matches in the selected list."
@@ -486,7 +472,7 @@ export function WhereToWatchPageClient() {
           ) : filteredItems.length === 0 ? (
             <EmptyWhereToWatchState
               title="No matches found"
-              description={`${selectedService.provider_name} has no streaming matches in ${selectedList.name} for ${region}.`}
+              description={`${activeSelectedService.provider_name} has no streaming matches in ${selectedList.name} for ${region}.`}
               icon={Search01Icon}
             />
           ) : (
