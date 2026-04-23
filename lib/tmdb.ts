@@ -480,7 +480,7 @@ export async function getLatestTrailers(
     }
 
     // Take more items than needed to account for items without trailers
-    const candidates = trendingMedia.slice(0, count * 2)
+    const candidates = trendingMedia.slice(0, count)
 
     // Fetch trailers for all candidates in parallel
     const trailersPromises = candidates.map(async (media) => {
@@ -1225,13 +1225,13 @@ export async function multiSearch(
   try {
     const response = await tmdbFetch(
       "/search/multi",
-      { next: { revalidate: 300 } },
+      { cache: "no-store" },
       {
         query: query,
         page: page.toString(),
         include_adult: "false",
       },
-    ) // Cache for 5 minutes
+    )
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)

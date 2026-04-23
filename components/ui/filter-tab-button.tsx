@@ -7,8 +7,8 @@ import { Button } from "./button"
 interface FilterTabButtonProps {
   /** Label text for the tab */
   label: string
-  /** Count to display in the badge */
-  count: number
+  /** Optional count to display in the badge */
+  count?: number
   /** Whether this tab is currently active */
   isActive: boolean
   /** Optional icon component from @hugeicons/core-free-icons */
@@ -39,6 +39,7 @@ export function FilterTabButton({
       type="button"
       variant={isActive ? "default" : "ghost"}
       onClick={onClick}
+      aria-pressed={isActive}
       data-testid={testId}
       className={cn(
         "shrink-0",
@@ -51,15 +52,17 @@ export function FilterTabButton({
     >
       {icon ? <HugeiconsIcon icon={icon} className="size-4" /> : null}
       {label}
-      <span
-        className={cn(
-          "rounded-full px-2 py-0.5 text-xs",
-          icon ? "ml-1" : "",
-          isActive ? "bg-white/20" : "bg-white/10 text-gray-500",
-        )}
-      >
-        {count}
-      </span>
+      {count !== undefined ? (
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-xs",
+            icon ? "ml-1" : "",
+            isActive ? "bg-white/20" : "bg-white/10 text-gray-500",
+          )}
+        >
+          {count}
+        </span>
+      ) : null}
     </Button>
   )
 }

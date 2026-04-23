@@ -20,7 +20,8 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
 const DesktopSearchDropdown = dynamic(
-  () => import("@/components/search-dropdown").then((mod) => mod.SearchDropdown),
+  () =>
+    import("@/components/search-dropdown").then((mod) => mod.SearchDropdown),
   {
     loading: () => (
       <div className="hidden h-9 w-48 rounded-full bg-white/5 lg:block lg:w-64" />
@@ -84,6 +85,11 @@ const forYouLink: SimpleNavItem = {
 const calendarLink: SimpleNavItem = {
   label: "Calendar",
   href: "/calendar",
+}
+
+const whereToWatchLink: SimpleNavItem = {
+  label: "Where to Watch",
+  href: "/where-to-watch",
 }
 
 /** Chevron icon for dropdown indicators */
@@ -294,6 +300,17 @@ export function Navbar() {
                 )}
 
                 {isAuthenticated && (
+                  <NavigationMenu.Item>
+                    <NavLink
+                      href={whereToWatchLink.href}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                    >
+                      {whereToWatchLink.label}
+                    </NavLink>
+                  </NavigationMenu.Item>
+                )}
+
+                {isAuthenticated && (
                   <>
                     {/* Lists - Dropdown */}
                     <DropdownMenuItem item={listsMenu} />
@@ -402,6 +419,16 @@ export function Navbar() {
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
               >
                 {calendarLink.label}
+              </Link>
+            )}
+
+            {isAuthenticated && (
+              <Link
+                href={whereToWatchLink.href}
+                onClick={closeMobileMenu}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {whereToWatchLink.label}
               </Link>
             )}
 

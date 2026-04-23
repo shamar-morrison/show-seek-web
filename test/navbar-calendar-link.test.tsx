@@ -90,14 +90,11 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
     ),
     Popup: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     Arrow: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-    Viewport: ({ children }: { children?: ReactNode }) => (
-      <div>{children}</div>
-    ),
+    Viewport: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     Link: ({
       children,
       render,
       href,
-      closeOnClick: _closeOnClick,
       ...props
     }: {
       children?: ReactNode
@@ -105,21 +102,25 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
       href?: string
       closeOnClick?: boolean
       [key: string]: unknown
-    }) =>
-      render
-        ? React.cloneElement(
-            render as React.ReactElement<Record<string, unknown>>,
-            {
-              href,
-              ...(props as Record<string, unknown>),
-            },
-            children,
-          )
-        : (
-            <a href={href} {...props}>
-              {children}
-            </a>
-          ),
+    }) => {
+      const { closeOnClick, ...safeProps } = props
+      void closeOnClick
+
+      return render ? (
+        React.cloneElement(
+          render as React.ReactElement<Record<string, unknown>>,
+          {
+            href,
+            ...(safeProps as Record<string, unknown>),
+          },
+          children,
+        )
+      ) : (
+        <a href={href} {...(safeProps as ComponentProps<"a">)}>
+          {children}
+        </a>
+      )
+    },
   },
 }))
 
@@ -140,6 +141,7 @@ describe("Navbar calendar link", () => {
     render(<Navbar />)
 
     expect(screen.getAllByText("Calendar").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Where to Watch").length).toBeGreaterThan(0)
   })
 
   it("hides the calendar link for signed-out users", async () => {
@@ -149,5 +151,6 @@ describe("Navbar calendar link", () => {
     render(<Navbar />)
 
     expect(screen.queryByText("Calendar")).not.toBeInTheDocument()
+    expect(screen.queryByText("Where to Watch")).not.toBeInTheDocument()
   })
 })

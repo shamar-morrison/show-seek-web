@@ -128,7 +128,9 @@ describe("ReleaseCalendarView", () => {
     expect(screen.getByText("Alpha")).toBeInTheDocument()
     expect(screen.getByText("Beta")).toBeInTheDocument()
     expect(screen.getByText("Gamma")).toBeInTheDocument()
-    expect(screen.getByText(/Season 1 Episode\s+1 \/ Pilot/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Season 1 Episode\s+1 \/ Pilot/),
+    ).toBeInTheDocument()
     expect(screen.queryByText("2 upcoming episodes")).not.toBeInTheDocument()
     expect(screen.queryByText("Second")).not.toBeInTheDocument()
     expect(
@@ -158,7 +160,12 @@ describe("ReleaseCalendarView", () => {
     const alphaCard = aprilGrid.children.item(0) as HTMLElement
     const betaCard = aprilGrid.children.item(1) as HTMLElement
 
-    expect(aprilGrid).toHaveClass("grid", "grid-cols-1", "gap-4", "lg:grid-cols-2")
+    expect(aprilGrid).toHaveClass(
+      "grid",
+      "grid-cols-1",
+      "gap-4",
+      "lg:grid-cols-2",
+    )
     expect(aprilGrid).not.toHaveClass("flex", "lg:flex-row")
     expect(aprilGrid.children).toHaveLength(2)
     expect(within(alphaCard).getByText("Alpha")).toBeInTheDocument()
@@ -244,7 +251,9 @@ describe("ReleaseCalendarView", () => {
       />,
     )
 
-    expect(screen.getByText(/Season 1 Episode\s+1 \/ First/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Season 1 Episode\s+1 \/ First/),
+    ).toBeInTheDocument()
     expect(screen.queryByText("3 upcoming episodes")).not.toBeInTheDocument()
     expect(screen.queryByText("First")).not.toBeInTheDocument()
     expect(screen.queryByText("Second")).not.toBeInTheDocument()
@@ -265,10 +274,9 @@ describe("ReleaseCalendarView", () => {
     expect(screen.queryByText("First")).not.toBeInTheDocument()
     expect(screen.queryByText("Second")).not.toBeInTheDocument()
     expect(screen.queryByText("Third")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "3 episodes ↓" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    )
+    expect(
+      screen.getByRole("button", { name: "3 episodes ↓" }),
+    ).toHaveAttribute("aria-expanded", "false")
   })
 
   it("shows one visible grouped episode row without a toggle after temporal filtering", () => {
@@ -359,9 +367,9 @@ describe("ReleaseCalendarView", () => {
       />,
     )
 
-    expect(screen.getByTestId("release-calendar-filter-sort-button")).toHaveTextContent(
-      "Filter / Sort",
-    )
+    expect(
+      screen.getByTestId("release-calendar-filter-sort-button"),
+    ).toHaveTextContent("Filter / Sort")
     await user.click(screen.getByRole("button", { name: "Filter Favorites" }))
 
     expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
@@ -370,7 +378,9 @@ describe("ReleaseCalendarView", () => {
 
     await user.click(screen.getByTestId("release-calendar-media-tab-tv"))
 
-    expect(screen.getByText("No releases match these filters")).toBeInTheDocument()
+    expect(
+      screen.getByText("No releases match these filters"),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Clear Filters" }))
 
@@ -411,8 +421,12 @@ describe("ReleaseCalendarView", () => {
     await user.click(screen.getByRole("button", { name: "Sort By Type" }))
 
     expect(screen.getByRole("heading", { name: "Movies" })).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "TV Shows" })).toBeInTheDocument()
-    expect(screen.queryByTestId("release-calendar-temporal-tab-today")).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "TV Shows" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("release-calendar-temporal-tab-today"),
+    ).not.toBeInTheDocument()
   })
 
   it("uses temporal tabs as date filters without scrolling rows", async () => {
@@ -428,51 +442,63 @@ describe("ReleaseCalendarView", () => {
       value: scrollIntoViewMock,
     })
 
-    render(
-      <ReleaseCalendarView
-        releases={[
-          createRelease({
-            id: 1,
-            title: "April",
-            releaseDate: "2099-04-10",
-            uniqueKey: "movie-1",
-          }),
-          createRelease({
-            id: 2,
-            title: "May",
-            releaseDate: "2099-05-01",
-            uniqueKey: "movie-2",
-          }),
-        ]}
-        isPremium
-      />,
-    )
-
-    expect(screen.getByTestId("release-calendar-temporal-tab-all-dates")).toBeInTheDocument()
-    expect(screen.getByText("April")).toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    await user.click(
-      screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
-    )
-
-    expect(scrollIntoViewMock).not.toHaveBeenCalled()
-    expect(screen.queryByText("April")).not.toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    await user.click(screen.getByTestId("release-calendar-temporal-tab-all-dates"))
-
-    expect(screen.getByText("April")).toBeInTheDocument()
-    expect(screen.getByText("May")).toBeInTheDocument()
-
-    if (originalScrollIntoView) {
-      Object.defineProperty(
-        Element.prototype,
-        "scrollIntoView",
-        originalScrollIntoView,
+    try {
+      render(
+        <ReleaseCalendarView
+          releases={[
+            createRelease({
+              id: 1,
+              title: "April",
+              releaseDate: "2099-04-10",
+              uniqueKey: "movie-1",
+            }),
+            createRelease({
+              id: 2,
+              title: "May",
+              releaseDate: "2099-05-01",
+              uniqueKey: "movie-2",
+            }),
+          ]}
+          isPremium
+        />,
       )
-    } else {
-      Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      ).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByText("April")).toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+
+      await user.click(
+        screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
+      )
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled()
+      expect(
+        screen.getByTestId("release-calendar-temporal-tab-month-2099-05"),
+      ).toHaveAttribute("aria-pressed", "true")
+      expect(screen.queryByText("April")).not.toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+
+      await user.click(
+        screen.getByTestId("release-calendar-temporal-tab-all-dates"),
+      )
+
+      expect(screen.getByText("April")).toBeInTheDocument()
+      expect(screen.getByText("May")).toBeInTheDocument()
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(
+          Element.prototype,
+          "scrollIntoView",
+          originalScrollIntoView,
+        )
+      } else {
+        Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+      }
     }
   })
 
@@ -522,19 +548,19 @@ describe("ReleaseCalendarView", () => {
   })
 
   it("shows card skeletons instead of the empty state while refreshing unresolved TV data", () => {
-    render(
-      <ReleaseCalendarView
-        releases={[]}
-        isRefreshing
-        isPremium
-      />,
-    )
+    render(<ReleaseCalendarView releases={[]} isRefreshing isPremium />)
 
     expect(screen.getByText("Updating TV episodes...")).toBeInTheDocument()
     expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
-    expect(screen.getByTestId("release-calendar-skeleton-grid")).toBeInTheDocument()
-    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
-    expect(screen.queryByText("No upcoming releases found")).not.toBeInTheDocument()
+    expect(
+      screen.getByTestId("release-calendar-skeleton-grid"),
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByTestId("release-calendar-skeleton-card"),
+    ).toHaveLength(8)
+    expect(
+      screen.queryByText("No upcoming releases found"),
+    ).not.toBeInTheDocument()
   })
 
   it("keeps rendered releases visible while showing the refresh indicator", () => {
@@ -557,7 +583,9 @@ describe("ReleaseCalendarView", () => {
     expect(screen.getByText("Updating TV episodes...")).toBeInTheDocument()
     expect(screen.getByText("One")).toBeInTheDocument()
     expect(screen.getByText("Two")).toBeInTheDocument()
-    expect(screen.queryByTestId("release-calendar-skeleton")).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId("release-calendar-skeleton"),
+    ).not.toBeInTheDocument()
   })
 
   it("renders the tracked-list empty state when no releases are available", () => {

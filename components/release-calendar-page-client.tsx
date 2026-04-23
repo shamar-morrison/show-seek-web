@@ -165,7 +165,9 @@ function ReleaseDateBadge({ date }: { date: Date }) {
           : "border-white/15 bg-black/70 text-white",
       )}
     >
-      <span className="text-2xl font-semibold leading-none">{date.getDate()}</span>
+      <span className="text-2xl font-semibold leading-none">
+        {date.getDate()}
+      </span>
       <span
         className={cn(
           "text-[10px] font-semibold uppercase tracking-[0.2em]",
@@ -252,13 +254,7 @@ function SourcePills({ sources }: { sources: CalendarSourceFilter[] }) {
   )
 }
 
-function ReleaseMeta({
-  date,
-  countdown,
-}: {
-  date: Date
-  countdown: string
-}) {
+function ReleaseMeta({ date, countdown }: { date: Date; countdown: string }) {
   return (
     <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/10 pt-4">
       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
@@ -434,7 +430,9 @@ function GroupedReleaseCard({
             onClick={() => setIsExpanded((current) => !current)}
             className="w-full px-5 py-3 text-left text-sm font-semibold text-primary transition-colors hover:bg-white/[0.04]"
           >
-            {isExpanded ? "Show less ↑" : `${release.episodes.length} episodes ↓`}
+            {isExpanded
+              ? "Show less ↑"
+              : `${release.episodes.length} episodes ↓`}
           </button>
         ) : null}
       </div>
@@ -559,9 +557,9 @@ export function ReleaseCalendarView({
   releases,
 }: ReleaseCalendarViewProps) {
   const [mediaFilter, setMediaFilter] = useState<CalendarMediaFilter>("all")
-  const [selectedSources, setSelectedSources] = useState<CalendarSourceFilter[]>([
-    ...CALENDAR_SOURCE_FILTERS,
-  ])
+  const [selectedSources, setSelectedSources] = useState<
+    CalendarSourceFilter[]
+  >([...CALENDAR_SOURCE_FILTERS])
   const [sortMode, setSortMode] = useState<CalendarSortMode>("soonest")
   const [temporalFilter, setTemporalFilter] = useState<string>(
     ALL_DATES_TEMPORAL_TAB_KEY,
@@ -608,7 +606,9 @@ export function ReleaseCalendarView({
           ...activePresentation.temporalTabs,
         ]
       : []
-  const activeTemporalTab = temporalTabs.some((tab) => tab.key === temporalFilter)
+  const activeTemporalTab = temporalTabs.some(
+    (tab) => tab.key === temporalFilter,
+  )
     ? temporalFilter
     : ALL_DATES_TEMPORAL_TAB_KEY
   const visibleRows = useMemo(
@@ -658,10 +658,12 @@ export function ReleaseCalendarView({
           <HugeiconsIcon icon={Calendar03Icon} className="size-7" />
         </EmptyMedia>
         <EmptyHeader>
-          <EmptyTitle className="text-white">No upcoming releases found</EmptyTitle>
+          <EmptyTitle className="text-white">
+            No upcoming releases found
+          </EmptyTitle>
           <EmptyDescription className="text-white/60">
-            Add shows or movies to your Watchlist, Favorites, or Watching list to
-            see upcoming releases here.
+            Add shows or movies to your Watchlist, Favorites, or Watching list
+            to see upcoming releases here.
           </EmptyDescription>
         </EmptyHeader>
         <Button asChild size="lg">
@@ -722,7 +724,10 @@ export function ReleaseCalendarView({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {isRefreshing ? (
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-white/45">
-              <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-4 animate-spin"
+              />
               <span>Updating TV episodes...</span>
             </div>
           ) : (
@@ -741,30 +746,19 @@ export function ReleaseCalendarView({
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex min-w-max gap-2">
             {temporalTabs.map((tab) => (
-              <button
+              <FilterTabButton
                 key={tab.key}
-                type="button"
-                data-testid={`release-calendar-temporal-tab-${tab.key}`}
-                aria-pressed={activeTemporalTab === tab.key}
+                isActive={activeTemporalTab === tab.key}
+                label={tab.label}
                 onClick={() => setTemporalFilter(tab.key)}
-                className={cn(
-                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                  activeTemporalTab === tab.key
-                    ? "border-primary bg-primary text-white"
-                    : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white",
-                )}
-              >
-                {tab.label}
-              </button>
+                testId={`release-calendar-temporal-tab-${tab.key}`}
+              />
             ))}
           </div>
         </div>
       ) : null}
 
-      <div
-        data-testid="release-calendar-card-grid"
-        className="space-y-6"
-      >
+      <div data-testid="release-calendar-card-grid" className="space-y-6">
         {visibleSections.map((section) => (
           <ReleaseCalendarSectionView key={section.key} section={section} />
         ))}
@@ -834,7 +828,8 @@ function CalendarToolbar({
     direction: "asc",
   }
   const hasActiveControls =
-    sortMode !== "soonest" || selectedSources.length !== CALENDAR_SOURCE_FILTERS.length
+    sortMode !== "soonest" ||
+    selectedSources.length !== CALENDAR_SOURCE_FILTERS.length
 
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -849,12 +844,6 @@ function CalendarToolbar({
               label={tab.label}
               onClick={() => onSelectMediaFilter(tab.key)}
               testId={`release-calendar-media-tab-${tab.key}`}
-              className={cn(
-                "h-11 rounded-full border px-4",
-                mediaFilter === tab.key
-                  ? "border-primary"
-                  : "border-white/10 bg-white/[0.04]",
-              )}
             />
           ))}
         </div>
@@ -949,7 +938,8 @@ function ReleaseCalendarCardRowView({
 
 export function ReleaseCalendarPageClient() {
   const { isPremium, premiumLoading, premiumStatus } = useAuth()
-  const { releases, isBootstrapping, isRefreshing, error } = useReleaseCalendar()
+  const { releases, isBootstrapping, isRefreshing, error } =
+    useReleaseCalendar()
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
   const isPremiumPending = isPremiumStatusPending({
@@ -989,7 +979,10 @@ export function ReleaseCalendarPageClient() {
         onUpgradeClick={() => setShowPremiumModal(true)}
       />
 
-      <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
+      <PremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
+      />
     </>
   )
 }

@@ -9,9 +9,9 @@ export async function searchMedia(query: string) {
 export async function fetchReleaseCalendarReleases(
   input: FetchReleaseCalendarInput,
 ) {
-  return (await import("./server-actions/release-calendar")).fetchReleaseCalendarReleases(
-    input,
-  )
+  return (
+    await import("./server-actions/release-calendar")
+  ).fetchReleaseCalendarReleases(input)
 }
 
 export async function fetchTVShowDetails(tvShowId: number) {
@@ -36,6 +36,10 @@ export async function fetchTrailerKey(
     mediaId,
     mediaType,
   )
+}
+
+export async function fetchLatestTrailers() {
+  return (await import("@/lib/tmdb")).getLatestTrailers(10)
 }
 
 export async function fetchMediaImages(
@@ -68,13 +72,32 @@ export async function fetchRecommendations(
   )
 }
 
-export async function fetchReviews(
-  mediaId: number,
-  mediaType: "movie" | "tv",
-) {
+export async function fetchReviews(mediaId: number, mediaType: "movie" | "tv") {
   return (await import("./server-actions/tmdb")).fetchReviews(
     mediaId,
     mediaType,
+  )
+}
+
+export async function fetchWatchProviders(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+  region: import("@/lib/regions").SupportedRegionCode,
+) {
+  return (await import("./server-actions/tmdb")).fetchWatchProviders(
+    mediaId,
+    mediaType,
+    region,
+  )
+}
+
+export async function fetchWatchProviderCatalog(
+  mediaType: "movie" | "tv",
+  region: import("@/lib/regions").SupportedRegionCode,
+) {
+  return (await import("./server-actions/tmdb")).fetchWatchProviderCatalog(
+    mediaType,
+    region,
   )
 }
 

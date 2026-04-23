@@ -37,7 +37,11 @@ export async function GET(
       return NextResponse.json({ error: "Media not found" }, { status: 404 })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: {
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+      },
+    })
   } catch (error) {
     console.error("Error fetching media details:", error)
     return NextResponse.json(
