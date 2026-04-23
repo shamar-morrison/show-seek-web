@@ -1,6 +1,6 @@
 "use client"
 
-import { fetchTrailerKey } from "@/app/actions"
+import { fetchLatestTrailers, fetchTrailerKey } from "@/app/actions"
 import { HeroSection } from "@/components/hero-section"
 import { MediaRow } from "@/components/media-row"
 import { TrailerRow } from "@/components/trailer-row"
@@ -17,9 +17,9 @@ import {
   getDisplayMediaTitle,
   getDisplayNormalizedTitle,
 } from "@/lib/media-title"
-import type { TrailerItem } from "@/lib/tmdb"
 import { isDefaultList } from "@/types/list"
 import type { HeroMedia, TMDBMedia } from "@/types/tmdb"
+import { useQuery } from "@tanstack/react-query"
 import dynamic from "next/dynamic"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -37,7 +37,6 @@ interface HomePageClientProps {
   topRatedTV: TMDBMedia[]
   upcomingMovies: TMDBMedia[]
   upcomingTV: TMDBMedia[]
-  latestTrailers: TrailerItem[]
 }
 
 /** Mapping of list IDs to their display configuration */
@@ -54,10 +53,13 @@ export function HomePageClient({
   topRatedTV,
   upcomingMovies,
   upcomingTV,
-  latestTrailers,
 }: HomePageClientProps) {
   const { preferences, isLoading: prefsLoading } = usePreferences()
   const { lists: userLists } = useLists()
+  const { data: latestTrailers = [] } = useQuery({
+    queryKey: ["latest-trailers"] as const,
+    queryFn: fetchLatestTrailers,
+  })
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [activeTrailer, setActiveTrailer] = useState<{
     key: string

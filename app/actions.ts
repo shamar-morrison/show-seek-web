@@ -38,6 +38,10 @@ export async function fetchTrailerKey(
   )
 }
 
+export async function fetchLatestTrailers() {
+  return (await import("@/lib/tmdb")).getLatestTrailers(10)
+}
+
 export async function fetchMediaImages(
   mediaId: number,
   mediaType: "movie" | "tv",

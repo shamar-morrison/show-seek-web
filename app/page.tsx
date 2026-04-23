@@ -2,7 +2,6 @@ import { HomePageClient } from "@/components/home-page-client"
 import { enrichHeroMediaWithBrightness } from "@/lib/logo-brightness"
 import {
   getHeroMediaList,
-  getLatestTrailers,
   getPopularMovies,
   getTopRatedMovies,
   getTopRatedTV,
@@ -23,7 +22,6 @@ export default async function Home() {
     topRatedTV,
     upcomingMovies,
     upcomingTV,
-    latestTrailers,
   ] = await Promise.all([
     getHeroMediaList(),
     getTrendingMedia("day"),
@@ -32,7 +30,6 @@ export default async function Home() {
     getTopRatedTV(),
     getUpcomingMovies(),
     getUpcomingTV(),
-    getLatestTrailers(10),
   ])
 
   // Enrich hero media with logo brightness analysis (server-side only)
@@ -47,7 +44,6 @@ export default async function Home() {
       topRatedTV={topRatedTV}
       upcomingMovies={upcomingMovies}
       upcomingTV={upcomingTV}
-      latestTrailers={latestTrailers}
     />
   )
 }
