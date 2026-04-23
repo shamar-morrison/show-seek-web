@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -48,6 +49,8 @@ export interface FilterCategory {
   label: string
   /** Optional icon */
   icon?: IconSvgElement
+  /** Whether this category supports one selected value or multiple selected values */
+  selectionMode?: "single" | "multiple"
   /** Available options */
   options: FilterOption[]
 }
@@ -67,6 +70,9 @@ export type SortDirection = "asc" | "desc"
 
 /** Current filter state - maps category key to selected value */
 export type FilterState = Record<string, string>
+
+/** Current multi-select filter state - maps category key to selected values */
+export type MultiFilterState = Record<string, string[]>
 
 /** Current sort state */
 export interface SortState {
@@ -104,6 +110,10 @@ export interface FilterSortProps {
   filterState: FilterState
   /** Callback when a filter value changes */
   onFilterChange: (key: string, value: string) => void
+  /** Current multi-select filter state */
+  multiFilterState?: MultiFilterState
+  /** Callback when a multi-select filter value changes */
+  onMultiFilterChange?: (key: string, values: string[]) => void
 
   /** Sort field options */
   sortFields: SortField[]
@@ -127,6 +137,12 @@ export interface FilterSortProps {
   className?: string
   /** Additional class for the trigger button */
   triggerClassName?: string
+  /** Accessible and optional visible label for the trigger */
+  triggerLabel?: string
+  /** Test id for the trigger */
+  triggerTestId?: string
+  /** Whether to show the ascending/descending sort direction submenu */
+  showSortDirection?: boolean
 }
 
 // ============================================================================
@@ -141,8 +157,19 @@ function countActiveFilters(
   filters: FilterCategory[],
   yearRange?: YearRangeConfig,
   ratingFilter?: RatingFilterConfig,
+  multiFilterState?: MultiFilterState,
 ): number {
   let count = filters.reduce((acc, category) => {
+    if (category.selectionMode === "multiple") {
+      const selectedValues = multiFilterState?.[category.key] ?? []
+
+      if (selectedValues.length !== category.options.length) {
+        return acc + 1
+      }
+
+      return acc
+    }
+
     const value = filterState[category.key]
     // Count as active if value exists and is not a default value ("all" or "0")
     if (value && value !== "all" && value !== "0") {
@@ -202,6 +229,68 @@ function FilterSubmenu({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+function MultiFilterSubmenu({
+  category,
+  values,
+  onValuesChange,
+}: {
+  category: FilterCategory
+  values: string[]
+  onValuesChange: (values: string[]) => void
+}) {
+  const selectedValues = new Set(values)
+  const allValues = category.options.map((option) => option.value)
+  const allSelected = values.length === allValues.length
+
+  function toggleValue(value: string, checked: boolean) {
+    const nextValues = checked
+      ? Array.from(new Set([...values, value]))
+      : values.filter((selectedValue) => selectedValue !== value)
+
+    onValuesChange(nextValues)
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        {category.icon && (
+          <HugeiconsIcon icon={category.icon} className="size-4" />
+        )}
+        <span>{category.label}</span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {allSelected
+            ? "All"
+            : values.length > 0
+              ? `${values.length} selected`
+              : "None"}
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuCheckboxItem
+          checked={allSelected}
+          onCheckedChange={(checked) =>
+            onValuesChange(checked === true ? allValues : [])
+          }
+        >
+          All {category.label}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        {category.options.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option.value}
+            checked={selectedValues.has(option.value)}
+            onCheckedChange={(checked) =>
+              toggleValue(option.value, checked === true)
+            }
+          >
+            {option.label}
+          </DropdownMenuCheckboxItem>
+        ))}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
@@ -282,10 +371,12 @@ function SortSubmenu({
   sortFields,
   sortState,
   onSortChange,
+  showSortDirection = true,
 }: {
   sortFields: SortField[]
   sortState: SortState
   onSortChange: (state: SortState) => void
+  showSortDirection?: boolean
 }) {
   return (
     <DropdownMenuSub>
@@ -318,30 +409,34 @@ function SortSubmenu({
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
 
-        <DropdownMenuSeparator />
+        {showSortDirection && (
+          <>
+            <DropdownMenuSeparator />
 
-        {/* Direction selection */}
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Direction</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={sortState.direction}
-            onValueChange={(direction) =>
-              onSortChange({
-                ...sortState,
-                direction: direction as SortDirection,
-              })
-            }
-          >
-            <DropdownMenuRadioItem value="asc">
-              <HugeiconsIcon icon={ArrowUp01Icon} className="size-4" />
-              Ascending
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="desc">
-              <HugeiconsIcon icon={ArrowDown01Icon} className="size-4" />
-              Descending
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+            {/* Direction selection */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Direction</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={sortState.direction}
+                onValueChange={(direction) =>
+                  onSortChange({
+                    ...sortState,
+                    direction: direction as SortDirection,
+                  })
+                }
+              >
+                <DropdownMenuRadioItem value="asc">
+                  <HugeiconsIcon icon={ArrowUp01Icon} className="size-4" />
+                  Ascending
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="desc">
+                  <HugeiconsIcon icon={ArrowDown01Icon} className="size-4" />
+                  Descending
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </>
+        )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
@@ -355,6 +450,8 @@ export function FilterSort({
   filters,
   filterState,
   onFilterChange,
+  multiFilterState,
+  onMultiFilterChange,
   sortFields,
   sortState,
   onSortChange,
@@ -364,12 +461,16 @@ export function FilterSort({
   showClearAll,
   className,
   triggerClassName,
+  triggerLabel,
+  triggerTestId,
+  showSortDirection = true,
 }: FilterSortProps) {
   const activeFilterCount = countActiveFilters(
     filterState,
     filters,
     yearRange,
     ratingFilter,
+    multiFilterState,
   )
   const hasActiveFilters = activeFilterCount > 0
   const shouldShowClearAll = showClearAll ?? hasActiveFilters
@@ -377,6 +478,8 @@ export function FilterSort({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        aria-label={triggerLabel}
+        data-testid={triggerTestId}
         className={cn(
           "inline-flex items-center gap-2 rounded-md px-3 py-2",
           "text-sm font-medium",
@@ -388,6 +491,7 @@ export function FilterSort({
         )}
       >
         <HugeiconsIcon icon={ArrangeIcon} className="size-4" />
+        {triggerLabel ? <span>{triggerLabel}</span> : null}
         {hasActiveFilters && (
           <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
             {activeFilterCount}
@@ -405,14 +509,25 @@ export function FilterSort({
             <DropdownMenuLabel>Filters</DropdownMenuLabel>
 
             {/* Standard filter categories */}
-            {filters.map((category) => (
-              <FilterSubmenu
-                key={category.key}
-                category={category}
-                value={filterState[category.key] ?? "all"}
-                onValueChange={(value) => onFilterChange(category.key, value)}
-              />
-            ))}
+            {filters.map((category) =>
+              category.selectionMode === "multiple" ? (
+                <MultiFilterSubmenu
+                  key={category.key}
+                  category={category}
+                  values={multiFilterState?.[category.key] ?? []}
+                  onValuesChange={(values) =>
+                    onMultiFilterChange?.(category.key, values)
+                  }
+                />
+              ) : (
+                <FilterSubmenu
+                  key={category.key}
+                  category={category}
+                  value={filterState[category.key] ?? "all"}
+                  onValueChange={(value) => onFilterChange(category.key, value)}
+                />
+              ),
+            )}
 
             {/* Year range filter */}
             {yearRange && <YearRangeSubmenu config={yearRange} />}
@@ -432,6 +547,7 @@ export function FilterSort({
             sortFields={sortFields}
             sortState={sortState}
             onSortChange={onSortChange}
+            showSortDirection={showSortDirection}
           />
         )}
 

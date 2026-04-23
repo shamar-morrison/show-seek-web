@@ -17,6 +17,8 @@ interface FilterTabButtonProps {
   onClick: () => void
   /** Optional additional class names */
   className?: string
+  /** Optional test id */
+  testId?: string
 }
 
 /**
@@ -30,11 +32,14 @@ export function FilterTabButton({
   icon,
   onClick,
   className,
+  testId,
 }: FilterTabButtonProps) {
   return (
     <Button
+      type="button"
       variant={isActive ? "default" : "ghost"}
       onClick={onClick}
+      data-testid={testId}
       className={cn(
         "shrink-0",
         icon ? "gap-2" : "gap-1.5",
