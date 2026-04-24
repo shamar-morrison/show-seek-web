@@ -34,6 +34,11 @@ vi.mock("@/components/profile/HomeScreenCustomizer", () => ({
   HomeScreenCustomizer: () => null,
 }))
 
+vi.mock("@/components/profile/imdb-import-modal", () => ({
+  ImdbImportModal: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">IMDb import</div> : null,
+}))
+
 vi.mock("@/components/profile/trakt-settings-modal", () => ({
   TraktSettingsModal: ({ open }: { open: boolean }) =>
     open ? <div role="dialog">Trakt settings</div> : null,
@@ -51,6 +56,7 @@ vi.mock("@hugeicons/core-free-icons", () => ({
   ArrowRight01Icon: {},
   CrownIcon: {},
   FileExportIcon: {},
+  FileImportIcon: {},
   Home01Icon: {},
   Loading03Icon: {},
   Logout01Icon: {},
@@ -225,5 +231,23 @@ describe("ProfilePageClient", () => {
     await user.click(screen.getByText("Trakt Integration"))
 
     expect(screen.getByRole("dialog")).toHaveTextContent("Trakt settings")
+  })
+
+  it("opens the IMDb import modal", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    const { container } = render(<ProfilePageClient />)
+
+    expect(
+      screen.getByText(
+        "Import ratings, watchlists, lists, and check-ins from CSV exports",
+      ),
+    ).toBeInTheDocument()
+    expect(container.querySelector('img[src="/imdb-logo.png"]')).not.toBeNull()
+    await user.click(screen.getByText("IMDb Import"))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("IMDb import")
   })
 })

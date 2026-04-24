@@ -141,10 +141,7 @@ export function detectImdbFileKind(
 
 export function formatImportedListName(fileName: string): string {
   const stem = getFileStem(fileName)
-  const humanized = stem
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
+  const humanized = stem.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
 
   if (!humanized) {
     return "Imported List"
@@ -180,8 +177,7 @@ export function parseImdbDateToMs(
   const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/
   const monthFirstDateTime =
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
-  const isoDateTime =
-    /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/
+  const isoDateTime = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/
 
   let match = raw.match(isoDateOnly)
   if (match) {
@@ -198,8 +194,7 @@ export function parseImdbDateToMs(
 
   match = raw.match(monthFirstDateTime)
   if (match) {
-    const [, month, day, year, hour = "12", minute = "0", second = "0"] =
-      match
+    const [, month, day, year, hour = "12", minute = "0", second = "0"] = match
     return buildValidatedUtcTimestamp({
       day: Number(day),
       hour: Number(hour),
@@ -337,8 +332,7 @@ function parseImdbImportFile(file: RawImdbImportFile): {
     const normalizedRow = normalizeCsvRow(row)
     const imdbId = normalizedRow[NORMALIZED_HEADER_KEYS.imdbId] ?? ""
     const title = normalizedRow[NORMALIZED_HEADER_KEYS.title] ?? "Untitled"
-    const rawTitleType =
-      normalizedRow[NORMALIZED_HEADER_KEYS.titleType] ?? null
+    const rawTitleType = normalizedRow[NORMALIZED_HEADER_KEYS.titleType] ?? null
 
     if (!/^tt\d+$/.test(imdbId)) {
       Object.assign(stats, incrementSkippedStat(stats, "malformed_row"))
@@ -486,7 +480,9 @@ function normalizeCsvRow(row: ParsedCsvRow): ParsedCsvRow {
   )
 }
 
-function isClearlyUnsupportedNonTitleType(rawTitleType: string | null): boolean {
+function isClearlyUnsupportedNonTitleType(
+  rawTitleType: string | null,
+): boolean {
   const normalized = String(rawTitleType ?? "")
     .trim()
     .toLowerCase()

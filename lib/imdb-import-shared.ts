@@ -107,7 +107,8 @@ export const mergeImdbImportStats = (
     ratings: base.imported.ratings + incoming.imported.ratings,
     watchedEpisodes:
       base.imported.watchedEpisodes + incoming.imported.watchedEpisodes,
-    watchedMovies: base.imported.watchedMovies + incoming.imported.watchedMovies,
+    watchedMovies:
+      base.imported.watchedMovies + incoming.imported.watchedMovies,
     watchedShows: base.imported.watchedShows + incoming.imported.watchedShows,
   },
   processedActions: base.processedActions + incoming.processedActions,

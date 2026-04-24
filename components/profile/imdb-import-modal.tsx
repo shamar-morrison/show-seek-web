@@ -102,7 +102,9 @@ export function ImdbImportModal({
   const hasImportableChunks = selectedChunkCount > 0
   const activeStats = runtimeStats ?? preparedImport?.stats ?? null
   const progressPercent =
-    totalChunks > 0 ? Math.min(100, Math.round((completedChunks / totalChunks) * 100)) : 0
+    totalChunks > 0
+      ? Math.min(100, Math.round((completedChunks / totalChunks) * 100))
+      : 0
   const importedEntries = createSummaryEntries(
     activeStats?.imported ?? {},
     IMPORTED_LABELS,
@@ -221,12 +223,6 @@ export function ImdbImportModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[min(760px,calc(100svh-2rem))] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <div className="mb-1 flex items-center gap-3">
-            <div className="rounded-md bg-[#F5C518] px-2 py-1 text-sm font-black tracking-tight text-black">
-              IMDb
-            </div>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
           <DialogTitle>Import from IMDb</DialogTitle>
           <DialogDescription>
             Bring over IMDb ratings, watchlist items, custom lists, and
@@ -238,6 +234,7 @@ export function ImdbImportModal({
           <input
             ref={fileInputRef}
             type="file"
+            aria-label="IMDb CSV files"
             accept=".csv,text/csv,text/plain"
             multiple
             className="hidden"
@@ -252,7 +249,10 @@ export function ImdbImportModal({
               type="button"
             >
               {isReadingFiles ? (
-                <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-4 animate-spin"
+                />
               ) : (
                 <HugeiconsIcon icon={Upload03Icon} className="size-4" />
               )}
@@ -264,7 +264,10 @@ export function ImdbImportModal({
               type="button"
             >
               {isRunning ? (
-                <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-4 animate-spin"
+                />
               ) : null}
               {isRunning ? "Importing..." : "Start import"}
             </Button>
@@ -272,12 +275,18 @@ export function ImdbImportModal({
 
           {preparedImport ? (
             <div className="grid gap-2 sm:grid-cols-3">
-              <Metric label="Files" value={selectedFileCount.toLocaleString()} />
+              <Metric
+                label="Files"
+                value={selectedFileCount.toLocaleString()}
+              />
               <Metric
                 label="Supported rows"
                 value={preparedImport.stats.processedActions.toLocaleString()}
               />
-              <Metric label="Batches" value={selectedChunkCount.toLocaleString()} />
+              <Metric
+                label="Batches"
+                value={selectedChunkCount.toLocaleString()}
+              />
             </div>
           ) : null}
 
@@ -285,7 +294,9 @@ export function ImdbImportModal({
             <div className="space-y-2 rounded-lg bg-white/5 p-4">
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="font-medium text-white">
-                  {status === "failed" ? "Import paused" : `${progressPercent}%`}
+                  {status === "failed"
+                    ? "Import paused"
+                    : `${progressPercent}%`}
                 </span>
                 <span className="text-white/50">
                   {completedChunks} of {totalChunks} batches
@@ -299,7 +310,10 @@ export function ImdbImportModal({
               </div>
               {errorMessage ? (
                 <div className="flex items-start gap-2 text-sm text-amber-200">
-                  <HugeiconsIcon icon={AlertCircleIcon} className="mt-0.5 size-4" />
+                  <HugeiconsIcon
+                    icon={AlertCircleIcon}
+                    className="mt-0.5 size-4"
+                  />
                   <span>{errorMessage}</span>
                 </div>
               ) : null}
@@ -360,8 +374,7 @@ export function ImdbImportModal({
 
           {!preparedImport ? (
             <div className="rounded-lg bg-white/5 p-4 text-sm text-white/60">
-              Export your IMDb ratings, watchlist, lists, or check-ins as CSV,
-              then select one or more files here.
+              Your selected files will appear here.
             </div>
           ) : null}
         </div>

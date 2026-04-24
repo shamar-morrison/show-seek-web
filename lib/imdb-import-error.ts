@@ -5,7 +5,8 @@ const IMDB_IMPORT_ERROR_MESSAGE_BY_CODE: Record<string, string> = {
     "IMDb import is not available on the backend yet. Please try again later.",
   "permission-denied": "IMDb import requires a premium account.",
   unauthenticated: "Please sign in again before importing IMDb data.",
-  unavailable: "IMDb import is temporarily unavailable. Please try again later.",
+  unavailable:
+    "IMDb import is temporarily unavailable. Please try again later.",
 }
 
 function normalizeErrorCode(code: unknown): string | null {

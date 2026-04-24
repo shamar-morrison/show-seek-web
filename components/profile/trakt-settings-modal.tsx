@@ -510,7 +510,7 @@ export function TraktSettingsModal({
                         ) : (
                           <HugeiconsIcon icon={DatabaseSyncIcon} />
                         )}
-                        {lastSyncedAt ? "Sync now" : "Import from Trakt"}
+                        {lastSyncedAt ? "Mirror now" : "Import from Trakt"}
                       </Button>
                       <Button
                         className="sm:flex-1"

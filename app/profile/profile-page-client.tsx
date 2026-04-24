@@ -24,7 +24,6 @@ import {
 import { captureException } from "@/lib/utils"
 import {
   ArrowRight01Icon,
-  FileImportIcon,
   FileExportIcon,
   Home01Icon,
   Loading03Icon,
@@ -350,13 +349,36 @@ export function ProfilePageClient() {
             />
           </button>
           <div className="mx-4 border-t border-white/10" />
-          <ActionButton
-            icon={FileImportIcon}
-            label="IMDb Import"
+          <button
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
             onClick={handleImdbImport}
-            premiumRequired
-            isPremium={canAccessPremiumFeatures}
-          />
+            type="button"
+          >
+            <div className="flex size-9 items-center justify-center rounded-lg bg-white">
+              <img
+                src="/imdb-logo.png"
+                alt=""
+                aria-hidden="true"
+                className="h-auto w-7"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-white">
+                IMDb Import
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-white/50">
+                Import ratings, watchlists, lists, and check-ins from CSV
+                exports
+              </span>
+            </div>
+            {shouldLockPremiumFeatures ? (
+              <Badge variant="premium">Premium</Badge>
+            ) : null}
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="size-5 text-white/40"
+            />
+          </button>
         </div>
       </section>
 
