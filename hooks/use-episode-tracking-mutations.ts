@@ -1,7 +1,9 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { useOptionalTrakt } from "@/context/trakt-context"
 import { queryKeys } from "@/lib/react-query/query-keys"
+import { maybeWarnTraktManagedWatchedEdit } from "@/lib/trakt-managed-edits"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
 import type {
   EpisodeTrackingMetadata,
@@ -9,6 +11,7 @@ import type {
 } from "@/types/episode-tracking"
 import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 interface ShowStats {
   totalEpisodes: number
@@ -111,9 +114,11 @@ function setShowInTrackingMap(
 
 export function useEpisodeTrackingMutations() {
   const { user } = useAuth()
+  const trakt = useOptionalTrakt()
   const queryClient = useQueryClient()
 
   const userId = user && !user.isAnonymous ? user.uid : null
+  const isTraktConnected = Boolean(trakt?.isConnected)
   const allTrackingQueryKey = userId
     ? queryKeys.firestore.episodeTrackingAll(userId)
     : null
@@ -165,12 +170,12 @@ export function useEpisodeTrackingMutations() {
           queryClient.cancelQueries({ queryKey: showQueryKey }),
         ])
 
-        const previousAll = queryClient.getQueryData<
-          Map<string, TVShowEpisodeTracking>
-        >(allTrackingQueryKey)
-        const previousShow = queryClient.getQueryData<TVShowEpisodeTracking | null>(
-          showQueryKey,
-        )
+        const previousAll =
+          queryClient.getQueryData<Map<string, TVShowEpisodeTracking>>(
+            allTrackingQueryKey,
+          )
+        const previousShow =
+          queryClient.getQueryData<TVShowEpisodeTracking | null>(showQueryKey)
         const nextShow = applyOptimistic({ previousShow, variables })
 
         queryClient.setQueryData(showQueryKey, nextShow)
@@ -206,68 +211,75 @@ export function useEpisodeTrackingMutations() {
     })
   }
 
-  const markEpisodeWatchedMutation = useTrackingMutation<EpisodeWatchedVariables>({
-    getTvShowId: (variables) => variables.tvShowId,
-    mutationFn: async (variables) => {
-      await episodeTrackingService.markEpisodeWatched(
-        variables.tvShowId,
-        variables.seasonNumber,
-        variables.episodeNumber,
-        variables.episodeData,
-        variables.showMetadata,
-        variables.showStats,
-        variables.nextEpisode,
-        variables.markPreviousEpisodesWatched,
-        variables.seasonEpisodes,
-      )
-    },
-    applyOptimistic: ({ previousShow, variables }) => {
-      const nextShow = cloneTracking(previousShow ?? null, variables.showMetadata)
-      const now = Date.now()
-      const key = episodeKey(variables.seasonNumber, variables.episodeNumber)
+  const markEpisodeWatchedMutation =
+    useTrackingMutation<EpisodeWatchedVariables>({
+      getTvShowId: (variables) => variables.tvShowId,
+      mutationFn: async (variables) => {
+        await episodeTrackingService.markEpisodeWatched(
+          variables.tvShowId,
+          variables.seasonNumber,
+          variables.episodeNumber,
+          variables.episodeData,
+          variables.showMetadata,
+          variables.showStats,
+          variables.nextEpisode,
+          variables.markPreviousEpisodesWatched,
+          variables.seasonEpisodes,
+        )
+      },
+      applyOptimistic: ({ previousShow, variables }) => {
+        const nextShow = cloneTracking(
+          previousShow ?? null,
+          variables.showMetadata,
+        )
+        const now = Date.now()
+        const key = episodeKey(variables.seasonNumber, variables.episodeNumber)
 
-      nextShow.episodes[key] = {
-        episodeId: variables.episodeData.episodeId,
-        tvShowId: variables.tvShowId,
-        seasonNumber: variables.seasonNumber,
-        episodeNumber: variables.episodeNumber,
-        watchedAt: now,
-        episodeName: variables.episodeData.episodeName,
-        episodeAirDate: variables.episodeData.episodeAirDate,
-      }
+        nextShow.episodes[key] = {
+          episodeId: variables.episodeData.episodeId,
+          tvShowId: variables.tvShowId,
+          seasonNumber: variables.seasonNumber,
+          episodeNumber: variables.episodeNumber,
+          watchedAt: now,
+          episodeName: variables.episodeData.episodeName,
+          episodeAirDate: variables.episodeData.episodeAirDate,
+        }
 
-      if (variables.markPreviousEpisodesWatched && variables.seasonEpisodes?.length) {
-        variables.seasonEpisodes.forEach((seasonEpisode) => {
-          if (seasonEpisode.episode_number >= variables.episodeNumber) return
+        if (
+          variables.markPreviousEpisodesWatched &&
+          variables.seasonEpisodes?.length
+        ) {
+          variables.seasonEpisodes.forEach((seasonEpisode) => {
+            if (seasonEpisode.episode_number >= variables.episodeNumber) return
 
-          const previousKey = episodeKey(
-            variables.seasonNumber,
-            seasonEpisode.episode_number,
-          )
-          if (nextShow.episodes[previousKey]) return
+            const previousKey = episodeKey(
+              variables.seasonNumber,
+              seasonEpisode.episode_number,
+            )
+            if (nextShow.episodes[previousKey]) return
 
-          nextShow.episodes[previousKey] = {
-            episodeId: seasonEpisode.id,
-            tvShowId: variables.tvShowId,
-            seasonNumber: variables.seasonNumber,
-            episodeNumber: seasonEpisode.episode_number,
-            watchedAt: now,
-            episodeName: seasonEpisode.name,
-            episodeAirDate: seasonEpisode.air_date,
-          }
-        })
-      }
+            nextShow.episodes[previousKey] = {
+              episodeId: seasonEpisode.id,
+              tvShowId: variables.tvShowId,
+              seasonNumber: variables.seasonNumber,
+              episodeNumber: seasonEpisode.episode_number,
+              watchedAt: now,
+              episodeName: seasonEpisode.name,
+              episodeAirDate: seasonEpisode.air_date,
+            }
+          })
+        }
 
-      nextShow.metadata = patchMetadata(
-        nextShow.metadata,
-        variables.showMetadata,
-        variables.showStats,
-        variables.nextEpisode,
-      )
+        nextShow.metadata = patchMetadata(
+          nextShow.metadata,
+          variables.showMetadata,
+          variables.showStats,
+          variables.nextEpisode,
+        )
 
-      return nextShow
-    },
-  })
+        return nextShow
+      },
+    })
 
   const markEpisodeUnwatchedMutation = useTrackingMutation({
     getTvShowId: (variables: {
@@ -312,11 +324,16 @@ export function useEpisodeTrackingMutations() {
       )
     },
     applyOptimistic: ({ previousShow, variables }) => {
-      const nextShow = cloneTracking(previousShow ?? null, variables.showMetadata)
+      const nextShow = cloneTracking(
+        previousShow ?? null,
+        variables.showMetadata,
+      )
       const now = Date.now()
 
       variables.episodes.forEach((episode) => {
-        nextShow.episodes[episodeKey(variables.seasonNumber, episode.episode_number)] = {
+        nextShow.episodes[
+          episodeKey(variables.seasonNumber, episode.episode_number)
+        ] = {
           episodeId: episode.id,
           tvShowId: variables.tvShowId,
           seasonNumber: variables.seasonNumber,
@@ -354,7 +371,9 @@ export function useEpisodeTrackingMutations() {
     applyOptimistic: ({ previousShow, variables }) => {
       const nextShow = cloneTracking(previousShow ?? null)
       variables.episodeNumbers.forEach((episodeNumber) => {
-        delete nextShow.episodes[episodeKey(variables.seasonNumber, episodeNumber)]
+        delete nextShow.episodes[
+          episodeKey(variables.seasonNumber, episodeNumber)
+        ]
       })
       nextShow.metadata.lastUpdated = Date.now()
       return Object.keys(nextShow.episodes).length > 0 ? nextShow : null
@@ -369,12 +388,25 @@ export function useEpisodeTrackingMutations() {
     applyOptimistic: () => null,
   })
 
+  const wrapWithTraktWarning =
+    <TVariables, TResult>(mutation: {
+      mutateAsync: (variables: TVariables) => Promise<TResult>
+    }) =>
+    async (variables: TVariables) => {
+      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
+      return mutation.mutateAsync(variables)
+    }
+
   return {
-    markEpisodeWatched: markEpisodeWatchedMutation.mutateAsync,
-    markEpisodeUnwatched: markEpisodeUnwatchedMutation.mutateAsync,
-    markAllEpisodesWatched: markAllEpisodesWatchedMutation.mutateAsync,
-    markAllEpisodesUnwatched: markAllEpisodesUnwatchedMutation.mutateAsync,
-    clearAllEpisodes: clearAllEpisodesMutation.mutateAsync,
+    markEpisodeWatched: wrapWithTraktWarning(markEpisodeWatchedMutation),
+    markEpisodeUnwatched: wrapWithTraktWarning(markEpisodeUnwatchedMutation),
+    markAllEpisodesWatched: wrapWithTraktWarning(
+      markAllEpisodesWatchedMutation,
+    ),
+    markAllEpisodesUnwatched: wrapWithTraktWarning(
+      markAllEpisodesUnwatchedMutation,
+    ),
+    clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||

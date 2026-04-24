@@ -2,6 +2,7 @@ import {
   addToList,
   createList,
   fetchUserList,
+  fetchUserLists,
   removeMediaFromList,
   restoreList,
   updateList,
@@ -10,6 +11,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  getDocs,
   runTransaction,
   setDoc,
   updateDoc,
@@ -56,12 +58,14 @@ function createRestoreListPayload(): Parameters<typeof restoreList>[1] {
   }
 }
 
-async function runCreateListWithCurrentDoc(currentDoc: {
-  exists: () => boolean
-  data?: () => Record<string, unknown>
-},
-listName = "Road Trip",
-description = "  Weekend plans  ") {
+async function runCreateListWithCurrentDoc(
+  currentDoc: {
+    exists: () => boolean
+    data?: () => Record<string, unknown>
+  },
+  listName = "Road Trip",
+  description = "  Weekend plans  ",
+) {
   const transaction = {
     get: vi.fn().mockResolvedValue(currentDoc),
     set: vi.fn(),
@@ -82,10 +86,13 @@ function createTimestampLike(millis: number) {
   }
 }
 
-async function runRestoreListWithCurrentDoc(currentDoc: {
-  exists: () => boolean
-  data?: () => Record<string, unknown>
-}, list: Parameters<typeof restoreList>[1] = createRestoreListPayload()) {
+async function runRestoreListWithCurrentDoc(
+  currentDoc: {
+    exists: () => boolean
+    data?: () => Record<string, unknown>
+  },
+  list: Parameters<typeof restoreList>[1] = createRestoreListPayload(),
+) {
   const transaction = {
     get: vi.fn().mockResolvedValue(currentDoc),
     set: vi.fn(),
@@ -100,10 +107,13 @@ async function runRestoreListWithCurrentDoc(currentDoc: {
   return { restored, transaction }
 }
 
-async function runAddToListWithCurrentDoc(currentDoc: {
-  exists: () => boolean
-  data?: () => Record<string, unknown>
-}, mediaItem: Parameters<typeof addToList>[2]) {
+async function runAddToListWithCurrentDoc(
+  currentDoc: {
+    exists: () => boolean
+    data?: () => Record<string, unknown>
+  },
+  mediaItem: Parameters<typeof addToList>[2],
+) {
   const transaction = {
     get: vi.fn().mockResolvedValue(currentDoc),
     set: vi.fn(),
@@ -154,12 +164,188 @@ describe("fetchUserList", () => {
     )
   })
 
+  it("normalizes Trakt-imported item timestamps to milliseconds", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Already Watched",
+        items: {
+          "movie-123": {
+            id: 123,
+            title: "Mad Max",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: createTimestampLike(1710000000000),
+          },
+        },
+      }),
+      exists: () => true,
+      id: "already-watched",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    await expect(
+      fetchUserList("user-1", "already-watched"),
+    ).resolves.toMatchObject({
+      id: "already-watched",
+      items: {
+        "movie-123": {
+          addedAt: 1710000000000,
+          id: 123,
+          media_type: "movie",
+        },
+      },
+    })
+  })
+
+  it("defaults missing, non-numeric, and NaN item timestamps to zero", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Already Watched",
+        items: {
+          "movie-123": {
+            id: 123,
+            title: "Missing Date",
+            poster_path: null,
+            media_type: "movie",
+          },
+          "movie-456": {
+            id: 456,
+            title: "Bad Date",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: "yesterday",
+          },
+          "movie-789": {
+            id: 789,
+            title: "NaN Date",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: createTimestampLike(Number.NaN),
+          },
+        },
+      }),
+      exists: () => true,
+      id: "already-watched",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    const list = await fetchUserList("user-1", "already-watched")
+
+    expect(list?.items["movie-123"].addedAt).toBe(0)
+    expect(list?.items["movie-456"].addedAt).toBe(0)
+    expect(list?.items["movie-789"].addedAt).toBe(0)
+  })
+
+  it("omits non-record list items", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Already Watched",
+        items: {
+          "movie-123": null,
+          "movie-456": "bad",
+          "movie-789": {
+            id: 789,
+            title: "Valid",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 1710000000000,
+          },
+        },
+      }),
+      exists: () => true,
+      id: "already-watched",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    const list = await fetchUserList("user-1", "already-watched")
+
+    expect(Object.keys(list?.items ?? {})).toEqual(["movie-789"])
+  })
+
   it("returns null when the list document does not exist", async () => {
     vi.mocked(getDoc).mockResolvedValue({
       exists: () => false,
     } as Awaited<ReturnType<typeof getDoc>>)
 
     await expect(fetchUserList("user-1", "missing")).resolves.toBeNull()
+  })
+})
+
+describe("fetchUserLists", () => {
+  it("preserves numeric and prefixed list item keys while normalizing addedAt", async () => {
+    vi.mocked(getDocs).mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            name: "Already Watched",
+            items: {
+              "123": {
+                id: 123,
+                title: "Legacy Movie",
+                poster_path: null,
+                media_type: "movie",
+                addedAt: createTimestampLike(1710000000000),
+              },
+              "movie-456": {
+                id: 456,
+                title: "Prefixed Movie",
+                poster_path: null,
+                media_type: "movie",
+                addedAt: 1710000005000,
+              },
+            },
+          }),
+          id: "already-watched",
+        },
+      ],
+    } as Awaited<ReturnType<typeof getDocs>>)
+
+    await expect(fetchUserLists("user-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "already-watched",
+        items: {
+          "123": expect.objectContaining({
+            addedAt: 1710000000000,
+          }),
+          "movie-456": expect.objectContaining({
+            addedAt: 1710000005000,
+          }),
+        },
+      }),
+    ])
+  })
+
+  it("normalizes invalid list items while fetching multiple lists", async () => {
+    vi.mocked(getDocs).mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            name: "Already Watched",
+            items: {
+              "movie-123": {
+                id: 123,
+                title: "Missing Date",
+                poster_path: null,
+                media_type: "movie",
+              },
+              "movie-456": {
+                id: 456,
+                title: "NaN Date",
+                poster_path: null,
+                media_type: "movie",
+                addedAt: createTimestampLike(Number.NaN),
+              },
+              "movie-789": "bad",
+            },
+          }),
+          id: "already-watched",
+        },
+      ],
+    } as Awaited<ReturnType<typeof getDocs>>)
+
+    const lists = await fetchUserLists("user-1")
+
+    expect(lists[0].items).toEqual({
+      "movie-123": expect.objectContaining({ addedAt: 0 }),
+      "movie-456": expect.objectContaining({ addedAt: 0 }),
+    })
   })
 })
 

@@ -4,6 +4,7 @@ import { render, screen, within } from "./utils"
 
 const updatePreferenceMock = vi.fn()
 const signOutMock = vi.fn()
+const useTraktMock = vi.fn()
 
 vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
@@ -33,12 +34,37 @@ vi.mock("@/components/profile/HomeScreenCustomizer", () => ({
   HomeScreenCustomizer: () => null,
 }))
 
+vi.mock("@/components/profile/imdb-import-modal", () => ({
+  ImdbImportModal: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">IMDb import</div> : null,
+}))
+
+vi.mock("@/components/profile/trakt-settings-modal", () => ({
+  TraktSettingsModal: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Trakt settings</div> : null,
+}))
+
 vi.mock("@/components/ui/avatar", () => ({
   Avatar: ({ alt }: { alt: string }) => <div>{alt}</div>,
 }))
 
 vi.mock("@/components/ui/badge", () => ({
   Badge: ({ children }: { children: string }) => <span>{children}</span>,
+}))
+
+vi.mock("@hugeicons/core-free-icons", () => ({
+  ArrowRight01Icon: {},
+  CrownIcon: {},
+  FileExportIcon: {},
+  FileImportIcon: {},
+  Home01Icon: {},
+  Loading03Icon: {},
+  Logout01Icon: {},
+  Tick02Icon: {},
+}))
+
+vi.mock("@hugeicons/react", () => ({
+  HugeiconsIcon: () => <span aria-hidden="true" />,
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -54,6 +80,10 @@ vi.mock("@/context/auth-context", () => ({
     premiumStatus: "free",
     signOut: signOutMock,
   }),
+}))
+
+vi.mock("@/context/trakt-context", () => ({
+  useTrakt: useTraktMock,
 }))
 
 vi.mock("@/hooks/use-preferences", async () => {
@@ -98,6 +128,20 @@ vi.mock("sonner", () => ({
 describe("ProfilePageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useTraktMock.mockReturnValue({
+      isConnected: false,
+      isEnriching: false,
+      isLoading: false,
+      isSyncing: false,
+      lastEnrichedAt: null,
+      lastSyncedAt: null,
+      syncStatus: null,
+      checkSyncStatus: vi.fn(),
+      connectTrakt: vi.fn(),
+      disconnectTrakt: vi.fn(),
+      enrichData: vi.fn(),
+      syncNow: vi.fn(),
+    })
   })
 
   it("renders the auto-remove preference and updates it", async () => {
@@ -153,5 +197,57 @@ describe("ProfilePageClient", () => {
       "showOriginalTitles",
       true,
     )
+  })
+
+  it("renders Trakt integration status and opens its settings", async () => {
+    useTraktMock.mockReturnValue({
+      isConnected: true,
+      isEnriching: false,
+      isLoading: false,
+      isSyncing: false,
+      lastEnrichedAt: null,
+      lastSyncedAt: new Date("2026-04-20T12:00:00.000Z"),
+      syncStatus: {
+        connected: true,
+        status: "completed",
+        synced: true,
+      },
+      checkSyncStatus: vi.fn(),
+      connectTrakt: vi.fn(),
+      disconnectTrakt: vi.fn(),
+      enrichData: vi.fn(),
+      syncNow: vi.fn(),
+    })
+
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByText("Trakt Integration")).toBeInTheDocument()
+    expect(screen.getByText("Connected")).toBeInTheDocument()
+
+    await user.click(screen.getByText("Trakt Integration"))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Trakt settings")
+  })
+
+  it("opens the IMDb import modal", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    const { container } = render(<ProfilePageClient />)
+
+    expect(
+      screen.getByText(
+        "Import ratings, watchlists, lists, and check-ins from CSV exports",
+      ),
+    ).toBeInTheDocument()
+    expect(container.querySelector('img[src="/imdb-logo.png"]')).not.toBeNull()
+    await user.click(screen.getByText("IMDb Import"))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("IMDb import")
   })
 })

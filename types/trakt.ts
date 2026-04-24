@@ -43,3 +43,116 @@ export interface TraktComment {
 
 /** Response from comments endpoint (array of comments) */
 export type TraktCommentsResponse = TraktComment[]
+
+export interface TraktSyncItems {
+  movies: number
+  shows: number
+  episodes: number
+  ratings: number
+  lists: number
+  favorites: number
+  watchlistItems: number
+}
+
+export type SyncSummaryMode = "bootstrap" | "incremental"
+
+export type TraktSyncState =
+  | "idle"
+  | "queued"
+  | "in_progress"
+  | "retrying"
+  | "completed"
+  | "failed"
+
+export type TraktErrorCategory =
+  | "auth_invalid"
+  | "internal"
+  | "locked_account"
+  | "storage_limit"
+  | "rate_limited"
+  | "upstream_blocked"
+  | "upstream_unavailable"
+
+export type SyncErrorCategory = TraktErrorCategory
+
+export interface TraktDiagnostics {
+  cfRay?: string
+  endpoint?: string
+  retryAfterSeconds?: number
+  retryReason?: string
+  snippet?: string
+  statusCode?: number
+}
+
+export interface SyncStatus {
+  connected: boolean
+  synced: boolean
+  status?: TraktSyncState
+  summaryMode?: SyncSummaryMode
+  runId?: string
+  attempt?: number
+  maxAttempts?: number
+  nextAllowedSyncAt?: string
+  nextRetryAt?: string
+  lastSyncedAt?: string
+  startedAt?: string
+  completedAt?: string
+  itemsSynced?: TraktSyncItems
+  errorCategory?: TraktErrorCategory
+  errorMessage?: string
+  errors?: string[]
+  diagnostics?: TraktDiagnostics
+}
+
+export interface TraktState {
+  isConnected: boolean
+  isSyncing: boolean
+  isEnriching: boolean
+  lastSyncedAt: Date | null
+  lastEnrichedAt: Date | null
+  syncStatus: SyncStatus | null
+}
+
+export interface TraktContextValue extends TraktState {
+  isLoading: boolean
+  connectTrakt: () => Promise<void>
+  disconnectTrakt: () => Promise<void>
+  syncNow: () => Promise<void>
+  checkSyncStatus: () => Promise<SyncStatus | undefined>
+  enrichData: () => Promise<void>
+}
+
+export interface EnrichmentOptions {
+  lists?: string[]
+  includeEpisodes?: boolean
+}
+
+export interface ListEnrichmentStatus {
+  exists: boolean
+  hasPosters?: boolean
+  itemCount?: number
+  lastEnriched?: string
+  needsEnrichment?: boolean
+}
+
+export interface EnrichmentStatus {
+  status: TraktSyncState
+  runId?: string
+  attempt?: number
+  maxAttempts?: number
+  nextAllowedEnrichAt?: string
+  nextRetryAt?: string
+  startedAt?: string
+  completedAt?: string
+  includeEpisodes?: boolean
+  counts?: {
+    episodes: number
+    items: number
+    lists: number
+  }
+  errorCategory?: TraktErrorCategory
+  errorMessage?: string
+  lists: Record<string, ListEnrichmentStatus>
+  errors?: string[]
+  diagnostics?: TraktDiagnostics
+}

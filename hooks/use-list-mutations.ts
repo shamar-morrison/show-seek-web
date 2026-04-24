@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { useOptionalTrakt } from "@/context/trakt-context"
 import {
   addToList as addToListInFirestore,
   createList as createListInFirestore,
@@ -14,6 +15,7 @@ import {
   type ListItemMediaType,
 } from "@/lib/list-item-keys"
 import { queryKeys } from "@/lib/react-query/query-keys"
+import { maybeWarnTraktManagedListEdit } from "@/lib/trakt-managed-edits"
 import {
   DEFAULT_LISTS,
   type ListMediaItem,
@@ -21,6 +23,7 @@ import {
   type UserList,
 } from "@/types/list"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 function addItemToCachedLists(
   lists: UserList[],
@@ -150,9 +153,11 @@ function assertUserId(userId: string | null): string {
 
 export function useListMutations() {
   const { user } = useAuth()
+  const trakt = useOptionalTrakt()
   const queryClient = useQueryClient()
   const userId = user && !user.isAnonymous ? user.uid : null
   const listQueryKey = userId ? queryKeys.firestore.lists(userId) : null
+  const isTraktConnected = Boolean(trakt?.isConnected)
 
   type ListMutationContext<TExtra extends object = Record<string, never>> = {
     previousLists: UserList[] | undefined
@@ -172,41 +177,43 @@ export function useListMutations() {
       variables: TVariables
     }) => { nextLists?: UserList[]; extraContext?: TExtra }
   }) {
-    return useMutation<TResult, Error, TVariables, ListMutationContext<TExtra>>({
-      mutationFn,
-      onMutate: async (variables) => {
-        let previousLists: UserList[] | undefined
+    return useMutation<TResult, Error, TVariables, ListMutationContext<TExtra>>(
+      {
+        mutationFn,
+        onMutate: async (variables) => {
+          let previousLists: UserList[] | undefined
 
-        if (listQueryKey) {
-          await queryClient.cancelQueries({ queryKey: listQueryKey })
-          previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
-        }
+          if (listQueryKey) {
+            await queryClient.cancelQueries({ queryKey: listQueryKey })
+            previousLists = queryClient.getQueryData<UserList[]>(listQueryKey)
+          }
 
-        const { nextLists, extraContext } = optimisticUpdate({
-          previousLists,
-          variables,
-        })
+          const { nextLists, extraContext } = optimisticUpdate({
+            previousLists,
+            variables,
+          })
 
-        if (listQueryKey && nextLists !== undefined) {
-          queryClient.setQueryData<UserList[]>(listQueryKey, nextLists)
-        }
+          if (listQueryKey && nextLists !== undefined) {
+            queryClient.setQueryData<UserList[]>(listQueryKey, nextLists)
+          }
 
-        return {
-          previousLists,
-          ...(extraContext ?? ({} as TExtra)),
-        }
+          return {
+            previousLists,
+            ...(extraContext ?? ({} as TExtra)),
+          }
+        },
+        onError: (_error, _variables, context) => {
+          if (!listQueryKey) return
+          if (context !== undefined) {
+            queryClient.setQueryData(listQueryKey, context.previousLists)
+          }
+        },
+        onSettled: () => {
+          if (!listQueryKey) return
+          queryClient.invalidateQueries({ queryKey: listQueryKey })
+        },
       },
-      onError: (_error, _variables, context) => {
-        if (!listQueryKey) return
-        if (context !== undefined) {
-          queryClient.setQueryData(listQueryKey, context.previousLists)
-        }
-      },
-      onSettled: () => {
-        if (!listQueryKey) return
-        queryClient.invalidateQueries({ queryKey: listQueryKey })
-      },
-    })
+    )
   }
 
   const addToListMutation = useListOptimisticMutation({
@@ -354,32 +361,44 @@ export function useListMutations() {
     },
   })
 
+  const updateList = async (
+    listId: string,
+    newName: string,
+    description?: string,
+  ) => {
+    maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+    return updateListMutation.mutateAsync({ listId, newName, description })
+  }
+
   return {
-    addToList: async (listId: string, mediaItem: ListWriteMediaItem) =>
-      addToListMutation.mutateAsync({ listId, mediaItem }),
-    removeFromList: async (listId: string, mediaId: string) =>
-      removeFromListMutation.mutateAsync({ listId, mediaId }),
+    addToList: async (listId: string, mediaItem: ListWriteMediaItem) => {
+      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+      return addToListMutation.mutateAsync({ listId, mediaItem })
+    },
+    removeFromList: async (listId: string, mediaId: string) => {
+      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+      return removeFromListMutation.mutateAsync({ listId, mediaId })
+    },
     removeMediaFromList: async (
       listId: string,
       mediaId: number,
       mediaType: ListItemMediaType,
-    ) => removeMediaFromListMutation.mutateAsync({ listId, mediaId, mediaType }),
+    ) => {
+      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+      return removeMediaFromListMutation.mutateAsync({
+        listId,
+        mediaId,
+        mediaType,
+      })
+    },
     createList: async (name: string, description?: string) =>
       createListMutation.mutateAsync({ name, description }),
-    updateList: async (
-      listId: string,
-      newName: string,
-      description?: string,
-    ) =>
-      updateListMutation.mutateAsync({ listId, newName, description }),
-    renameList: async (
-      listId: string,
-      newName: string,
-      description?: string,
-    ) =>
-      updateListMutation.mutateAsync({ listId, newName, description }),
-    deleteList: async (listId: string) =>
-      deleteListMutation.mutateAsync({ listId }),
+    updateList,
+    renameList: updateList,
+    deleteList: async (listId: string) => {
+      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+      return deleteListMutation.mutateAsync({ listId })
+    },
     isMutating:
       addToListMutation.isPending ||
       removeFromListMutation.isPending ||

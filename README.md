@@ -48,6 +48,7 @@ Build-time values still come from `.env`, including:
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION` (optional, defaults to `us-central1`)
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
@@ -81,7 +82,7 @@ development can supply it from `.env.local`, and production must set it as a
 Cloudflare Worker secret. The public widget key is
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
 
-Non-secret runtime vars such as `NEXTJS_ENV`, the Firebase public web config, and optional public flags are generated into `.wrangler/wrangler.local.jsonc` from `.env`.
+Non-secret runtime vars such as `NEXTJS_ENV`, the Firebase public web config, optional public flags, and `TRAKT_BACKEND_URL` (optional, non-sensitive URL override; no secret handling required) are generated into `.wrangler/wrangler.local.jsonc` from `.env`.
 
 For local Cloudflare preview, copy `.dev.vars.example` to `.dev.vars` or run:
 

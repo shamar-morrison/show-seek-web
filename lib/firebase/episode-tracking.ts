@@ -6,6 +6,7 @@
  */
 
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
+import { normalizeEpisodeTrackingDoc } from "@/lib/episode-tracking-normalization"
 import { collection, getDocs } from "firebase/firestore"
 import { getFirebaseDb } from "./config"
 
@@ -27,8 +28,10 @@ export async function fetchAllEpisodeTracking(
   const trackingMap = new Map<string, TVShowEpisodeTracking>()
 
   snapshot.docs.forEach((trackingDoc) => {
-    const data = trackingDoc.data() as TVShowEpisodeTracking
-    trackingMap.set(trackingDoc.id, data)
+    trackingMap.set(
+      trackingDoc.id,
+      normalizeEpisodeTrackingDoc(trackingDoc.data()),
+    )
   })
 
   return trackingMap

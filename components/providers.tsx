@@ -2,6 +2,7 @@
 
 import { QueryProvider } from "@/components/query-provider"
 import { AuthProvider } from "@/context/auth-context"
+import { TraktProvider } from "@/context/trakt-context"
 import dynamic from "next/dynamic"
 import { type ReactNode } from "react"
 
@@ -17,8 +18,10 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
       <AuthProvider>
-        {children}
-        <AppClientShell />
+        <TraktProvider>
+          {children}
+          <AppClientShell />
+        </TraktProvider>
       </AuthProvider>
     </QueryProvider>
   )

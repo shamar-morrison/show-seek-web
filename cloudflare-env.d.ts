@@ -16,9 +16,11 @@ declare namespace Cloudflare {
 		NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: string;
 		NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: string;
 		NEXT_PUBLIC_FIREBASE_APP_ID: string;
+		NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION: string;
 		NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: string;
 		NEXT_PUBLIC_ANDROID_PACKAGE_NAME: string;
 		TRAKT_REDIRECT_URI: string;
+		TRAKT_BACKEND_URL: string;
 		NEXT_CACHE_DO_QUEUE: DurableObjectNamespace<import("./.open-next/worker").DOQueueHandler>;
 		WORKER_SELF_REFERENCE: Service<typeof import("./.open-next/worker").default>;
 	}
@@ -28,7 +30,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NEXTJS_ENV" | "NEXT_PUBLIC_FIREBASE_API_KEY" | "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" | "NEXT_PUBLIC_FIREBASE_PROJECT_ID" | "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" | "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" | "NEXT_PUBLIC_FIREBASE_APP_ID" | "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID" | "NEXT_PUBLIC_ANDROID_PACKAGE_NAME" | "TRAKT_REDIRECT_URI">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NEXTJS_ENV" | "NEXT_PUBLIC_FIREBASE_API_KEY" | "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" | "NEXT_PUBLIC_FIREBASE_PROJECT_ID" | "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" | "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" | "NEXT_PUBLIC_FIREBASE_APP_ID" | "NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION" | "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID" | "NEXT_PUBLIC_ANDROID_PACKAGE_NAME" | "TRAKT_REDIRECT_URI" | "TRAKT_BACKEND_URL">> {}
 }
 
 // Begin runtime types
