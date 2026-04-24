@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/auth-context"
 import { queryKeys } from "@/lib/react-query/query-keys"
+import { resetTraktManagedEditWarnings } from "@/lib/trakt-managed-edits"
 import * as TraktService from "@/services/trakt-service"
 import { TraktRequestError } from "@/services/trakt-service"
 import type { SyncStatus, TraktContextValue } from "@/types/trakt"
@@ -104,10 +105,6 @@ function clearPersistedState(userId: string): void {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
-}
-
 export function TraktProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth()
   const queryClient = useQueryClient()
@@ -124,6 +121,7 @@ export function TraktProvider({ children }: { children: ReactNode }) {
     null,
   )
   const hasAttemptedAutoSyncRef = useRef(false)
+  const latestSyncRequestRef = useRef<symbol | null>(null)
   const previousUserIdRef = useRef<string | null>(null)
   const lastEnrichedAtRef = useRef<Date | null>(null)
 
@@ -318,6 +316,7 @@ export function TraktProvider({ children }: { children: ReactNode }) {
     }
 
     if (!isEligibleTraktUser(user)) {
+      resetTraktManagedEditWarnings()
       stopSyncPolling()
       stopEnrichmentPolling()
       setIsConnected(false)
@@ -334,11 +333,15 @@ export function TraktProvider({ children }: { children: ReactNode }) {
     }
 
     if (previousUserIdRef.current !== user.uid) {
+      resetTraktManagedEditWarnings()
       hasAttemptedAutoSyncRef.current = false
       previousUserIdRef.current = user.uid
     }
 
     let cancelled = false
+    const controller = new AbortController()
+    const requestToken = Symbol("sync-status-request")
+    latestSyncRequestRef.current = requestToken
     setIsLoading(true)
 
     const persistedState = readPersistedState(user.uid)
@@ -354,24 +357,32 @@ export function TraktProvider({ children }: { children: ReactNode }) {
       setIsSyncing(isActiveSyncStatus(persistedState.syncStatus?.status))
     }
 
-    void TraktService.checkSyncStatus()
+    void TraktService.checkSyncStatus({ signal: controller.signal })
       .then((status) => {
-        if (cancelled) return
+        if (cancelled || latestSyncRequestRef.current !== requestToken) return
         applySyncStatus(status, user.uid)
       })
       .catch((error) => {
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          !controller.signal.aborted &&
+          latestSyncRequestRef.current === requestToken
+        ) {
           console.error("[Trakt] Failed to load status:", error)
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!cancelled && latestSyncRequestRef.current === requestToken) {
           setIsLoading(false)
         }
       })
 
     return () => {
       cancelled = true
+      controller.abort()
+      if (latestSyncRequestRef.current === requestToken) {
+        latestSyncRequestRef.current = null
+      }
     }
   }, [
     applySyncStatus,
@@ -412,10 +423,9 @@ export function TraktProvider({ children }: { children: ReactNode }) {
       throw new Error("Must be logged in to connect Trakt")
     }
 
-    await TraktService.initiateOAuthFlow()
-    await sleep(2000)
-    await checkSyncStatus()
-  }, [checkSyncStatus, user])
+    const status = await TraktService.initiateOAuthFlow()
+    applySyncStatus(status, user.uid)
+  }, [applySyncStatus, user])
 
   const syncNow = useCallback(async () => {
     if (!isEligibleTraktUser(user)) {
@@ -426,9 +436,9 @@ export function TraktProvider({ children }: { children: ReactNode }) {
 
     setIsSyncing(true)
     setSyncStatus((currentStatus) => ({
+      ...(currentStatus ?? {}),
       connected: true,
       synced: Boolean(currentStatus?.lastSyncedAt),
-      ...(currentStatus ?? {}),
       attempt: 0,
       diagnostics: undefined,
       errorCategory: undefined,
@@ -454,9 +464,9 @@ export function TraktProvider({ children }: { children: ReactNode }) {
         error.category === "rate_limited"
       ) {
         setSyncStatus((currentStatus) => ({
+          ...(currentStatus ?? {}),
           connected: true,
           synced: Boolean(currentStatus?.lastSyncedAt),
-          ...(currentStatus ?? {}),
           errorCategory: "rate_limited",
           errorMessage: error.message,
           nextAllowedSyncAt: error.nextAllowedSyncAt,
@@ -481,9 +491,8 @@ export function TraktProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    hasAttemptedAutoSyncRef.current = true
-
     if (Date.now() - lastSyncedAt.getTime() >= AUTO_SYNC_COOLDOWN_MS) {
+      hasAttemptedAutoSyncRef.current = true
       void syncNow()
     }
   }, [isConnected, isLoading, lastSyncedAt, syncNow, syncStatus, user])
@@ -494,6 +503,7 @@ export function TraktProvider({ children }: { children: ReactNode }) {
     }
 
     await TraktService.disconnectTrakt()
+    resetTraktManagedEditWarnings()
     stopSyncPolling()
     stopEnrichmentPolling()
     setIsConnected(false)

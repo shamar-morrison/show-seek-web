@@ -139,8 +139,8 @@ function normalizeUserList(
   data: Record<string, unknown>,
 ): UserList {
   return {
-    id: listId,
     ...data,
+    id: listId,
     items: normalizeListItems(data.items),
   } as UserList
 }
@@ -171,9 +171,7 @@ export async function fetchUserList(
     return null
   }
 
-  return {
-    ...normalizeUserList(snapshot.id, snapshot.data()),
-  }
+  return normalizeUserList(snapshot.id, snapshot.data())
 }
 
 /**

@@ -56,7 +56,15 @@ export interface TraktSyncItems {
 
 export type SyncSummaryMode = "bootstrap" | "incremental"
 
-export type SyncErrorCategory =
+export type TraktSyncState =
+  | "idle"
+  | "queued"
+  | "in_progress"
+  | "retrying"
+  | "completed"
+  | "failed"
+
+export type TraktErrorCategory =
   | "auth_invalid"
   | "internal"
   | "locked_account"
@@ -65,16 +73,21 @@ export type SyncErrorCategory =
   | "upstream_blocked"
   | "upstream_unavailable"
 
+export type SyncErrorCategory = TraktErrorCategory
+
+export interface TraktDiagnostics {
+  cfRay?: string
+  endpoint?: string
+  retryAfterSeconds?: number
+  retryReason?: string
+  snippet?: string
+  statusCode?: number
+}
+
 export interface SyncStatus {
   connected: boolean
   synced: boolean
-  status?:
-    | "idle"
-    | "queued"
-    | "in_progress"
-    | "retrying"
-    | "completed"
-    | "failed"
+  status?: TraktSyncState
   summaryMode?: SyncSummaryMode
   runId?: string
   attempt?: number
@@ -85,17 +98,10 @@ export interface SyncStatus {
   startedAt?: string
   completedAt?: string
   itemsSynced?: TraktSyncItems
-  errorCategory?: SyncErrorCategory
+  errorCategory?: TraktErrorCategory
   errorMessage?: string
   errors?: string[]
-  diagnostics?: {
-    cfRay?: string
-    endpoint?: string
-    retryAfterSeconds?: number
-    retryReason?: string
-    snippet?: string
-    statusCode?: number
-  }
+  diagnostics?: TraktDiagnostics
 }
 
 export interface TraktState {
@@ -130,13 +136,7 @@ export interface ListEnrichmentStatus {
 }
 
 export interface EnrichmentStatus {
-  status:
-    | "idle"
-    | "queued"
-    | "in_progress"
-    | "retrying"
-    | "completed"
-    | "failed"
+  status: TraktSyncState
   runId?: string
   attempt?: number
   maxAttempts?: number
@@ -150,16 +150,9 @@ export interface EnrichmentStatus {
     items: number
     lists: number
   }
-  errorCategory?: SyncErrorCategory
+  errorCategory?: TraktErrorCategory
   errorMessage?: string
   lists: Record<string, ListEnrichmentStatus>
   errors?: string[]
-  diagnostics?: {
-    cfRay?: string
-    endpoint?: string
-    retryAfterSeconds?: number
-    retryReason?: string
-    snippet?: string
-    statusCode?: number
-  }
+  diagnostics?: TraktDiagnostics
 }

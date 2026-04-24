@@ -443,16 +443,19 @@ function ResultGroup({
   )
 }
 
-function createSummaryEntries(
-  stats: object,
+function createSummaryEntries<T extends string>(
+  stats: Partial<Record<T, number | undefined>>,
   labelMap: Record<string, string>,
 ): SummaryEntry[] {
-  return Object.entries(stats as Record<string, number>)
-    .filter(([, value]) => (value ?? 0) > 0)
-    .map(([key, value]) => ({
-      key,
-      label: labelMap[key] ?? key,
-      value: value ?? 0,
-    }))
+  return Object.keys(stats)
+    .map((key) => {
+      const value = stats[key as T] ?? 0
+      return {
+        key,
+        label: labelMap[key] ?? key,
+        value,
+      }
+    })
+    .filter((entry) => entry.value > 0)
     .sort((left, right) => right.value - left.value)
 }

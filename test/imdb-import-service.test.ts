@@ -79,4 +79,65 @@ describe("imdbImportService", () => {
     expect(stats.processedActions).toBe(2)
     expect(stats.processedEntities).toBe(2)
   })
+
+  it("reports partial progress before rethrowing a chunk failure", async () => {
+    const { imdbImportService } = await import("@/services/imdb-import-service")
+    const progress = vi.fn()
+    const firstChunk = { entities: [] }
+    const secondChunk = { entities: [] }
+    const failure = new Error("chunk failed")
+    mocks.callable
+      .mockResolvedValueOnce({
+        data: {
+          ignored: {},
+          imported: {
+            customListsCreated: 0,
+            listItems: 1,
+            ratings: 0,
+            watchedEpisodes: 0,
+            watchedMovies: 0,
+            watchedShows: 0,
+          },
+          processedActions: 0,
+          processedEntities: 0,
+          skipped: {},
+        } satisfies ImdbImportChunkResult,
+      })
+      .mockRejectedValueOnce(failure)
+
+    await expect(
+      imdbImportService.runPreparedImport(
+        {
+          chunks: [firstChunk, secondChunk],
+          files: [],
+          stats: {
+            ignored: {},
+            imported: {
+              customListsCreated: 0,
+              listItems: 0,
+              ratings: 0,
+              watchedEpisodes: 0,
+              watchedMovies: 0,
+              watchedShows: 0,
+            },
+            processedActions: 2,
+            processedEntities: 2,
+            skipped: {},
+          },
+          unsupportedFiles: [],
+        },
+        progress,
+      ),
+    ).rejects.toThrow("chunk failed")
+
+    expect(progress).toHaveBeenLastCalledWith({
+      completedChunks: 1,
+      stats: expect.objectContaining({
+        imported: expect.objectContaining({ listItems: 1 }),
+        processedActions: 2,
+        processedEntities: 2,
+      }),
+      totalChunks: 2,
+    })
+  })
 })

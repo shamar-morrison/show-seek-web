@@ -18,6 +18,21 @@ const SYNC_ERROR_CATEGORIES = new Set<SyncErrorCategory>([
   "upstream_unavailable",
 ])
 
+const OAUTH_CONNECTION_POLL_INTERVAL_MS = 1000
+const OAUTH_CONNECTION_TIMEOUT_MS = 5 * 60 * 1000
+const OAUTH_POPUP_CLOSED_GRACE_MS = 10000
+
+type OAuthWindowHandle = {
+  openedPopup: Window | null
+  usedFallbackTab: boolean
+}
+
+type OAuthConnectionWaitOptions = {
+  closedGraceMs?: number
+  pollIntervalMs?: number
+  timeoutMs?: number
+}
+
 function isSyncErrorCategory(value: unknown): value is SyncErrorCategory {
   return (
     typeof value === "string" &&
@@ -44,7 +59,45 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
     return AbortSignal.timeout(timeoutMs)
   }
 
-  return undefined
+  if (typeof AbortController === "undefined") {
+    return undefined
+  }
+
+  const controller = new AbortController()
+  const timeoutError = new Error("TimeoutError")
+  timeoutError.name = "TimeoutError"
+
+  setTimeout(() => controller.abort(timeoutError), timeoutMs)
+  return controller.signal
+}
+
+function combineAbortSignals(
+  ...signals: Array<AbortSignal | undefined>
+): AbortSignal | undefined {
+  const activeSignals = signals.filter(
+    (signal): signal is AbortSignal => signal !== undefined,
+  )
+
+  if (activeSignals.length <= 1) {
+    return activeSignals[0]
+  }
+
+  const controller = new AbortController()
+  const abort = (signal: AbortSignal) => {
+    if (controller.signal.aborted) return
+    controller.abort(signal.reason)
+  }
+
+  activeSignals.forEach((signal) => {
+    if (signal.aborted) {
+      abort(signal)
+      return
+    }
+
+    signal.addEventListener("abort", () => abort(signal), { once: true })
+  })
+
+  return controller.signal
 }
 
 async function parseJsonSafely(
@@ -137,28 +190,51 @@ async function traktFetch<T>(
     body?: Record<string, unknown>
     fallbackMessage: string
     method?: "GET" | "POST"
+    signal?: AbortSignal
     timeoutMs?: number
   },
 ): Promise<T> {
   const { headers } = await requireAuthenticatedHeaders()
+  const signal = combineAbortSignals(
+    options.signal,
+    createTimeoutSignal(options.timeoutMs ?? 10000),
+  )
   const response = await fetch(path, {
     method: options.method ?? "GET",
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
     cache: "no-store",
-    signal: createTimeoutSignal(options.timeoutMs ?? 10000),
+    signal,
   })
 
   if (!response.ok) {
     throw await buildRequestError(response, options.fallbackMessage)
   }
 
+  const contentLength = response.headers.get("content-length")
+  const contentType = response.headers.get("content-type")
+
+  if (
+    response.status === 204 ||
+    contentLength === "0" ||
+    !contentType?.trim()
+  ) {
+    return undefined as T
+  }
+
   return (await response.json()) as T
 }
 
-function openOAuthWindow(authUrl: string): Promise<void> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function openOAuthWindow(authUrl: string): OAuthWindowHandle {
   if (typeof window === "undefined") {
-    return Promise.resolve()
+    return {
+      openedPopup: null,
+      usedFallbackTab: false,
+    }
   }
 
   const popup = window.open(
@@ -169,21 +245,74 @@ function openOAuthWindow(authUrl: string): Promise<void> {
 
   if (!popup) {
     window.open(authUrl, "_blank", "noopener,noreferrer")
-    return Promise.resolve()
+    return {
+      openedPopup: null,
+      usedFallbackTab: true,
+    }
   }
 
-  return new Promise((resolve) => {
-    const startedAt = Date.now()
-    const interval = window.setInterval(() => {
-      if (popup.closed || Date.now() - startedAt > 5 * 60 * 1000) {
-        window.clearInterval(interval)
-        resolve()
-      }
-    }, 500)
-  })
+  return {
+    openedPopup: popup,
+    usedFallbackTab: false,
+  }
 }
 
-export async function initiateOAuthFlow(): Promise<void> {
+async function waitForOAuthConnection(
+  windowHandle: OAuthWindowHandle,
+  options: OAuthConnectionWaitOptions = {},
+): Promise<SyncStatus> {
+  if (typeof window === "undefined") {
+    return checkSyncStatus()
+  }
+
+  const timeoutMs = options.timeoutMs ?? OAUTH_CONNECTION_TIMEOUT_MS
+  const pollIntervalMs =
+    options.pollIntervalMs ?? OAUTH_CONNECTION_POLL_INTERVAL_MS
+  const closedGraceMs = options.closedGraceMs ?? OAUTH_POPUP_CLOSED_GRACE_MS
+  const startedAt = Date.now()
+  let popupClosedAt: number | null = null
+  let lastError: unknown
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    try {
+      const status = await checkSyncStatus()
+
+      if (status.connected) {
+        return status
+      }
+    } catch (error) {
+      lastError = error
+    }
+
+    const popupClosed = Boolean(
+      windowHandle.openedPopup && windowHandle.openedPopup.closed,
+    )
+
+    if (popupClosed && popupClosedAt === null) {
+      popupClosedAt = Date.now()
+    }
+
+    if (popupClosedAt !== null && Date.now() - popupClosedAt >= closedGraceMs) {
+      break
+    }
+
+    await sleep(pollIntervalMs)
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError
+  }
+
+  throw new Error(
+    windowHandle.usedFallbackTab
+      ? "Trakt connection was not confirmed. Return to ShowSeek and try again after completing authorization."
+      : "Trakt connection was not confirmed. Please finish the Trakt authorization and try again.",
+  )
+}
+
+export async function initiateOAuthFlow(
+  options?: OAuthConnectionWaitOptions,
+): Promise<SyncStatus> {
   const payload = await traktFetch<{ authUrl?: string }>(
     "/api/trakt/oauth/start",
     {
@@ -197,7 +326,8 @@ export async function initiateOAuthFlow(): Promise<void> {
     throw new Error("Missing Trakt OAuth URL from backend")
   }
 
-  await openOAuthWindow(payload.authUrl)
+  const windowHandle = openOAuthWindow(payload.authUrl)
+  return waitForOAuthConnection(windowHandle, options)
 }
 
 export async function triggerSync(): Promise<void> {
@@ -219,9 +349,12 @@ export async function triggerSync(): Promise<void> {
   }
 }
 
-export async function checkSyncStatus(): Promise<SyncStatus> {
+export async function checkSyncStatus(
+  options: { signal?: AbortSignal } = {},
+): Promise<SyncStatus> {
   return traktFetch<SyncStatus>("/api/trakt/sync", {
     fallbackMessage: "Failed to check sync status",
+    signal: options.signal,
     timeoutMs: 10000,
   })
 }

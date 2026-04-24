@@ -100,6 +100,33 @@ describe("Trakt proxy routes", () => {
     )
   })
 
+  it("normalizes empty request bodies to undefined", async () => {
+    vi.stubEnv("TRAKT_BACKEND_URL", "https://functions.example/traktApi")
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { POST } = await import("../app/api/trakt/disconnect/route")
+    const response = await POST(
+      new NextRequest("https://showseek.test/api/trakt/disconnect", {
+        body: "",
+        headers: {
+          Authorization: "Bearer firebase-id-token",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    )
+
+    expect(response.status).toBe(204)
+    expect(fetch).toHaveBeenCalledWith(
+      "https://functions.example/traktApi/disconnect",
+      expect.objectContaining({
+        body: undefined,
+        headers: { Authorization: "Bearer firebase-id-token" },
+        method: "POST",
+      }),
+    )
+  })
+
   it("passes backend errors through to the client", async () => {
     vi.stubEnv("TRAKT_BACKEND_URL", "https://functions.example/traktApi")
     vi.mocked(fetch).mockResolvedValue(

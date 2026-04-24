@@ -69,7 +69,6 @@ Keep the Worker runtime configuration populated as well. The current runtime sec
 - `FIREBASE_ADMIN_PRIVATE_KEY`
 - `TURNSTILE_SECRET_KEY`
 - `TRAKT_CLIENT_ID`
-- `TRAKT_BACKEND_URL` (optional override for the deployed Trakt function)
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
 Run this after changing any of those secrets in `.env`:
@@ -83,7 +82,7 @@ development can supply it from `.env.local`, and production must set it as a
 Cloudflare Worker secret. The public widget key is
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
 
-Non-secret runtime vars such as `NEXTJS_ENV`, the Firebase public web config, and optional public flags are generated into `.wrangler/wrangler.local.jsonc` from `.env`.
+Non-secret runtime vars such as `NEXTJS_ENV`, the Firebase public web config, optional public flags, and `TRAKT_BACKEND_URL` (optional, non-sensitive URL override; no secret handling required) are generated into `.wrangler/wrangler.local.jsonc` from `.env`.
 
 For local Cloudflare preview, copy `.dev.vars.example` to `.dev.vars` or run:
 

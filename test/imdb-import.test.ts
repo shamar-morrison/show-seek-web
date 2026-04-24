@@ -104,6 +104,55 @@ describe("imdbImport utilities", () => {
     expect(prepared.chunks[0].entities[0].actions).toHaveLength(2)
   })
 
+  it("counts Papa parse errors as malformed rows when the file can still be processed", () => {
+    const prepared = prepareImdbImport([
+      {
+        fileName: "ratings.csv",
+        content: [
+          "Const,Your Rating,Date Rated,Title,Title Type",
+          "tt0133093,9",
+        ].join("\n"),
+      },
+    ])
+
+    expect(prepared.files).toHaveLength(1)
+    expect(prepared.stats.skipped.malformed_row).toBe(1)
+    expect(prepared.stats.skipped.invalid_date).toBe(1)
+  })
+
+  it("marks header parse failures as unsupported files", () => {
+    const prepared = prepareImdbImport([
+      {
+        fileName: "ratings.csv",
+        content: "",
+      },
+    ])
+
+    expect(prepared.files).toHaveLength(0)
+    expect(prepared.unsupportedFiles).toEqual(["ratings.csv"])
+    expect(prepared.stats.skipped.unsupported_file).toBe(1)
+  })
+
+  it("leaves IMDb list addedAt undefined when the export has no dates", () => {
+    const prepared = prepareImdbImport([
+      {
+        fileName: "watchlist.csv",
+        content: [
+          "Const,Created,Modified,Description,Title,Title Type",
+          "tt0133093,,,,The Matrix,movie",
+        ].join("\n"),
+      },
+    ])
+
+    expect(prepared.chunks[0].entities[0].actions[0]).toMatchObject({
+      kind: "list",
+      listName: "watchlist",
+    })
+    expect(prepared.chunks[0].entities[0].actions[0]).not.toHaveProperty(
+      "addedAt",
+    )
+  })
+
   it("splits oversized grouped entities across chunks", () => {
     const rows = [
       "Const,Your Rating,Date Rated,Title,Title Type",

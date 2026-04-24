@@ -174,8 +174,25 @@ describe("TraktSettingsModal", () => {
     expect(screen.getByText("Imported")).toBeInTheDocument()
     expect(screen.getByText("Movies")).toBeInTheDocument()
     expect(screen.getByText("3")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /sync now/i })).toBeEnabled()
+    expect(screen.getByRole("button", { name: /mirror now/i })).toBeEnabled()
     expect(screen.getByRole("button", { name: /enrich data/i })).toBeEnabled()
+  })
+
+  it("disables enrichment before the first successful import", () => {
+    mocks.traktState.isConnected = true
+    mocks.traktState.lastSyncedAt = null
+    mocks.traktState.syncStatus = {
+      connected: true,
+      status: "idle",
+      synced: false,
+    }
+
+    render(<TraktSettingsModal open onOpenChange={vi.fn()} />)
+
+    expect(
+      screen.getByRole("button", { name: /import from trakt/i }),
+    ).toBeEnabled()
+    expect(screen.getByRole("button", { name: /enrich data/i })).toBeDisabled()
   })
 
   it("shows a no-change state when a completed sync imported nothing", () => {
@@ -223,6 +240,24 @@ describe("TraktSettingsModal", () => {
       screen.getByText(
         "Your account has too much Trakt data to import safely.",
       ),
+    ).toBeInTheDocument()
+  })
+
+  it("shows past retry timestamps as available now", () => {
+    mocks.traktState.isConnected = true
+    mocks.traktState.syncStatus = {
+      connected: true,
+      errorCategory: "rate_limited",
+      errorMessage: "Try again later.",
+      nextAllowedSyncAt: "2000-01-01T00:00:00.000Z",
+      status: "failed",
+      synced: true,
+    }
+
+    render(<TraktSettingsModal open onOpenChange={vi.fn()} />)
+
+    expect(
+      screen.getByText("Next import is available now."),
     ).toBeInTheDocument()
   })
 })

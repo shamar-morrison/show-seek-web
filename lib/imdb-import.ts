@@ -81,6 +81,7 @@ export function prepareImdbImport(
       })
     })
 
+    // processedEntities counts unique titles; processedActions counts row actions.
     parsedFile.stats.processedEntities = new Set(
       parsedFile.entities.map((entity) => entity.imdbId),
     ).size
@@ -319,6 +320,14 @@ function parseImdbImportFile(file: RawImdbImportFile): {
   })
 
   const headers = parsed.meta.fields ?? []
+  const hasHeaderParseFailure =
+    headers.length === 0 ||
+    parsed.errors.some((error) => error.type === "Delimiter")
+
+  if (hasHeaderParseFailure) {
+    return null
+  }
+
   const kind = detectImdbFileKind(headers, file.fileName)
 
   if (!kind) {
@@ -327,6 +336,14 @@ function parseImdbImportFile(file: RawImdbImportFile): {
 
   const stats = createEmptyImdbImportStats()
   const entities: ImdbImportEntity[] = []
+
+  if (parsed.errors.length > 0) {
+    stats.skipped = incrementImportStat(
+      stats.skipped,
+      "malformed_row" satisfies ImdbImportSkipReason,
+      parsed.errors.length,
+    )
+  }
 
   parsed.data.forEach((row) => {
     const normalizedRow = normalizeCsvRow(row)
@@ -383,7 +400,6 @@ function parseImdbImportFile(file: RawImdbImportFile): {
           ],
         })
         stats.processedActions += 1
-        stats.processedEntities += 1
         break
       }
       case "watchlist":
@@ -407,25 +423,24 @@ function parseImdbImportFile(file: RawImdbImportFile): {
         const addedAt =
           parseImdbDateToMs(normalizedRow[NORMALIZED_HEADER_KEYS.created]) ??
           parseImdbDateToMs(normalizedRow[NORMALIZED_HEADER_KEYS.modified]) ??
-          Date.now()
+          undefined
 
         entities.push({
           ...baseEntity,
           actions: [
             {
               kind: "list",
-              addedAt,
               isWatchlist: kind === "watchlist",
               listName:
                 kind === "watchlist"
                   ? IMDB_RESERVED_FILE_STEMS.watchlist
                   : formatImportedListName(file.fileName),
               sourceFileName: file.fileName,
+              ...(addedAt !== undefined ? { addedAt } : {}),
             },
           ],
         })
         stats.processedActions += 1
-        stats.processedEntities += 1
         break
       }
       case "checkins": {
@@ -457,7 +472,6 @@ function parseImdbImportFile(file: RawImdbImportFile): {
           ],
         })
         stats.processedActions += 1
-        stats.processedEntities += 1
         break
       }
     }

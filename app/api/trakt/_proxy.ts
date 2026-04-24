@@ -77,7 +77,8 @@ export async function proxyTraktRequest(
   let body: string | undefined
 
   if (request.method !== "GET" && request.method !== "HEAD") {
-    body = await request.text()
+    const requestBody = await request.text()
+    body = requestBody === "" ? undefined : requestBody
     if (body) {
       requestHeaders["Content-Type"] =
         request.headers.get("content-type") ?? "application/json"
@@ -93,10 +94,13 @@ export async function proxyTraktRequest(
     })
     const responseText = await backendResponse.text()
 
-    return new NextResponse(responseText, {
-      status: backendResponse.status,
-      headers: copyResponseHeaders(backendResponse),
-    })
+    return new NextResponse(
+      backendResponse.status === 204 ? null : responseText,
+      {
+        status: backendResponse.status,
+        headers: copyResponseHeaders(backendResponse),
+      },
+    )
   } catch (error) {
     console.error("Trakt proxy request failed:", error)
     return NextResponse.json(

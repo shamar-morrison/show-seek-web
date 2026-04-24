@@ -79,6 +79,7 @@ function formatRetryTime(value: string | undefined): string | null {
 
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return null
+  if (parsed.getTime() <= Date.now()) return "now"
 
   return formatDistanceToNow(parsed, { addSuffix: true })
 }
@@ -278,6 +279,8 @@ export function TraktSettingsModal({
   })
   const isBusy = isLoading || isConnecting || isDisconnecting
   const isImportUnavailable = isBusy || isSyncing || !isConnected
+  const isEnrichUnavailable =
+    isBusy || isEnriching || isSyncing || !lastSyncedAt
 
   const retryText = useMemo(() => {
     if (syncStatus?.status !== "retrying") return null
@@ -514,7 +517,7 @@ export function TraktSettingsModal({
                       </Button>
                       <Button
                         className="sm:flex-1"
-                        disabled={isBusy || isEnriching || isSyncing}
+                        disabled={isEnrichUnavailable}
                         onClick={handleEnrich}
                         variant="outline"
                       >

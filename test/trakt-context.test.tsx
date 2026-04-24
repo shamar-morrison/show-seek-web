@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => {
     disconnectTrakt: vi.fn(),
     initiateOAuthFlow: vi.fn(),
     invalidateQueries: vi.fn(),
+    resetTraktManagedEditWarnings: vi.fn(),
     triggerEnrichment: vi.fn(),
     triggerSync: vi.fn(),
   }
@@ -52,6 +53,10 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
   }),
+}))
+
+vi.mock("@/lib/trakt-managed-edits", () => ({
+  resetTraktManagedEditWarnings: mocks.resetTraktManagedEditWarnings,
 }))
 
 vi.mock("@/services/trakt-service", () => ({
@@ -75,6 +80,7 @@ function idleStatus(overrides: Record<string, unknown> = {}) {
 
 async function renderProbe() {
   const { TraktProvider, useTrakt } = await import("@/context/trakt-context")
+  let result: ReturnType<typeof render> | undefined
 
   function Probe() {
     const trakt = useTrakt()
@@ -120,18 +126,30 @@ async function renderProbe() {
         >
           disconnect
         </button>
+        <button
+          onClick={() =>
+            void trakt.checkSyncStatus().catch((caught: Error) => {
+              setError(caught.message)
+            })
+          }
+          type="button"
+        >
+          check
+        </button>
       </div>
     )
   }
 
   await act(async () => {
-    render(
+    result = render(
       <TraktProvider>
         <Probe />
       </TraktProvider>,
     )
     await Promise.resolve()
   })
+
+  return result!
 }
 
 describe("TraktProvider", () => {
@@ -149,7 +167,7 @@ describe("TraktProvider", () => {
       status: "idle",
     })
     mocks.disconnectTrakt.mockResolvedValue(undefined)
-    mocks.initiateOAuthFlow.mockResolvedValue(undefined)
+    mocks.initiateOAuthFlow.mockResolvedValue(idleStatus())
     mocks.triggerEnrichment.mockResolvedValue(undefined)
     mocks.triggerSync.mockResolvedValue(undefined)
   })
@@ -207,43 +225,88 @@ describe("TraktProvider", () => {
     })
   })
 
-  it("finishes the connect flow by checking status after the OAuth popup closes", async () => {
-    const originalSetTimeout = window.setTimeout
-    vi.spyOn(window, "setTimeout").mockImplementation(((
-      handler: TimerHandler,
-      timeout?: number,
-      ...args: unknown[]
-    ) => {
-      if (timeout === 2000 && typeof handler === "function") {
-        queueMicrotask(() => handler(...args))
-        return originalSetTimeout(() => undefined, 0)
-      }
-
-      return originalSetTimeout(handler, timeout, ...args)
-    }) as never)
+  it("applies the connected status returned by the OAuth flow", async () => {
+    const connectedStatus = idleStatus({
+      connected: true,
+      lastSyncedAt: "2026-04-20T12:00:00.000Z",
+      status: "idle",
+      synced: false,
+    })
     const user = userEvent.setup()
 
     await renderProbe()
     await waitFor(() => {
       expect(screen.getByTestId("loading")).toHaveTextContent("false")
     })
-    const checksBeforeConnect = mocks.checkSyncStatus.mock.calls.length
-    mocks.checkSyncStatus.mockResolvedValueOnce(
-      idleStatus({
-        connected: true,
-        lastSyncedAt: "2026-04-20T12:00:00.000Z",
-        status: "completed",
-        synced: true,
-      }),
-    )
+    mocks.checkSyncStatus.mockResolvedValue(connectedStatus)
+    mocks.initiateOAuthFlow.mockResolvedValueOnce(connectedStatus)
 
     await user.click(screen.getByRole("button", { name: "connect" }))
 
     expect(mocks.initiateOAuthFlow).toHaveBeenCalled()
     await waitFor(() => {
-      expect(mocks.checkSyncStatus.mock.calls.length).toBeGreaterThan(
-        checksBeforeConnect,
-      )
+      expect(screen.getByTestId("connected")).toHaveTextContent("true")
+    })
+    expect(screen.getByTestId("last-synced")).toHaveTextContent(
+      "2026-04-20T12:00:00.000Z",
+    )
+  })
+
+  it("aborts the initial status request on cleanup", async () => {
+    let capturedSignal: AbortSignal | undefined
+    let resolveStatus:
+      | ((value: ReturnType<typeof idleStatus>) => void)
+      | undefined
+    mocks.checkSyncStatus.mockImplementationOnce(
+      (options?: { signal?: AbortSignal }) => {
+        capturedSignal = options?.signal
+        return new Promise((resolve) => {
+          resolveStatus = resolve
+        })
+      },
+    )
+
+    const view = await renderProbe()
+
+    expect(capturedSignal?.aborted).toBe(false)
+
+    view.unmount()
+
+    expect(capturedSignal?.aborted).toBe(true)
+
+    await act(async () => {
+      resolveStatus?.(idleStatus({ connected: true, synced: true }))
+      await Promise.resolve()
+    })
+  })
+
+  it("does not consume the auto-sync attempt while still inside cooldown", async () => {
+    const user = userEvent.setup()
+    const recentStatus = idleStatus({
+      connected: true,
+      lastSyncedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      status: "completed",
+      synced: true,
+    })
+    const staleStatus = idleStatus({
+      connected: true,
+      lastSyncedAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+      status: "completed",
+      synced: true,
+    })
+    mocks.checkSyncStatus.mockResolvedValue(recentStatus)
+
+    await renderProbe()
+    await waitFor(() => {
+      expect(screen.getByTestId("connected")).toHaveTextContent("true")
+    })
+    expect(mocks.triggerSync).not.toHaveBeenCalled()
+
+    mocks.checkSyncStatus.mockResolvedValueOnce(staleStatus)
+    await user.click(screen.getByRole("button", { name: "check" }))
+
+    await waitFor(() => {
+      expect(mocks.triggerSync).toHaveBeenCalled()
     })
   })
 
@@ -332,6 +395,7 @@ describe("TraktProvider", () => {
       expect(screen.getByTestId("connected")).toHaveTextContent("false")
     })
     expect(mocks.disconnectTrakt).toHaveBeenCalled()
+    expect(mocks.resetTraktManagedEditWarnings).toHaveBeenCalled()
     expect(localStorage.getItem("showseek_trakt_state_v1_user-1")).toBeNull()
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["firestore", "lists", "user-1"],

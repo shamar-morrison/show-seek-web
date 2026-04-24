@@ -28,7 +28,7 @@ export type ImdbImportAction =
     }
   | {
       kind: "list"
-      addedAt: number
+      addedAt?: number
       isWatchlist: boolean
       listName: string
       sourceFileName: string

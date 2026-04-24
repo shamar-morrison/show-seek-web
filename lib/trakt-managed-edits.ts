@@ -1,5 +1,9 @@
 const warnedManagedEditKinds = new Set<"list" | "rating" | "watched">()
 
+export function resetTraktManagedEditWarnings() {
+  warnedManagedEditKinds.clear()
+}
+
 export function isTraktManagedListId(listId?: string | null): boolean {
   return Boolean(
     listId &&

@@ -1,5 +1,5 @@
 import { ImdbImportModal } from "@/components/profile/imdb-import-modal"
-import { fireEvent, render, screen, waitFor } from "@/test/utils"
+import { fireEvent, render, screen, waitFor, within } from "@/test/utils"
 import type { PreparedImdbImport } from "@/lib/imdb-import"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -186,6 +186,11 @@ describe("ImdbImportModal", () => {
 
     expect(screen.getByText("ratings.csv")).toBeInTheDocument()
     expect(screen.getByText("watchlist.csv")).toBeInTheDocument()
-    expect(screen.getAllByText("2")).toHaveLength(2)
+    expect(
+      within(screen.getByText("Files").parentElement!).getByText("2"),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByText("Supported rows").parentElement!).getByText("2"),
+    ).toBeInTheDocument()
   })
 })

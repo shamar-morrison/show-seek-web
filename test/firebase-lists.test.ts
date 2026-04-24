@@ -196,6 +196,69 @@ describe("fetchUserList", () => {
     })
   })
 
+  it("defaults missing, non-numeric, and NaN item timestamps to zero", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Already Watched",
+        items: {
+          "movie-123": {
+            id: 123,
+            title: "Missing Date",
+            poster_path: null,
+            media_type: "movie",
+          },
+          "movie-456": {
+            id: 456,
+            title: "Bad Date",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: "yesterday",
+          },
+          "movie-789": {
+            id: 789,
+            title: "NaN Date",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: createTimestampLike(Number.NaN),
+          },
+        },
+      }),
+      exists: () => true,
+      id: "already-watched",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    const list = await fetchUserList("user-1", "already-watched")
+
+    expect(list?.items["movie-123"].addedAt).toBe(0)
+    expect(list?.items["movie-456"].addedAt).toBe(0)
+    expect(list?.items["movie-789"].addedAt).toBe(0)
+  })
+
+  it("omits non-record list items", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      data: () => ({
+        name: "Already Watched",
+        items: {
+          "movie-123": null,
+          "movie-456": "bad",
+          "movie-789": {
+            id: 789,
+            title: "Valid",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 1710000000000,
+          },
+        },
+      }),
+      exists: () => true,
+      id: "already-watched",
+    } as Awaited<ReturnType<typeof getDoc>>)
+
+    const list = await fetchUserList("user-1", "already-watched")
+
+    expect(Object.keys(list?.items ?? {})).toEqual(["movie-789"])
+  })
+
   it("returns null when the list document does not exist", async () => {
     vi.mocked(getDoc).mockResolvedValue({
       exists: () => false,
@@ -247,6 +310,42 @@ describe("fetchUserLists", () => {
         },
       }),
     ])
+  })
+
+  it("normalizes invalid list items while fetching multiple lists", async () => {
+    vi.mocked(getDocs).mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            name: "Already Watched",
+            items: {
+              "movie-123": {
+                id: 123,
+                title: "Missing Date",
+                poster_path: null,
+                media_type: "movie",
+              },
+              "movie-456": {
+                id: 456,
+                title: "NaN Date",
+                poster_path: null,
+                media_type: "movie",
+                addedAt: createTimestampLike(Number.NaN),
+              },
+              "movie-789": "bad",
+            },
+          }),
+          id: "already-watched",
+        },
+      ],
+    } as Awaited<ReturnType<typeof getDocs>>)
+
+    const lists = await fetchUserLists("user-1")
+
+    expect(lists[0].items).toEqual({
+      "movie-123": expect.objectContaining({ addedAt: 0 }),
+      "movie-456": expect.objectContaining({ addedAt: 0 }),
+    })
   })
 })
 

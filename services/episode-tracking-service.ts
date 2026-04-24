@@ -177,8 +177,8 @@ class EpisodeTrackingService {
 
       if (markPreviousEpisodesWatched && seasonEpisodes?.length) {
         const snapshot = await this.withTimeout(getDoc(trackingRef))
-        const existingEpisodes: Record<string, unknown> = snapshot.exists()
-          ? ((snapshot.data() as Partial<TVShowEpisodeTracking>).episodes ?? {})
+        const existingEpisodes = snapshot.exists()
+          ? normalizeEpisodeTrackingDoc(snapshot.data()).episodes
           : {}
 
         seasonEpisodes.forEach((seasonEpisode) => {

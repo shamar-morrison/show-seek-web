@@ -361,6 +361,15 @@ export function useListMutations() {
     },
   })
 
+  const updateList = async (
+    listId: string,
+    newName: string,
+    description?: string,
+  ) => {
+    maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
+    return updateListMutation.mutateAsync({ listId, newName, description })
+  }
+
   return {
     addToList: async (listId: string, mediaItem: ListWriteMediaItem) => {
       maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
@@ -384,22 +393,8 @@ export function useListMutations() {
     },
     createList: async (name: string, description?: string) =>
       createListMutation.mutateAsync({ name, description }),
-    updateList: async (
-      listId: string,
-      newName: string,
-      description?: string,
-    ) => {
-      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
-      return updateListMutation.mutateAsync({ listId, newName, description })
-    },
-    renameList: async (
-      listId: string,
-      newName: string,
-      description?: string,
-    ) => {
-      maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
-      return updateListMutation.mutateAsync({ listId, newName, description })
-    },
+    updateList,
+    renameList: updateList,
     deleteList: async (listId: string) => {
       maybeWarnTraktManagedListEdit(isTraktConnected, [listId], toast.info)
       return deleteListMutation.mutateAsync({ listId })

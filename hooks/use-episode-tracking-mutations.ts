@@ -388,41 +388,25 @@ export function useEpisodeTrackingMutations() {
     applyOptimistic: () => null,
   })
 
+  const wrapWithTraktWarning =
+    <TVariables, TResult>(mutation: {
+      mutateAsync: (variables: TVariables) => Promise<TResult>
+    }) =>
+    async (variables: TVariables) => {
+      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
+      return mutation.mutateAsync(variables)
+    }
+
   return {
-    markEpisodeWatched: async (
-      variables: Parameters<typeof markEpisodeWatchedMutation.mutateAsync>[0],
-    ) => {
-      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
-      return markEpisodeWatchedMutation.mutateAsync(variables)
-    },
-    markEpisodeUnwatched: async (
-      variables: Parameters<typeof markEpisodeUnwatchedMutation.mutateAsync>[0],
-    ) => {
-      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
-      return markEpisodeUnwatchedMutation.mutateAsync(variables)
-    },
-    markAllEpisodesWatched: async (
-      variables: Parameters<
-        typeof markAllEpisodesWatchedMutation.mutateAsync
-      >[0],
-    ) => {
-      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
-      return markAllEpisodesWatchedMutation.mutateAsync(variables)
-    },
-    markAllEpisodesUnwatched: async (
-      variables: Parameters<
-        typeof markAllEpisodesUnwatchedMutation.mutateAsync
-      >[0],
-    ) => {
-      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
-      return markAllEpisodesUnwatchedMutation.mutateAsync(variables)
-    },
-    clearAllEpisodes: async (
-      variables: Parameters<typeof clearAllEpisodesMutation.mutateAsync>[0],
-    ) => {
-      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
-      return clearAllEpisodesMutation.mutateAsync(variables)
-    },
+    markEpisodeWatched: wrapWithTraktWarning(markEpisodeWatchedMutation),
+    markEpisodeUnwatched: wrapWithTraktWarning(markEpisodeUnwatchedMutation),
+    markAllEpisodesWatched: wrapWithTraktWarning(
+      markAllEpisodesWatchedMutation,
+    ),
+    markAllEpisodesUnwatched: wrapWithTraktWarning(
+      markAllEpisodesUnwatchedMutation,
+    ),
+    clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||

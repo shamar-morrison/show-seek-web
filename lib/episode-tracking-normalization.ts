@@ -45,19 +45,27 @@ function normalizeEpisode(
 
   const [seasonString, episodeString] = episodeKey.split("_")
   const seasonNumber =
-    typeof rawEpisode.seasonNumber === "number"
+    typeof rawEpisode.seasonNumber === "number" &&
+    Number.isFinite(rawEpisode.seasonNumber)
       ? rawEpisode.seasonNumber
       : Number(seasonString)
   const episodeNumber =
-    typeof rawEpisode.episodeNumber === "number"
+    typeof rawEpisode.episodeNumber === "number" &&
+    Number.isFinite(rawEpisode.episodeNumber)
       ? rawEpisode.episodeNumber
       : Number(episodeString)
 
   return {
-    ...rawEpisode,
     episodeId:
-      typeof rawEpisode.episodeId === "number" ? rawEpisode.episodeId : 0,
-    tvShowId: typeof rawEpisode.tvShowId === "number" ? rawEpisode.tvShowId : 0,
+      typeof rawEpisode.episodeId === "number" &&
+      Number.isFinite(rawEpisode.episodeId)
+        ? rawEpisode.episodeId
+        : 0,
+    tvShowId:
+      typeof rawEpisode.tvShowId === "number" &&
+      Number.isFinite(rawEpisode.tvShowId)
+        ? rawEpisode.tvShowId
+        : 0,
     seasonNumber: Number.isFinite(seasonNumber) ? seasonNumber : 0,
     episodeNumber: Number.isFinite(episodeNumber) ? episodeNumber : 0,
     watchedAt: toMillis(rawEpisode.watchedAt) ?? 0,
@@ -67,20 +75,67 @@ function normalizeEpisode(
       typeof rawEpisode.episodeAirDate === "string"
         ? rawEpisode.episodeAirDate
         : null,
-  } as WatchedEpisode
+  }
 }
 
-function normalizeMetadata(rawMetadata: unknown): EpisodeTrackingMetadata {
-  const metadata = isRecord(rawMetadata) ? rawMetadata : {}
+type NormalizedMetadata = Omit<EpisodeTrackingMetadata, "lastUpdated"> & {
+  lastUpdated: number | null
+}
+
+function normalizeNextEpisode(
+  rawNextEpisode: unknown,
+): EpisodeTrackingMetadata["nextEpisode"] | undefined {
+  if (rawNextEpisode === null) {
+    return null
+  }
+
+  if (!isRecord(rawNextEpisode)) {
+    return undefined
+  }
+
+  const season = rawNextEpisode.season
+  const episode = rawNextEpisode.episode
+
+  if (
+    typeof season !== "number" ||
+    !Number.isFinite(season) ||
+    typeof episode !== "number" ||
+    !Number.isFinite(episode)
+  ) {
+    return undefined
+  }
 
   return {
-    ...metadata,
+    season,
+    episode,
+    title: typeof rawNextEpisode.title === "string" ? rawNextEpisode.title : "",
+    airDate:
+      typeof rawNextEpisode.airDate === "string"
+        ? rawNextEpisode.airDate
+        : null,
+  }
+}
+
+function normalizeMetadata(rawMetadata: unknown): NormalizedMetadata {
+  const metadata = isRecord(rawMetadata) ? rawMetadata : {}
+  const totalEpisodes = metadata.totalEpisodes
+  const avgRuntime = metadata.avgRuntime
+  const nextEpisode = normalizeNextEpisode(metadata.nextEpisode)
+
+  return {
     tvShowName:
       typeof metadata.tvShowName === "string" ? metadata.tvShowName : "",
     posterPath:
       typeof metadata.posterPath === "string" ? metadata.posterPath : null,
-    lastUpdated: toMillis(metadata.lastUpdated) ?? 0,
-  } as EpisodeTrackingMetadata
+    lastUpdated: toMillis(metadata.lastUpdated),
+    ...(typeof totalEpisodes === "number" && Number.isFinite(totalEpisodes)
+      ? { totalEpisodes }
+      : {}),
+    ...(typeof avgRuntime === "number" && Number.isFinite(avgRuntime)
+      ? { avgRuntime }
+      : {}),
+    ...(nextEpisode !== undefined ? { nextEpisode } : {}),
+  }
 }
 
 export function normalizeEpisodeTrackingDoc(
@@ -99,15 +154,20 @@ export function normalizeEpisodeTrackingDoc(
 
   const metadata = normalizeMetadata(data.metadata)
 
-  if (!metadata.lastUpdated) {
+  if (metadata.lastUpdated == null) {
     metadata.lastUpdated = Math.max(
       0,
       ...Object.values(episodes).map((episode) => episode.watchedAt),
     )
   }
 
+  const normalizedMetadata: EpisodeTrackingMetadata = {
+    ...metadata,
+    lastUpdated: metadata.lastUpdated ?? 0,
+  }
+
   return {
     episodes,
-    metadata,
+    metadata: normalizedMetadata,
   }
 }
