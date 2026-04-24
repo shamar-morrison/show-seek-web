@@ -92,6 +92,59 @@ function getComparableUpdatedAt(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
+function normalizeTimestampLike(value: unknown): unknown {
+  if (isTimestampLike(value)) {
+    const millis = value.toMillis()
+    return Number.isFinite(millis) ? millis : value
+  }
+
+  return value
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function normalizeListItems(
+  items: unknown,
+): Record<string, ListWriteMediaItem & { addedAt: number }> {
+  if (!isRecord(items)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(items).flatMap(([itemKey, item]) => {
+      if (!isRecord(item)) {
+        return []
+      }
+
+      const normalizedAddedAt = normalizeTimestampLike(item.addedAt)
+
+      return [
+        [
+          itemKey,
+          {
+            ...item,
+            addedAt:
+              typeof normalizedAddedAt === "number" ? normalizedAddedAt : 0,
+          } as ListWriteMediaItem & { addedAt: number },
+        ],
+      ]
+    }),
+  )
+}
+
+function normalizeUserList(
+  listId: string,
+  data: Record<string, unknown>,
+): UserList {
+  return {
+    id: listId,
+    ...data,
+    items: normalizeListItems(data.items),
+  } as UserList
+}
+
 /**
  * Fetch all user lists with a one-time read.
  */
@@ -99,12 +152,8 @@ export async function fetchUserLists(userId: string): Promise<UserList[]> {
   const listsRef = getListsCollectionRef(userId)
   const snapshot = await getDocs(listsRef)
 
-  return snapshot.docs.map(
-    (listSnapshot) =>
-      ({
-        id: listSnapshot.id,
-        ...listSnapshot.data(),
-      }) as UserList,
+  return snapshot.docs.map((listSnapshot) =>
+    normalizeUserList(listSnapshot.id, listSnapshot.data()),
   )
 }
 
@@ -123,9 +172,8 @@ export async function fetchUserList(
   }
 
   return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as UserList
+    ...normalizeUserList(snapshot.id, snapshot.data()),
+  }
 }
 
 /**
@@ -377,7 +425,9 @@ export async function updateList(
   }
 
   if (description !== undefined) {
-    payload.description = trimmedDescription ? trimmedDescription : deleteField()
+    payload.description = trimmedDescription
+      ? trimmedDescription
+      : deleteField()
   }
 
   await updateDoc(listRef, payload)

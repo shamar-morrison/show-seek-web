@@ -2,6 +2,7 @@
 
 import { fetchMovieDetails } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
+import { useOptionalTrakt } from "@/context/trakt-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import {
@@ -24,6 +25,7 @@ import {
   queryKeys,
   UNAUTHENTICATED_USER_ID,
 } from "@/lib/react-query/query-keys"
+import { maybeWarnTraktManagedWatchedEdit } from "@/lib/trakt-managed-edits"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
@@ -160,11 +162,12 @@ export function useWatchedMovies(
   options: { enabled?: boolean } = { enabled: true },
 ): UseWatchedMoviesReturn {
   const { user, loading: authLoading } = useAuth()
-  const { addToList, removeFromList, removeMediaFromList } =
-    useListMutations()
+  const trakt = useOptionalTrakt()
+  const { addToList, removeFromList, removeMediaFromList } = useListMutations()
   const queryClient = useQueryClient()
 
   const userId = user && !user.isAnonymous ? user.uid : null
+  const isTraktConnected = Boolean(trakt?.isConnected)
   const enabled = !!options.enabled && !!userId
   const watchesReadQueryKey = queryKeys.firestore.watchedMovies(
     userId ?? UNAUTHENTICATED_USER_ID,
@@ -404,7 +407,10 @@ export function useWatchedMovies(
           .map((watch) =>
             watch.id === watchId ? { ...watch, watchedAt } : watch,
           )
-          .sort((left, right) => right.watchedAt.getTime() - left.watchedAt.getTime()),
+          .sort(
+            (left, right) =>
+              right.watchedAt.getTime() - left.watchedAt.getTime(),
+          ),
       )
 
       return { previousWatches } satisfies WatchMutationContext
@@ -439,6 +445,7 @@ export function useWatchedMovies(
       autoAddToAlreadyWatched: boolean = false,
       autoRemoveFromShouldWatch: boolean = false,
     ): Promise<void> => {
+      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
       try {
         const { watchId } = await addWatchMutationRef.current({
           watchedAt,
@@ -454,7 +461,10 @@ export function useWatchedMovies(
             onClick: async () => {
               await deleteWatch(userId as string, movieId, watchId)
 
-              const remainingWatches = await getWatchCount(userId as string, movieId)
+              const remainingWatches = await getWatchCount(
+                userId as string,
+                movieId,
+              )
               if (remainingWatches === 0) {
                 const resolvedCollectionId = await resolveCollectionId(
                   movieId,
@@ -489,10 +499,18 @@ export function useWatchedMovies(
         toast.error(`Failed to mark as watched: ${errorMessage}`)
       }
     },
-    [instances.length, movieId, queryClient, userId, watchesQueryKey],
+    [
+      instances.length,
+      isTraktConnected,
+      movieId,
+      queryClient,
+      userId,
+      watchesQueryKey,
+    ],
   )
 
   const clearAllWatches = useCallback(async (): Promise<void> => {
+    maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
     try {
       const previousWatches = instances.map((watch) => ({
         ...watch,
@@ -538,7 +556,14 @@ export function useWatchedMovies(
       toast.error(`Failed to clear watch history: ${errorMessage}`)
       throw error
     }
-  }, [instances, movieId, queryClient, userId, watchesQueryKey])
+  }, [
+    instances,
+    isTraktConnected,
+    movieId,
+    queryClient,
+    userId,
+    watchesQueryKey,
+  ])
 
   const deleteWatchInstance = useCallback(
     async (watchId: string): Promise<void> => {
@@ -555,14 +580,15 @@ export function useWatchedMovies(
           }
         : null
 
+      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
+
       try {
         await deleteWatchMutationRef.current({ watchId })
 
         const remainingWatchCount =
           (watchesQueryKey
             ? queryClient.getQueryData<WatchInstance[]>(watchesQueryKey)?.length
-            : undefined) ??
-          (userId ? await getWatchCount(userId, movieId) : 0)
+            : undefined) ?? (userId ? await getWatchCount(userId, movieId) : 0)
         let removedCollectionIds: number[] = []
 
         if (remainingWatchCount === 0 && userId) {
@@ -615,11 +641,19 @@ export function useWatchedMovies(
         throw error
       }
     },
-    [instances, movieId, queryClient, userId, watchesQueryKey],
+    [
+      instances,
+      isTraktConnected,
+      movieId,
+      queryClient,
+      userId,
+      watchesQueryKey,
+    ],
   )
 
   const updateWatchInstance = useCallback(
     async (watchId: string, watchedAt: Date): Promise<void> => {
+      maybeWarnTraktManagedWatchedEdit(isTraktConnected, toast.info)
       try {
         await updateWatchMutationRef.current({ watchId, watchedAt })
         toast.success("Watch date updated")
@@ -630,7 +664,7 @@ export function useWatchedMovies(
         throw error
       }
     },
-    [],
+    [isTraktConnected],
   )
 
   return {

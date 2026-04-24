@@ -48,6 +48,7 @@ Build-time values still come from `.env`, including:
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION` (optional, defaults to `us-central1`)
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
@@ -68,6 +69,7 @@ Keep the Worker runtime configuration populated as well. The current runtime sec
 - `FIREBASE_ADMIN_PRIVATE_KEY`
 - `TURNSTILE_SECRET_KEY`
 - `TRAKT_CLIENT_ID`
+- `TRAKT_BACKEND_URL` (optional override for the deployed Trakt function)
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
 
 Run this after changing any of those secrets in `.env`:

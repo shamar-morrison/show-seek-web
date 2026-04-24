@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { useOptionalTrakt } from "@/context/trakt-context"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { usePreferences } from "@/hooks/use-preferences"
 import {
@@ -15,6 +16,7 @@ import {
   UNAUTHENTICATED_USER_ID,
 } from "@/lib/react-query/query-keys"
 import { applyMovieRatingListAutomation } from "@/lib/movie-list-automation"
+import { maybeWarnTraktManagedRatingEdit } from "@/lib/trakt-managed-edits"
 import type { Rating } from "@/types/rating"
 import {
   type QueryClient,
@@ -24,6 +26,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
+import { toast } from "sonner"
 
 /** Sort options for ratings */
 export type RatingSortOption = "ratedAt" | "rating" | "alphabetical"
@@ -124,11 +127,12 @@ export function useRatingsData() {
  * Hook for managing user ratings using React Query cached reads and mutations.
  */
 export function useRatings() {
+  const trakt = useOptionalTrakt()
   const { preferences } = usePreferences()
-  const { addToList, removeFromList, removeMediaFromList } =
-    useListMutations()
+  const { addToList, removeFromList, removeMediaFromList } = useListMutations()
   const queryClient = useQueryClient()
   const { ratings, loading, userId, ratingsQueryKey } = useRatingsData()
+  const isTraktConnected = Boolean(trakt?.isConnected)
 
   const saveRatingMutation = useMutation({
     mutationFn: async (variables: SaveRatingOptions) => {
@@ -309,16 +313,18 @@ export function useRatings() {
 
   const saveRating = useCallback(
     async (options: SaveRatingOptions): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
       await saveRatingAsync({ ...options })
     },
-    [saveRatingAsync],
+    [isTraktConnected, saveRatingAsync],
   )
 
   const removeRating = useCallback(
     async (mediaType: "movie" | "tv", mediaId: number): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
       await removeRatingAsync({ mediaType, mediaId })
     },
-    [removeRatingAsync],
+    [isTraktConnected, removeRatingAsync],
   )
 
   const getEpisodeRating = useCallback(
@@ -344,6 +350,7 @@ export function useRatings() {
       posterPath: string | null,
       episodeAirDate: string | null = null,
     ): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
       await saveEpisodeRatingAsync({
         tvShowId,
         seasonNumber,
@@ -355,7 +362,7 @@ export function useRatings() {
         episodeAirDate,
       })
     },
-    [saveEpisodeRatingAsync],
+    [isTraktConnected, saveEpisodeRatingAsync],
   )
 
   const removeEpisodeRating = useCallback(
@@ -364,13 +371,14 @@ export function useRatings() {
       seasonNumber: number,
       episodeNumber: number,
     ): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
       await removeEpisodeRatingAsync({
         tvShowId,
         seasonNumber,
         episodeNumber,
       })
     },
-    [removeEpisodeRatingAsync],
+    [isTraktConnected, removeEpisodeRatingAsync],
   )
 
   return {

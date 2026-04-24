@@ -1,6 +1,7 @@
 "use client"
 
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/config"
+import { normalizeEpisodeTrackingDoc } from "@/lib/episode-tracking-normalization"
 import type {
   EpisodeTrackingMetadata,
   SeasonProgress,
@@ -110,7 +111,7 @@ class EpisodeTrackingService {
         return null
       }
 
-      return snapshot.data() as TVShowEpisodeTracking
+      return normalizeEpisodeTrackingDoc(snapshot.data())
     } catch (error) {
       if (error instanceof Error) {
         throw error
@@ -193,7 +194,10 @@ class EpisodeTrackingService {
               existingEpisodes,
               previousEpisodeKey,
             ) ||
-            Object.prototype.hasOwnProperty.call(episodesMap, previousEpisodeKey)
+            Object.prototype.hasOwnProperty.call(
+              episodesMap,
+              previousEpisodeKey,
+            )
           ) {
             return
           }
