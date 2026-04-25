@@ -240,7 +240,7 @@ function openOAuthWindow(authUrl: string): OAuthWindowHandle {
   const popup = window.open(
     authUrl,
     "showseek-trakt-oauth",
-    "popup=yes,width=520,height=720,noopener,noreferrer",
+    "popup=yes,width=520,height=720",
   )
 
   if (!popup) {
@@ -249,6 +249,13 @@ function openOAuthWindow(authUrl: string): OAuthWindowHandle {
       openedPopup: null,
       usedFallbackTab: true,
     }
+  }
+
+  try {
+    popup.opener = null
+  } catch {
+    // Some browser contexts block writing opener. Keep the window handle so
+    // closing the OAuth popup still exits the connection wait.
   }
 
   return {

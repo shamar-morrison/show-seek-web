@@ -201,6 +201,18 @@ function setEnrichmentDefaults() {
   enrichmentState.enrichmentProgress = 1
 }
 
+async function selectList(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId("where-to-watch-list-selector"))
+  await user.click(
+    await screen.findByRole("option", { name: "Should Watch (2 items)" }),
+  )
+}
+
+async function selectService(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId("where-to-watch-service-selector"))
+  await user.click(await screen.findByRole("option", { name: /Netflix/ }))
+}
+
 describe("WhereToWatchPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -227,8 +239,8 @@ describe("WhereToWatchPageClient", () => {
     const { rerender } = render(<WhereToWatchPageClient />)
 
     expect(
-      screen.getByRole("option", { name: "Should Watch (2 items)" }),
-    ).toBeInTheDocument()
+      screen.getByTestId("where-to-watch-list-selector"),
+    ).toHaveTextContent("Choose a list")
 
     listsState.error = new Error("Network failed")
     listsState.lists = []
@@ -236,7 +248,19 @@ describe("WhereToWatchPageClient", () => {
 
     expect(screen.getByText("Couldn't load your lists.")).toBeInTheDocument()
     expect(
-      screen.getByRole("option", { name: "Unable to load lists" }),
+      screen.getByTestId("where-to-watch-list-selector"),
+    ).toHaveTextContent("Unable to load lists")
+  })
+
+  it("shows list options with counts in the custom list select", async () => {
+    const user = userEvent.setup()
+
+    render(<WhereToWatchPageClient />)
+
+    await user.click(screen.getByTestId("where-to-watch-list-selector"))
+
+    expect(
+      await screen.findByRole("option", { name: "Should Watch (2 items)" }),
     ).toBeInTheDocument()
   })
 
@@ -247,10 +271,7 @@ describe("WhereToWatchPageClient", () => {
 
     render(<WhereToWatchPageClient />)
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-list-selector"),
-      "watchlist",
-    )
+    await selectList(user)
 
     expect(
       screen.getByText("Unable to load streaming services"),
@@ -265,23 +286,29 @@ describe("WhereToWatchPageClient", () => {
 
     render(<WhereToWatchPageClient />)
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-list-selector"),
-      "watchlist",
-    )
+    await selectList(user)
+    await user.click(screen.getByTestId("where-to-watch-service-selector"))
 
     expect(
-      screen.getByRole("option", { name: "Netflix (1 item)" }),
+      await screen.findByRole("option", { name: /Netflix/ }),
     ).toBeInTheDocument()
+    expect(screen.getByText("1 item")).toBeInTheDocument()
+    expect(screen.getByTestId("where-to-watch-service-logo-8")).toHaveAttribute(
+      "src",
+      "https://image.tmdb.org/t/p/w92/netflix.png",
+    )
     expect(
       screen.queryByRole("option", { name: /Apple TV/ }),
     ).not.toBeInTheDocument()
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-service-selector"),
-      "8",
-    )
+    await user.click(await screen.findByRole("option", { name: /Netflix/ }))
 
+    expect(
+      screen.getByTestId("where-to-watch-service-selector"),
+    ).toHaveTextContent("Netflix")
+    expect(
+      screen.getByTestId("where-to-watch-selected-service-logo"),
+    ).toHaveAttribute("src", "https://image.tmdb.org/t/p/w92/netflix.png")
     expect(screen.getByText("Movie A")).toBeInTheDocument()
     expect(screen.queryByText("Show B")).not.toBeInTheDocument()
     expect(screen.getByTestId("where-to-watch-result-card")).toHaveAttribute(
@@ -294,19 +321,18 @@ describe("WhereToWatchPageClient", () => {
     const user = userEvent.setup()
     const { rerender } = render(<WhereToWatchPageClient />)
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-list-selector"),
-      "watchlist",
-    )
+    await selectList(user)
 
-    expect(screen.getByTestId("where-to-watch-list-selector")).toHaveValue(
-      "watchlist",
-    )
+    expect(
+      screen.getByTestId("where-to-watch-list-selector"),
+    ).toHaveTextContent("Should Watch (2 items)")
 
     listsState.lists = []
     rerender(<WhereToWatchPageClient />)
 
-    expect(screen.getByTestId("where-to-watch-list-selector")).toHaveValue("")
+    expect(
+      screen.getByTestId("where-to-watch-list-selector"),
+    ).toHaveTextContent("No lists available")
     expect(screen.getByTestId("where-to-watch-service-selector")).toBeDisabled()
     expect(screen.getAllByText("Choose a list").length).toBeGreaterThan(0)
   })
@@ -315,18 +341,12 @@ describe("WhereToWatchPageClient", () => {
     const user = userEvent.setup()
     const { rerender } = render(<WhereToWatchPageClient />)
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-list-selector"),
-      "watchlist",
-    )
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-service-selector"),
-      "8",
-    )
+    await selectList(user)
+    await selectService(user)
 
-    expect(screen.getByTestId("where-to-watch-service-selector")).toHaveValue(
-      "8",
-    )
+    expect(
+      screen.getByTestId("where-to-watch-service-selector"),
+    ).toHaveTextContent("Netflix")
     expect(screen.getByText("Movie A")).toBeInTheDocument()
 
     enrichmentState.providerMap = new Map<string, unknown>([
@@ -346,7 +366,9 @@ describe("WhereToWatchPageClient", () => {
     ])
     rerender(<WhereToWatchPageClient />)
 
-    expect(screen.getByTestId("where-to-watch-service-selector")).toHaveValue("")
+    expect(
+      screen.getByTestId("where-to-watch-service-selector"),
+    ).toHaveTextContent("Choose a service")
     expect(
       screen.getAllByText("Choose a streaming service").length,
     ).toBeGreaterThan(0)
@@ -360,10 +382,7 @@ describe("WhereToWatchPageClient", () => {
 
     render(<WhereToWatchPageClient />)
 
-    await user.selectOptions(
-      screen.getByTestId("where-to-watch-list-selector"),
-      "watchlist",
-    )
+    await selectList(user)
 
     expect(
       screen.getByTestId("where-to-watch-premium-overlay"),

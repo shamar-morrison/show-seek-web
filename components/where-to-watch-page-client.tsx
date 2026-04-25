@@ -11,6 +11,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -24,7 +32,6 @@ import { getMediaUrl } from "@/lib/utils"
 import type { ListMediaItem, UserList } from "@/types/list"
 import type { WatchProvider } from "@/types/tmdb"
 import {
-  ArrowDown01Icon,
   CrownIcon,
   FolderLibraryIcon,
   Loading03Icon,
@@ -69,31 +76,37 @@ function mergeProviders(
 
 function SelectorShell({
   children,
-  icon,
   label,
 }: {
   children: React.ReactNode
-  icon: typeof FolderLibraryIcon
   label: string
 }) {
   return (
-    <label className="flex min-w-0 flex-1 flex-col gap-2">
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
         {label}
       </span>
-      <span className="relative flex items-center">
-        <HugeiconsIcon
-          icon={icon}
-          className="pointer-events-none absolute left-3 z-10 size-4 text-primary"
-        />
-        {children}
-        <HugeiconsIcon
-          icon={ArrowDown01Icon}
-          className="pointer-events-none absolute right-3 size-4 text-white/45"
-        />
-      </span>
-    </label>
+      {children}
+    </div>
   )
+}
+
+function ProviderLogo({
+  className,
+  provider,
+  testId,
+}: {
+  className?: string
+  provider: WatchProvider
+  testId?: string
+}) {
+  const logoUrl = buildImageUrl(provider.logo_path, "w92")
+
+  if (!logoUrl) {
+    return null
+  }
+
+  return <img src={logoUrl} alt="" data-testid={testId} className={className} />
 }
 
 function EmptyWhereToWatchState({
@@ -131,40 +144,49 @@ function WhereToWatchResultCard({
 }) {
   const media = listItemToMedia(item)
   const title = getDisplayMediaTitle(media, preferOriginalTitles) || item.title
-  const posterUrl = buildImageUrl(item.poster_path, "w185")
+  const posterUrl = buildImageUrl(item.poster_path, "w500")
+  const mediaTypeLabel = item.media_type === "movie" ? "Movie" : "TV Show"
 
   return (
     <Link
       href={getMediaUrl(item.media_type, item.id)}
       data-testid="where-to-watch-result-card"
-      className="group flex min-h-32 gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.07]"
+      className="group block"
     >
-      <div className="relative aspect-2/3 w-20 shrink-0 overflow-hidden rounded-xl bg-white/[0.04]">
-        <ImageWithFallback
-          src={posterUrl}
-          alt={title}
-          fallbackText=""
-          imageClassName="h-full w-full object-cover"
-        />
-      </div>
+      <div className="relative w-full overflow-hidden rounded-xl bg-card shadow-md transition-all duration-300">
+        <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
+          <ImageWithFallback
+            src={posterUrl}
+            alt={title}
+            fallbackText=""
+            imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
-        <div className="space-y-2">
-          <h2 className="line-clamp-2 text-base font-semibold text-white">
-            {title}
-          </h2>
-          <span className="inline-flex w-fit items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-white/62">
-            {item.media_type === "movie" ? "Movie" : "TV Show"}
-          </span>
+          <div className="absolute top-2 left-2">
+            <span className="inline-flex items-center rounded-md bg-black/80 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white backdrop-blur-sm">
+              {mediaTypeLabel}
+            </span>
+          </div>
+
+          {providerLogoUrl ? (
+            <div className="absolute top-2 right-2 overflow-hidden rounded-md bg-white p-0.5 shadow-md ring-1 ring-black/10">
+              <img
+                src={providerLogoUrl}
+                alt=""
+                className="size-7 rounded-[4px] object-contain"
+              />
+            </div>
+          ) : null}
         </div>
 
-        {providerLogoUrl ? (
-          <img
-            src={providerLogoUrl}
-            alt=""
-            className="size-7 rounded-md bg-white"
-          />
-        ) : null}
+        <div className="flex flex-col gap-1 p-3">
+          <h2 className="line-clamp-1 text-base font-bold text-white">
+            {title}
+          </h2>
+          <span className="text-xs font-medium text-white/55">
+            {mediaTypeLabel}
+          </span>
+        </div>
       </div>
     </Link>
   )
@@ -348,68 +370,147 @@ export function WhereToWatchPageClient() {
     return "Choose a service"
   })()
 
+  const listSelectStatus = (() => {
+    if (listsLoading) {
+      return "Loading lists..."
+    }
+
+    if (listsError) {
+      return "Unable to load lists"
+    }
+
+    if (lists.length === 0) {
+      return "No lists available"
+    }
+
+    return "Choose a list"
+  })()
+
+  const selectedListLabel = selectedList
+    ? `${selectedList.name} (${formatItemCount(getItemCount(selectedList))})`
+    : listSelectStatus
+
   return (
     <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row">
-          <SelectorShell label="List" icon={FolderLibraryIcon}>
-            <select
-              data-testid="where-to-watch-list-selector"
-              value={activeSelectedListId}
+          <SelectorShell label="List">
+            <Select
+              value={activeSelectedListId || null}
+              onValueChange={(value) => handleListSelect(value ?? "")}
+              items={lists.map((list) => ({
+                label: `${list.name} (${formatItemCount(getItemCount(list))})`,
+                value: list.id,
+              }))}
               disabled={listsLoading || !!listsError || lists.length === 0}
-              onChange={(event) => handleListSelect(event.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-black pl-10 pr-10 text-sm font-semibold text-white outline-none transition-colors hover:bg-white/[0.04] focus:border-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">
-                {listsLoading
-                  ? "Loading lists..."
-                  : listsError
-                    ? "Unable to load lists"
-                    : lists.length === 0
-                      ? "No lists available"
-                      : "Choose a list"}
-              </option>
-              {lists.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name} ({formatItemCount(getItemCount(list))})
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                data-testid="where-to-watch-list-selector"
+                className="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <HugeiconsIcon
+                  icon={FolderLibraryIcon}
+                  className="pointer-events-none size-4 shrink-0 text-primary"
+                />
+                <SelectValue className="min-w-0 truncate">
+                  {selectedListLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent
+                align="start"
+                alignItemWithTrigger={false}
+                className="border border-white/10 bg-zinc-950 text-white"
+              >
+                <SelectGroup>
+                  {lists.map((list) => (
+                    <SelectItem key={list.id} value={list.id}>
+                      {list.name} ({formatItemCount(getItemCount(list))})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </SelectorShell>
 
-          <SelectorShell label="Streaming Service" icon={Tv01Icon}>
-            <select
-              data-testid="where-to-watch-service-selector"
+          <SelectorShell label="Streaming Service">
+            <Select
               value={
                 activeSelectedService
                   ? String(activeSelectedService.provider_id)
-                  : ""
+                  : null
               }
+              onValueChange={(value) => handleServiceSelect(value ?? "")}
+              items={visibleProviders.map((provider) => ({
+                label: provider.provider_name,
+                value: String(provider.provider_id),
+              }))}
               disabled={
                 !selectedList ||
                 !canUseWhereToWatch ||
                 hasProviderFetchError ||
                 visibleProviders.length === 0
               }
-              onChange={(event) => handleServiceSelect(event.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-black pl-10 pr-10 text-sm font-semibold text-white outline-none transition-colors hover:bg-white/[0.04] focus:border-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">{serviceSelectStatus}</option>
-              {visibleProviders.map((provider) => {
-                const matchCount = providerCounts.get(provider.provider_id) || 0
-                return (
-                  <option
-                    key={provider.provider_id}
-                    value={provider.provider_id}
-                  >
-                    {provider.provider_name}
-                    {isLoadingEnrichment
-                      ? ""
-                      : ` (${formatItemCount(matchCount)})`}
-                  </option>
-                )
-              })}
-            </select>
+              <SelectTrigger
+                data-testid="where-to-watch-service-selector"
+                className="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {activeSelectedService ? (
+                  <ProviderLogo
+                    provider={activeSelectedService}
+                    testId="where-to-watch-selected-service-logo"
+                    className="pointer-events-none size-6 shrink-0 rounded-md bg-white object-contain"
+                  />
+                ) : (
+                  <HugeiconsIcon
+                    icon={Tv01Icon}
+                    className="pointer-events-none size-4 shrink-0 text-primary"
+                  />
+                )}
+                <SelectValue className="min-w-0 truncate">
+                  {activeSelectedService
+                    ? activeSelectedService.provider_name
+                    : serviceSelectStatus}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent
+                align="start"
+                alignItemWithTrigger={false}
+                className="border border-white/10 bg-zinc-950 text-white"
+              >
+                <SelectGroup>
+                  {visibleProviders.map((provider) => {
+                    const matchCount =
+                      providerCounts.get(provider.provider_id) || 0
+
+                    return (
+                      <SelectItem
+                        key={provider.provider_id}
+                        value={String(provider.provider_id)}
+                        label={provider.provider_name}
+                        className="py-2.5"
+                      >
+                        <ProviderLogo
+                          provider={provider}
+                          testId={`where-to-watch-service-logo-${provider.provider_id}`}
+                          className="size-7 rounded-md bg-white object-contain"
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate font-medium">
+                            {provider.provider_name}
+                          </span>
+                          {!isLoadingEnrichment ? (
+                            <span className="text-xs font-normal text-white/45">
+                              {formatItemCount(matchCount)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </SelectorShell>
         </div>
 
@@ -476,7 +577,7 @@ export function WhereToWatchPageClient() {
               icon={Search01Icon}
             />
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {filteredItems.map((item) => (
                 <WhereToWatchResultCard
                   key={`${item.media_type}-${item.id}`}

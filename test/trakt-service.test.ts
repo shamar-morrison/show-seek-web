@@ -75,6 +75,46 @@ describe("TraktService OAuth flow", () => {
     expect(fetch).toHaveBeenCalledTimes(4)
   })
 
+  it("rejects shortly after the user closes the OAuth popup without connecting", async () => {
+    const popup = { closed: false, opener: {} }
+    vi.spyOn(window, "open").mockImplementation((_url, _target, features) => {
+      if (String(features).includes("noopener")) {
+        return null
+      }
+
+      return popup as Window
+    })
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse({ authUrl: "https://trakt.test/oauth" }),
+      )
+      .mockImplementation(async () =>
+        jsonResponse({ connected: false, status: "idle", synced: false }),
+      )
+
+    const { initiateOAuthFlow } = await import("@/services/trakt-service")
+    const resultPromise = initiateOAuthFlow({
+      closedGraceMs: 200,
+      pollIntervalMs: 50,
+      timeoutMs: 5000,
+    })
+    const rejectionExpectation = expect(resultPromise).rejects.toThrow(
+      "Trakt connection was not confirmed",
+    )
+
+    await flushPromises()
+    popup.closed = true
+    await vi.advanceTimersByTimeAsync(300)
+
+    await rejectionExpectation
+    expect(window.open).toHaveBeenCalledTimes(1)
+    expect(window.open).toHaveBeenCalledWith(
+      "https://trakt.test/oauth",
+      "showseek-trakt-oauth",
+      expect.not.stringContaining("noopener"),
+    )
+  })
+
   it("resolves immediately when the backend is already connected", async () => {
     const popup = { closed: false }
     vi.spyOn(window, "open").mockReturnValue(popup as Window)
