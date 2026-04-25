@@ -33,10 +33,10 @@ vi.mock("@/hooks/use-lists", () => ({
 
 vi.mock("@/components/lists-page-client", () => ({
   ListsPageClient: ({
-    headerAction,
+    filterRowAction,
   }: {
-    headerAction?: ReactNode
-  }) => <div>{headerAction}</div>,
+    filterRowAction?: ReactNode
+  }) => <div>{filterRowAction}</div>,
 }))
 
 vi.mock("@/components/create-list-dialog", () => ({

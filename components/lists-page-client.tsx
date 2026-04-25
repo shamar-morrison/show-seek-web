@@ -71,8 +71,8 @@ interface ListsPageClientProps {
   onListSelect?: (listId: string) => void
   /** Whether to show the dynamic page header with the list name */
   showDynamicHeader?: boolean
-  /** Optional action element to render next to the header title */
-  headerAction?: React.ReactNode
+  /** Optional action element to render next to the filter button (e.g. create/edit list controls) */
+  filterRowAction?: React.ReactNode
   /** Optional action element to render in the empty state */
   emptyStateAction?: React.ReactNode
 }
@@ -93,7 +93,7 @@ export function ListsPageClient({
   selectedListId: controlledSelectedListId,
   onListSelect,
   showDynamicHeader = false,
-  headerAction,
+  filterRowAction,
   emptyStateAction,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
@@ -294,7 +294,8 @@ export function ListsPageClient({
       watchTrailer(
         media.id,
         media.media_type,
-        getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Trailer",
+        getDisplayMediaTitle(media, preferences.showOriginalTitles) ||
+          "Trailer",
       )
     },
     [preferences.showOriginalTitles, watchTrailer],
@@ -396,14 +397,11 @@ export function ListsPageClient({
     <div className="space-y-8 pb-12">
       {/* Dynamic Header */}
       {showDynamicHeader && activeList && (
-        <div className="flex items-start gap-4">
-          <PageHeader
-            title={activeList.name}
-            description={activeList.description?.trim() || undefined}
-            className="mb-0 flex-1 min-w-0"
-          />
-          {headerAction}
-        </div>
+        <PageHeader
+          title={activeList.name}
+          description={activeList.description?.trim() || undefined}
+          className="mb-4"
+        />
       )}
 
       {/* Search, Filter, and Tabs */}
@@ -436,6 +434,7 @@ export function ListsPageClient({
             }}
             onClearAll={handleClearAll}
           />
+          {filterRowAction}
         </div>
 
         {/* List Tabs */}

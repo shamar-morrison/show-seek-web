@@ -41,35 +41,89 @@ const NavbarAuthSection = dynamic(
   },
 )
 
-/** Navigation item with sublinks */
-interface NavItemWithSubmenu {
-  label: string
-  links: { label: string; href: string }[]
-}
-
 /** Simple navigation link */
 interface SimpleNavItem {
   label: string
   href: string
 }
 
-/** Navigation menu data */
-const listsMenu: NavItemWithSubmenu = {
-  label: "Lists",
-  links: [
-    { label: "Watch Progress", href: "/lists/watch-progress" },
-    { label: "Collection Progress", href: "/lists/collection-progress" },
-    { label: "Watch Lists", href: "/lists/watch-lists" },
-    { label: "Custom Lists", href: "/lists/custom-lists" },
-    { label: "Notes", href: "/lists/notes" },
-    { label: "Favorite Episodes", href: "/lists/favorite-episodes" },
-    { label: "Favorite People", href: "/lists/favorite-people" },
-  ],
+interface NavSubItem {
+  label: string
+  href: string
+  description?: string
 }
 
-const ratingsLink: SimpleNavItem = {
-  label: "Ratings",
-  href: "/ratings",
+interface NavSection {
+  label: string
+  links: NavSubItem[]
+}
+
+/** Navigation item with grouped sublinks */
+interface NavItemWithSections {
+  label: string
+  sections: NavSection[]
+}
+
+/** Navigation menu data inspired by the mobile Library hub */
+const libraryMenu: NavItemWithSections = {
+  label: "Library",
+  sections: [
+    {
+      label: "Progress",
+      links: [
+        {
+          label: "Watch Progress",
+          href: "/lists/watch-progress",
+          description: "Pick up shows and movies where you left off.",
+        },
+        {
+          label: "Collection Progress",
+          href: "/lists/collection-progress",
+          description: "Track completion across franchises and sagas.",
+        },
+      ],
+    },
+    {
+      label: "Lists",
+      links: [
+        {
+          label: "Watch Lists",
+          href: "/lists/watch-lists",
+          description: "Watchlist, watching, watched, and dropped.",
+        },
+        {
+          label: "Custom Lists",
+          href: "/lists/custom-lists",
+          description: "Your personally curated collections.",
+        },
+        {
+          label: "Notes",
+          href: "/lists/notes",
+          description: "Quick thoughts saved to any title.",
+        },
+      ],
+    },
+    {
+      label: "Ratings & Favorites",
+      links: [
+        {
+          label: "My Ratings",
+          href: "/ratings",
+          description: "Every score you've given, all in one place.",
+        },
+        {
+          label: "Favorite Episodes",
+          href: "/lists/favorite-episodes",
+          description: "Standout episodes you've starred.",
+        },
+        {
+          label: "Favorite People",
+          href: "/lists/favorite-people",
+          description: "Actors and creators you follow.",
+        },
+      ],
+    },
+  ],
 }
 
 const discoverLink: SimpleNavItem = {
@@ -132,7 +186,7 @@ function NavLink(props: NavigationMenu.Link.Props) {
 }
 
 /** Dropdown menu item component */
-function DropdownMenuItem({ item }: { item: NavItemWithSubmenu }) {
+function DropdownMenuItem({ item }: { item: NavItemWithSections }) {
   return (
     <NavigationMenu.Item>
       <NavigationMenu.Trigger className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white data-popup-open:text-white">
@@ -141,20 +195,36 @@ function DropdownMenuItem({ item }: { item: NavItemWithSubmenu }) {
           <ChevronDownIcon />
         </NavigationMenu.Icon>
       </NavigationMenu.Trigger>
-      <NavigationMenu.Content className="p-2">
-        <ul className="flex flex-col gap-0.5 list-none m-0 p-0 min-w-[180px]">
-          {item.links.map((link) => (
-            <li key={link.href}>
-              <NavLink
-                href={link.href}
-                className="block px-3.5 py-2.5 text-sm font-medium text-gray-300 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/8 hover:text-white data-active:text-primary"
-                closeOnClick
-              >
-                {link.label}
-              </NavLink>
-            </li>
+      <NavigationMenu.Content className="p-3">
+        <div className="grid w-[660px] max-w-[92vw] gap-3 md:grid-cols-3">
+          {item.sections.map((section) => (
+            <div key={section.label} className="space-y-2">
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                {section.label}
+              </p>
+              <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                {section.links.map((link) => (
+                  <li key={link.href}>
+                    <NavLink
+                      href={link.href}
+                      className="block select-none space-y-1 rounded-md px-3 py-2.5 no-underline transition-[background-color,color] duration-150 hover:bg-white/8 data-active:[&_.nav-link-title]:text-primary"
+                      closeOnClick
+                    >
+                      <div className="nav-link-title text-sm font-medium leading-none text-gray-200 transition-colors group-hover:text-white">
+                        {link.label}
+                      </div>
+                      {link.description ? (
+                        <p className="line-clamp-2 text-[12.5px] leading-snug text-gray-500">
+                          {link.description}
+                        </p>
+                      ) : null}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </NavigationMenu.Content>
     </NavigationMenu.Item>
   )
@@ -165,7 +235,7 @@ function MobileAccordionItem({
   item,
   onLinkClick,
 }: {
-  item: NavItemWithSubmenu
+  item: NavItemWithSections
   onLinkClick: () => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -182,16 +252,25 @@ function MobileAccordionItem({
         {item.label}
       </Collapsible.Trigger>
       <Collapsible.Panel className="overflow-hidden transition-[height] duration-300 ease-out data-starting-style:h-0 data-ending-style:h-0 data-open:h-(--panel-height)">
-        <div className="flex flex-col gap-0.5 pl-7 py-1">
-          {item.links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onLinkClick}
-              className="block px-3 py-2 text-sm font-medium text-gray-400 no-underline rounded-md transition-[background-color,color] duration-150 hover:bg-white/5 hover:text-white"
-            >
-              {link.label}
-            </Link>
+        <div className="flex flex-col gap-3 py-2 pl-7">
+          {item.sections.map((section) => (
+            <div key={section.label} className="space-y-1">
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                {section.label}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {section.links.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={onLinkClick}
+                    className="block rounded-md px-3 py-2 text-sm font-medium text-gray-400 no-underline transition-[background-color,color] duration-150 hover:bg-white/5 hover:text-white"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </Collapsible.Panel>
@@ -312,18 +391,8 @@ export function Navbar() {
 
                 {isAuthenticated && (
                   <>
-                    {/* Lists - Dropdown */}
-                    <DropdownMenuItem item={listsMenu} />
-
-                    {/* Ratings - Simple Link */}
-                    <NavigationMenu.Item>
-                      <NavLink
-                        href={ratingsLink.href}
-                        className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
-                      >
-                        {ratingsLink.label}
-                      </NavLink>
-                    </NavigationMenu.Item>
+                    {/* Library - Dropdown */}
+                    <DropdownMenuItem item={libraryMenu} />
                   </>
                 )}
               </NavigationMenu.List>
@@ -371,7 +440,9 @@ export function Navbar() {
         <div
           className={cn(
             "overflow-hidden transition-all duration-300 ease-in-out lg:hidden px-4 sm:px-8",
-            isMobileMenuOpen ? "max-h-[500px] pb-4" : "max-h-0",
+            isMobileMenuOpen
+              ? "max-h-[calc(100svh-4rem)] overflow-y-auto pb-4"
+              : "max-h-0",
           )}
         >
           <div className="flex flex-col gap-1 pt-2">
@@ -434,20 +505,11 @@ export function Navbar() {
 
             {isAuthenticated && (
               <>
-                {/* Lists - Accordion */}
+                {/* Library - Accordion */}
                 <MobileAccordionItem
-                  item={listsMenu}
+                  item={libraryMenu}
                   onLinkClick={closeMobileMenu}
                 />
-
-                {/* Ratings - Simple Link */}
-                <Link
-                  href={ratingsLink.href}
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  {ratingsLink.label}
-                </Link>
               </>
             )}
           </div>

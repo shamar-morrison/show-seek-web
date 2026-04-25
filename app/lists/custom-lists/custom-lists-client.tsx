@@ -157,8 +157,7 @@ export function CustomListsClient({
       showActionableSuccessToast("List details updated successfully", {
         action: {
           label: "Undo",
-          onClick: () =>
-            updateList(listId, previousName, previousDescription),
+          onClick: () => updateList(listId, previousName, previousDescription),
           errorMessage: "Failed to undo list edit",
           logMessage: "Failed to undo custom list edit:",
         },
@@ -222,13 +221,14 @@ export function CustomListsClient({
         selectedListId={effectiveSelectedListId}
         onListSelect={setSelectedListId}
         showDynamicHeader={true}
-        headerAction={
+        filterRowAction={
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="icon-sm"
               onClick={() => setIsCreateDialogOpen(true)}
               aria-label="Create new list"
+              className={"p-4.5"}
             >
               <HugeiconsIcon icon={Add01Icon} className="size-4" />
             </Button>
@@ -293,7 +293,9 @@ export function CustomListsClient({
             </Button>
             <Button
               onClick={handleEdit}
-              disabled={isProcessing || !activeList || !user || !editName.trim()}
+              disabled={
+                isProcessing || !activeList || !user || !editName.trim()
+              }
             >
               {isProcessing && (
                 <HugeiconsIcon

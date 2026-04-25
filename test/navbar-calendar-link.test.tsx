@@ -144,6 +144,19 @@ describe("Navbar calendar link", () => {
     expect(screen.getAllByText("Where to Watch").length).toBeGreaterThan(0)
   })
 
+  it("groups authenticated library destinations under the library menu", async () => {
+    const { Navbar } = await import("@/components/navbar")
+
+    render(<Navbar />)
+
+    expect(screen.getAllByText("Library").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Lists & Stats").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Ratings").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Favorites").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("My Ratings").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Favorite Episodes").length).toBeGreaterThan(0)
+  })
+
   it("hides the calendar link for signed-out users", async () => {
     mockUser = null
     const { Navbar } = await import("@/components/navbar")
@@ -152,5 +165,7 @@ describe("Navbar calendar link", () => {
 
     expect(screen.queryByText("Calendar")).not.toBeInTheDocument()
     expect(screen.queryByText("Where to Watch")).not.toBeInTheDocument()
+    expect(screen.queryByText("Library")).not.toBeInTheDocument()
+    expect(screen.queryByText("My Ratings")).not.toBeInTheDocument()
   })
 })

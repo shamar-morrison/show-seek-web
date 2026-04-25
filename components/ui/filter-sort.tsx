@@ -481,7 +481,7 @@ export function FilterSort({
         aria-label={triggerLabel}
         data-testid={triggerTestId}
         className={cn(
-          "inline-flex items-center gap-2 rounded-md px-3 py-2",
+          "inline-flex items-center gap-2 rounded-md px-2.5 py-2.5",
           "text-sm font-medium",
           "bg-white/5 hover:bg-white/10",
           "border border-white/10",
