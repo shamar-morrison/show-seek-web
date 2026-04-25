@@ -150,9 +150,9 @@ describe("Navbar calendar link", () => {
     render(<Navbar />)
 
     expect(screen.getAllByText("Library").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Lists & Stats").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Ratings").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Favorites").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Progress").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Lists").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Ratings & Favorites").length).toBeGreaterThan(0)
     expect(screen.getAllByText("My Ratings").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Favorite Episodes").length).toBeGreaterThan(0)
   })
