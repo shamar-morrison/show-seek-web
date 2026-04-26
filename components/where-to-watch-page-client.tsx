@@ -12,13 +12,9 @@ import {
 } from "@/components/ui/empty"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  SearchableSelect,
+  type SearchableSelectOption,
+} from "@/components/ui/searchable-select"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -44,6 +40,15 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 
 const PROVIDER_LIST_GC_TIME = Infinity
+
+interface ListSelectOption extends SearchableSelectOption {
+  itemCount: number
+}
+
+interface ServiceSelectOption extends SearchableSelectOption {
+  matchCount: number
+  provider: WatchProvider
+}
 
 function getItemCount(list: UserList): number {
   return Object.keys(list.items || {}).length
@@ -312,6 +317,27 @@ export function WhereToWatchPageClient() {
     "w92",
   )
 
+  const listOptions = useMemo<ListSelectOption[]>(
+    () =>
+      lists.map((list) => ({
+        itemCount: getItemCount(list),
+        label: list.name,
+        value: list.id,
+      })),
+    [lists],
+  )
+
+  const serviceOptions = useMemo<ServiceSelectOption[]>(
+    () =>
+      visibleProviders.map((provider) => ({
+        label: provider.provider_name,
+        matchCount: providerCounts.get(provider.provider_id) || 0,
+        provider,
+        value: String(provider.provider_id),
+      })),
+    [providerCounts, visibleProviders],
+  )
+
   const filteredItems = useMemo(() => {
     if (!activeSelectedService) {
       return []
@@ -386,131 +412,101 @@ export function WhereToWatchPageClient() {
     return "Choose a list"
   })()
 
-  const selectedListLabel = selectedList
-    ? `${selectedList.name} (${formatItemCount(getItemCount(selectedList))})`
-    : listSelectStatus
-
   return (
     <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row">
           <SelectorShell label="List">
-            <Select
+            <SearchableSelect
               value={activeSelectedListId || null}
-              onValueChange={(value) => handleListSelect(value ?? "")}
-              items={lists.map((list) => ({
-                label: `${list.name} (${formatItemCount(getItemCount(list))})`,
-                value: list.id,
-              }))}
+              onChange={(value) => handleListSelect(value ?? "")}
+              options={listOptions}
+              placeholder={listSelectStatus}
+              searchPlaceholder="Search lists..."
+              emptyMessage="No lists found."
               disabled={listsLoading || !!listsError || lists.length === 0}
-            >
-              <SelectTrigger
-                data-testid="where-to-watch-list-selector"
-                className="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <HugeiconsIcon
-                  icon={FolderLibraryIcon}
-                  className="pointer-events-none size-4 shrink-0 text-primary"
-                />
-                <SelectValue className="min-w-0 truncate">
-                  {selectedListLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent
-                align="start"
-                alignItemWithTrigger={false}
-                className="border border-white/10 bg-zinc-950 text-white"
-              >
-                <SelectGroup>
-                  {lists.map((list) => (
-                    <SelectItem key={list.id} value={list.id}>
-                      {list.name} ({formatItemCount(getItemCount(list))})
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+              triggerTestId="where-to-watch-list-selector"
+              triggerClassName="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+              popoverClassName="border border-white/10 bg-zinc-950 text-white"
+              renderTriggerContent={(selectedOption, placeholder) => (
+                <>
+                  <HugeiconsIcon
+                    icon={FolderLibraryIcon}
+                    className="pointer-events-none size-4 shrink-0 text-primary"
+                  />
+                  <span className="min-w-0 truncate">
+                    {selectedOption
+                      ? `${selectedOption.label} (${formatItemCount(selectedOption.itemCount)})`
+                      : placeholder}
+                  </span>
+                </>
+              )}
+              renderOption={(option) => (
+                <span className="truncate">
+                  {option.label} ({formatItemCount(option.itemCount)})
+                </span>
+              )}
+            />
           </SelectorShell>
 
           <SelectorShell label="Streaming Service">
-            <Select
+            <SearchableSelect
               value={
                 activeSelectedService
                   ? String(activeSelectedService.provider_id)
                   : null
               }
-              onValueChange={(value) => handleServiceSelect(value ?? "")}
-              items={visibleProviders.map((provider) => ({
-                label: provider.provider_name,
-                value: String(provider.provider_id),
-              }))}
+              onChange={(value) => handleServiceSelect(value ?? "")}
+              options={serviceOptions}
+              placeholder={serviceSelectStatus}
+              searchPlaceholder="Search services..."
+              emptyMessage="No services found."
               disabled={
                 !selectedList ||
                 !canUseWhereToWatch ||
                 hasProviderFetchError ||
                 visibleProviders.length === 0
               }
-            >
-              <SelectTrigger
-                data-testid="where-to-watch-service-selector"
-                className="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {activeSelectedService ? (
+              triggerTestId="where-to-watch-service-selector"
+              triggerClassName="h-12 w-full gap-2.5 rounded-xl border-white/10 bg-white/[0.04] px-3.5 text-sm font-semibold text-white shadow-none transition-colors hover:border-white/20 hover:bg-white/[0.07] focus-visible:border-primary/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+              popoverClassName="border border-white/10 bg-zinc-950 text-white"
+              renderTriggerContent={(selectedOption, placeholder) => (
+                <>
+                  {selectedOption ? (
+                    <ProviderLogo
+                      provider={selectedOption.provider}
+                      testId="where-to-watch-selected-service-logo"
+                      className="pointer-events-none size-6 shrink-0 rounded-md bg-white object-contain"
+                    />
+                  ) : (
+                    <HugeiconsIcon
+                      icon={Tv01Icon}
+                      className="pointer-events-none size-4 shrink-0 text-primary"
+                    />
+                  )}
+                  <span className="min-w-0 truncate">
+                    {selectedOption ? selectedOption.label : placeholder}
+                  </span>
+                </>
+              )}
+              renderOption={(option) => (
+                <>
                   <ProviderLogo
-                    provider={activeSelectedService}
-                    testId="where-to-watch-selected-service-logo"
-                    className="pointer-events-none size-6 shrink-0 rounded-md bg-white object-contain"
+                    provider={option.provider}
+                    testId={`where-to-watch-service-logo-${option.provider.provider_id}`}
+                    className="size-7 rounded-md bg-white object-contain"
                   />
-                ) : (
-                  <HugeiconsIcon
-                    icon={Tv01Icon}
-                    className="pointer-events-none size-4 shrink-0 text-primary"
-                  />
-                )}
-                <SelectValue className="min-w-0 truncate">
-                  {activeSelectedService
-                    ? activeSelectedService.provider_name
-                    : serviceSelectStatus}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent
-                align="start"
-                alignItemWithTrigger={false}
-                className="border border-white/10 bg-zinc-950 text-white"
-              >
-                <SelectGroup>
-                  {visibleProviders.map((provider) => {
-                    const matchCount =
-                      providerCounts.get(provider.provider_id) || 0
-
-                    return (
-                      <SelectItem
-                        key={provider.provider_id}
-                        value={String(provider.provider_id)}
-                        label={provider.provider_name}
-                        className="py-2.5"
-                      >
-                        <ProviderLogo
-                          provider={provider}
-                          testId={`where-to-watch-service-logo-${provider.provider_id}`}
-                          className="size-7 rounded-md bg-white object-contain"
-                        />
-                        <span className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium">
-                            {provider.provider_name}
-                          </span>
-                          {!isLoadingEnrichment ? (
-                            <span className="text-xs font-normal text-white/45">
-                              {formatItemCount(matchCount)}
-                            </span>
-                          ) : null}
-                        </span>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium">{option.label}</span>
+                    {!isLoadingEnrichment ? (
+                      <span className="text-xs font-normal text-white/45">
+                        {formatItemCount(option.matchCount)}
+                      </span>
+                    ) : null}
+                  </span>
+                </>
+              )}
+            />
           </SelectorShell>
         </div>
 

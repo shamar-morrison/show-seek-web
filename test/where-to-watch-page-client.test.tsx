@@ -124,6 +124,12 @@ function createLists(): UserList[] {
         },
       },
     },
+    {
+      id: "weekend-picks",
+      name: "Weekend Picks",
+      createdAt: 2,
+      items: {},
+    },
   ]
 }
 
@@ -264,6 +270,26 @@ describe("WhereToWatchPageClient", () => {
     ).toBeInTheDocument()
   })
 
+  it("shows a focused search input and filters list options by typed name", async () => {
+    const user = userEvent.setup()
+
+    render(<WhereToWatchPageClient />)
+
+    await user.click(screen.getByTestId("where-to-watch-list-selector"))
+
+    const searchInput = screen.getByPlaceholderText("Search lists...")
+    expect(searchInput).toHaveFocus()
+
+    await user.type(searchInput, "weekend")
+
+    expect(
+      screen.getByRole("option", { name: "Weekend Picks (0 items)" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("option", { name: "Should Watch (2 items)" }),
+    ).not.toBeInTheDocument()
+  })
+
   it("shows provider catalog errors before no-service empty states", async () => {
     const user = userEvent.setup()
     catalogState.movie = { data: [], isLoading: false, isError: true }
@@ -315,6 +341,63 @@ describe("WhereToWatchPageClient", () => {
       "href",
       "/movie/101",
     )
+  })
+
+  it("shows a focused search input and filters services by typed name", async () => {
+    const user = userEvent.setup()
+    catalogState.movie.data.push({
+      provider_id: 337,
+      provider_name: "Disney+",
+      logo_path: "/disney.png",
+      display_priority: 3,
+    })
+    enrichmentState.providerMap = new Map<string, unknown>([
+      [
+        "movie-101",
+        {
+          flatrate: [
+            {
+              provider_id: 8,
+              provider_name: "Netflix",
+              logo_path: "/netflix.png",
+              display_priority: 1,
+            },
+            {
+              provider_id: 337,
+              provider_name: "Disney+",
+              logo_path: "/disney.png",
+              display_priority: 3,
+            },
+          ],
+        },
+      ],
+      [
+        "tv-202",
+        {
+          flatrate: [
+            {
+              provider_id: 8,
+              provider_name: "Netflix",
+              logo_path: "/netflix.png",
+              display_priority: 1,
+            },
+          ],
+        },
+      ],
+    ])
+
+    render(<WhereToWatchPageClient />)
+
+    await selectList(user)
+    await user.click(screen.getByTestId("where-to-watch-service-selector"))
+
+    const searchInput = screen.getByPlaceholderText("Search services...")
+    expect(searchInput).toHaveFocus()
+
+    await user.type(searchInput, "disney")
+
+    expect(screen.getByRole("option", { name: /Disney\+/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /Netflix/ })).not.toBeInTheDocument()
   })
 
   it("treats a selected list that no longer exists as inactive", async () => {

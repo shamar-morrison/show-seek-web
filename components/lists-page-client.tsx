@@ -428,6 +428,7 @@ export function ListsPageClient({
             <Button
               variant="outline"
               size="lg"
+              aria-label="Shuffle Pick"
               onClick={() => setShuffleDialogOpen(true)}
               disabled={!canShuffle}
             >

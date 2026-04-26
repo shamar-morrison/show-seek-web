@@ -70,6 +70,14 @@ if (typeof window !== "undefined") {
     })
   }
 
+  if (!Element.prototype.scrollIntoView) {
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    })
+  }
+
   if (!Element.prototype.getAnimations) {
     Object.defineProperty(Element.prototype, "getAnimations", {
       configurable: true,
