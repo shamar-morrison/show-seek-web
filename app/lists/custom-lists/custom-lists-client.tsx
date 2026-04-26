@@ -221,6 +221,7 @@ export function CustomListsClient({
         selectedListId={effectiveSelectedListId}
         onListSelect={setSelectedListId}
         showDynamicHeader={true}
+        showShuffleAction={true}
         filterRowAction={
           <div className="flex items-center gap-2">
             <Button

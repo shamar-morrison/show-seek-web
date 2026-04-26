@@ -59,6 +59,7 @@ export function WatchListsClient({
       tvGenres={tvGenres}
       selectedListId={effectiveSelectedListId}
       onListSelect={setSelectedListId}
+      showShuffleAction={true}
     />
   )
 }

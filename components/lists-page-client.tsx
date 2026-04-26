@@ -2,7 +2,9 @@
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageHeader } from "@/components/page-header"
+import { ShuffleDialog } from "@/components/shuffle-dialog"
 import { TrailerModal } from "@/components/trailer-modal"
+import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyDescription,
@@ -29,6 +31,7 @@ import {
   Loading03Icon,
   PlayCircle02Icon,
   Search01Icon,
+  ShuffleIcon,
   Tick02Icon,
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
@@ -75,6 +78,8 @@ interface ListsPageClientProps {
   filterRowAction?: React.ReactNode
   /** Optional action element to render in the empty state */
   emptyStateAction?: React.ReactNode
+  /** Whether to show the shuffle action for the active filtered list */
+  showShuffleAction?: boolean
 }
 
 /**
@@ -95,11 +100,13 @@ export function ListsPageClient({
   showDynamicHeader = false,
   filterRowAction,
   emptyStateAction,
+  showShuffleAction = false,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
   const [internalSelectedListId, setInternalSelectedListId] =
     useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [shuffleDialogOpen, setShuffleDialogOpen] = useState(false)
 
   // Use controlled state if provided, otherwise fall back to internal selection
   const selectedListId = useMemo(() => {
@@ -314,6 +321,8 @@ export function ListsPageClient({
     setSortState({ field: "added", direction: "desc" })
   }, [])
 
+  const canShuffle = sortedItems.length >= 2
+
   // Loading state
   if (loading) {
     return (
@@ -415,6 +424,16 @@ export function ListsPageClient({
             placeholder="Search in this list..."
             className="flex-1"
           />
+          {showShuffleAction ? (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setShuffleDialogOpen(true)}
+              disabled={!canShuffle}
+            >
+              <HugeiconsIcon icon={ShuffleIcon} className="size-4" />
+            </Button>
+          ) : null}
           <FilterSort
             filters={filterCategories}
             filterState={filterState}
@@ -434,6 +453,7 @@ export function ListsPageClient({
             }}
             onClearAll={handleClearAll}
           />
+
           {filterRowAction}
         </div>
 
@@ -502,6 +522,12 @@ export function ListsPageClient({
         isOpen={isOpen}
         onClose={closeTrailer}
         title={activeTrailer?.title || "Trailer"}
+      />
+
+      <ShuffleDialog
+        isOpen={shuffleDialogOpen}
+        onClose={() => setShuffleDialogOpen(false)}
+        items={sortedItems}
       />
     </div>
   )

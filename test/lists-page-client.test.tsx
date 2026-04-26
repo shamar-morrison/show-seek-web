@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   },
   watchTrailer: vi.fn(),
   closeTrailer: vi.fn(),
+  shuffleDialog: vi.fn(),
 }))
 
 const originalTimeZone = process.env.TZ
@@ -95,6 +96,30 @@ vi.mock("@/components/media-card-with-actions", () => ({
 
 vi.mock("@/components/trailer-modal", () => ({
   TrailerModal: () => null,
+}))
+
+vi.mock("@/components/shuffle-dialog", () => ({
+  ShuffleDialog: ({
+    isOpen,
+    items,
+  }: {
+    isOpen: boolean
+    items: Array<{ id: number; title?: string; name?: string }>
+  }) => {
+    mocks.shuffleDialog({ isOpen, items })
+
+    if (!isOpen) {
+      return null
+    }
+
+    return (
+      <div data-testid="shuffle-dialog">
+        {items.map((item) => (
+          <span key={item.id}>{item.title ?? item.name}</span>
+        ))}
+      </div>
+    )
+  },
 }))
 
 function createLists(): UserList[] {
@@ -271,5 +296,68 @@ describe("ListsPageClient", () => {
       screen.getByRole("heading", { name: "Road Trip" }),
     ).toBeInTheDocument()
     expect(screen.getByText("Weekend picks for the drive")).toBeInTheDocument()
+  })
+
+  it("shows a shuffle button when the action is enabled", () => {
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showShuffleAction={true}
+      />,
+    )
+
+    expect(
+      screen.getByRole("button", { name: "Shuffle Pick" }),
+    ).toBeInTheDocument()
+  })
+
+  it("disables shuffle when fewer than two visible items remain", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showShuffleAction={true}
+      />,
+    )
+
+    const shuffleButton = screen.getByRole("button", { name: "Shuffle Pick" })
+    expect(shuffleButton).toBeEnabled()
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "Kimi")
+
+    expect(shuffleButton).toBeDisabled()
+  })
+
+  it("passes the currently visible filtered items to shuffle", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showShuffleAction={true}
+      />,
+    )
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "Spirited")
+    await user.clear(screen.getByPlaceholderText("Search in this list..."))
+    await user.click(screen.getByRole("button", { name: "Sort title" }))
+    await user.click(screen.getByRole("button", { name: "Shuffle Pick" }))
+
+    expect(screen.getByTestId("shuffle-dialog")).toBeInTheDocument()
+    expect(screen.getByText("Kimi no Na wa.")).toBeInTheDocument()
+    expect(screen.getByText("Sen to Chihiro no Kamikakushi")).toBeInTheDocument()
+
+    const lastCall =
+      mocks.shuffleDialog.mock.calls[mocks.shuffleDialog.mock.calls.length - 1]?.[0]
+    expect(lastCall?.items).toHaveLength(2)
+    expect(lastCall?.items[0]?.id).toBe(456)
+    expect(lastCall?.items[1]?.id).toBe(123)
   })
 })
