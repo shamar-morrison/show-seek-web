@@ -69,4 +69,12 @@ if (typeof window !== "undefined") {
       value: vi.fn(),
     })
   }
+
+  if (!Element.prototype.getAnimations) {
+    Object.defineProperty(Element.prototype, "getAnimations", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(() => []),
+    })
+  }
 }

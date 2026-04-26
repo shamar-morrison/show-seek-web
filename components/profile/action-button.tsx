@@ -4,13 +4,14 @@ import { PremiumBadge } from "@/components/premium-badge"
 import { cn } from "@/lib/utils"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react"
-import { forwardRef } from "react"
+import { type ReactNode, forwardRef } from "react"
 
 interface ActionButtonProps {
   icon: IconSvgElement
   label: string
   onClick?: () => void
-  badge?: string
+  badge?: ReactNode
+  badgeClassName?: string
   variant?: "default" | "danger"
   premiumRequired?: boolean
   isPremium?: boolean
@@ -25,6 +26,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
       label,
       onClick,
       badge,
+      badgeClassName,
       variant = "default",
       premiumRequired = false,
       isPremium = false,
@@ -71,7 +73,12 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
           </span>
         </div>
         {badge && (
-          <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
+          <span
+            className={cn(
+              "rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400",
+              badgeClassName,
+            )}
+          >
             {badge}
           </span>
         )}

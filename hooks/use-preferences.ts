@@ -22,6 +22,7 @@ interface UsePreferencesReturn {
     value: UserPreferences[K],
   ) => Promise<void>
   updateHomeScreenLists: (lists: HomeScreenListItem[]) => Promise<void>
+  updateRegion: (region: SupportedRegionCode) => Promise<void>
 }
 
 export function usePreferences(): UsePreferencesReturn {
@@ -135,11 +136,38 @@ export function usePreferences(): UsePreferencesReturn {
     [user],
   )
 
+  const updateRegion = useCallback(
+    async (nextRegion: SupportedRegionCode): Promise<void> => {
+      if (!user) {
+        throw new Error("User must be logged in to update region")
+      }
+
+      if (nextRegion === region) {
+        return
+      }
+
+      const userDocRef = doc(getFirebaseDb(), "users", user.uid)
+      const previousRegion = region
+
+      setRegion(nextRegion)
+
+      try {
+        await setDoc(userDocRef, { region: nextRegion }, { merge: true })
+      } catch (error) {
+        console.error("Error updating region:", error)
+        setRegion(previousRegion)
+        throw error
+      }
+    },
+    [region, user],
+  )
+
   return {
     preferences,
     region,
     isLoading,
     updatePreference,
     updateHomeScreenLists,
+    updateRegion,
   }
 }

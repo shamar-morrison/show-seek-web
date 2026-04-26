@@ -1,10 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
-import { render, screen, within } from "./utils"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { render, screen, waitFor, within } from "./utils"
 
 const updatePreferenceMock = vi.fn()
+const updateRegionMock = vi.fn()
+const pushMock = vi.fn()
 const signOutMock = vi.fn()
 const useTraktMock = vi.fn()
+const toastErrorMock = vi.fn()
+let mockSearchParams = new URLSearchParams()
 
 vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
@@ -12,26 +16,33 @@ vi.mock("@/components/premium-modal", () => ({
 
 vi.mock("@/components/profile/action-button", () => ({
   ActionButton: ({
+    badge,
+    badgeClassName: _badgeClassName,
     disabled,
     label,
     onClick,
   }: {
+    badge?: string
+    badgeClassName?: string
     disabled?: boolean
     label: string
     onClick?: () => void
   }) => (
     <button disabled={disabled} onClick={onClick} type="button">
       {label}
+      {badge ? <span>{badge}</span> : null}
     </button>
   ),
 }))
 
 vi.mock("@/components/profile/export-data-modal", () => ({
-  ExportDataModal: () => null,
+  ExportDataModal: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Export data</div> : null,
 }))
 
 vi.mock("@/components/profile/HomeScreenCustomizer", () => ({
-  HomeScreenCustomizer: () => null,
+  HomeScreenCustomizer: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Home screen customizer</div> : null,
 }))
 
 vi.mock("@/components/profile/imdb-import-modal", () => ({
@@ -54,10 +65,12 @@ vi.mock("@/components/ui/badge", () => ({
 
 vi.mock("@hugeicons/core-free-icons", () => ({
   ArrowRight01Icon: {},
+  Cancel01Icon: {},
   CrownIcon: {},
   FileExportIcon: {},
   FileImportIcon: {},
   Home01Icon: {},
+  Location01Icon: {},
   Loading03Icon: {},
   Logout01Icon: {},
   Tick02Icon: {},
@@ -65,6 +78,14 @@ vi.mock("@hugeicons/core-free-icons", () => ({
 
 vi.mock("@hugeicons/react", () => ({
   HugeiconsIcon: () => <span aria-hidden="true" />,
+}))
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/profile",
+  useRouter: () => ({
+    push: pushMock,
+  }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -92,8 +113,10 @@ vi.mock("@/hooks/use-preferences", async () => {
   return {
     usePreferences: () => ({
       preferences: DEFAULT_PREFERENCES,
+      region: "US" as const,
       isLoading: false,
       updatePreference: updatePreferenceMock,
+      updateRegion: updateRegionMock,
     }),
   }
 })
@@ -120,7 +143,7 @@ vi.mock("@/lib/utils", async () => {
 
 vi.mock("sonner", () => ({
   toast: {
-    error: vi.fn(),
+    error: toastErrorMock,
     info: vi.fn(),
   },
 }))
@@ -128,6 +151,8 @@ vi.mock("sonner", () => ({
 describe("ProfilePageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+    updateRegionMock.mockResolvedValue(undefined)
     useTraktMock.mockReturnValue({
       isConnected: false,
       isEnriching: false,
@@ -142,6 +167,58 @@ describe("ProfilePageClient", () => {
       enrichData: vi.fn(),
       syncNow: vi.fn(),
     })
+  })
+
+  it("defaults to the preferences tab when no tab param is present", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByRole("tab", { name: "Preferences" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(
+      screen.getByText("Auto-remove from Should Watch"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Customize Home Screen")).not.toBeInTheDocument()
+  })
+
+  it("opens the requested tab from a valid tab param", async () => {
+    mockSearchParams = new URLSearchParams("tab=content")
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByRole("tab", { name: "Content" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(screen.getByText("🇺🇸 US")).toBeInTheDocument()
+    expect(screen.getByText("Region")).toBeInTheDocument()
+    expect(screen.getByText("Customize Home Screen")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Auto-remove from Should Watch"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("falls back to preferences for an invalid tab param", async () => {
+    mockSearchParams = new URLSearchParams("tab=unknown")
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByRole("tab", { name: "Preferences" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(
+      screen.getByText("Auto-remove from Should Watch"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Trakt Integration")).not.toBeInTheDocument()
   })
 
   it("renders the auto-remove preference and updates it", async () => {
@@ -199,7 +276,62 @@ describe("ProfilePageClient", () => {
     )
   })
 
+  it("updates the url when switching tabs", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    await user.click(screen.getByRole("tab", { name: "Settings" }))
+
+    expect(pushMock).toHaveBeenCalledWith("/profile?tab=settings", {
+      scroll: false,
+    })
+  })
+
+  it("opens the region modal and updates the selected region", async () => {
+    mockSearchParams = new URLSearchParams("tab=content")
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    await user.click(screen.getByText("Region"))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Region")
+    expect(screen.getByRole("button", { name: /Canada/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Canada/ }))
+
+    expect(updateRegionMock).toHaveBeenCalledWith("CA")
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
+  })
+
+  it("keeps the region modal open and shows an error toast when the update fails", async () => {
+    mockSearchParams = new URLSearchParams("tab=content")
+    updateRegionMock.mockRejectedValueOnce(new Error("boom"))
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    await user.click(screen.getByText("Region"))
+    await user.click(screen.getByRole("button", { name: /Canada/ }))
+
+    expect(updateRegionMock).toHaveBeenCalledWith("CA")
+    expect(screen.getByRole("dialog")).toHaveTextContent("Region")
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Failed to update region. Please try again.",
+    )
+  })
+
   it("renders Trakt integration status and opens its settings", async () => {
+    mockSearchParams = new URLSearchParams("tab=integrations")
     useTraktMock.mockReturnValue({
       isConnected: true,
       isEnriching: false,
@@ -234,6 +366,7 @@ describe("ProfilePageClient", () => {
   })
 
   it("opens the IMDb import modal", async () => {
+    mockSearchParams = new URLSearchParams("tab=integrations")
     const { ProfilePageClient } =
       await import("../app/profile/profile-page-client")
     const user = userEvent.setup()
@@ -246,8 +379,25 @@ describe("ProfilePageClient", () => {
       ),
     ).toBeInTheDocument()
     expect(container.querySelector('img[src="/imdb-logo.png"]')).not.toBeNull()
+
     await user.click(screen.getByText("IMDb Import"))
 
     expect(screen.getByRole("dialog")).toHaveTextContent("IMDb import")
+  })
+
+  it("opens export data and signs out from the settings tab", async () => {
+    mockSearchParams = new URLSearchParams("tab=settings")
+    signOutMock.mockResolvedValue(undefined)
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    await user.click(screen.getByText("Export Data"))
+    expect(screen.getByRole("dialog")).toHaveTextContent("Export data")
+
+    await user.click(screen.getByText("Sign Out"))
+    expect(signOutMock).toHaveBeenCalledTimes(1)
   })
 })

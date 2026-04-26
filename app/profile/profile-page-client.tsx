@@ -6,12 +6,14 @@ import { ExportDataModal } from "@/components/profile/export-data-modal"
 import { HomeScreenCustomizer } from "@/components/profile/HomeScreenCustomizer"
 import { ImdbImportModal } from "@/components/profile/imdb-import-modal"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
+import { RegionSelectorModal } from "@/components/profile/region-selector-modal"
 import { TraktSettingsModal } from "@/components/profile/trakt-settings-modal"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { useTrakt } from "@/context/trakt-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -21,18 +23,39 @@ import {
   createPremiumTelemetryPayload,
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
-import { captureException } from "@/lib/utils"
+import { captureException, cn } from "@/lib/utils"
 import {
   ArrowRight01Icon,
   FileExportIcon,
   Home01Icon,
+  Location01Icon,
   Loading03Icon,
   Logout01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { startTransition, useState } from "react"
 import { toast } from "sonner"
+
+type ProfileTab = "preferences" | "content" | "integrations" | "settings"
+
+const DEFAULT_PROFILE_TAB: ProfileTab = "preferences"
+
+const PROFILE_TABS: Array<{ id: ProfileTab; label: string }> = [
+  { id: "preferences", label: "Preferences" },
+  { id: "content", label: "Content" },
+  { id: "integrations", label: "Integrations" },
+  { id: "settings", label: "Settings" },
+]
+
+function isProfileTab(value: string | null): value is ProfileTab {
+  return PROFILE_TABS.some((tab) => tab.id === value)
+}
+
+function getProfileTab(value: string | null): ProfileTab {
+  return isProfileTab(value) ? value : DEFAULT_PROFILE_TAB
+}
 
 export function ProfilePageClient() {
   const { user, loading, premiumLoading, premiumStatus, signOut } = useAuth()
@@ -43,13 +66,19 @@ export function ProfilePageClient() {
   } = useTrakt()
   const {
     preferences,
+    region,
     isLoading: prefsLoading,
     updatePreference,
+    updateRegion,
   } = usePreferences()
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
   const [showImdbImportModal, setShowImdbImportModal] = useState(false)
+  const [showRegionModal, setShowRegionModal] = useState(false)
   const [showTraktModal, setShowTraktModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -63,6 +92,10 @@ export function ProfilePageClient() {
   })
   const isPremiumMember = premiumStatus === "premium"
   const canAccessPremiumFeatures = !shouldLockPremiumFeatures
+  const activeTab = getProfileTab(searchParams.get("tab"))
+  const selectedRegion = SUPPORTED_REGIONS.find(
+    (supportedRegion) => supportedRegion.code === region,
+  )
 
   if (loading || prefsLoading || !user) {
     return (
@@ -88,6 +121,20 @@ export function ProfilePageClient() {
       toast.error("Failed to sign out. Please try again.")
       setIsSigningOut(false)
     }
+  }
+
+  function handleTabChange(tab: ProfileTab) {
+    if (tab === activeTab) {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString())
+    nextSearchParams.set("tab", tab)
+    const nextUrl = `${pathname}?${nextSearchParams.toString()}`
+
+    startTransition(() => {
+      router.push(nextUrl, { scroll: false })
+    })
   }
 
   function handleExportData() {
@@ -133,52 +180,25 @@ export function ProfilePageClient() {
     setShowImdbImportModal(true)
   }
 
-  return (
-    <>
-      {/* Profile Header */}
-      <section className="mb-8">
-        <div className="flex items-center gap-4">
-          <Avatar
-            src={user?.photoURL}
-            alt={user?.displayName || "User"}
-            fallback={user?.displayName || user?.email || "User"}
-            size="lg"
-            isPremium={isPremiumMember}
-          />
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-white">
-              {user?.displayName || "User"}
-            </h1>
-            <p className="text-sm text-white/60">{user?.email}</p>
-          </div>
-          {isPremiumMember ? (
-            <Badge variant="premium">Premium Member</Badge>
-          ) : isPremiumCheckPending ? (
-            <span className="text-xs text-muted-foreground">
-              {PREMIUM_LOADING_MESSAGE}
-            </span>
-          ) : (
-            <button
-              onClick={() => setShowPremiumModal(true)}
-              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-            >
-              Upgrade to Premium
-            </button>
-          )}
-        </div>
-      </section>
+  async function handleRegionChange(nextRegion: SupportedRegionCode) {
+    try {
+      await updateRegion(nextRegion)
+    } catch (error) {
+      captureException(error)
+      toast.error("Failed to update region. Please try again.")
+      throw error
+    }
+  }
 
-      {/* Preferences Section */}
-      <section className="mb-8">
-        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
-          Preferences
-        </h2>
+  function renderPreferencesPanel() {
+    return (
+      <>
         {isPremiumCheckPending && (
           <p className="mb-3 px-4 text-xs text-muted-foreground">
             {PREMIUM_LOADING_MESSAGE}
           </p>
         )}
-        <div className="rounded-xl bg-white/5">
+        <div className="rounded-2xl bg-white/5 ring-1 ring-white/8">
           <PreferenceToggle
             label="Auto-add to Watching"
             description="Automatically add series to your Watching list when you mark an episode as watched"
@@ -279,130 +299,232 @@ export function ProfilePageClient() {
             isPremium={canAccessPremiumFeatures}
           />
         </div>
-      </section>
+      </>
+    )
+  }
 
-      {/* Home Screen Section */}
-      <section className="mb-8">
-        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
-          Home Screen
-        </h2>
-        <div className="rounded-xl bg-white/5">
-          <ActionButton
-            icon={Home01Icon}
-            label="Customize Home Screen"
-            onClick={() => setShowHomeCustomizer(true)}
-          />
-        </div>
-      </section>
+  function renderContentPanel() {
+    return (
+      <div className="rounded-2xl bg-white/5 ring-1 ring-white/8">
+        <ActionButton
+          icon={Location01Icon}
+          label="Region"
+          badge={
+            selectedRegion
+              ? `${selectedRegion.emoji} ${selectedRegion.code}`
+              : region
+          }
+          badgeClassName="bg-white/10 text-white/75"
+          onClick={() => setShowRegionModal(true)}
+        />
+        <div className="mx-4 border-t border-white/10" />
+        <ActionButton
+          icon={Home01Icon}
+          label="Customize Home Screen"
+          onClick={() => setShowHomeCustomizer(true)}
+        />
+      </div>
+    )
+  }
 
-      {/* Integrations Section */}
-      <section className="mb-8">
-        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
-          Integrations
-        </h2>
-        <div className="rounded-xl bg-white/5">
-          <button
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
-            onClick={() => setShowTraktModal(true)}
-            type="button"
-          >
-            <div className="flex size-9 items-center justify-center rounded-lg bg-white">
-              <img
-                src="/trakt-logo.svg"
-                alt=""
-                aria-hidden="true"
-                className="size-5"
+  function renderIntegrationsPanel() {
+    return (
+      <div className="rounded-2xl bg-white/5 ring-1 ring-white/8">
+        <button
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
+          onClick={() => setShowTraktModal(true)}
+          type="button"
+        >
+          <div className="flex size-9 items-center justify-center rounded-lg bg-white">
+            <img
+              src="/trakt-logo.svg"
+              alt=""
+              aria-hidden="true"
+              className="size-5"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-white">
+              Trakt Integration
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-white/50">
+              Import watched history, lists, ratings, and episode progress
+            </span>
+          </div>
+          {isTraktLoading ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/60">
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-3 animate-spin"
               />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-white">
-                Trakt Integration
-              </span>
-              <span className="mt-0.5 block truncate text-xs text-white/50">
-                Import watched history, lists, ratings, and episode progress
-              </span>
-            </div>
-            {isTraktLoading ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/60">
+              Checking
+            </span>
+          ) : isTraktConnected ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
+              {isTraktSyncing ? (
                 <HugeiconsIcon
                   icon={Loading03Icon}
                   className="size-3 animate-spin"
                 />
-                Checking
-              </span>
-            ) : isTraktConnected ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
-                {isTraktSyncing ? (
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="size-3 animate-spin"
-                  />
-                ) : (
-                  <HugeiconsIcon icon={Tick02Icon} className="size-3" />
-                )}
-                {isTraktSyncing ? "Syncing" : "Connected"}
-              </span>
-            ) : null}
-            <HugeiconsIcon
-              icon={ArrowRight01Icon}
-              className="size-5 text-white/40"
+              ) : (
+                <HugeiconsIcon icon={Tick02Icon} className="size-3" />
+              )}
+              {isTraktSyncing ? "Syncing" : "Connected"}
+            </span>
+          ) : null}
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            className="size-5 text-white/40"
+          />
+        </button>
+        <div className="mx-4 border-t border-white/10" />
+        <button
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
+          onClick={handleImdbImport}
+          type="button"
+        >
+          <div className="flex size-9 items-center justify-center rounded-lg bg-white">
+            <img
+              src="/imdb-logo.png"
+              alt=""
+              aria-hidden="true"
+              className="h-auto w-7"
             />
-          </button>
-          <div className="mx-4 border-t border-white/10" />
-          <button
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
-            onClick={handleImdbImport}
-            type="button"
-          >
-            <div className="flex size-9 items-center justify-center rounded-lg bg-white">
-              <img
-                src="/imdb-logo.png"
-                alt=""
-                aria-hidden="true"
-                className="h-auto w-7"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-white">
-                IMDb Import
-              </span>
-              <span className="mt-0.5 block truncate text-xs text-white/50">
-                Import ratings, watchlists, lists, and check-ins from CSV
-                exports
-              </span>
-            </div>
-            {shouldLockPremiumFeatures ? (
-              <Badge variant="premium">Premium</Badge>
-            ) : null}
-            <HugeiconsIcon
-              icon={ArrowRight01Icon}
-              className="size-5 text-white/40"
-            />
-          </button>
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-white">
+              IMDb Import
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-white/50">
+              Import ratings, watchlists, lists, and check-ins from CSV exports
+            </span>
+          </div>
+          {shouldLockPremiumFeatures ? (
+            <Badge variant="premium">Premium</Badge>
+          ) : null}
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            className="size-5 text-white/40"
+          />
+        </button>
+      </div>
+    )
+  }
+
+  function renderSettingsPanel() {
+    return (
+      <div className="rounded-2xl bg-white/5 ring-1 ring-white/8">
+        <ActionButton
+          icon={FileExportIcon}
+          label="Export Data"
+          onClick={handleExportData}
+          premiumRequired
+          isPremium={canAccessPremiumFeatures}
+        />
+        <div className="mx-4 border-t border-white/10" />
+        <ActionButton
+          icon={Logout01Icon}
+          label={isSigningOut ? "Signing out..." : "Sign Out"}
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          showChevron={false}
+        />
+      </div>
+    )
+  }
+
+  function renderActivePanel() {
+    switch (activeTab) {
+      case "content":
+        return renderContentPanel()
+      case "integrations":
+        return renderIntegrationsPanel()
+      case "settings":
+        return renderSettingsPanel()
+      case "preferences":
+      default:
+        return renderPreferencesPanel()
+    }
+  }
+
+  return (
+    <>
+      {/* Profile Header */}
+      <section className="mb-8">
+        <div className="flex items-center gap-4">
+          <Avatar
+            src={user?.photoURL}
+            alt={user?.displayName || "User"}
+            fallback={user?.displayName || user?.email || "User"}
+            size="lg"
+            isPremium={isPremiumMember}
+          />
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold text-white">
+              {user?.displayName || "User"}
+            </h1>
+            <p className="text-sm text-white/60">{user?.email}</p>
+          </div>
+          {isPremiumMember ? (
+            <Badge variant="premium">Premium Member</Badge>
+          ) : isPremiumCheckPending ? (
+            <span className="text-xs text-muted-foreground">
+              {PREMIUM_LOADING_MESSAGE}
+            </span>
+          ) : (
+            <button
+              onClick={() => setShowPremiumModal(true)}
+              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Upgrade to Premium
+            </button>
+          )}
         </div>
       </section>
 
-      {/* Settings Section */}
-      <section>
-        <h2 className="mb-2 px-4 text-sm font-medium text-white/40 uppercase tracking-wide">
-          Settings
-        </h2>
-        <div className="rounded-xl bg-white/5">
-          <ActionButton
-            icon={FileExportIcon}
-            label="Export Data"
-            onClick={handleExportData}
-            premiumRequired
-            isPremium={canAccessPremiumFeatures}
-          />
-          <div className="mx-4 border-t border-white/10" />
-          <ActionButton
-            icon={Logout01Icon}
-            label={isSigningOut ? "Signing out..." : "Sign Out"}
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            showChevron={false}
-          />
+      <section className="space-y-5">
+        <div
+          role="tablist"
+          aria-label="Profile sections"
+          className="overflow-x-auto pb-1"
+        >
+          <div className="inline-flex min-w-full gap-2 rounded-full bg-white/5 p-1 ring-1 ring-white/8 sm:min-w-0">
+            {PROFILE_TABS.map((tab) => {
+              const isActive = tab.id === activeTab
+
+              return (
+                <button
+                  key={tab.id}
+                  id={`profile-tab-${tab.id}`}
+                  role="tab"
+                  type="button"
+                  aria-selected={isActive}
+                  aria-controls={`profile-panel-${tab.id}`}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={cn(
+                    "min-w-fit rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
+                    "focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-[3px]",
+                    isActive
+                      ? "bg-primary text-white shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
+                      : "text-white/60 hover:bg-white/8 hover:text-white",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div
+          key={activeTab}
+          id={`profile-panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`profile-tab-${activeTab}`}
+          className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+        >
+          {renderActivePanel()}
         </div>
       </section>
 
@@ -420,6 +542,13 @@ export function ProfilePageClient() {
       <HomeScreenCustomizer
         open={showHomeCustomizer}
         onOpenChange={setShowHomeCustomizer}
+      />
+
+      <RegionSelectorModal
+        open={showRegionModal}
+        onOpenChange={setShowRegionModal}
+        region={region}
+        onSelectRegion={handleRegionChange}
       />
 
       <TraktSettingsModal
