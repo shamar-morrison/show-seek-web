@@ -1,4 +1,10 @@
 import {
+  formatExcludedGenres,
+  formatMoodGenres,
+  formatMoodKeywords,
+  getMoodById,
+} from "@/lib/moods"
+import {
   discoverMedia,
   getLanguages,
   getMovieGenres,
@@ -23,6 +29,8 @@ export default async function DiscoverPage({
   // Parse initial filter state from URL
   const mediaType = (params.type as "movie" | "tv") || "movie"
   const page = safeParseInt(params.page as string) || 1
+  const moodId = typeof params.mood === "string" ? params.mood : null
+  const mood = moodId ? getMoodById(moodId) : null
 
   // Fetch static data in parallel - these are cached indefinitely
   const [movieGenres, tvGenres, languages, providers, initialResults] =
@@ -34,15 +42,23 @@ export default async function DiscoverPage({
       discoverMedia({
         mediaType,
         page,
-        year: safeParseInt(params.year as string),
-        sortBy:
-          (params.sort as "popularity" | "top_rated" | "newest") || undefined,
-        rating: safeParseInt(params.rating as string),
-        language: (params.language as string) || undefined,
-        genre: safeParseInt(params.genre as string),
-        providers: safeParseInt(params.provider as string)
-          ? [safeParseInt(params.provider as string)!]
+        year: mood ? undefined : safeParseInt(params.year as string),
+        sortBy: mood
+          ? undefined
+          : ((params.sort as "popularity" | "top_rated" | "newest") ||
+            undefined),
+        rating: mood ? undefined : safeParseInt(params.rating as string),
+        language: mood ? undefined : ((params.language as string) || undefined),
+        genre: mood ? undefined : safeParseInt(params.genre as string),
+        withGenres: mood ? formatMoodGenres(mood, mediaType) : undefined,
+        withKeywords: mood ? formatMoodKeywords(mood) : undefined,
+        withoutGenres: mood
+          ? formatExcludedGenres(mood, mediaType)
           : undefined,
+        providers:
+          mood || !safeParseInt(params.provider as string)
+            ? undefined
+            : [safeParseInt(params.provider as string)!],
       }),
     ])
 
@@ -54,6 +70,7 @@ export default async function DiscoverPage({
       providers={providers}
       initialResults={initialResults}
       initialFilters={{
+        moodId: mood?.id ?? null,
         mediaType,
         page,
         year: safeParseInt(params.year as string) ?? null,

@@ -573,6 +573,9 @@ export interface DiscoverParams {
   rating?: number // vote_average.gte
   language?: string // with_original_language
   genre?: number // with_genres
+  withGenres?: string // raw with_genres override
+  withKeywords?: string // raw with_keywords
+  withoutGenres?: string // raw without_genres
   providers?: number[] // with_watch_providers
   region?: string // watch_region
 }

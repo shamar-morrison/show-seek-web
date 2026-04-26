@@ -1536,6 +1536,9 @@ export async function discoverMedia(
     rating,
     language,
     genre,
+    withGenres,
+    withKeywords,
+    withoutGenres,
     providers,
     region = DEFAULT_WATCH_REGION,
   } = params
@@ -1589,8 +1592,18 @@ export async function discoverMedia(
   }
 
   // Genre filter
-  if (genre) {
+  if (withGenres) {
+    queryParams["with_genres"] = withGenres
+  } else if (genre) {
     queryParams["with_genres"] = genre.toString()
+  }
+
+  if (withKeywords) {
+    queryParams["with_keywords"] = withKeywords
+  }
+
+  if (withoutGenres) {
+    queryParams["without_genres"] = withoutGenres
   }
 
   // Providers filter

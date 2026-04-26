@@ -125,15 +125,25 @@ vi.mock("@/components/ui/virtualized-filter-combobox", () => ({
   },
 }))
 
+vi.mock("@/components/ui/dialog", () => ({
+  Dialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
+    open ? <div role="dialog">{children}</div> : null,
+  DialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  DialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+}))
+
 vi.mock("@/components/ui/button", () => ({
   Button: ({
     children,
     onClick,
+    ...props
   }: {
     children?: ReactNode
     onClick?: () => void
   }) => (
-    <button onClick={onClick} type="button">
+    <button onClick={onClick} type="button" {...props}>
       {children}
     </button>
   ),
@@ -225,8 +235,10 @@ const initialResults: TMDBDiscoverResponse = {
 }
 
 async function renderDiscoverClient({
+  moodId = null,
   provider = null,
 }: {
+  moodId?: string | null
   provider?: number | null
 } = {}) {
   const { DiscoverClient } = await import("@/app/discover/discover-client")
@@ -237,6 +249,7 @@ async function renderDiscoverClient({
         genre: null,
         language: null,
         mediaType: "movie",
+        moodId,
         page: 1,
         provider,
         rating: null,
@@ -268,6 +281,40 @@ describe("DiscoverClient streaming filter", () => {
 
     expect(screen.getByLabelText("Streaming")).toBeInTheDocument()
     expect(screen.queryByText("Premium")).not.toBeInTheDocument()
+  })
+
+  it("lets users enter mood mode from the picker", async () => {
+    await renderDiscoverClient()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: /pick a mood/i }))
+    await user.click(screen.getByRole("button", { name: /cozy/i }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?mood=cozy")
+    })
+  })
+
+  it("lets mood mode switch between movie and tv results", async () => {
+    await renderDiscoverClient({ moodId: "cozy" })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: "TV Shows" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?mood=cozy&type=tv")
+    })
+  })
+
+  it("lets mood mode return to standard discovery", async () => {
+    await renderDiscoverClient({ moodId: "cozy" })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: /clear mood/i }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover")
+    })
   })
 
   it("lets guests select a streaming provider", async () => {
