@@ -15,6 +15,8 @@ interface FilterTabButtonProps {
   icon?: Parameters<typeof HugeiconsIcon>[0]["icon"]
   /** Click handler */
   onClick: () => void
+  /** Whether the tab is disabled */
+  disabled?: boolean
   /** Optional additional class names */
   className?: string
   /** Optional test id */
@@ -31,6 +33,7 @@ export function FilterTabButton({
   isActive,
   icon,
   onClick,
+  disabled = false,
   className,
   testId,
 }: FilterTabButtonProps) {
@@ -39,6 +42,7 @@ export function FilterTabButton({
       type="button"
       variant={isActive ? "default" : "ghost"}
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={isActive}
       data-testid={testId}
       className={cn(
@@ -47,6 +51,7 @@ export function FilterTabButton({
         isActive
           ? "bg-primary text-white hover:bg-primary/90"
           : "text-gray-400 hover:bg-white/10 hover:text-white",
+        disabled && "cursor-not-allowed opacity-50",
         className,
       )}
     >

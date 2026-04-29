@@ -11,138 +11,24 @@ import {
   updateList as updateListInFirestore,
 } from "@/lib/firebase/lists"
 import {
-  getListItemCandidateKeys,
+  buildListItemKey,
   type ListItemMediaType,
 } from "@/lib/list-item-keys"
+import {
+  addItemToCachedLists,
+  removeItemFromCachedLists,
+  removeMediaFromCachedLists,
+  updateListInCachedLists,
+} from "@/lib/list-cache-updates"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import { maybeWarnTraktManagedListEdit } from "@/lib/trakt-managed-edits"
 import {
   DEFAULT_LISTS,
-  type ListMediaItem,
   type ListWriteMediaItem,
   type UserList,
 } from "@/types/list"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-
-function addItemToCachedLists(
-  lists: UserList[],
-  listId: string,
-  mediaItem: ListWriteMediaItem,
-): UserList[] {
-  const itemKey = String(mediaItem.id)
-  const addedItem: ListMediaItem = {
-    ...mediaItem,
-    addedAt: mediaItem.addedAt ?? Date.now(),
-  }
-
-  const existing = lists.find((list) => list.id === listId)
-  if (!existing) {
-    const defaultList = DEFAULT_LISTS.find((list) => list.id === listId)
-    if (!defaultList) return lists
-
-    return [
-      ...lists,
-      {
-        id: listId,
-        name: defaultList.name,
-        items: {
-          [itemKey]: addedItem,
-        },
-        createdAt: Date.now(),
-        isCustom: false,
-      },
-    ]
-  }
-
-  return lists.map((list) => {
-    if (list.id !== listId) return list
-
-    return {
-      ...list,
-      items: {
-        ...(list.items || {}),
-        [itemKey]: addedItem,
-      },
-      updatedAt: Date.now(),
-    }
-  })
-}
-
-function removeItemFromCachedLists(
-  lists: UserList[],
-  listId: string,
-  mediaId: string,
-): UserList[] {
-  return lists.map((list) => {
-    if (list.id !== listId) return list
-
-    const nextItems = { ...(list.items || {}) }
-    delete nextItems[mediaId]
-
-    return {
-      ...list,
-      items: nextItems,
-      updatedAt: Date.now(),
-    }
-  })
-}
-
-function removeMediaFromCachedLists(
-  lists: UserList[],
-  listId: string,
-  mediaId: number,
-  mediaType: ListItemMediaType,
-): UserList[] {
-  const candidateKeys = getListItemCandidateKeys(mediaType, mediaId)
-
-  return lists.map((list) => {
-    if (list.id !== listId) return list
-
-    const nextItems = { ...(list.items || {}) }
-
-    candidateKeys.forEach((itemKey) => {
-      delete nextItems[itemKey]
-    })
-
-    return {
-      ...list,
-      items: nextItems,
-      updatedAt: Date.now(),
-    }
-  })
-}
-
-function updateListInCachedLists(
-  lists: UserList[],
-  listId: string,
-  newName: string,
-  description?: string,
-): UserList[] {
-  const trimmedName = newName.trim()
-  const hasDescriptionUpdate = description !== undefined
-  const trimmedDescription = description?.trim()
-
-  return lists.map((list) => {
-    if (list.id !== listId) return list
-
-    const nextList: UserList = {
-      ...list,
-      name: trimmedName,
-      updatedAt: Date.now(),
-    }
-
-    if (hasDescriptionUpdate) {
-      if (trimmedDescription) {
-        nextList.description = trimmedDescription
-      } else {
-        delete nextList.description
-      }
-    }
-
-    return nextList
-  })
-}
 
 function assertUserId(userId: string | null): string {
   if (!userId) {
@@ -229,6 +115,39 @@ export function useListMutations() {
     },
     optimisticUpdate: ({ previousLists, variables }) => {
       if (!previousLists) return {}
+      const existing = previousLists.find((list) => list.id === variables.listId)
+      if (!existing) {
+        const defaultList = DEFAULT_LISTS.find(
+          (list) => list.id === variables.listId,
+        )
+        if (!defaultList) {
+          return {}
+        }
+
+        const itemKey = buildListItemKey(
+          variables.mediaItem.media_type,
+          variables.mediaItem.id,
+        )
+
+        return {
+          nextLists: [
+            ...previousLists,
+            {
+              id: variables.listId,
+              name: defaultList.name,
+              items: {
+                [itemKey]: {
+                  ...variables.mediaItem,
+                  addedAt: variables.mediaItem.addedAt ?? Date.now(),
+                },
+              },
+              createdAt: Date.now(),
+              isCustom: false,
+            },
+          ],
+        }
+      }
+
       return {
         nextLists: addItemToCachedLists(
           previousLists,

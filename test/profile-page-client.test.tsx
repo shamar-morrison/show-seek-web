@@ -276,6 +276,31 @@ describe("ProfilePageClient", () => {
     )
   })
 
+  it("renders the default bulk action preference and updates it", async () => {
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+    const user = userEvent.setup()
+
+    render(<ProfilePageClient />)
+
+    const bulkActionToggleLabel = screen
+      .getByText("Default bulk action: Move")
+      .closest("label")
+
+    expect(bulkActionToggleLabel).not.toBeNull()
+
+    const bulkActionToggle = within(
+      bulkActionToggleLabel as HTMLLabelElement,
+    ).getByRole("switch")
+
+    await user.click(bulkActionToggle)
+
+    expect(updatePreferenceMock).toHaveBeenCalledWith(
+      "copyInsteadOfMove",
+      true,
+    )
+  })
+
   it("updates the url when switching tabs", async () => {
     const { ProfilePageClient } =
       await import("../app/profile/profile-page-client")

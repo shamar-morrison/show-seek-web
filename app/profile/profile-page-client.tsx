@@ -228,6 +228,18 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label={
+              preferences.copyInsteadOfMove
+                ? "Default bulk action: Copy"
+                : "Default bulk action: Move"
+            }
+            description="When bulk adding from a list, keep items in the source list instead of removing them."
+            checked={preferences.copyInsteadOfMove}
+            onChange={(value) => updatePreference("copyInsteadOfMove", value)}
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Quick Mark as Watched"
             description="Skip the date selection modal and use the current time when marking movies as watched"
             checked={preferences.quickMarkAsWatched}

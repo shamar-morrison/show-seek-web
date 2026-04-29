@@ -12,6 +12,7 @@ export interface UserPreferences {
   autoAddToWatching: boolean
   autoAddToAlreadyWatched: boolean
   autoRemoveFromShouldWatch: boolean
+  copyInsteadOfMove: boolean
   markPreviousEpisodesWatched: boolean
   showListIndicators: boolean
   showOriginalTitles: boolean
@@ -32,6 +33,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   autoAddToWatching: false,
   autoAddToAlreadyWatched: false,
   autoRemoveFromShouldWatch: true,
+  copyInsteadOfMove: false,
   markPreviousEpisodesWatched: false,
   showListIndicators: false,
   showOriginalTitles: false,
