@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  buildListItemKey,
   getListItemCandidateKeys,
   type ListItemMediaType,
 } from "@/lib/list-item-keys"
@@ -11,7 +12,7 @@ export function addItemToCachedLists(
   listId: string,
   mediaItem: ListWriteMediaItem,
 ): UserList[] {
-  const itemKey = String(mediaItem.id)
+  const itemKey = buildListItemKey(mediaItem.media_type, mediaItem.id)
   const addedItem: ListMediaItem = {
     ...mediaItem,
     addedAt: mediaItem.addedAt ?? Date.now(),

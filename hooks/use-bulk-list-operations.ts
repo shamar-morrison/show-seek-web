@@ -114,6 +114,13 @@ export function useBulkListOperations() {
         (listId) => listId !== sourceListId,
       )
 
+      if (mode === "move" && uniqueTargetIds.length === 0) {
+        return {
+          failedOperations: 0,
+          totalOperations: 0,
+        }
+      }
+
       maybeWarnTraktManagedListEdit(
         isTraktConnected,
         [

@@ -11,6 +11,7 @@ import {
   updateList as updateListInFirestore,
 } from "@/lib/firebase/lists"
 import {
+  buildListItemKey,
   type ListItemMediaType,
 } from "@/lib/list-item-keys"
 import {
@@ -123,6 +124,11 @@ export function useListMutations() {
           return {}
         }
 
+        const itemKey = buildListItemKey(
+          variables.mediaItem.media_type,
+          variables.mediaItem.id,
+        )
+
         return {
           nextLists: [
             ...previousLists,
@@ -130,7 +136,7 @@ export function useListMutations() {
               id: variables.listId,
               name: defaultList.name,
               items: {
-                [String(variables.mediaItem.id)]: {
+                [itemKey]: {
                   ...variables.mediaItem,
                   addedAt: variables.mediaItem.addedAt ?? Date.now(),
                 },

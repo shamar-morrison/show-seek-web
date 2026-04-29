@@ -393,6 +393,10 @@ export function ListsPageClient({
   }, [getSelectionKey, isSelectionMode, listItems])
 
   const enterSelectionMode = useCallback(() => {
+    setSearchQuery("")
+    setFilterState({ mediaType: "all", genre: "all" })
+    setYearRange([MIN_YEAR, CURRENT_YEAR])
+    setMinRating(0)
     setSelectedItems({})
     setIsSelectionMode(true)
   }, [])

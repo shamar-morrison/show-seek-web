@@ -50,7 +50,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useId, useMemo, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 /** Map list IDs to icons for default lists */
@@ -236,13 +236,35 @@ export function AddToListModal({
     () => selectableLists.filter((l) => l.isCustom),
     [selectableLists],
   )
+  const wasOpenRef = useRef(false)
 
   // Initialize selected lists when modal opens or lists change
   useEffect(() => {
-    if (!isOpen || listsLoading) return
+    if (!isOpen) {
+      wasOpenRef.current = false
+      return
+    }
+
+    if (listsLoading) return
+
+    const wasOpen = wasOpenRef.current
 
     if (isBulkMode) {
-      setSelectedLists(new Set())
+      if (!wasOpen) {
+        setSelectedLists(new Set())
+        wasOpenRef.current = true
+        return
+      }
+
+      const validListIds = new Set(selectableLists.map((list) => list.id))
+      setSelectedLists((prev) => {
+        const next = new Set(
+          Array.from(prev).filter((listId) => validListIds.has(listId)),
+        )
+
+        return next.size === prev.size ? prev : next
+      })
+      wasOpenRef.current = true
       return
     }
 
@@ -257,7 +279,16 @@ export function AddToListModal({
       }
     })
     setSelectedLists(initialSelected)
-  }, [isBulkMode, isOpen, lists, listsLoading, mediaId, singleMediaType])
+    wasOpenRef.current = true
+  }, [
+    isBulkMode,
+    isOpen,
+    lists,
+    listsLoading,
+    mediaId,
+    selectableLists,
+    singleMediaType,
+  ])
 
   // Reset state when modal closes
   const handleClose = useCallback(() => {

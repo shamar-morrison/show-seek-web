@@ -55,13 +55,23 @@ vi.mock("@/hooks/use-bulk-list-operations", () => ({
 
 vi.mock("@/components/ui/filter-sort", () => ({
   FilterSort: ({
+    onFilterChange,
+    ratingFilter,
     onSortChange,
     yearRange,
   }: {
+    onFilterChange?: (key: string, value: string) => void
+    ratingFilter?: { onChange: (value: number) => void }
     onSortChange: (state: { field: string; direction: string }) => void
     yearRange?: { onChange: (range: [number, number]) => void }
   }) => (
     <>
+      <button type="button" onClick={() => onFilterChange?.("mediaType", "tv")}>
+        Filter TV
+      </button>
+      <button type="button" onClick={() => ratingFilter?.onChange(9)}>
+        Min rating 9
+      </button>
       <button
         type="button"
         onClick={() => onSortChange({ field: "title", direction: "asc" })}
@@ -523,6 +533,35 @@ describe("ListsPageClient", () => {
     ).toBeInTheDocument()
   })
 
+  it("clears search and active filters before entering selection mode", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "Spirited")
+    await user.click(screen.getByRole("button", { name: "Filter TV" }))
+    await user.click(screen.getByRole("button", { name: "Min rating 9" }))
+
+    expect(screen.queryAllByTestId("media-card")).toHaveLength(0)
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+
+    expect(
+      screen.queryByPlaceholderText("Search in this list..."),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByTestId("media-card")).toHaveLength(2)
+    expect(
+      screen.getByRole("button", { name: "Sen to Chihiro no Kamikakushi" }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Kimi no Na wa." })).toBeInTheDocument()
+  })
+
   it("supports a custom selection entry while hiding the built-in select button", async () => {
     const user = userEvent.setup()
 
@@ -552,6 +591,45 @@ describe("ListsPageClient", () => {
       screen.getByText(/select items from "Should Watch" to move, copy, or remove them in bulk/i),
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Should Watch/i })).toBeDisabled()
+  })
+
+  it("clears search and filters before entering selection mode from a custom action", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showDefaultSelectAction={false}
+        filterRowAction={({ canSelectItems, enterSelectionMode }) => (
+          <button
+            type="button"
+            disabled={!canSelectItems}
+            onClick={enterSelectionMode}
+          >
+            Menu Select Items
+          </button>
+        )}
+      />,
+    )
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "Spirited")
+    await user.click(screen.getByRole("button", { name: "Filter TV" }))
+    await user.click(screen.getByRole("button", { name: "Min rating 9" }))
+
+    expect(screen.queryAllByTestId("media-card")).toHaveLength(0)
+
+    await user.click(screen.getByRole("button", { name: "Menu Select Items" }))
+
+    expect(
+      screen.queryByPlaceholderText("Search in this list..."),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByTestId("media-card")).toHaveLength(2)
+    expect(
+      screen.getByRole("button", { name: "Sen to Chihiro no Kamikakushi" }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Kimi no Na wa." })).toBeInTheDocument()
   })
 
   it("removes selected items in bulk and exits selection mode on success", async () => {
