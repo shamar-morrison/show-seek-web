@@ -1,13 +1,20 @@
 import { ListsPageClient } from "@/components/lists-page-client"
-import { render, screen } from "@/test/utils"
+import { render, screen, waitFor, within } from "@/test/utils"
 import type { UserList } from "@/types/list"
 import userEvent from "@testing-library/user-event"
+import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   preferences: {
+    copyInsteadOfMove: false,
     showOriginalTitles: true,
   },
+  addToListModalProps: null as Record<string, unknown> | null,
+  bulkModalRenderCount: 0,
+  removeItemsFromListBatch: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
   watchTrailer: vi.fn(),
   closeTrailer: vi.fn(),
   shuffleDialog: vi.fn(),
@@ -37,6 +44,12 @@ vi.mock("@/hooks/use-trailer", () => ({
     loadingMediaId: null,
     watchTrailer: mocks.watchTrailer,
     closeTrailer: mocks.closeTrailer,
+  }),
+}))
+
+vi.mock("@/hooks/use-bulk-list-operations", () => ({
+  useBulkListOperations: () => ({
+    removeItemsFromListBatch: mocks.removeItemsFromListBatch,
   }),
 }))
 
@@ -76,6 +89,9 @@ vi.mock("@/components/ui/filter-sort", () => ({
 vi.mock("@/components/media-card-with-actions", () => ({
   MediaCardWithActions: ({
     media,
+    isSelected,
+    onSelectToggle,
+    selectionMode,
   }: {
     media: {
       title?: string
@@ -83,6 +99,9 @@ vi.mock("@/components/media-card-with-actions", () => ({
       original_title?: string
       original_name?: string
     }
+    isSelected?: boolean
+    onSelectToggle?: () => void
+    selectionMode?: boolean
   }) => {
     const canonicalTitle = media.title ?? media.name ?? ""
     const originalTitle = media.original_title ?? media.original_name ?? ""
@@ -90,7 +109,29 @@ vi.mock("@/components/media-card-with-actions", () => ({
       ? originalTitle || canonicalTitle
       : canonicalTitle || originalTitle
 
+    if (selectionMode) {
+      return (
+        <button
+          type="button"
+          data-testid="media-card"
+          aria-pressed={isSelected}
+          onClick={onSelectToggle}
+        >
+          {displayTitle}
+        </button>
+      )
+    }
+
     return <div data-testid="media-card">{displayTitle}</div>
+  },
+}))
+
+vi.mock("@/components/add-to-list-modal", () => ({
+  AddToListModal: (props: Record<string, unknown>) => {
+    mocks.addToListModalProps = props
+    mocks.bulkModalRenderCount += 1
+
+    return props.isOpen ? <div data-testid="bulk-add-modal" /> : null
   },
 }))
 
@@ -119,6 +160,55 @@ vi.mock("@/components/shuffle-dialog", () => ({
         ))}
       </div>
     )
+  },
+}))
+
+vi.mock("@/components/ui/alert-dialog", () => ({
+  AlertDialog: ({
+    open,
+    children,
+  }: {
+    open: boolean
+    children: ReactNode
+  }) => (open ? <div data-testid="alert-dialog">{children}</div> : null),
+  AlertDialogAction: ({
+    children,
+    ...props
+  }: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogCancel: ({
+    children,
+    ...props
+  }: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => (
+    <p>{children}</p>
+  ),
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+}))
+
+vi.mock("@/components/ui/dialog", () => ({
+  Dialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
+    open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  DialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => mocks.toastError(...args),
+    success: (...args: unknown[]) => mocks.toastSuccess(...args),
   },
 }))
 
@@ -193,7 +283,14 @@ function createJanBoundaryLists(): UserList[] {
 describe("ListsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.addToListModalProps = null
+    mocks.bulkModalRenderCount = 0
+    mocks.preferences.copyInsteadOfMove = false
     mocks.preferences.showOriginalTitles = true
+    mocks.removeItemsFromListBatch.mockResolvedValue({
+      failedItems: [],
+      total: 0,
+    })
   })
 
   afterEach(() => {
@@ -359,5 +456,198 @@ describe("ListsPageClient", () => {
     expect(lastCall?.items).toHaveLength(2)
     expect(lastCall?.items[0]?.id).toBe(456)
     expect(lastCall?.items[1]?.id).toBe(123)
+  })
+
+  it("enters selection mode, disables list switching, and opens the bulk modal in move mode", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+
+    expect(
+      screen.getByText(/select items from "Should Watch" to move, copy, or remove them in bulk/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByPlaceholderText("Search in this list..."),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Should Watch/i })).toBeDisabled()
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sen to Chihiro no Kamikakushi",
+      }),
+    )
+
+    expect(screen.getByText("1 item selected")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Move to lists" }))
+
+    expect(screen.getByTestId("bulk-add-modal")).toBeInTheDocument()
+    expect(mocks.addToListModalProps).toEqual(
+      expect.objectContaining({
+        bulkAddMode: "move",
+        isOpen: true,
+        sourceListId: "watchlist",
+      }),
+    )
+    expect(
+      (mocks.addToListModalProps?.mediaItems as Array<{ id: number }>)?.map(
+        (item) => item.id,
+      ),
+    ).toEqual([123])
+  })
+
+  it("uses the copy preference for the bulk primary action", async () => {
+    const user = userEvent.setup()
+    mocks.preferences.copyInsteadOfMove = true
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+
+    expect(
+      screen.getByRole("button", { name: "Copy to lists" }),
+    ).toBeInTheDocument()
+  })
+
+  it("supports a custom selection entry while hiding the built-in select button", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showDefaultSelectAction={false}
+        filterRowAction={({ canSelectItems, enterSelectionMode }) => (
+          <button
+            type="button"
+            disabled={!canSelectItems}
+            onClick={enterSelectionMode}
+          >
+            Menu Select Items
+          </button>
+        )}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Select" })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Menu Select Items" }))
+
+    expect(
+      screen.getByText(/select items from "Should Watch" to move, copy, or remove them in bulk/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Should Watch/i })).toBeDisabled()
+  })
+
+  it("removes selected items in bulk and exits selection mode on success", async () => {
+    const user = userEvent.setup()
+    mocks.removeItemsFromListBatch.mockResolvedValue({
+      failedItems: [],
+      total: 1,
+    })
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sen to Chihiro no Kamikakushi",
+      }),
+    )
+    await user.click(screen.getByRole("button", { name: "Remove items" }))
+
+    expect(screen.getByTestId("alert-dialog")).toBeInTheDocument()
+
+    await user.click(
+      within(screen.getByTestId("alert-dialog")).getByRole("button", {
+        name: "Remove items",
+      }),
+    )
+
+    await waitFor(() => {
+      expect(mocks.removeItemsFromListBatch).toHaveBeenCalledWith({
+        listId: "watchlist",
+        mediaItems: [
+          expect.objectContaining({
+            id: 123,
+            media_type: "movie",
+          }),
+        ],
+        onProgress: expect.any(Function),
+      })
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("1 item selected"),
+      ).not.toBeInTheDocument()
+    })
+
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "1 item removed from Should Watch.",
+    )
+    expect(
+      screen.getByPlaceholderText("Search in this list..."),
+    ).toBeInTheDocument()
+  })
+
+  it("keeps failed bulk removals selected", async () => {
+    const user = userEvent.setup()
+    mocks.removeItemsFromListBatch.mockResolvedValue({
+      failedItems: ["movie-456"],
+      total: 2,
+    })
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sen to Chihiro no Kamikakushi",
+      }),
+    )
+    await user.click(screen.getByRole("button", { name: "Kimi no Na wa." }))
+    await user.click(screen.getByRole("button", { name: "Remove items" }))
+
+    await user.click(
+      within(screen.getByTestId("alert-dialog")).getByRole("button", {
+        name: "Remove items",
+      }),
+    )
+
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Failed to remove 1 of 2 selected items.",
+      )
+    })
+
+    expect(screen.getByText("1 item selected")).toBeInTheDocument()
   })
 })

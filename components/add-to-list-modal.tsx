@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
+import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { useLists } from "@/hooks/use-lists"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -33,7 +34,7 @@ import {
   createPremiumTelemetryPayload,
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
-import type { ListMediaItem, UserList } from "@/types/list"
+import type { ListMediaItem, ListWriteMediaItem, UserList } from "@/types/list"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   Add01Icon,
@@ -79,16 +80,36 @@ type PreparedListOperation =
       rollbackMediaItem: ListMediaItem
     }
 
-interface AddToListModalProps {
+interface BaseAddToListModalProps {
   /** Whether the modal is open */
   isOpen: boolean
   /** Callback when modal should close */
   onClose: () => void
+  /** Called after a successful bulk operation finishes */
+  onComplete?: () => void
+}
+
+interface SingleAddToListModalProps extends BaseAddToListModalProps {
   /** The media item to add to lists */
   media: TMDBMedia | TMDBMovieDetails | TMDBTVDetails
   /** Media type */
   mediaType: "movie" | "tv"
+  mediaItems?: never
+  sourceListId?: never
+  bulkAddMode?: never
 }
+
+interface BulkAddToListModalProps extends BaseAddToListModalProps {
+  media?: never
+  mediaType?: never
+  mediaItems: ListWriteMediaItem[]
+  sourceListId: string
+  bulkAddMode: "copy" | "move"
+}
+
+type AddToListModalProps =
+  | SingleAddToListModalProps
+  | BulkAddToListModalProps
 
 function formatListNames(listNames: string[]) {
   if (listNames.length === 0) {
@@ -117,18 +138,20 @@ function formatListNames(listNames: string[]) {
 export function AddToListModal({
   isOpen,
   onClose,
-  media,
-  mediaType,
+  onComplete,
+  ...props
 }: AddToListModalProps) {
   const { user, premiumLoading, premiumStatus } = useAuth()
   const { lists, loading: listsLoading } = useLists()
   const { preferences } = usePreferences()
+  const { transferItems } = useBulkListOperations()
   const { addToList, removeFromList, createList, updateList, deleteList } =
     useListMutations()
   const [activeTab, setActiveTab] = useState<TabType>("default")
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set())
   const [isSaving, setIsSaving] = useState(false)
   const [mode, setMode] = useState<ModalMode>("add")
+  const [operationError, setOperationError] = useState<string | null>(null)
 
   // Create list modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -150,18 +173,44 @@ export function AddToListModal({
   const [listToDelete, setListToDelete] = useState<UserList | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const isBulkMode = "mediaItems" in props
+  const singleMedia = isBulkMode ? null : props.media
+  const singleMediaType = isBulkMode ? null : props.mediaType
+  const bulkMediaItems: ListWriteMediaItem[] = isBulkMode
+    ? props.mediaItems ?? []
+    : []
+  const sourceListId: string | null = isBulkMode
+    ? props.sourceListId ?? null
+    : null
+  const bulkAddMode: "copy" | "move" = isBulkMode
+    ? props.bulkAddMode ?? "move"
+    : preferences.copyInsteadOfMove
+      ? "copy"
+      : "move"
+
   // Get media details
-  const displayTitle =
-    getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
-  const title =
-    ("title" in media ? media.title : undefined) ||
-    ("name" in media ? media.name : undefined) ||
-    displayTitle
-  const originalTitle =
-    ("original_title" in media ? media.original_title : undefined) || undefined
-  const originalName =
-    ("original_name" in media ? media.original_name : undefined) || undefined
-  const mediaId = media.id
+  const displayTitle = isBulkMode
+    ? null
+    : singleMedia
+      ? getDisplayMediaTitle(singleMedia, preferences.showOriginalTitles) ||
+        "Unknown"
+      : "Unknown"
+  const title = isBulkMode
+    ? null
+    : (singleMedia && "title" in singleMedia ? singleMedia.title : undefined) ||
+      (singleMedia && "name" in singleMedia ? singleMedia.name : undefined) ||
+      displayTitle
+  const originalTitle = isBulkMode
+    ? undefined
+    : (singleMedia && "original_title" in singleMedia
+        ? singleMedia.original_title
+        : undefined) || undefined
+  const originalName = isBulkMode
+    ? undefined
+    : (singleMedia && "original_name" in singleMedia
+        ? singleMedia.original_name
+        : undefined) || undefined
+  const mediaId = singleMedia?.id ?? null
   const isPremiumCheckPending = isPremiumStatusPending({
     premiumLoading,
     premiumStatus,
@@ -172,27 +221,50 @@ export function AddToListModal({
   })
 
   // Filter lists by type
-  const defaultLists = useMemo(() => lists.filter((l) => !l.isCustom), [lists])
-  const customLists = useMemo(() => lists.filter((l) => l.isCustom), [lists])
+  const selectableLists = useMemo(
+    () =>
+      isBulkMode && sourceListId
+        ? lists.filter((list) => list.id !== sourceListId)
+        : lists,
+    [isBulkMode, lists, sourceListId],
+  )
+  const defaultLists = useMemo(
+    () => selectableLists.filter((l) => !l.isCustom),
+    [selectableLists],
+  )
+  const customLists = useMemo(
+    () => selectableLists.filter((l) => l.isCustom),
+    [selectableLists],
+  )
 
   // Initialize selected lists when modal opens or lists change
   useEffect(() => {
     if (!isOpen || listsLoading) return
 
+    if (isBulkMode) {
+      setSelectedLists(new Set())
+      return
+    }
+
     const initialSelected = new Set<string>()
     lists.forEach((list) => {
-      if (hasStoredListItem(list.items, mediaType, mediaId)) {
+      if (
+        singleMediaType &&
+        mediaId !== null &&
+        hasStoredListItem(list.items, singleMediaType, mediaId)
+      ) {
         initialSelected.add(list.id)
       }
     })
     setSelectedLists(initialSelected)
-  }, [isOpen, lists, mediaId, mediaType, listsLoading])
+  }, [isBulkMode, isOpen, lists, listsLoading, mediaId, singleMediaType])
 
   // Reset state when modal closes
   const handleClose = useCallback(() => {
     setActiveTab("default")
     setSelectedLists(new Set())
     setMode("add")
+    setOperationError(null)
     setShowCreateModal(false)
     setNewListName("")
     setNewListDescription("")
@@ -216,6 +288,7 @@ export function AddToListModal({
 
   // Toggle list selection
   const toggleList = useCallback((listId: string) => {
+    setOperationError(null)
     setSelectedLists((prev) => {
       const next = new Set(prev)
       if (next.has(listId)) {
@@ -236,52 +309,105 @@ export function AddToListModal({
   const isInList = useCallback(
     (listId: string) => {
       const list = lists.find((l) => l.id === listId)
-      return hasStoredListItem(list?.items, mediaType, mediaId)
+      return isBulkMode || !mediaId
+        ? false
+        : hasStoredListItem(list?.items, singleMediaType!, mediaId)
     },
-    [lists, mediaId, mediaType],
+    [isBulkMode, lists, mediaId, singleMediaType],
   )
 
   const buildMediaItem = useCallback((): ListMediaItem => {
+    if (isBulkMode || mediaId === null || !title) {
+      throw new Error("Cannot build a single-media payload in bulk mode")
+    }
+
     const mediaItem: ListMediaItem = {
       id: mediaId,
       title: title || "Unknown",
-      poster_path: "poster_path" in media ? media.poster_path : null,
-      media_type: mediaType,
+      poster_path:
+        singleMedia && "poster_path" in singleMedia ? singleMedia.poster_path : null,
+      media_type: singleMediaType!,
       addedAt: Date.now(),
-      vote_average: "vote_average" in media ? media.vote_average : 0,
+      vote_average:
+        singleMedia && "vote_average" in singleMedia ? singleMedia.vote_average : 0,
       genre_ids:
-        "genre_ids" in media
-          ? media.genre_ids
-          : "genres" in media
-            ? media.genres?.map((g) => g.id)
+        singleMedia && "genre_ids" in singleMedia
+          ? singleMedia.genre_ids
+          : singleMedia && "genres" in singleMedia
+            ? singleMedia.genres?.map((g) => g.id)
             : [],
     }
 
-    if (mediaType === "movie") {
+    if (singleMediaType === "movie") {
       mediaItem.release_date =
-        "release_date" in media ? media.release_date || "" : ""
+        singleMedia && "release_date" in singleMedia
+          ? singleMedia.release_date || ""
+          : ""
       mediaItem.original_title = originalTitle
     }
 
-    if (mediaType === "tv") {
+    if (singleMediaType === "tv") {
       mediaItem.name = title || "Unknown"
       mediaItem.first_air_date =
-        "first_air_date" in media ? media.first_air_date || "" : ""
+        singleMedia && "first_air_date" in singleMedia
+          ? singleMedia.first_air_date || ""
+          : ""
       mediaItem.original_name = originalName
     }
 
     return mediaItem
-  }, [media, mediaId, mediaType, originalName, originalTitle, title])
+  }, [
+    isBulkMode,
+    mediaId,
+    originalName,
+    originalTitle,
+    singleMedia,
+    singleMediaType,
+    title,
+  ])
 
   // Handle save (add mode)
   const handleSave = useCallback(async () => {
     if (!user) return
 
     setIsSaving(true)
+    setOperationError(null)
 
     try {
+      if (isBulkMode) {
+        const targetListIds = Array.from(selectedLists)
+        const { failedOperations, totalOperations } = await transferItems({
+          sourceListId: sourceListId!,
+          targetListIds,
+          mediaItems: bulkMediaItems,
+          mode: bulkAddMode,
+        })
+
+        if (failedOperations === 0) {
+          if (totalOperations === 0) {
+            toast.info("Selected items are already in those lists.")
+          } else {
+            toast.success(
+              bulkAddMode === "copy"
+                ? "Items copied to lists"
+                : "Items moved to lists",
+            )
+          }
+          handleClose()
+          onComplete?.()
+          return
+        }
+
+        setOperationError(
+          failedOperations < totalOperations
+            ? `Failed to save ${failedOperations} of ${totalOperations} changes.`
+            : "Failed to save changes. Please try again.",
+        )
+        return
+      }
+
       const mediaItem = buildMediaItem()
-      const mediaIdString = String(mediaId)
+      const mediaIdString = String(mediaId!)
       const forwardOps: PreparedListOperation[] = []
       const undoOps: PreparedListOperation[] = []
 
@@ -349,8 +475,8 @@ export function AddToListModal({
         const isNowSelected = selectedLists.has(list.id)
         const existingItemEntry = getStoredListItemEntry(
           list.items,
-          mediaType,
-          mediaId,
+          singleMediaType!,
+          mediaId!,
         )
 
         if (!wasInList && isNowSelected) {
@@ -398,7 +524,7 @@ export function AddToListModal({
 
       if (forwardOps.length > 0) {
         const showUpdatedListsToast = () => {
-          showActionableSuccessToast(`Updated lists for ${displayTitle}`, {
+          showActionableSuccessToast(`Updated lists for ${displayTitle ?? "item"}`, {
             action: {
               label: "Undo",
               onClick: async () => {
@@ -459,14 +585,17 @@ export function AddToListModal({
     }
   }, [
     user,
-    lists,
+    isBulkMode,
     selectedLists,
+    transferItems,
+    props,
+    handleClose,
+    onComplete,
     buildMediaItem,
+    lists,
+    isInList,
     addToList,
     removeFromList,
-    mediaId,
-    isInList,
-    handleClose,
     displayTitle,
   ])
 
@@ -525,11 +654,21 @@ export function AddToListModal({
         trimmedDescription || undefined,
       )
       const createdListName = newListName.trim()
-      const mediaItem = buildMediaItem()
-      const createdMediaId = String(mediaItem.id)
+      const mediaItem = isBulkMode ? null : buildMediaItem()
+      const createdMediaId = mediaItem ? String(mediaItem.id) : null
+
+      if (isBulkMode) {
+        setSelectedLists((prev) => new Set(prev).add(listId))
+        resetCreateModalState()
+        setShowCreateModal(false)
+        setMode("add")
+        setActiveTab("custom")
+        toast.success(`Created "${createdListName}"`)
+        return
+      }
 
       // Add the media to the new list
-      await addToList(listId, mediaItem)
+      await addToList(listId, mediaItem!)
 
       const undoCreateAndAdd = async () => {
         const currentList = await fetchUserList(user.uid, listId)
@@ -540,8 +679,8 @@ export function AddToListModal({
 
         const currentItemEntry = getStoredListItemEntry(
           currentList.items,
-          mediaType,
-          mediaItem.id,
+          singleMediaType!,
+          mediaItem!.id,
         )
         const currentItemCount = Object.keys(currentList.items ?? {}).length
         const isUnchangedCreatedList =
@@ -594,8 +733,9 @@ export function AddToListModal({
     createList,
     deleteList,
     removeFromList,
+    isBulkMode,
+    props,
     isPremiumCheckPending,
-    mediaType,
     newListName,
     newListDescription,
     premiumStatus,
@@ -685,6 +825,26 @@ export function AddToListModal({
   }, [isEditing])
 
   const currentLists = activeTab === "default" ? defaultLists : customLists
+  const modalTitle =
+    mode === "manage"
+      ? "Manage Lists"
+      : isBulkMode
+        ? bulkAddMode === "copy"
+          ? "Copy to Lists"
+          : "Move to Lists"
+        : "Add to List"
+  const modalDescription =
+    mode === "manage"
+      ? "Edit details or delete your custom lists"
+      : isBulkMode
+        ? `${bulkMediaItems.length} selected item${
+            bulkMediaItems.length === 1 ? "" : "s"
+          }`
+        : `Save "${displayTitle}" to your lists`
+  const isSaveDisabled =
+    isSaving ||
+    listsLoading ||
+    (isBulkMode && selectedLists.size === 0)
 
   return (
     <>
@@ -692,15 +852,15 @@ export function AddToListModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl">
-              {mode === "add" ? "Add to List" : "Manage Lists"}
-            </DialogTitle>
-            <DialogDescription>
-              {mode === "add"
-                ? `Save "${displayTitle}" to your lists`
-                : "Edit details or delete your custom lists"}
-            </DialogDescription>
+            <DialogTitle className="text-xl">{modalTitle}</DialogTitle>
+            <DialogDescription>{modalDescription}</DialogDescription>
           </DialogHeader>
+
+          {operationError ? (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {operationError}
+            </div>
+          ) : null}
 
           {/* Tabs - only show in "add" mode */}
           {mode === "add" && (
@@ -826,7 +986,7 @@ export function AddToListModal({
             {/* Save/Done button */}
             <Button
               onClick={mode === "add" ? handleSave : () => setMode("add")}
-              disabled={isSaving || listsLoading}
+              disabled={isSaveDisabled}
               className="w-full rounded-md"
             >
               {isSaving ? (
@@ -856,19 +1016,21 @@ export function AddToListModal({
                   <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-4" />
                   Create List
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setMode("manage")}
-                  disabled={customLists.length === 0}
-                >
-                  <HugeiconsIcon
-                    icon={Settings02Icon}
-                    className="mr-1.5 size-4"
-                  />
-                  Manage
-                </Button>
+                {!isBulkMode ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setMode("manage")}
+                    disabled={customLists.length === 0}
+                  >
+                    <HugeiconsIcon
+                      icon={Settings02Icon}
+                      className="mr-1.5 size-4"
+                    />
+                    Manage
+                  </Button>
+                ) : null}
               </div>
             )}
           </DialogFooter>

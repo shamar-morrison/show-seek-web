@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   fetchUserList: vi.fn(),
   lists: [] as UserList[],
   preferences: {
+    copyInsteadOfMove: false,
     showOriginalTitles: false,
   },
   removeFromList: vi.fn(),
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastInfo: vi.fn(),
   toastSuccess: vi.fn(),
+  transferItems: vi.fn(),
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -39,6 +41,12 @@ vi.mock("@/hooks/use-list-mutations", () => ({
     updateList: mocks.updateList,
     renameList: mocks.updateList,
     deleteList: mocks.deleteList,
+  }),
+}))
+
+vi.mock("@/hooks/use-bulk-list-operations", () => ({
+  useBulkListOperations: () => ({
+    transferItems: mocks.transferItems,
   }),
 }))
 
@@ -130,6 +138,7 @@ describe("AddToListModal", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.lists = []
+    mocks.preferences.copyInsteadOfMove = false
     mocks.preferences.showOriginalTitles = false
     mocks.createList.mockResolvedValue("new-list")
     mocks.addToList.mockResolvedValue(true)
@@ -138,6 +147,10 @@ describe("AddToListModal", () => {
     mocks.deleteList.mockResolvedValue(undefined)
     mocks.fetchUserList.mockResolvedValue(null)
     mocks.restoreList.mockResolvedValue(true)
+    mocks.transferItems.mockResolvedValue({
+      failedOperations: 0,
+      totalOperations: 1,
+    })
   })
 
   it("uses the latest display title in the save toast after preferences change", async () => {
@@ -318,6 +331,132 @@ describe("AddToListModal", () => {
         "Sand and sunsets",
       )
     })
+  })
+
+  it("runs the bulk copy flow, excludes the source list, and hides manage actions", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const onComplete = vi.fn()
+    const mediaItem = createListItem()
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {
+          "123": mediaItem,
+        },
+        createdAt: 0,
+        isCustom: false,
+      },
+      {
+        id: "favorites",
+        name: "Favorites",
+        items: {},
+        createdAt: 1,
+        isCustom: false,
+      },
+      {
+        id: "classics",
+        name: "Classics",
+        items: {},
+        createdAt: 2,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={onClose}
+        onComplete={onComplete}
+        mediaItems={[mediaItem]}
+        sourceListId="watchlist"
+        bulkAddMode="copy"
+      />,
+    )
+
+    expect(
+      screen.getByRole("heading", { name: "Copy to Lists" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText("1 selected item")).toBeInTheDocument()
+    expect(screen.queryByText("Should Watch")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument()
+
+    const saveButton = screen.getByRole("button", { name: "Save" })
+    expect(saveButton).toBeDisabled()
+
+    await user.click(screen.getByRole("button", { name: "Custom Lists" }))
+    await user.click(screen.getByText("Classics"))
+    expect(saveButton).toBeEnabled()
+
+    await user.click(saveButton)
+
+    await waitFor(() => {
+      expect(mocks.transferItems).toHaveBeenCalledWith({
+        sourceListId: "watchlist",
+        targetListIds: ["classics"],
+        mediaItems: [mediaItem],
+        mode: "copy",
+      })
+    })
+
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Items copied to lists")
+    expect(onClose).toHaveBeenCalled()
+    expect(onComplete).toHaveBeenCalled()
+  })
+
+  it("keeps the bulk modal open and shows an inline error after a partial failure", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const onComplete = vi.fn()
+    mocks.transferItems.mockResolvedValue({
+      failedOperations: 1,
+      totalOperations: 3,
+    })
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {
+          "123": createListItem(),
+        },
+        createdAt: 0,
+        isCustom: false,
+      },
+      {
+        id: "favorites",
+        name: "Favorites",
+        items: {},
+        createdAt: 1,
+        isCustom: false,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={onClose}
+        onComplete={onComplete}
+        mediaItems={[createListItem()]}
+        sourceListId="watchlist"
+        bulkAddMode="move"
+      />,
+    )
+
+    await user.click(screen.getByText("Favorites"))
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Failed to save 1 of 3 changes."),
+      ).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByRole("heading", { name: "Move to Lists" }),
+    ).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onComplete).not.toHaveBeenCalled()
   })
 
   it("tells the user list deletion can be undone from the success toast", async () => {

@@ -17,6 +17,9 @@ interface MediaCardWithActionsProps {
   }
   isWatched?: boolean
   preferOriginalTitles?: boolean
+  selectionMode?: boolean
+  isSelected?: boolean
+  onSelectToggle?: () => void
 }
 
 /**
@@ -33,6 +36,9 @@ export function MediaCardWithActions({
   collectionContext,
   isWatched = false,
   preferOriginalTitles,
+  selectionMode = false,
+  isSelected = false,
+  onSelectToggle,
 }: MediaCardWithActionsProps) {
   // Determine media type
   const mediaType = media.media_type
@@ -53,7 +59,7 @@ export function MediaCardWithActions({
     <MediaCard
       media={media}
       onWatchTrailer={
-        onWatchTrailer
+        onWatchTrailer && !selectionMode
           ? (trailerMedia: TMDBMedia) => {
               if (
                 trailerMedia.media_type === "movie" ||
@@ -67,17 +73,20 @@ export function MediaCardWithActions({
       isLoading={isLoading}
       priority={priority}
       buttonText={buttonText}
-      dropdownItems={dropdownItems}
+      dropdownItems={selectionMode ? undefined : dropdownItems}
       userRating={userRating?.rating}
       listIds={listIds}
       isWatched={isWatched}
       preferOriginalTitles={resolvedPreferOriginalTitles}
+      selectionMode={selectionMode}
+      isSelected={isSelected}
+      onSelectToggle={onSelectToggle}
     />
   )
 
   return (
     <>
-      {preferences.showMediaPreviewCards ? (
+      {preferences.showMediaPreviewCards && !selectionMode ? (
         <MediaPreviewCardWrapper
           media={media}
           mediaType={mediaType}
@@ -107,7 +116,7 @@ export function MediaCardWithActions({
         cardContent
       )}
 
-      {modals}
+      {!selectionMode ? modals : null}
     </>
   )
 }

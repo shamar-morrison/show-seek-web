@@ -13,6 +13,10 @@ describe("user preferences", () => {
     expect(DEFAULT_PREFERENCES.showOriginalTitles).toBe(false)
   })
 
+  it("defaults bulk add behavior to move", () => {
+    expect(DEFAULT_PREFERENCES.copyInsteadOfMove).toBe(false)
+  })
+
   it("hydrates the new preference key from stored preferences", () => {
     expect(
       hydrateUserPreferences({ autoRemoveFromShouldWatch: false }),
@@ -43,6 +47,14 @@ describe("user preferences", () => {
   it("hydrates original title preference from stored preferences", () => {
     expect(hydrateUserPreferences({ showOriginalTitles: true })).toMatchObject({
       showOriginalTitles: true,
+    })
+  })
+
+  it("hydrates copyInsteadOfMove from stored preferences", () => {
+    expect(
+      hydrateUserPreferences({ copyInsteadOfMove: true }),
+    ).toMatchObject({
+      copyInsteadOfMove: true,
     })
   })
 

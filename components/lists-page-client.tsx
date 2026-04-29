@@ -1,10 +1,28 @@
 "use client"
 
+import { AddToListModal } from "@/components/add-to-list-modal"
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageHeader } from "@/components/page-header"
 import { ShuffleDialog } from "@/components/shuffle-dialog"
 import { TrailerModal } from "@/components/trailer-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -15,6 +33,7 @@ import {
 import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
+import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { listItemToMedia } from "@/lib/list-media"
@@ -36,7 +55,8 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 /** Map list IDs to icons for default lists */
 export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
@@ -74,12 +94,21 @@ interface ListsPageClientProps {
   onListSelect?: (listId: string) => void
   /** Whether to show the dynamic page header with the list name */
   showDynamicHeader?: boolean
-  /** Optional action element to render next to the filter button (e.g. create/edit list controls) */
-  filterRowAction?: React.ReactNode
+  /** Optional action element or render callback to place beside the filter controls */
+  filterRowAction?:
+    | React.ReactNode
+    | ((args: {
+        activeList: UserList | undefined
+        canSelectItems: boolean
+        enterSelectionMode: () => void
+        isSelectionMode: boolean
+      }) => React.ReactNode)
   /** Optional action element to render in the empty state */
   emptyStateAction?: React.ReactNode
   /** Whether to show the shuffle action for the active filtered list */
   showShuffleAction?: boolean
+  /** Whether to show the built-in standalone Select button */
+  showDefaultSelectAction?: boolean
 }
 
 /**
@@ -101,12 +130,25 @@ export function ListsPageClient({
   filterRowAction,
   emptyStateAction,
   showShuffleAction = false,
+  showDefaultSelectAction = true,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
+  const { removeItemsFromListBatch } = useBulkListOperations()
   const [internalSelectedListId, setInternalSelectedListId] =
     useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [shuffleDialogOpen, setShuffleDialogOpen] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<
+    Record<string, ListMediaItem>
+  >({})
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false)
+  const [isBulkRemoving, setIsBulkRemoving] = useState(false)
+  const [bulkRemoveProgress, setBulkRemoveProgress] = useState<{
+    processed: number
+    total: number
+  } | null>(null)
 
   // Use controlled state if provided, otherwise fall back to internal selection
   const selectedListId = useMemo(() => {
@@ -190,6 +232,12 @@ export function ListsPageClient({
       (a, b) => (b.addedAt || 0) - (a.addedAt || 0),
     )
   }, [activeList])
+
+  const getSelectionKey = useCallback(
+    (item: Pick<ListMediaItem, "id" | "media_type">) =>
+      `${item.media_type}-${item.id}`,
+    [],
+  )
 
   const getItemDisplayTitle = useCallback(
     (item: ListMediaItem) =>
@@ -322,6 +370,119 @@ export function ListsPageClient({
   }, [])
 
   const canShuffle = sortedItems.length >= 2
+  const canSelectItems = listItems.length > 0
+
+  const selectedMediaItems = useMemo(
+    () => Object.values(selectedItems),
+    [selectedItems],
+  )
+  const selectedCount = selectedMediaItems.length
+
+  useEffect(() => {
+    if (!isSelectionMode) {
+      return
+    }
+
+    const activeKeys = new Set(listItems.map(getSelectionKey))
+
+    setSelectedItems((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([key]) => activeKeys.has(key)),
+      ),
+    )
+  }, [getSelectionKey, isSelectionMode, listItems])
+
+  const enterSelectionMode = useCallback(() => {
+    setSelectedItems({})
+    setIsSelectionMode(true)
+  }, [])
+
+  const exitSelectionMode = useCallback(() => {
+    setIsSelectionMode(false)
+    setSelectedItems({})
+    setIsBulkModalOpen(false)
+    setIsRemoveConfirmOpen(false)
+    setBulkRemoveProgress(null)
+  }, [])
+
+  const toggleSelection = useCallback(
+    (item: ListMediaItem) => {
+      const itemKey = getSelectionKey(item)
+
+      setSelectedItems((prev) => {
+        const next = { ...prev }
+
+        if (next[itemKey]) {
+          delete next[itemKey]
+        } else {
+          next[itemKey] = item
+        }
+
+        return next
+      })
+    },
+    [getSelectionKey],
+  )
+
+  const isItemSelected = useCallback(
+    (item: ListMediaItem) => Boolean(selectedItems[getSelectionKey(item)]),
+    [getSelectionKey, selectedItems],
+  )
+
+  const handleConfirmRemoveSelected = useCallback(async () => {
+    if (!activeList || selectedMediaItems.length === 0) {
+      return
+    }
+
+    setIsRemoveConfirmOpen(false)
+    setIsBulkRemoving(true)
+    setBulkRemoveProgress({
+      processed: 0,
+      total: selectedMediaItems.length,
+    })
+
+    try {
+      const { failedItems, total } = await removeItemsFromListBatch({
+        listId: activeList.id,
+        mediaItems: selectedMediaItems,
+        onProgress: (processed, nextTotal) => {
+          setBulkRemoveProgress({ processed, total: nextTotal })
+        },
+      })
+
+      if (failedItems.length === 0) {
+        toast.success(
+          `${total} item${total === 1 ? "" : "s"} removed from ${
+            activeList.name
+          }.`,
+        )
+        exitSelectionMode()
+        return
+      }
+
+      setSelectedItems((prev) =>
+        Object.fromEntries(
+          Object.entries(prev).filter(([key]) => failedItems.includes(key)),
+        ),
+      )
+      toast.error(
+        `Failed to remove ${failedItems.length} of ${total} selected item${
+          total === 1 ? "" : "s"
+        }.`,
+      )
+    } catch (error) {
+      console.error("Failed to remove selected items:", error)
+      toast.error("Failed to remove selected items. Please try again.")
+    } finally {
+      setIsBulkRemoving(false)
+      setBulkRemoveProgress(null)
+    }
+  }, [
+    activeList,
+    exitSelectionMode,
+    removeItemsFromListBatch,
+    selectedMediaItems,
+  ])
 
   // Loading state
   if (loading) {
@@ -402,6 +563,16 @@ export function ListsPageClient({
     { value: "title", label: "Alphabetically" },
   ]
 
+  const resolvedFilterRowAction =
+    typeof filterRowAction === "function"
+      ? filterRowAction({
+          activeList,
+          canSelectItems,
+          enterSelectionMode,
+          isSelectionMode,
+        })
+      : filterRowAction
+
   return (
     <div className="space-y-8 pb-12">
       {/* Dynamic Header */}
@@ -416,47 +587,64 @@ export function ListsPageClient({
       {/* Search, Filter, and Tabs */}
       <div className="space-y-6">
         {/* Search and Filter Row */}
-        <div className="flex items-center gap-3">
-          <SearchInput
-            id="lists-search-input"
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search in this list..."
-            className="flex-1"
-          />
-          {showShuffleAction ? (
-            <Button
-              variant="outline"
-              size="lg"
-              aria-label="Shuffle Pick"
-              onClick={() => setShuffleDialogOpen(true)}
-              disabled={!canShuffle}
-            >
-              <HugeiconsIcon icon={ShuffleIcon} className="size-4" />
-            </Button>
-          ) : null}
-          <FilterSort
-            filters={filterCategories}
-            filterState={filterState}
-            onFilterChange={handleFilterChange}
-            sortFields={sortFields}
-            sortState={sortState}
-            onSortChange={setSortState}
-            yearRange={{
-              min: MIN_YEAR,
-              max: CURRENT_YEAR,
-              value: yearRange,
-              onChange: setYearRange,
-            }}
-            ratingFilter={{
-              value: minRating,
-              onChange: setMinRating,
-            }}
-            onClearAll={handleClearAll}
-          />
+        {isSelectionMode ? (
+          <div className="rounded-xl border border-primary/20 bg-primary/8 px-4 py-3 text-sm text-white/80">
+            Select items from &quot;{activeListName}&quot; to move, copy, or
+            remove them in bulk.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchInput
+              id="lists-search-input"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search in this list..."
+              className="min-w-[240px] flex-1"
+            />
+            {showShuffleAction ? (
+              <Button
+                variant="outline"
+                size="lg"
+                aria-label="Shuffle Pick"
+                onClick={() => setShuffleDialogOpen(true)}
+                disabled={!canShuffle}
+              >
+                <HugeiconsIcon icon={ShuffleIcon} className="size-4" />
+              </Button>
+            ) : null}
+            <FilterSort
+              filters={filterCategories}
+              filterState={filterState}
+              onFilterChange={handleFilterChange}
+              sortFields={sortFields}
+              sortState={sortState}
+              onSortChange={setSortState}
+              yearRange={{
+                min: MIN_YEAR,
+                max: CURRENT_YEAR,
+                value: yearRange,
+                onChange: setYearRange,
+              }}
+              ratingFilter={{
+                value: minRating,
+                onChange: setMinRating,
+              }}
+              onClearAll={handleClearAll}
+            />
 
-          {filterRowAction}
-        </div>
+            {resolvedFilterRowAction}
+
+            {showDefaultSelectAction && canSelectItems ? (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={enterSelectionMode}
+              >
+                Select
+              </Button>
+            ) : null}
+          </div>
+        )}
 
         {/* List Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2">
@@ -468,6 +656,7 @@ export function ListsPageClient({
               isActive={activeListId === list.id}
               icon={getListIcon(list)}
               onClick={() => handleListSelect(list.id)}
+              disabled={isSelectionMode}
             />
           ))}
         </div>
@@ -482,6 +671,9 @@ export function ListsPageClient({
               media={listItemToMedia(item)}
               onWatchTrailer={handleWatchTrailer}
               isLoading={loadingMediaId === `${item.media_type}-${item.id}`}
+              selectionMode={isSelectionMode}
+              isSelected={isItemSelected(item)}
+              onSelectToggle={() => toggleSelection(item)}
             />
           ))}
         </div>
@@ -530,6 +722,100 @@ export function ListsPageClient({
         onClose={() => setShuffleDialogOpen(false)}
         items={sortedItems}
       />
+
+      {activeList ? (
+        <AddToListModal
+          isOpen={isBulkModalOpen}
+          onClose={() => setIsBulkModalOpen(false)}
+          mediaItems={selectedMediaItems}
+          sourceListId={activeList.id}
+          bulkAddMode={preferences.copyInsteadOfMove ? "copy" : "move"}
+          onComplete={exitSelectionMode}
+        />
+      ) : null}
+
+      <AlertDialog
+        open={isRemoveConfirmOpen}
+        onOpenChange={setIsRemoveConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove selected items?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove {selectedCount} selected item
+              {selectedCount === 1 ? "" : "s"} from &quot;{activeListName}
+              &quot;?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkRemoving}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void handleConfirmRemoveSelected()
+              }}
+              disabled={isBulkRemoving || selectedCount === 0}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Remove items
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isBulkRemoving}>
+        <DialogContent showCloseButton={false} className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Removing items</DialogTitle>
+            <DialogDescription>
+              {bulkRemoveProgress
+                ? `Processed ${bulkRemoveProgress.processed} of ${bulkRemoveProgress.total} selected items.`
+                : "Removing selected items from this list."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              className="size-4 animate-spin text-primary"
+            />
+            Please keep this window open until the batch finishes.
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {isSelectionMode ? (
+        <div className="sticky bottom-4 z-20 mt-6">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-white/10 bg-black/85 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="text-sm font-medium text-white/80">
+              {selectedCount} item{selectedCount === 1 ? "" : "s"} selected
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" className="flex-1" onClick={exitSelectionMode}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => setIsBulkModalOpen(true)}
+                disabled={selectedCount === 0}
+              >
+                {preferences.copyInsteadOfMove
+                  ? "Copy to lists"
+                  : "Move to lists"}
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => setIsRemoveConfirmOpen(true)}
+                disabled={selectedCount === 0}
+              >
+                Remove items
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

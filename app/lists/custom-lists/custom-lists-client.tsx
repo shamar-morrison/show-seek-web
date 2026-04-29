@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -26,9 +27,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
+import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { useLists } from "@/hooks/use-lists"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { restoreList } from "@/lib/firebase/lists"
+import type { UserList } from "@/types/list"
 import type { Genre } from "@/types/tmdb"
 import {
   Add01Icon,
@@ -63,6 +66,7 @@ export function CustomListsClient({
   initialListId,
 }: CustomListsClientProps) {
   const { user } = useAuth()
+  const { deleteListsBatch } = useBulkListOperations()
   const { lists, loading, error, removeList, updateList } = useLists()
   const [selectedListId, setSelectedListId] = useState<string>("")
 
@@ -77,9 +81,18 @@ export function CustomListsClient({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [selectedBulkDeleteIds, setSelectedBulkDeleteIds] = useState<
+    Set<string>
+  >(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{
+    processed: number
+    total: number
+  } | null>(null)
   const editListNameId = useId()
   const editListDescriptionId = useId()
 
@@ -111,37 +124,6 @@ export function CustomListsClient({
   )
 
   // Action Menu Items
-  const menuItems: ActionMenuItem[] = useMemo(
-    () => [
-      {
-        type: "action",
-        key: "edit",
-        label: "Edit List Details",
-        icon: Edit02Icon,
-        onClick: () => {
-          if (activeList) {
-            setEditName(activeList.name)
-            setEditDescription(activeList.description?.trim() || "")
-            setIsEditDialogOpen(true)
-          }
-        },
-      },
-      {
-        type: "separator",
-        key: "sep1",
-      },
-      {
-        type: "action",
-        key: "delete",
-        label: "Delete List",
-        icon: Delete02Icon,
-        variant: "destructive",
-        onClick: () => setIsDeleteDialogOpen(true),
-      },
-    ],
-    [activeList],
-  )
-
   const handleEdit = useCallback(async () => {
     if (!activeList || !user || !editName.trim()) return
 
@@ -207,6 +189,116 @@ export function CustomListsClient({
     setEditDescription("")
   }, [isProcessing])
 
+  const toggleBulkDeleteSelection = useCallback((listId: string) => {
+    setSelectedBulkDeleteIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(listId)) {
+        next.delete(listId)
+      } else {
+        next.add(listId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleOpenBulkDeleteDialog = useCallback(() => {
+    setSelectedBulkDeleteIds(new Set())
+    setBulkDeleteProgress(null)
+    setIsBulkDeleteDialogOpen(true)
+  }, [])
+
+  const menuItems = useMemo<ActionMenuItem[]>(
+    () => [
+      {
+        type: "action",
+        key: "edit",
+        label: "Edit List Details",
+        icon: Edit02Icon,
+        onClick: () => {
+          if (activeList) {
+            setEditName(activeList.name)
+            setEditDescription(activeList.description?.trim() || "")
+            setIsEditDialogOpen(true)
+          }
+        },
+      },
+      {
+        type: "submenu",
+        key: "select",
+        label: "Select",
+        items: [
+          {
+            type: "action",
+            key: "select-items",
+            label: "Select Items",
+            disabled: !activeList || Object.keys(activeList.items || {}).length === 0,
+            onClick: () => {},
+          },
+          {
+            type: "action",
+            key: "select-lists",
+            label: "Select Lists",
+            onClick: handleOpenBulkDeleteDialog,
+          },
+        ],
+      },
+      {
+        type: "separator",
+        key: "sep1",
+      },
+      {
+        type: "action",
+        key: "delete",
+        label: "Delete List",
+        icon: Delete02Icon,
+        variant: "destructive",
+        onClick: () => setIsDeleteDialogOpen(true),
+      },
+    ],
+    [activeList, handleOpenBulkDeleteDialog],
+  )
+
+  const handleBulkDelete = useCallback(async () => {
+    if (!user || selectedBulkDeleteIds.size === 0) return
+
+    setIsBulkDeleting(true)
+    setBulkDeleteProgress({
+      processed: 0,
+      total: selectedBulkDeleteIds.size,
+    })
+
+    try {
+      const { deletedIds, failedIds } = await deleteListsBatch({
+        listIds: Array.from(selectedBulkDeleteIds),
+        onProgress: (processed, total) => {
+          setBulkDeleteProgress({ processed, total })
+        },
+      })
+
+      if (failedIds.length === 0) {
+        setIsBulkDeleteDialogOpen(false)
+        setSelectedBulkDeleteIds(new Set())
+        toast.success(
+          `${deletedIds.length} list${deletedIds.length === 1 ? "" : "s"} deleted.`,
+        )
+        return
+      }
+
+      setSelectedBulkDeleteIds(new Set(failedIds))
+      toast.error(
+        `Failed to delete ${failedIds.length} of ${
+          deletedIds.length + failedIds.length
+        } selected lists.`,
+      )
+    } catch (error) {
+      console.error("Failed to bulk delete lists:", error)
+      toast.error("Failed to delete selected lists.")
+    } finally {
+      setIsBulkDeleting(false)
+      setBulkDeleteProgress(null)
+    }
+  }, [deleteListsBatch, selectedBulkDeleteIds, user])
+
   return (
     <>
       <ListsPageClient
@@ -222,20 +314,45 @@ export function CustomListsClient({
         onListSelect={setSelectedListId}
         showDynamicHeader={true}
         showShuffleAction={true}
-        filterRowAction={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={() => setIsCreateDialogOpen(true)}
-              aria-label="Create new list"
-              className={"p-4.5"}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-4" />
-            </Button>
-            {activeList && <ActionMenu items={menuItems} align="start" />}
-          </div>
-        }
+        showDefaultSelectAction={false}
+        filterRowAction={({ canSelectItems, enterSelectionMode }) => {
+          const menuItemsWithSelection = menuItems.map((item) => {
+            if (item.type !== "submenu" || item.key !== "select") {
+              return item
+            }
+
+            return {
+              ...item,
+              items: item.items.map((submenuItem) =>
+                submenuItem.type === "action" &&
+                submenuItem.key === "select-items"
+                  ? {
+                      ...submenuItem,
+                      disabled: !canSelectItems,
+                      onClick: enterSelectionMode,
+                    }
+                  : submenuItem,
+              ),
+            }
+          })
+
+          return (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setIsCreateDialogOpen(true)}
+                aria-label="Create new list"
+                className={"p-4.5"}
+              >
+                <HugeiconsIcon icon={Add01Icon} className="size-4" />
+              </Button>
+              {activeList ? (
+                <ActionMenu items={menuItemsWithSelection} align="start" />
+              ) : null}
+            </div>
+          )
+        }}
         emptyStateAction={
           <Button
             size={"default"}
@@ -352,6 +469,87 @@ export function CustomListsClient({
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+
+      <Dialog
+        open={isBulkDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isBulkDeleting) {
+            setIsBulkDeleteDialogOpen(open)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg" showCloseButton={!isBulkDeleting}>
+          <DialogHeader>
+            <DialogTitle>Select custom lists to delete</DialogTitle>
+            <DialogDescription>
+              Choose one or more custom lists to delete in bulk. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isBulkDeleting ? (
+            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+              {bulkDeleteProgress
+                ? `Deleting ${bulkDeleteProgress.processed} of ${bulkDeleteProgress.total} selected lists.`
+                : "Deleting selected lists."}
+            </div>
+          ) : null}
+
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {customLists.map((list: UserList) => (
+              <label
+                key={list.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-white/5"
+              >
+                <Checkbox
+                  checked={selectedBulkDeleteIds.has(list.id)}
+                  onCheckedChange={() => toggleBulkDeleteSelection(list.id)}
+                />
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-white">
+                    {list.name}
+                  </span>
+                  {list.description?.trim() ? (
+                    <span className="block truncate text-xs text-white/50">
+                      {list.description.trim()}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="text-xs text-white/40">
+                  {Object.keys(list.items || {}).length} items
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkDeleteDialogOpen(false)}
+              disabled={isBulkDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleBulkDelete()}
+              disabled={isBulkDeleting || selectedBulkDeleteIds.size === 0}
+            >
+              {isBulkDeleting ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="mr-2 size-4 animate-spin"
+                  />
+                  Deleting...
+                </>
+              ) : (
+                "Delete selected lists"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

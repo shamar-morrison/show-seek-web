@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
+import { cn } from "@/lib/utils"
 import { getMediaUrl } from "@/lib/utils"
 import { DEFAULT_LISTS, isDefaultList } from "@/types/list"
 import type { TMDBMedia } from "@/types/tmdb"
@@ -42,6 +43,9 @@ interface MediaCardProps {
   isWatched?: boolean
   /** Whether to prefer original-language titles when available */
   preferOriginalTitles?: boolean
+  selectionMode?: boolean
+  isSelected?: boolean
+  onSelectToggle?: () => void
 }
 
 function getVisibleListIndicators(listIds: string[] = []) {
@@ -86,6 +90,9 @@ export function MediaCard({
   listIds,
   isWatched = false,
   preferOriginalTitles = false,
+  selectionMode = false,
+  isSelected = false,
+  onSelectToggle,
 }: MediaCardProps) {
   const title =
     getDisplayMediaTitle(media, preferOriginalTitles) || "Unknown Title"
@@ -95,129 +102,159 @@ export function MediaCard({
   const hasRating = (media.vote_average || 0) > 0
   const detailUrl = getMediaUrl(media.media_type, media.id)
   const visibleListIndicators = getVisibleListIndicators(listIds)
+  const cardContent = (
+    <div
+      className={cn(
+        "group relative w-full cursor-pointer overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300",
+        selectionMode && "border border-white/10 hover:border-white/20",
+        selectionMode && isSelected && "border-primary ring-2 ring-primary/70",
+      )}
+    >
+      <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
+        <ImageWithFallback
+          src={posterUrl}
+          alt={title}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+          priority={priority}
+        />
+
+        {dropdownItems && dropdownItems.length > 0 && !selectionMode ? (
+          <MediaCardDropdownMenu
+            items={dropdownItems}
+            className="absolute top-2 right-2"
+          />
+        ) : null}
+
+        {selectionMode ? (
+          <div className="absolute top-2 right-2 rounded-full bg-black/75 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+            {isSelected ? "Selected" : "Select"}
+          </div>
+        ) : null}
+
+        <div className="absolute top-2 left-2 flex flex-col gap-2">
+          {isWatched && (
+            <div className="flex w-fit items-center gap-1 rounded-md bg-green-500/85 px-2 py-1 backdrop-blur-sm">
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
+                className="size-3.5 fill-white text-white"
+              />
+              <span className="text-sm font-semibold text-white">
+                Watched
+              </span>
+            </div>
+          )}
+
+          {userRating != null && (
+            <div className="flex w-fit items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
+              <HugeiconsIcon
+                icon={StarIcon}
+                className="size-3.5 fill-yellow-500 text-yellow-500"
+              />
+              <span className="text-sm font-semibold text-white">
+                {userRating}/10
+              </span>
+            </div>
+          )}
+
+          {visibleListIndicators.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {visibleListIndicators.map((listId) => {
+                const indicator = getListIndicatorStyle(listId)
+                if (!indicator) return null
+                return (
+                  <div
+                    key={listId}
+                    data-list-indicator={listId}
+                    title={listId === "custom" ? "custom" : listId}
+                    className="flex items-center justify-center rounded-md bg-black/80 p-1.5 backdrop-blur-sm"
+                  >
+                    <HugeiconsIcon
+                      icon={indicator.icon}
+                      className={`size-3.5 ${indicator.color}`}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {selectionMode ? (
+          <div
+            className={cn(
+              "absolute inset-0 transition-colors",
+              isSelected ? "bg-primary/12" : "bg-black/5",
+            )}
+          />
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-3 p-3">
+        <div>
+          <h3 className="line-clamp-1 text-base font-bold text-white ">
+            {title}
+          </h3>
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
+            {year}
+            {year && hasRating && <span className="text-gray-600">•</span>}
+            {hasRating && (
+              <div className="flex items-center gap-1 text-yellow-500">
+                <HugeiconsIcon
+                  icon={StarIcon}
+                  className="size-3 fill-yellow-500"
+                />
+                <span>{media.vote_average.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {onWatchTrailer && !selectionMode ? (
+          <Button
+            size="sm"
+            className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
+            onClick={(e) => {
+              e.preventDefault()
+              onWatchTrailer(media)
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-4 animate-spin"
+                />
+                Loading...
+              </>
+            ) : (
+              <>
+                <HugeiconsIcon icon={PlayIcon} className="size-4" />
+                {buttonText}
+              </>
+            )}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  if (selectionMode) {
+    return (
+      <button
+        type="button"
+        onClick={onSelectToggle}
+        aria-pressed={isSelected}
+        className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+      >
+        {cardContent}
+      </button>
+    )
+  }
 
   return (
     <Link href={detailUrl} className="block">
-      <div className="group relative w-full overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300 cursor-pointer">
-        {/* Poster Image */}
-        <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
-          <ImageWithFallback
-            src={posterUrl}
-            alt={title}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
-            priority={priority}
-          />
-
-          {/* Dropdown Menu - top right */}
-          {dropdownItems && dropdownItems.length > 0 && (
-            <MediaCardDropdownMenu
-              items={dropdownItems}
-              className="absolute top-2 right-2"
-            />
-          )}
-
-          {/* Status Badges - Top Left */}
-          <div className="absolute top-2 left-2 flex flex-col gap-2">
-            {/* User Rating Badge */}
-            {isWatched && (
-              <div className="flex w-fit items-center gap-1 rounded-md bg-green-500/85 px-2 py-1 backdrop-blur-sm">
-                <HugeiconsIcon
-                  icon={CheckmarkCircle02Icon}
-                  className="size-3.5 fill-white text-white"
-                />
-                <span className="text-sm font-semibold text-white">
-                  Watched
-                </span>
-              </div>
-            )}
-
-            {userRating != null && (
-              <div className="flex w-fit items-center gap-1 rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
-                <HugeiconsIcon
-                  icon={StarIcon}
-                  className="size-3.5 fill-yellow-500 text-yellow-500"
-                />
-                <span className="text-sm font-semibold text-white">
-                  {userRating}/10
-                </span>
-              </div>
-            )}
-
-            {/* List Indicators */}
-            {visibleListIndicators.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {visibleListIndicators.map((listId) => {
-                  const indicator = getListIndicatorStyle(listId)
-                  if (!indicator) return null
-                  return (
-                    <div
-                      key={listId}
-                      data-list-indicator={listId}
-                      title={listId === "custom" ? "custom" : listId}
-                      className="flex items-center justify-center rounded-md bg-black/80 p-1.5 backdrop-blur-sm"
-                    >
-                      <HugeiconsIcon
-                        icon={indicator.icon}
-                        className={`size-3.5 ${indicator.color}`}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Info Content */}
-        <div className="flex flex-col gap-3 p-3">
-          <div>
-            <h3 className="line-clamp-1 text-base font-bold text-white ">
-              {title}
-            </h3>
-            <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
-              {year}
-              {year && hasRating && <span className="text-gray-600">•</span>}
-              {hasRating && (
-                <div className="flex items-center gap-1 text-yellow-500">
-                  <HugeiconsIcon
-                    icon={StarIcon}
-                    className="size-3 fill-yellow-500"
-                  />
-                  <span>{media.vote_average.toFixed(1)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Trailer Button - only show when handler is provided */}
-          {onWatchTrailer && (
-            <Button
-              size="sm"
-              className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
-              onClick={(e) => {
-                e.preventDefault()
-                onWatchTrailer(media)
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="size-4 animate-spin"
-                  />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                  {buttonText}
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
+      {cardContent}
     </Link>
   )
 }
