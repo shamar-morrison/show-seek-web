@@ -28,13 +28,13 @@ export function ShuffleDialog({
   items,
 }: ShuffleDialogProps) {
   const router = useRouter()
-  const [isAnimating, setIsAnimating] = useState(false)
   const [displayedItem, setDisplayedItem] = useState<ListMediaItem | null>(null)
   const [hasRevealed, setHasRevealed] = useState(false)
   const [posterPulse, setPosterPulse] = useState(false)
   const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isAnimating = isOpen && items.length > 0 && !hasRevealed
 
   const clearTimers = useCallback(() => {
     if (animationTimeoutRef.current) {
@@ -77,23 +77,19 @@ export function ShuffleDialog({
     if (items.length === 0) {
       setDisplayedItem(null)
       setHasRevealed(false)
-      setIsAnimating(false)
       return
     }
 
-    setIsAnimating(true)
     setHasRevealed(false)
 
     const targetItem = getRandomItem()
     if (!targetItem) {
-      setIsAnimating(false)
       return
     }
 
     if (items.length === 1) {
       setDisplayedItem(targetItem)
       setHasRevealed(true)
-      setIsAnimating(false)
       return
     }
 
@@ -106,7 +102,6 @@ export function ShuffleDialog({
       if (elapsed >= ANIMATION_DURATION_MS) {
         setDisplayedItem(targetItem)
         setHasRevealed(true)
-        setIsAnimating(false)
         setPosterPulse(true)
         pulseTimeoutRef.current = setTimeout(() => {
           setPosterPulse(false)
@@ -134,25 +129,18 @@ export function ShuffleDialog({
   useEffect(() => {
     if (!isOpen) {
       clearTimers()
-      setIsAnimating(false)
+      return
+    }
+
+    startTimeoutRef.current = setTimeout(() => {
       setDisplayedItem(null)
       setHasRevealed(false)
       setPosterPulse(false)
-      return
-    }
 
-    setDisplayedItem(null)
-    setHasRevealed(false)
-    setPosterPulse(false)
+      if (items.length === 0) {
+        return
+      }
 
-    if (items.length === 0) {
-      setIsAnimating(false)
-      return
-    }
-
-    setIsAnimating(true)
-
-    startTimeoutRef.current = setTimeout(() => {
       runAnimation()
     }, START_DELAY_MS)
 
