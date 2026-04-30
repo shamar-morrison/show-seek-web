@@ -19,12 +19,26 @@ function getUserDocRef(userId: string) {
   return doc(getFirebaseDb(), "users", userId)
 }
 
+function validatePosterPath(posterPath: string): void {
+  if (
+    typeof posterPath !== "string" ||
+    posterPath.length === 0 ||
+    !posterPath.startsWith("/")
+  ) {
+    throw new Error(
+      "Poster override path must be a non-empty string starting with '/'",
+    )
+  }
+}
+
 export async function setPosterOverride(
   userId: string,
   mediaType: PosterOverrideMediaType,
   mediaId: number,
   posterPath: string,
 ): Promise<void> {
+  validatePosterPath(posterPath)
+
   const key = buildPosterOverrideKey(mediaType, mediaId)
   const userDocRef = getUserDocRef(userId)
   await runTransaction(getFirebaseDb(), async (transaction) => {

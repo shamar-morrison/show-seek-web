@@ -54,17 +54,16 @@ export function PosterPickerModal({
   const { resolvePosterPath } = usePosterOverrides()
   const { data, isLoading, isError, isFetching, refetch } =
     useMediaImageCatalog(mediaId, mediaType, isOpen)
-  const [selectedPosterPath, setSelectedPosterPath] = useState<string | null>(
-    null,
-  )
-  const [isSaving, setIsSaving] = useState(false)
-  const lastSyncedPosterPathRef = useRef<string | null>(null)
-  const wasOpenRef = useRef(false)
-
   const activePosterPath = useMemo(
     () => resolvePosterPath(mediaType, mediaId, defaultPosterPath),
     [defaultPosterPath, mediaId, mediaType, resolvePosterPath],
   )
+  const [selectedPosterPath, setSelectedPosterPath] = useState<string | null>(
+    () => activePosterPath ?? null,
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const lastSyncedPosterPathRef = useRef<string | null>(activePosterPath ?? null)
+  const wasOpenRef = useRef(false)
 
   const posterOptions = useMemo(
     () => dedupePosters(data?.posters ?? []),

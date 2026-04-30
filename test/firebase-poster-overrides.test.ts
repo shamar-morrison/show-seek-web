@@ -1,5 +1,10 @@
-import { setPosterOverride } from "@/lib/firebase/poster-overrides"
+import { getFirebaseDb } from "@/lib/firebase/config"
+import {
+  clearPosterOverride,
+  setPosterOverride,
+} from "@/lib/firebase/poster-overrides"
 import { POSTER_OVERRIDE_MAX_ENTRIES } from "@/lib/poster-overrides"
+import { deleteField, doc, setDoc, updateDoc } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -42,6 +47,21 @@ describe("firebase poster overrides", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
+
+  it.each(["", "poster.jpg"])(
+    "rejects invalid poster paths before starting a transaction: %s",
+    async (posterPath) => {
+      await expect(
+        setPosterOverride("user-1", "tv", 7, posterPath),
+      ).rejects.toThrow(
+        "Poster override path must be a non-empty string starting with '/'",
+      )
+
+      expect(vi.mocked(mocks.runTransaction)).not.toHaveBeenCalled()
+      expect(vi.mocked(doc)).not.toHaveBeenCalled()
+      expect(vi.mocked(getFirebaseDb)).not.toHaveBeenCalled()
+    },
+  )
 
   it("writes the sanitized override map with a transaction update", async () => {
     const transaction = {
@@ -169,5 +189,26 @@ describe("firebase poster overrides", () => {
       }),
     )
     expect(transaction.set).not.toHaveBeenCalled()
+  })
+
+  it("clears a stored override by deleting the poster override field", async () => {
+    await clearPosterOverride("user-1", "movie", 123)
+
+    const deleteFieldToken = vi.mocked(deleteField).mock.results[0]?.value
+
+    expect(vi.mocked(getFirebaseDb)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(doc)).toHaveBeenCalledWith(mocks.db, "users", "user-1")
+    expect(vi.mocked(setDoc)).toHaveBeenCalledWith(
+      { path: "users/user-1" },
+      {},
+      { merge: true },
+    )
+    expect(vi.mocked(deleteField)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(updateDoc)).toHaveBeenCalledWith(
+      { path: "users/user-1" },
+      {
+        "preferences.posterOverrides.movie_123": deleteFieldToken,
+      },
+    )
   })
 })
