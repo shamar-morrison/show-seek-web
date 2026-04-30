@@ -639,11 +639,7 @@ export function ListsPageClient({
             {resolvedFilterRowAction}
 
             {showDefaultSelectAction && canSelectItems ? (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={enterSelectionMode}
-              >
+              <Button variant="outline" size="lg" onClick={enterSelectionMode}>
                 Select
               </Button>
             ) : null}
@@ -796,7 +792,11 @@ export function ListsPageClient({
               {selectedCount} item{selectedCount === 1 ? "" : "s"} selected
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="flex-1" onClick={exitSelectionMode}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={exitSelectionMode}
+              >
                 Cancel
               </Button>
               <Button
