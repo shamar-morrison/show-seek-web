@@ -639,7 +639,12 @@ export function ListsPageClient({
             {resolvedFilterRowAction}
 
             {showDefaultSelectAction && canSelectItems ? (
-              <Button variant="outline" size="lg" onClick={enterSelectionMode}>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={enterSelectionMode}
+              >
                 Select
               </Button>
             ) : null}
@@ -793,6 +798,7 @@ export function ListsPageClient({
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
+                type="button"
                 variant="outline"
                 className="flex-1"
                 onClick={exitSelectionMode}

@@ -141,12 +141,11 @@ describe("PosterPickerModal", () => {
     expect(
       screen.getByTestId("poster-picker-option-/poster-b.jpg"),
     ).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getAllByTestId(/poster-picker-option-/)).toHaveLength(2)
     expect(
-      screen.getAllByTestId(/poster-picker-option-/),
-    ).toHaveLength(2)
-    expect(
-      screen.getByTestId("poster-picker-save-button"),
-    ).toBeDisabled()
+      screen.getAllByAltText("Spirited Away poster option")[0],
+    ).toHaveAttribute("loading", "lazy")
+    expect(screen.getByTestId("poster-picker-save-button")).toBeDisabled()
   })
 
   it("clears the override when the user switches back to the default poster", async () => {
@@ -174,6 +173,67 @@ describe("PosterPickerModal", () => {
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Default poster restored")
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it("clears the override when the default poster is null", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+
+    mocks.resolvePosterPath.mockReturnValue("/poster-b.jpg")
+
+    render(
+      <PosterPickerModal
+        isOpen
+        onClose={onClose}
+        mediaId={123}
+        mediaType="movie"
+        title="Spirited Away"
+        defaultPosterPath={null}
+      />,
+    )
+
+    await user.click(screen.getByTestId("poster-picker-use-default"))
+    await user.click(screen.getByTestId("poster-picker-save-button"))
+
+    await waitFor(() => {
+      expect(mocks.clearPosterOverride).toHaveBeenCalledWith("movie", 123)
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Default poster restored")
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it("preserves a user-selected poster when the active poster changes while open", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+
+    const { rerender } = render(
+      <PosterPickerModal
+        isOpen
+        onClose={onClose}
+        mediaId={123}
+        mediaType="movie"
+        title="Spirited Away"
+        defaultPosterPath="/poster-a.jpg"
+      />,
+    )
+
+    await user.click(screen.getByTestId("poster-picker-option-/poster-b.jpg"))
+
+    rerender(
+      <PosterPickerModal
+        isOpen
+        onClose={onClose}
+        mediaId={123}
+        mediaType="movie"
+        title="Spirited Away"
+        defaultPosterPath="/poster-c.jpg"
+      />,
+    )
+
+    expect(
+      screen.getByTestId("poster-picker-option-/poster-b.jpg"),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByTestId("poster-picker-save-button")).not.toBeDisabled()
   })
 
   it("shows an error toast when saving a new poster override fails", async () => {

@@ -8,9 +8,13 @@ import { useMediaImageCatalog } from "@/hooks/use-tmdb-queries"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { PosterOverrideMediaType } from "@/lib/poster-overrides"
 import type { TMDBLogo } from "@/types/tmdb"
-import { CheckmarkCircle02Icon, Image01Icon, Loading03Icon } from "@hugeicons/core-free-icons"
+import {
+  CheckmarkCircle02Icon,
+  Image01Icon,
+  Loading03Icon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 interface PosterPickerModalProps {
@@ -48,13 +52,14 @@ export function PosterPickerModal({
 }: PosterPickerModalProps) {
   const { setPosterOverride, clearPosterOverride } = usePreferences()
   const { resolvePosterPath } = usePosterOverrides()
-  const { data, isLoading, isError, isFetching, refetch } = useMediaImageCatalog(
-    mediaId,
-    mediaType,
-    isOpen,
+  const { data, isLoading, isError, isFetching, refetch } =
+    useMediaImageCatalog(mediaId, mediaType, isOpen)
+  const [selectedPosterPath, setSelectedPosterPath] = useState<string | null>(
+    null,
   )
-  const [selectedPosterPath, setSelectedPosterPath] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const lastSyncedPosterPathRef = useRef<string | null>(null)
+  const wasOpenRef = useRef(false)
 
   const activePosterPath = useMemo(
     () => resolvePosterPath(mediaType, mediaId, defaultPosterPath),
@@ -68,11 +73,22 @@ export function PosterPickerModal({
 
   useEffect(() => {
     if (!isOpen) {
+      wasOpenRef.current = false
       return
     }
 
-    setSelectedPosterPath(activePosterPath)
-  }, [activePosterPath, isOpen])
+    if (!wasOpenRef.current) {
+      wasOpenRef.current = true
+      lastSyncedPosterPathRef.current = activePosterPath
+      setSelectedPosterPath(activePosterPath)
+      return
+    }
+
+    if (selectedPosterPath === lastSyncedPosterPathRef.current) {
+      lastSyncedPosterPathRef.current = activePosterPath
+      setSelectedPosterPath(activePosterPath)
+    }
+  }, [activePosterPath, isOpen, selectedPosterPath])
 
   const hasChanges = selectedPosterPath !== activePosterPath
 
@@ -169,7 +185,10 @@ export function PosterPickerModal({
         {isLoading || (isFetching && !data) ? (
           <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-white/70">
             <div className="flex items-center gap-3">
-              <HugeiconsIcon icon={Loading03Icon} className="size-5 animate-spin" />
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-5 animate-spin"
+              />
               <span>Loading posters...</span>
             </div>
           </div>
@@ -179,7 +198,11 @@ export function PosterPickerModal({
               Failed to load posters for this title.
             </p>
             <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={() => void refetch()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void refetch()}
+              >
                 Try Again
               </Button>
               <Button type="button" variant="ghost" onClick={onClose}>
@@ -199,7 +222,8 @@ export function PosterPickerModal({
                 const isSelected = selectedPosterPath === poster.file_path
                 const posterUrl = buildImageUrl(poster.file_path, "w500")
 
-                const handleSelect = () => setSelectedPosterPath(poster.file_path)
+                const handleSelect = () =>
+                  setSelectedPosterPath(poster.file_path)
 
                 return (
                   <div
@@ -227,6 +251,8 @@ export function PosterPickerModal({
                         src={posterUrl}
                         alt={`${title} poster option`}
                         className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        loading="lazy"
+                        decoding="async"
                         sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"
                       />
                     ) : (

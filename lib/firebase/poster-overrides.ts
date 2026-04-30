@@ -9,7 +9,7 @@ import {
 import {
   deleteField,
   doc,
-  getDoc,
+  runTransaction,
   setDoc,
   updateDoc,
 } from "firebase/firestore"
@@ -27,22 +27,44 @@ export async function setPosterOverride(
 ): Promise<void> {
   const key = buildPosterOverrideKey(mediaType, mediaId)
   const userDocRef = getUserDocRef(userId)
-  const snapshot = await getDoc(userDocRef)
-  const overrides = sanitizePosterOverrides(
-    snapshot.data()?.preferences?.posterOverrides,
-  )
-  const overrideCount = Object.keys(overrides).length
-  const isExistingOverride = Object.prototype.hasOwnProperty.call(overrides, key)
-
-  if (!isExistingOverride && overrideCount >= POSTER_OVERRIDE_MAX_ENTRIES) {
-    throw new Error(
-      `You can save up to ${POSTER_OVERRIDE_MAX_ENTRIES} poster overrides`,
+  await runTransaction(getFirebaseDb(), async (transaction) => {
+    const snapshot = await transaction.get(userDocRef)
+    const overrides = sanitizePosterOverrides(
+      snapshot.data()?.preferences?.posterOverrides,
     )
-  }
+    const overrideCount = Object.keys(overrides).length
+    const isExistingOverride = Object.prototype.hasOwnProperty.call(
+      overrides,
+      key,
+    )
 
-  await setDoc(userDocRef, {}, { merge: true })
-  await updateDoc(userDocRef, {
-    [`preferences.posterOverrides.${key}`]: posterPath,
+    if (!isExistingOverride && overrideCount >= POSTER_OVERRIDE_MAX_ENTRIES) {
+      throw new Error(
+        `You can save up to ${POSTER_OVERRIDE_MAX_ENTRIES} poster overrides`,
+      )
+    }
+
+    const nextOverrides = {
+      ...overrides,
+      [key]: posterPath,
+    }
+
+    if (snapshot.exists()) {
+      transaction.update(userDocRef, {
+        "preferences.posterOverrides": nextOverrides,
+      })
+      return
+    }
+
+    transaction.set(
+      userDocRef,
+      {
+        preferences: {
+          posterOverrides: nextOverrides,
+        },
+      },
+      { merge: true },
+    )
   })
 }
 
