@@ -17,6 +17,10 @@ describe("user preferences", () => {
     expect(DEFAULT_PREFERENCES.copyInsteadOfMove).toBe(false)
   })
 
+  it("defaults poster overrides to an empty map", () => {
+    expect(DEFAULT_PREFERENCES.posterOverrides).toEqual({})
+  })
+
   it("hydrates the new preference key from stored preferences", () => {
     expect(
       hydrateUserPreferences({ autoRemoveFromShouldWatch: false }),
@@ -58,6 +62,24 @@ describe("user preferences", () => {
     })
   })
 
+  it("hydrates poster overrides from valid stored preferences only", () => {
+    expect(
+      hydrateUserPreferences({
+        posterOverrides: {
+          movie_12: "/spirited-away-alt.jpg",
+          tv_8: "/show-alt.jpg",
+          invalid: "/nope.jpg",
+          movie_44: "https://example.com/nope.jpg",
+        },
+      }),
+    ).toMatchObject({
+      posterOverrides: {
+        movie_12: "/spirited-away-alt.jpg",
+        tv_8: "/show-alt.jpg",
+      },
+    })
+  })
+
   it("defaults original title preference when the stored key is omitted", () => {
     expect(hydrateUserPreferences({})).toMatchObject({
       showOriginalTitles: false,
@@ -69,6 +91,12 @@ describe("user preferences", () => {
       hydrateUserPreferences({ showOriginalTitles: undefined }),
     ).toMatchObject({
       showOriginalTitles: false,
+    })
+  })
+
+  it("normalizes missing poster overrides to an empty map", () => {
+    expect(hydrateUserPreferences({})).toMatchObject({
+      posterOverrides: {},
     })
   })
 })

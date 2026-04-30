@@ -1,5 +1,6 @@
 "use client"
 
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Rating } from "@/types/rating"
 import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
@@ -35,8 +36,13 @@ function getMediaTitle(
  * Displays a rated media item with poster, rating badge, and title
  */
 export function RatingCard({ rating, media, mediaType }: RatingCardProps) {
+  const { resolvePosterPath } = usePosterOverrides()
   const title = getMediaTitle(media, rating.title) || "Untitled"
-  const posterPath = media?.poster_path || rating.posterPath
+  const posterPath = resolvePosterPath(
+    mediaType,
+    Number(rating.mediaId),
+    media?.poster_path || rating.posterPath,
+  )
   const posterUrl = buildImageUrl(posterPath, "w500")
   const releaseDate =
     (media as TMDBMovieDetails)?.release_date ||

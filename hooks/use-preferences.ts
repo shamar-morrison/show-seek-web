@@ -1,6 +1,15 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import {
+  clearPosterOverride as clearPosterOverrideInFirestore,
+  setPosterOverride as setPosterOverrideInFirestore,
+} from "@/lib/firebase/poster-overrides"
+import {
+  buildPosterOverrideKey,
+  sanitizePosterOverrides,
+  type PosterOverrideMediaType,
+} from "@/lib/poster-overrides"
 import { getFirebaseDb } from "@/lib/firebase/config"
 import { resolveUserRegion, type SupportedRegionCode } from "@/lib/regions"
 import {
@@ -23,6 +32,15 @@ interface UsePreferencesReturn {
   ) => Promise<void>
   updateHomeScreenLists: (lists: HomeScreenListItem[]) => Promise<void>
   updateRegion: (region: SupportedRegionCode) => Promise<void>
+  setPosterOverride: (
+    mediaType: PosterOverrideMediaType,
+    mediaId: number,
+    posterPath: string,
+  ) => Promise<void>
+  clearPosterOverride: (
+    mediaType: PosterOverrideMediaType,
+    mediaId: number,
+  ) => Promise<void>
 }
 
 export function usePreferences(): UsePreferencesReturn {
@@ -162,6 +180,81 @@ export function usePreferences(): UsePreferencesReturn {
     [region, user],
   )
 
+  const setPosterOverride = useCallback(
+    async (
+      mediaType: PosterOverrideMediaType,
+      mediaId: number,
+      posterPath: string,
+    ): Promise<void> => {
+      if (!user) {
+        throw new Error("User must be logged in to update poster overrides")
+      }
+
+      const key = buildPosterOverrideKey(mediaType, mediaId)
+      let originalOverrides: Record<string, string> = {}
+
+      setPreferences((prev) => {
+        originalOverrides = sanitizePosterOverrides(prev.posterOverrides)
+        return {
+          ...prev,
+          posterOverrides: {
+            ...originalOverrides,
+            [key]: posterPath,
+          },
+        }
+      })
+
+      try {
+        await setPosterOverrideInFirestore(user.uid, mediaType, mediaId, posterPath)
+      } catch (error) {
+        console.error("Error updating poster override:", error)
+        setPreferences((prev) => ({
+          ...prev,
+          posterOverrides: originalOverrides,
+        }))
+        throw error
+      }
+    },
+    [user],
+  )
+
+  const clearPosterOverride = useCallback(
+    async (
+      mediaType: PosterOverrideMediaType,
+      mediaId: number,
+    ): Promise<void> => {
+      if (!user) {
+        throw new Error("User must be logged in to update poster overrides")
+      }
+
+      const key = buildPosterOverrideKey(mediaType, mediaId)
+      let originalOverrides: Record<string, string> = {}
+
+      setPreferences((prev) => {
+        originalOverrides = sanitizePosterOverrides(prev.posterOverrides)
+        const nextOverrides = { ...originalOverrides }
+        delete nextOverrides[key]
+
+        return {
+          ...prev,
+          posterOverrides: nextOverrides,
+        }
+      })
+
+      try {
+        await clearPosterOverrideInFirestore(user.uid, mediaType, mediaId)
+      } catch (error) {
+        console.error("Error clearing poster override:", error)
+        setPreferences((prev) => ({
+          ...prev,
+          posterOverrides: originalOverrides,
+        }))
+        throw error
+      }
+    },
+    [user],
+  )
+
   return {
     preferences,
     region,
@@ -169,5 +262,7 @@ export function usePreferences(): UsePreferencesReturn {
     updatePreference,
     updateHomeScreenLists,
     updateRegion,
+    setPosterOverride,
+    clearPosterOverride,
   }
 }

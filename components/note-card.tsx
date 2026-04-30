@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayNormalizedTitle } from "@/lib/media-title"
 import { getNoteHref } from "@/lib/note-utils"
@@ -49,10 +50,17 @@ function timestampToDate(timestamp: Timestamp | Date | number): Date {
  */
 export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
 
-  const posterUrl = note.posterPath
-    ? buildImageUrl(note.posterPath, "w185")
+  const resolvedPosterPath =
+    note.mediaType === "movie" || note.mediaType === "tv"
+      ? resolvePosterPath(note.mediaType, note.mediaId, note.posterPath)
+      : note.showId
+        ? resolvePosterPath("tv", note.showId, note.posterPath)
+        : note.posterPath
+  const posterUrl = resolvedPosterPath
+    ? buildImageUrl(resolvedPosterPath, "w185")
     : null
   const mediaUrl = getNoteHref(note)
   const relativeTime = formatRelativeTime(timestampToDate(note.updatedAt))

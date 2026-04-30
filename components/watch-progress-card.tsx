@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import {
   formatRemainingTime,
   type WatchProgressItem,
@@ -33,12 +34,14 @@ interface WatchProgressCardProps {
  */
 export function WatchProgressCard({ progress }: WatchProgressCardProps) {
   const { clearAllEpisodes } = useEpisodeTrackingMutations()
+  const { resolvePosterPath } = usePosterOverrides()
   const [isRemoving, setIsRemoving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const posterUrl = progress.posterPath
-    ? buildImageUrl(progress.posterPath, "w185")
-    : null
+  const posterUrl = buildImageUrl(
+    resolvePosterPath("tv", progress.tvShowId, progress.posterPath),
+    "w185",
+  )
   const tvUrl = `/tv/${progress.tvShowId}`
 
   // Format time remaining or show watched count as fallback

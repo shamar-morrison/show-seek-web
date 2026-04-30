@@ -1,5 +1,6 @@
 "use client"
 
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Rating } from "@/types/rating"
 import { StarIcon } from "@hugeicons/core-free-icons"
@@ -43,12 +44,16 @@ interface EpisodeRatingCardProps {
  * Returns null if the rating is not a valid episode rating
  */
 export function EpisodeRatingCard({ rating }: EpisodeRatingCardProps) {
+  const { resolvePosterPath } = usePosterOverrides()
   // Validate that this is a proper episode rating
   if (!isValidEpisodeRating(rating)) {
     return null
   }
 
-  const posterUrl = buildImageUrl(rating.posterPath, "w500")
+  const posterUrl = buildImageUrl(
+    resolvePosterPath("tv", rating.tvShowId, rating.posterPath),
+    "w500",
+  )
   const href = `/tv/${rating.tvShowId}`
   const seasonEpisode = `S${rating.seasonNumber} E${rating.episodeNumber}`
 

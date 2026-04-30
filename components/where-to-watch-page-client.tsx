@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/searchable-select"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useWatchProviderEnrichment } from "@/hooks/use-watch-provider-enrichment"
 import { listItemToMedia } from "@/lib/list-media"
@@ -147,9 +148,13 @@ function WhereToWatchResultCard({
   providerLogoUrl: string | null
   preferOriginalTitles: boolean
 }) {
+  const { resolvePosterPath } = usePosterOverrides()
   const media = listItemToMedia(item)
   const title = getDisplayMediaTitle(media, preferOriginalTitles) || item.title
-  const posterUrl = buildImageUrl(item.poster_path, "w500")
+  const posterUrl = buildImageUrl(
+    resolvePosterPath(item.media_type, item.id, item.poster_path),
+    "w500",
+  )
   const mediaTypeLabel = item.media_type === "movie" ? "Movie" : "TV Show"
 
   return (

@@ -1,7 +1,23 @@
 import { MediaCard } from "@/components/media-card"
 import { render, screen } from "@/test/utils"
 import type { TMDBMedia } from "@/types/tmdb"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+const mocks = vi.hoisted(() => ({
+  resolvePosterPath: vi.fn(
+    (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      fallbackPosterPath: string | null,
+    ) => fallbackPosterPath,
+  ),
+}))
+
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    resolvePosterPath: mocks.resolvePosterPath,
+  }),
+}))
 
 function createMedia(): TMDBMedia {
   return {
@@ -29,6 +45,17 @@ function getRenderedListIndicatorIds(container: HTMLElement) {
 }
 
 describe("MediaCard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.resolvePosterPath.mockImplementation(
+      (
+        _mediaType: "movie" | "tv",
+        _mediaId: number,
+        fallbackPosterPath: string | null,
+      ) => fallbackPosterPath,
+    )
+  })
+
   it("renders the localized title by default", () => {
     render(<MediaCard media={createMedia()} />)
 
@@ -86,5 +113,23 @@ describe("MediaCard", () => {
     expect(
       container.querySelectorAll('[data-list-indicator="custom"]').length,
     ).toBe(1)
+  })
+
+  it("renders a resolved poster override instead of the fallback TMDB poster", () => {
+    mocks.resolvePosterPath.mockReturnValue("/custom-poster.jpg")
+
+    render(
+      <MediaCard
+        media={{
+          ...createMedia(),
+          poster_path: "/default-poster.jpg",
+        }}
+      />,
+    )
+
+    expect(screen.getByAltText("Spirited Away")).toHaveAttribute(
+      "src",
+      "https://image.tmdb.org/t/p/w500/custom-poster.jpg",
+    )
   })
 })

@@ -3,6 +3,7 @@
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import { getMediaUrl } from "@/lib/utils"
 import type { ListMediaItem } from "@/types/list"
@@ -28,6 +29,7 @@ export function ShuffleDialog({
   items,
 }: ShuffleDialogProps) {
   const router = useRouter()
+  const { resolvePosterPath } = usePosterOverrides()
   const [displayedItem, setDisplayedItem] = useState<ListMediaItem | null>(null)
   const [hasRevealed, setHasRevealed] = useState(false)
   const [posterPulse, setPosterPulse] = useState(false)
@@ -158,8 +160,15 @@ export function ShuffleDialog({
       return null
     }
 
-    return buildImageUrl(displayedItem.poster_path, "w500")
-  }, [displayedItem])
+    return buildImageUrl(
+      resolvePosterPath(
+        displayedItem.media_type,
+        displayedItem.id,
+        displayedItem.poster_path,
+      ),
+      "w500",
+    )
+  }, [displayedItem, resolvePosterPath])
 
   const handleSpinAgain = useCallback(() => {
     clearTimers()

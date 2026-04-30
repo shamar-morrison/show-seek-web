@@ -36,6 +36,17 @@ vi.mock("@/components/ui/base-media-modal", () => ({
     ) : null,
 }))
 
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    overrides: {},
+    resolvePosterPath: (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      fallbackPosterPath: string | null | undefined,
+    ) => fallbackPosterPath ?? null,
+  }),
+}))
+
 function createItem(
   id: number,
   title: string,
