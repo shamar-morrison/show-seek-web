@@ -5,6 +5,7 @@ import { AuthModal } from "@/components/auth-modal"
 import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import { MarkAsWatchedSplitButton } from "@/components/mark-as-watched-split-button"
 import { NotesModal } from "@/components/notes-modal"
+import { PosterPickerModal } from "@/components/poster-picker-modal"
 import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
 import { TrailerModal } from "@/components/trailer-modal"
@@ -14,6 +15,7 @@ import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
@@ -164,11 +166,13 @@ export function MediaDetailHero({
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [isMarkAsWatchedOpen, setIsMarkAsWatchedOpen] = useState(false)
+  const [isPosterPickerOpen, setIsPosterPickerOpen] = useState(false)
   const [isQuickMarkLoading, setIsQuickMarkLoading] = useState(false)
   const { lists, loading: listsLoading } = useLists()
   const { getRating, loading: ratingsLoading } = useRatings()
   const { getNote, loading: notesLoading } = useNotes()
   const { preferences } = usePreferences()
+  const { resolvePosterPath } = usePosterOverrides()
   const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
 
   // Watch history for movies only
@@ -275,7 +279,12 @@ export function MediaDetailHero({
     getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
   const overview = media.overview || "No description available."
   const backdropUrl = buildImageUrl(media.backdrop_path, "original")
-  const posterUrl = buildImageUrl(media.poster_path, "w500")
+  const resolvedPosterPath = resolvePosterPath(
+    mediaType,
+    media.id,
+    media.poster_path,
+  )
+  const posterUrl = buildImageUrl(resolvedPosterPath, "w500")
   const rating = Math.round(media.vote_average * 10) / 10
   const genres = media.genres || []
 
@@ -296,6 +305,13 @@ export function MediaDetailHero({
       : getCreator(media as TMDBTVDetails)
 
   const creatorLabel = mediaType === "movie" ? "Director" : "Creator"
+
+  const handlePosterPickerOpen = useCallback(() => {
+    requireAuth(
+      () => setIsPosterPickerOpen(true),
+      "Sign in to customize posters",
+    )
+  }, [requireAuth])
 
   return (
     <>
@@ -323,20 +339,29 @@ export function MediaDetailHero({
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:gap-12">
               {/* Poster */}
               <div className="mx-auto shrink-0 lg:mx-0">
-                {posterUrl ? (
-                  <div className="relative aspect-2/3 w-48 overflow-hidden rounded-xl shadow-2xl sm:w-56 lg:w-64">
+                <button
+                  type="button"
+                  onClick={handlePosterPickerOpen}
+                  className="group relative aspect-2/3 w-48 overflow-hidden rounded-xl shadow-2xl transition-transform hover:scale-[1.01] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:w-56 lg:w-64"
+                  aria-label={`Change poster for ${title}`}
+                >
+                  {posterUrl ? (
                     <img
                       src={posterUrl}
                       alt={`${title} poster`}
                       className="absolute inset-0 h-full w-full object-cover"
                       sizes="(max-width: 1024px) 224px, 256px"
                     />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
+                      No Poster
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/18 group-focus-visible:bg-black/18" />
+                  <div className="absolute inset-x-3 bottom-3 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white/90 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+                    Change Poster
                   </div>
-                ) : (
-                  <div className="flex aspect-2/3 w-48 items-center justify-center rounded-xl bg-gray-800 text-gray-500 sm:w-56 lg:w-64">
-                    No Poster
-                  </div>
-                )}
+                </button>
               </div>
 
               {/* Info Content */}
@@ -617,6 +642,15 @@ export function MediaDetailHero({
           onMarkAsWatched={handleModalMarkAsWatched}
         />
       )}
+
+      <PosterPickerModal
+        isOpen={isPosterPickerOpen}
+        onClose={() => setIsPosterPickerOpen(false)}
+        mediaId={media.id}
+        mediaType={mediaType}
+        title={title}
+        defaultPosterPath={media.poster_path}
+      />
 
       {/* Auth Modal for unauthenticated users */}
       <AuthModal

@@ -6,6 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   buildImageUrl: vi.fn(),
+  resolvePosterPath: vi.fn(
+    (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      fallbackPosterPath: string | null | undefined,
+    ) => fallbackPosterPath ?? null,
+  ),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -36,6 +43,13 @@ vi.mock("@/components/ui/base-media-modal", () => ({
     ) : null,
 }))
 
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    overrides: {},
+    resolvePosterPath: mocks.resolvePosterPath,
+  }),
+}))
+
 function createItem(
   id: number,
   title: string,
@@ -57,8 +71,15 @@ describe("ShuffleDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    mocks.buildImageUrl.mockImplementation((path: string) =>
-      `https://image.tmdb.org/t/p/w500${path}`,
+    mocks.buildImageUrl.mockImplementation(
+      (path: string) => `https://image.tmdb.org/t/p/w500${path}`,
+    )
+    mocks.resolvePosterPath.mockImplementation(
+      (
+        _mediaType: "movie" | "tv",
+        _mediaId: number,
+        fallbackPosterPath: string | null | undefined,
+      ) => fallbackPosterPath ?? null,
     )
   })
 
@@ -127,7 +148,9 @@ describe("ShuffleDialog", () => {
     await advance(2600)
     fireEvent.click(screen.getByTestId("shuffle-spin-button"))
 
-    expect(screen.queryByRole("button", { name: "View details" })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "View details" }),
+    ).not.toBeInTheDocument()
     expect(screen.getByTestId("shuffle-spin-button")).toHaveTextContent(
       "Shuffling...",
     )
@@ -191,5 +214,27 @@ describe("ShuffleDialog", () => {
 
     expect(screen.getByText("No image")).toBeInTheDocument()
     expect(mocks.buildImageUrl).not.toHaveBeenCalled()
+  })
+
+  it("uses a resolved override even when the selected item has no fallback poster", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0)
+    mocks.resolvePosterPath.mockReturnValue("/override-poster.jpg")
+
+    render(
+      <ShuffleDialog
+        isOpen={true}
+        onClose={vi.fn()}
+        items={[createItem(1, "Override Poster", { poster_path: null })]}
+      />,
+    )
+
+    await advance(400)
+
+    expect(mocks.resolvePosterPath).toHaveBeenCalledWith("movie", 1, null)
+    expect(mocks.buildImageUrl).toHaveBeenCalledWith(
+      "/override-poster.jpg",
+      "w500",
+    )
+    expect(screen.queryByText("No image")).not.toBeInTheDocument()
   })
 })

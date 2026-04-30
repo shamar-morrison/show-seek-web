@@ -1,5 +1,6 @@
 "use client"
 
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatRelativeTime } from "@/lib/utils"
 import type { FavoriteEpisode } from "@/types/favorite-episode"
@@ -10,7 +11,11 @@ interface FavoriteEpisodeCardProps {
 }
 
 export function FavoriteEpisodeCard({ episode }: FavoriteEpisodeCardProps) {
-  const posterUrl = buildImageUrl(episode.posterPath, "w500")
+  const { resolvePosterPath } = usePosterOverrides()
+  const posterUrl = buildImageUrl(
+    resolvePosterPath("tv", episode.tvShowId, episode.posterPath),
+    "w500",
+  )
   const addedAtLabel = formatRelativeTime(episode.addedAt)
 
   return (

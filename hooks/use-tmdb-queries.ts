@@ -12,7 +12,13 @@ import {
 } from "@/app/actions"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import { tmdbQueryKeys } from "@/lib/react-query/query-keys"
-import type { TMDBLogo, TMDBMedia, TMDBReview, TMDBVideo } from "@/types/tmdb"
+import type {
+  TMDBImagesResponse,
+  TMDBLogo,
+  TMDBMedia,
+  TMDBReview,
+  TMDBVideo,
+} from "@/types/tmdb"
 import { useQuery } from "@tanstack/react-query"
 
 export { tmdbQueryKeys }
@@ -59,9 +65,9 @@ export function useSeasonEpisodes(
 }
 
 /**
- * Hook to fetch media images (posters + backdrops)
+ * Hook to fetch raw media image catalog (posters + backdrops + logos).
  */
-export function useMediaImages(
+export function useMediaImageCatalog(
   mediaId: number,
   mediaType: "movie" | "tv",
   enabled = true,
@@ -70,13 +76,37 @@ export function useMediaImages(
     ...queryCacheProfiles.profile,
     ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.mediaImages(mediaId, mediaType),
-    queryFn: async (): Promise<TMDBLogo[]> => {
+    queryFn: async (): Promise<TMDBImagesResponse> => {
       const data = await fetchMediaImages(mediaId, mediaType)
-      if (!data) return []
-      return [...(data.posters || []), ...(data.backdrops || [])]
+      return (
+        data ?? {
+          id: mediaId,
+          backdrops: [],
+          logos: [],
+          posters: [],
+        }
+      )
     },
     enabled,
   })
+}
+
+/**
+ * Hook to fetch media images (posters + backdrops)
+ */
+export function useMediaImages(
+  mediaId: number,
+  mediaType: "movie" | "tv",
+  enabled = true,
+) {
+  const query = useMediaImageCatalog(mediaId, mediaType, enabled)
+
+  return {
+    ...query,
+    data: query.data
+      ? ([...query.data.posters, ...query.data.backdrops] satisfies TMDBLogo[])
+      : [],
+  }
 }
 
 /**

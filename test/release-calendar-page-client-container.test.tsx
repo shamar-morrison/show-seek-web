@@ -14,6 +14,17 @@ vi.mock("@/hooks/use-release-calendar", () => ({
   useReleaseCalendar: () => useReleaseCalendarMock(),
 }))
 
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    overrides: {},
+    resolvePosterPath: (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      fallbackPosterPath: string | null | undefined,
+    ) => fallbackPosterPath ?? null,
+  }),
+}))
+
 vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
 }))

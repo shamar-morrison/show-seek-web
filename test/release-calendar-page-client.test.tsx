@@ -43,6 +43,17 @@ vi.mock("@/components/ui/filter-sort", () => ({
   ),
 }))
 
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    overrides: {},
+    resolvePosterPath: (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      fallbackPosterPath: string | null | undefined,
+    ) => fallbackPosterPath ?? null,
+  }),
+}))
+
 function createRelease(
   overrides: Partial<ReleaseCalendarRelease>,
 ): ReleaseCalendarRelease {

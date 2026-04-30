@@ -49,7 +49,7 @@ describe("firestore-read-audit", () => {
       "export const x = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
-      path.join(tempDir, "hooks/use-preferences.ts"),
+      path.join(tempDir, "components/preferences-bootstrap.tsx"),
       "export const y = onSnapshot(docRef, () => {})\n",
     )
 
@@ -69,7 +69,7 @@ describe("firestore-read-audit", () => {
       "export const x = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
-      path.join(tempDir, "hooks/use-preferences.ts"),
+      path.join(tempDir, "components/preferences-bootstrap.tsx"),
       "export const y = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
@@ -93,7 +93,7 @@ describe("firestore-read-audit", () => {
       "export const x = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
-      path.join(tempDir, "hooks/use-preferences.ts"),
+      path.join(tempDir, "components/preferences-bootstrap.tsx"),
       "export const y = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
@@ -128,7 +128,7 @@ describe("firestore-read-audit", () => {
       "export const x = onSnapshot(docRef, () => {})\n",
     )
     writeFileSync(
-      path.join(tempDir, "hooks/use-preferences.ts"),
+      path.join(tempDir, "components/preferences-bootstrap.tsx"),
       "export const y = onSnapshot(docRef, () => {})\n",
     )
 

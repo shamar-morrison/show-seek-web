@@ -1,3 +1,6 @@
+"use client"
+
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { getSearchResultInfo } from "@/lib/media-info"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { TMDBSearchResult } from "@/types/tmdb"
@@ -14,10 +17,16 @@ interface SearchResultItemProps {
  * Displays a single search result with image, title, media type, year, and rating
  */
 export function SearchResultItem({ result, onClick }: SearchResultItemProps) {
+  const { resolvePosterPath } = usePosterOverrides()
   const { title, imagePath, year, rating, mediaTypeLabel, MediaTypeIcon } =
     getSearchResultInfo(result)
 
-  const imageUrl = buildImageUrl(imagePath ?? null, "w92")
+  const resolvedImagePath =
+    result.media_type === "movie" || result.media_type === "tv"
+      ? resolvePosterPath(result.media_type, result.id, result.poster_path ?? null)
+      : (imagePath ?? null)
+
+  const imageUrl = buildImageUrl(resolvedImagePath, "w92")
 
   return (
     <button

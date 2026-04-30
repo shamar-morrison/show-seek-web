@@ -1,11 +1,14 @@
 "use client"
 
+"use client"
+
 import {
   MediaCardDropdownMenu,
   type DropdownMenuItem,
 } from "@/components/media-card-dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
@@ -94,11 +97,16 @@ export function MediaCard({
   isSelected = false,
   onSelectToggle,
 }: MediaCardProps) {
+  const { resolvePosterPath } = usePosterOverrides()
   const title =
     getDisplayMediaTitle(media, preferOriginalTitles) || "Unknown Title"
   const date = media.release_date || media.first_air_date
   const year = date ? date.split("-")[0] : null
-  const posterUrl = buildImageUrl(media.poster_path, "w500")
+  const resolvedPosterPath =
+    media.media_type === "movie" || media.media_type === "tv"
+      ? resolvePosterPath(media.media_type, media.id, media.poster_path)
+      : media.poster_path
+  const posterUrl = buildImageUrl(resolvedPosterPath, "w500")
   const hasRating = (media.vote_average || 0) > 0
   const detailUrl = getMediaUrl(media.media_type, media.id)
   const visibleListIndicators = getVisibleListIndicators(listIds)

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/context/auth-context"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { formatDateLong } from "@/lib/format-helpers"
@@ -49,6 +50,7 @@ export function SeasonDetailClient({
   tvShowId,
 }: SeasonDetailClientProps) {
   const { user } = useAuth()
+  const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markAllEpisodesWatched, markAllEpisodesUnwatched } =
@@ -67,6 +69,11 @@ export function SeasonDetailClient({
   const displayShowTitle =
     getDisplayMediaTitle(tvShow, preferences.showOriginalTitles) || showName
   const showPosterPath = tvShow.poster_path
+  const resolvedShowPosterPath = resolvePosterPath(
+    "tv",
+    tvShowId,
+    tvShow.poster_path,
+  )
   const showSeasons = tvShow.seasons
 
   const watchedEpisodes = useMemo(
@@ -200,8 +207,8 @@ export function SeasonDetailClient({
 
   const posterUrl = season.poster_path
     ? `https://image.tmdb.org/t/p/w500${season.poster_path}`
-    : tvShow.poster_path
-      ? `https://image.tmdb.org/t/p/w500${tvShow.poster_path}`
+    : resolvedShowPosterPath
+      ? `https://image.tmdb.org/t/p/w500${resolvedShowPosterPath}`
       : null
 
   const allWatched =

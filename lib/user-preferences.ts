@@ -1,3 +1,5 @@
+import { sanitizePosterOverrides } from "@/lib/poster-overrides"
+
 /** Type of list for home screen customization */
 export type HomeListType = "tmdb" | "default" | "custom"
 
@@ -22,6 +24,7 @@ export interface UserPreferences {
   hideWatchedContent: boolean
   hideUnreleasedContent: boolean
   homeScreenLists?: HomeScreenListItem[]
+  posterOverrides?: Record<string, string>
 }
 
 /** Legacy Firestore shape kept for read compatibility during migration. */
@@ -42,17 +45,22 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   quickMarkAsWatched: false,
   hideWatchedContent: false,
   hideUnreleasedContent: false,
+  posterOverrides: {},
 }
 
 export function hydrateUserPreferences(
   storedPreferences?: StoredUserPreferences,
 ): UserPreferences {
+  const sanitizedPosterOverrides = sanitizePosterOverrides(
+    storedPreferences?.posterOverrides,
+  )
   const { autoRemoveFromShouldWatch, autoRemoveWatchedFromWatchlist, ...rest } =
     storedPreferences ?? {}
 
   return {
     ...DEFAULT_PREFERENCES,
     ...rest,
+    posterOverrides: sanitizedPosterOverrides,
     autoRemoveFromShouldWatch:
       autoRemoveFromShouldWatch ??
       autoRemoveWatchedFromWatchlist ??

@@ -20,6 +20,7 @@ import {
   useToggleFavoriteEpisode,
 } from "@/hooks/use-favorite-episodes"
 import { useNotes } from "@/hooks/use-notes"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { computeNextEpisode } from "@/lib/episode-utils"
@@ -70,6 +71,7 @@ export function EpisodeDetailClient({
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
   const { getNote, loading: notesLoading } = useNotes()
+  const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markEpisodeWatched, markEpisodeUnwatched } =
@@ -218,7 +220,10 @@ export function EpisodeDetailClient({
 
   // Build image URLs
   const stillUrl = buildImageUrl(episode.still_path, "w1280")
-  const posterUrl = buildImageUrl(tvShow.poster_path, "w185")
+  const posterUrl = buildImageUrl(
+    resolvePosterPath("tv", tvShowId, tvShow.poster_path),
+    "w185",
+  )
 
   // Convert guest stars to CastMember format for CastRow
   const guestStarsAsCast: CastMember[] = episode.guest_stars.map((gs) => ({

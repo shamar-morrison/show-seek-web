@@ -640,6 +640,7 @@ export function ListsPageClient({
 
             {showDefaultSelectAction && canSelectItems ? (
               <Button
+                type="button"
                 variant="outline"
                 size="lg"
                 onClick={enterSelectionMode}
@@ -796,7 +797,12 @@ export function ListsPageClient({
               {selectedCount} item{selectedCount === 1 ? "" : "s"} selected
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="flex-1" onClick={exitSelectionMode}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={exitSelectionMode}
+              >
                 Cancel
               </Button>
               <Button

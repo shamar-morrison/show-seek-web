@@ -20,6 +20,7 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
+import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useReleaseCalendar } from "@/hooks/use-release-calendar"
 import {
   ALL_DATES_TEMPORAL_TAB_KEY,
@@ -189,17 +190,22 @@ function ReleaseDateBadge({ date }: { date: Date }) {
 
 function ReleaseArtwork({
   backdropPath,
+  mediaId,
   mediaType,
   posterPath,
   title,
 }: {
   backdropPath: string | null
+  mediaId: number
   mediaType: "movie" | "tv"
   posterPath: string | null
   title: string
 }) {
+  const { resolvePosterPath } = usePosterOverrides()
+  const resolvedPosterPath = resolvePosterPath(mediaType, mediaId, posterPath)
   const imageUrl =
-    buildImageUrl(backdropPath, "w780") ?? buildImageUrl(posterPath, "w342")
+    buildImageUrl(backdropPath, "w780") ??
+    buildImageUrl(resolvedPosterPath, "w342")
 
   return (
     <div className="relative h-44 overflow-hidden bg-white/[0.04]">
@@ -290,6 +296,7 @@ function SingleReleaseCard({
       <div className="relative">
         <ReleaseArtwork
           backdropPath={release.backdropPath}
+          mediaId={release.id}
           mediaType={release.mediaType}
           posterPath={release.posterPath}
           title={release.title}
@@ -367,6 +374,7 @@ function GroupedReleaseCard({
         <div className="relative">
           <ReleaseArtwork
             backdropPath={release.backdropPath}
+            mediaId={release.showId}
             mediaType="tv"
             posterPath={release.posterPath}
             title={release.title}
