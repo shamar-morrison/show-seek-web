@@ -1,5 +1,6 @@
 "use client"
 
+import { PreferencesBootstrap } from "@/components/preferences-bootstrap"
 import { QueryProvider } from "@/components/query-provider"
 import { AuthProvider } from "@/context/auth-context"
 import { TraktProvider } from "@/context/trakt-context"
@@ -18,6 +19,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
       <AuthProvider>
+        <PreferencesBootstrap />
         <TraktProvider>
           {children}
           <AppClientShell />

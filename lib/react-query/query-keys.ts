@@ -62,6 +62,8 @@ export const queryKeys = {
   },
 
   firestore: {
+    preferences: (userId: string) =>
+      ["firestore", "preferences", userId] as const,
     collectionTrackingRoot: ["firestore", "collection-tracking"] as const,
     collectionTrackingAll: (userId: string) =>
       ["firestore", "collection-tracking", userId, "all"] as const,

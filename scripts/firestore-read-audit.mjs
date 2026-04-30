@@ -21,7 +21,7 @@ const OPERATION_REGEX =
 
 const DEFAULT_ALLOWED_SNAPSHOT_FILES = [
   "context/auth-context.tsx",
-  "hooks/use-preferences.ts",
+  "components/preferences-bootstrap.tsx",
 ]
 
 function createEmptyOperationCounts() {
