@@ -1,7 +1,10 @@
 "use client"
 
+import { AuthModal } from "@/components/auth-modal"
 import { EpisodeCard } from "@/components/episode-card"
 import { PageContainer } from "@/components/page-container"
+import { RateButton } from "@/components/rate-button"
+import { SeasonRatingModal } from "@/components/season-rating-modal"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,10 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/context/auth-context"
+import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useRatings } from "@/hooks/use-ratings"
 import { formatDateLong } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
@@ -50,14 +55,18 @@ export function SeasonDetailClient({
   tvShowId,
 }: SeasonDetailClientProps) {
   const { user } = useAuth()
+  const { requireAuth, modalVisible, modalMessage, closeModal } =
+    useAuthGuard()
   const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
+  const { getSeasonRating, loading: ratingsLoading } = useRatings()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markAllEpisodesWatched, markAllEpisodesUnwatched } =
     useEpisodeTrackingMutations()
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const [isUnmarking, setIsUnmarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showSeasonRatingModal, setShowSeasonRatingModal] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
 
   // Get aired episodes only (exclude future episodes)
@@ -75,6 +84,7 @@ export function SeasonDetailClient({
     tvShow.poster_path,
   )
   const showSeasons = tvShow.seasons
+  const seasonRating = getSeasonRating(tvShowId, season.season_number)
 
   const watchedEpisodes = useMemo(
     () => new Set(Object.keys(tracking?.episodes ?? {})),
@@ -330,6 +340,17 @@ export function SeasonDetailClient({
                   </Button>
                 </>
               )}
+              <RateButton
+                hasRating={!!seasonRating}
+                rating={seasonRating?.rating}
+                isLoading={ratingsLoading}
+                onClick={() =>
+                  requireAuth(
+                    () => setShowSeasonRatingModal(true),
+                    "Sign in to rate seasons",
+                  )
+                }
+              />
             </div>
           </div>
         </div>
@@ -451,6 +472,22 @@ export function SeasonDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SeasonRatingModal
+        isOpen={showSeasonRatingModal}
+        onClose={() => setShowSeasonRatingModal(false)}
+        season={season}
+        tvShowId={tvShowId}
+        tvShowName={showName}
+        displayTvShowName={displayShowTitle}
+        fallbackPosterPath={showPosterPath}
+      />
+
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        message={modalMessage}
+      />
     </div>
   )
 }

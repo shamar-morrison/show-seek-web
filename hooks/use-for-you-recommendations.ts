@@ -11,6 +11,7 @@ import { useAuth } from "@/context/auth-context"
 import { useRatings } from "@/hooks/use-ratings"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import { queryKeys } from "@/lib/react-query/query-keys"
+import type { Rating } from "@/types/rating"
 import type { TMDBMedia } from "@/types/tmdb"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
@@ -42,6 +43,15 @@ export interface RecommendationSection {
   isLoading: boolean
 }
 
+function isRecommendationSeedRating(
+  rating: Rating,
+): rating is Rating & { mediaType: "movie" | "tv" } {
+  return (
+    rating.rating >= MIN_RATING_THRESHOLD &&
+    (rating.mediaType === "movie" || rating.mediaType === "tv")
+  )
+}
+
 /**
  * Hook for personalized "For You" recommendations.
  * Extracts highly-rated items as seeds and fetches recommendations for each.
@@ -57,17 +67,30 @@ export function useForYouRecommendations() {
   const preliminarySeeds = useMemo((): PreliminarySeed[] => {
     if (isGuest || ratings.size === 0) return []
 
-    return Array.from(ratings.values())
-      .filter(
-        (r) => r.rating >= MIN_RATING_THRESHOLD && r.mediaType !== "episode",
-      )
+    const dedupedSeeds = new Map<string, PreliminarySeed>()
+
+    Array.from(ratings.values())
+      .filter(isRecommendationSeedRating)
       .sort((a, b) => b.ratedAt - a.ratedAt)
-      .slice(0, MAX_SEEDS)
-      .map((r) => ({
-        id: Number(r.mediaId),
-        mediaType: r.mediaType as "movie" | "tv",
-        title: r.title || null, // null indicates title needs fetching
-      }))
+      .forEach((rating) => {
+        const id = Number(rating.mediaId)
+        if (!Number.isFinite(id)) {
+          return
+        }
+
+        const key = `${rating.mediaType}-${id}`
+        if (dedupedSeeds.has(key)) {
+          return
+        }
+
+        dedupedSeeds.set(key, {
+          id,
+          mediaType: rating.mediaType,
+          title: rating.title || null,
+        })
+      })
+
+    return Array.from(dedupedSeeds.values()).slice(0, MAX_SEEDS)
   }, [ratings, isGuest])
 
   // Step 2: Fetch missing titles from TMDB

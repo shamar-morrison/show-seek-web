@@ -18,7 +18,7 @@ import { collection, getDocs } from "firebase/firestore"
 interface RatingDoc {
   id: string
   mediaId: string
-  mediaType: "movie" | "tv" | "episode"
+  mediaType: "movie" | "tv" | "episode" | "season"
   rating: number
   ratedAt?: { toDate?: () => Date } | number | string | Date
   title?: string
@@ -77,10 +77,47 @@ interface ListDoc {
 
 interface EnrichedRating {
   title: string
-  type: "Movie" | "TV" | "Episode"
+  type: "Movie" | "TV" | "Episode" | "Season"
   rating: number
   ratedAt?: Date | null
   formattedDate?: string
+}
+
+const EPISODE_RATING_ID_PATTERN = /^episode-(\d+)-(\d+)-(\d+)$/
+const SEASON_RATING_ID_PATTERN = /^season-(\d+)-(\d+)$/
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+function parseEpisodeRatingDocId(docId: string) {
+  const match = docId.match(EPISODE_RATING_ID_PATTERN)
+  if (!match) return null
+
+  return {
+    tvShowId: Number(match[1]),
+    seasonNumber: Number(match[2]),
+    episodeNumber: Number(match[3]),
+  }
+}
+
+function parseSeasonRatingDocId(docId: string) {
+  const match = docId.match(SEASON_RATING_ID_PATTERN)
+  if (!match) return null
+
+  return {
+    tvShowId: Number(match[1]),
+    seasonNumber: Number(match[2]),
+  }
 }
 
 // ============================================================================
@@ -102,20 +139,63 @@ async function fetchRatings(userId: string): Promise<RatingDoc[]> {
   const snapshot = await getDocs(
     collection(getFirebaseDb(), "users", userId, "ratings"),
   )
-  return snapshot.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      mediaId: data.mediaId as string,
-      mediaType: data.mediaType as "movie" | "tv" | "episode",
-      rating: data.rating as number,
-      ratedAt: data.ratedAt as RatingDoc["ratedAt"],
-      title: data.title as string | undefined,
-      tvShowName: data.tvShowName as string | undefined,
-      episodeName: data.episodeName as string | undefined,
-      seasonNumber: data.seasonNumber as number | undefined,
-      episodeNumber: data.episodeNumber as number | undefined,
+  return snapshot.docs.flatMap((doc) => {
+    const data = doc.data() as Record<string, unknown>
+    const mediaType = data.mediaType
+
+    if (
+      mediaType !== "movie" &&
+      mediaType !== "tv" &&
+      mediaType !== "episode" &&
+      mediaType !== "season"
+    ) {
+      return []
     }
+
+    const parsedEpisodeDocId = parseEpisodeRatingDocId(doc.id)
+    const parsedSeasonDocId = parseSeasonRatingDocId(doc.id)
+    const tvShowId =
+      toFiniteNumber(data.tvShowId) ??
+      parsedEpisodeDocId?.tvShowId ??
+      parsedSeasonDocId?.tvShowId
+    const seasonNumber =
+      toFiniteNumber(data.seasonNumber) ??
+      parsedEpisodeDocId?.seasonNumber ??
+      parsedSeasonDocId?.seasonNumber
+    const episodeNumber =
+      toFiniteNumber(data.episodeNumber) ?? parsedEpisodeDocId?.episodeNumber
+
+    let mediaId: string | null = null
+
+    if (mediaType === "movie" || mediaType === "tv") {
+      const prefix = `${mediaType}-`
+      const storedId = toFiniteNumber(data.mediaId) ?? toFiniteNumber(data.id)
+      const parsedDocId = doc.id.startsWith(prefix)
+        ? toFiniteNumber(doc.id.slice(prefix.length))
+        : null
+      mediaId = (storedId ?? parsedDocId)?.toString() ?? null
+    } else {
+      mediaId = tvShowId?.toString() ?? null
+    }
+
+    if (mediaId === null) {
+      return []
+    }
+
+    return [
+      {
+        id: doc.id,
+        mediaId,
+        mediaType,
+        rating: (data.rating as number) || 0,
+        ratedAt: data.ratedAt as RatingDoc["ratedAt"],
+        title: data.title as string | undefined,
+        tvShowName: data.tvShowName as string | undefined,
+        episodeName: data.episodeName as string | undefined,
+        seasonNumber: seasonNumber ?? undefined,
+        episodeNumber: episodeNumber ?? undefined,
+      },
+    ]
   })
 }
 
@@ -154,7 +234,7 @@ async function fetchWithTimeout<T>(
 
 /**
  * Enrich ratings with TMDB titles
- * Movies and TV shows need title fetching, episodes use stored data
+ * Movies and TV shows need title fetching, episodes and seasons use stored data
  */
 async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
   const enriched: EnrichedRating[] = []
@@ -218,6 +298,23 @@ async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
       }
     }
 
+    if (rating.mediaType === "season") {
+      const showTitle = rating.tvShowName || `Show ID: ${rating.mediaId}`
+      const seasonTitle =
+        rating.title ||
+        (rating.seasonNumber !== undefined
+          ? `Season ${rating.seasonNumber}`
+          : "Season")
+
+      return {
+        title: `${showTitle} - ${seasonTitle}`,
+        type: "Season",
+        rating: rating.rating,
+        ratedAt: ratedAtDate,
+        formattedDate,
+      }
+    }
+
     // Episode: use stored data with fallbacks
     // Reference: rating.tvShowName, rating.episodeName, rating.seasonNumber, rating.episodeNumber
     let title = rating.tvShowName || "Unknown Show"
@@ -260,6 +357,8 @@ async function enrichRatings(ratings: RatingDoc[]): Promise<EnrichedRating[]> {
               ? "Movie"
               : originalRating.mediaType === "tv"
                 ? "TV"
+                : originalRating.mediaType === "season"
+                  ? "Season"
                 : "Episode",
           rating: originalRating.rating,
           ratedAt: ratedAtDate,
@@ -401,6 +500,7 @@ export async function exportToMarkdown(userId: string): Promise<void> {
     const movieRatings = enrichedRatings.filter((r) => r.type === "Movie")
     const tvRatings = enrichedRatings.filter((r) => r.type === "TV")
     const episodeRatings = enrichedRatings.filter((r) => r.type === "Episode")
+    const seasonRatings = enrichedRatings.filter((r) => r.type === "Season")
 
     if (movieRatings.length > 0) {
       md += "### Movies\n"
@@ -421,6 +521,14 @@ export async function exportToMarkdown(userId: string): Promise<void> {
     if (episodeRatings.length > 0) {
       md += "### Episodes\n"
       for (const r of episodeRatings) {
+        md += `- **${r.title}**: ${r.rating}/10\n`
+      }
+      md += "\n"
+    }
+
+    if (seasonRatings.length > 0) {
+      md += "### Seasons\n"
+      for (const r of seasonRatings) {
         md += `- **${r.title}**: ${r.rating}/10\n`
       }
       md += "\n"

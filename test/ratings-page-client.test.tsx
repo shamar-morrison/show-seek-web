@@ -30,10 +30,42 @@ function createDefaultMovieRatings() {
   ]
 }
 
+function createDefaultSeasonRatings() {
+  return [
+    {
+      id: "season-777-2",
+      mediaId: "777",
+      mediaType: "season" as const,
+      rating: 9,
+      title: "Season 2",
+      posterPath: "/season-2.jpg",
+      releaseDate: "2025-01-01",
+      ratedAt: 2,
+      tvShowId: 777,
+      seasonNumber: 2,
+      tvShowName: "Signal Run",
+    },
+    {
+      id: "season-777-1",
+      mediaId: "777",
+      mediaType: "season" as const,
+      rating: 8,
+      title: "Season 1",
+      posterPath: "/season-1.jpg",
+      releaseDate: "2024-01-01",
+      ratedAt: 1,
+      tvShowId: 777,
+      seasonNumber: 1,
+      tvShowName: "Signal Run",
+    },
+  ]
+}
+
 const mocks = vi.hoisted(() => ({
   watchTrailer: vi.fn(),
   closeTrailer: vi.fn(),
   movieRatings: createDefaultMovieRatings(),
+  seasonRatings: createDefaultSeasonRatings(),
   preferences: {
     showOriginalTitles: true,
   },
@@ -78,6 +110,11 @@ vi.mock("@/hooks/use-ratings", () => ({
     loading: false,
     count: 0,
   }),
+  useSeasonRatings: () => ({
+    ratings: mocks.seasonRatings,
+    loading: false,
+    count: mocks.seasonRatings.length,
+  }),
 }))
 
 vi.mock("@/hooks/use-trailer", () => ({
@@ -112,6 +149,14 @@ vi.mock("@/components/ui/filter-sort", () => ({
         }
       >
         Sort release
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSortChange({ field: "seasonNumber", direction: "asc" })
+        }
+      >
+        Sort season order
       </button>
       <button
         type="button"
@@ -158,6 +203,16 @@ vi.mock("@/components/ratings/episode-rating-card", () => ({
   EpisodeRatingCard: () => <div>episode-card</div>,
 }))
 
+vi.mock("@/hooks/use-poster-overrides", () => ({
+  usePosterOverrides: () => ({
+    resolvePosterPath: (
+      _mediaType: "movie" | "tv",
+      _mediaId: number,
+      posterPath: string | null,
+    ) => posterPath,
+  }),
+}))
+
 vi.mock("@/components/trailer-modal", () => ({
   TrailerModal: () => null,
 }))
@@ -166,6 +221,7 @@ describe("RatingsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.movieRatings = createDefaultMovieRatings()
+    mocks.seasonRatings = createDefaultSeasonRatings()
     mocks.preferences.showOriginalTitles = true
   })
 
@@ -288,5 +344,42 @@ describe("RatingsPageClient", () => {
     const cards = screen.getAllByTestId("media-card")
     expect(cards[0]).toHaveTextContent("December Finale")
     expect(cards[1]).toHaveTextContent("January First")
+  })
+
+  it("renders season ratings in a fourth tab with search, sorting, and season links", async () => {
+    const user = userEvent.setup()
+
+    render(<RatingsPageClient />)
+
+    await user.click(screen.getByRole("button", { name: /Seasons/i }))
+
+    expect(
+      screen.getByPlaceholderText("Search by show or season name..."),
+    ).toBeInTheDocument()
+
+    expect(screen.getAllByText("Signal Run")).toHaveLength(2)
+    expect(screen.getByText("Season 2").closest("a")).toHaveAttribute(
+      "href",
+      "/tv/777/season/2",
+    )
+
+    await user.type(
+      screen.getByPlaceholderText("Search by show or season name..."),
+      "S2",
+    )
+
+    expect(screen.getByText("Season 2")).toBeInTheDocument()
+    expect(screen.queryByText("Season 1")).not.toBeInTheDocument()
+
+    await user.clear(
+      screen.getByPlaceholderText("Search by show or season name..."),
+    )
+    await user.click(
+      screen.getByRole("button", { name: "Sort season order" }),
+    )
+
+    const seasonLinks = screen.getAllByRole("link")
+    expect(seasonLinks[0]).toHaveAttribute("href", "/tv/777/season/1")
+    expect(seasonLinks[1]).toHaveAttribute("href", "/tv/777/season/2")
   })
 })

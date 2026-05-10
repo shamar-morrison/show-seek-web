@@ -2,6 +2,7 @@
 
 import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { EpisodeRatingCard } from "@/components/ratings/episode-rating-card"
+import { SeasonRatingCard } from "@/components/ratings/season-rating-card"
 import { TrailerModal } from "@/components/trailer-modal"
 import {
   Empty,
@@ -18,6 +19,7 @@ import { useAuth } from "@/context/auth-context"
 import {
   useEpisodeRatings,
   useMovieRatings,
+  useSeasonRatings,
   useTVRatings,
 } from "@/hooks/use-ratings"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -39,7 +41,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useMemo, useState } from "react"
 
-type RatingTab = "movies" | "tv" | "episodes"
+type RatingTab = "movies" | "tv" | "episodes" | "seasons"
 
 // Current year for year range filter
 const CURRENT_YEAR = new Date().getFullYear()
@@ -59,6 +61,13 @@ const EPISODE_SORT_FIELDS = [
   { value: "userRating", label: "Your Rating" },
   { value: "tvShowName", label: "Show Name" },
   { value: "episodeName", label: "Episode Name" },
+]
+
+const SEASON_SORT_FIELDS = [
+  { value: "ratedAt", label: "Recently Rated" },
+  { value: "userRating", label: "Your Rating" },
+  { value: "tvShowName", label: "Show Name" },
+  { value: "seasonNumber", label: "Season Order" },
 ]
 
 // Filter for user's personal rating (minimum)
@@ -99,6 +108,7 @@ export function RatingsPageClient() {
   const movieRatings = useMovieRatings(undefined, activeTab === "movies")
   const tvRatings = useTVRatings(undefined, activeTab === "tv")
   const episodeRatings = useEpisodeRatings(undefined, activeTab === "episodes")
+  const seasonRatings = useSeasonRatings(undefined, activeTab === "seasons")
 
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
@@ -248,12 +258,74 @@ export function RatingsPageClient() {
     return sorted
   }, [episodeRatings.ratings, searchQuery, filterState, sortState])
 
+  const filteredAndSortedSeasons = useMemo(() => {
+    const filtered = seasonRatings.ratings.filter((rating) => {
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase()
+        const seasonNumber = rating.seasonNumber
+        const searchableText = [
+          rating.tvShowName || "",
+          rating.title || "",
+          seasonNumber !== undefined ? `season ${seasonNumber}` : "",
+          seasonNumber !== undefined ? `s${seasonNumber}` : "",
+          seasonNumber !== undefined ? `${seasonNumber}` : "",
+        ]
+          .join(" ")
+          .toLowerCase()
+
+        if (!searchableText.includes(query)) {
+          return false
+        }
+      }
+
+      const minUserRating = parseInt(filterState.userRating || "0")
+      if (minUserRating > 0 && rating.rating < minUserRating) {
+        return false
+      }
+
+      return true
+    })
+
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0
+
+      switch (sortState.field) {
+        case "ratedAt":
+          comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
+          break
+        case "userRating":
+          comparison = (a.rating || 0) - (b.rating || 0)
+          break
+        case "tvShowName":
+          comparison = (a.tvShowName || "")
+            .toLowerCase()
+            .localeCompare((b.tvShowName || "").toLowerCase())
+          break
+        case "seasonNumber":
+          comparison = (a.seasonNumber || 0) - (b.seasonNumber || 0)
+          if (comparison === 0) {
+            comparison = (a.tvShowName || "")
+              .toLowerCase()
+              .localeCompare((b.tvShowName || "").toLowerCase())
+          }
+          break
+        default:
+          comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
+      }
+
+      return sortState.direction === "asc" ? comparison : -comparison
+    })
+
+    return sorted
+  }, [filterState, searchQuery, seasonRatings.ratings, sortState])
+
   // Determine loading state based on active tab
   const isLoading =
     authLoading ||
     (activeTab === "movies" && movieRatings.loading) ||
     (activeTab === "tv" && tvRatings.loading) ||
-    (activeTab === "episodes" && episodeRatings.loading)
+    (activeTab === "episodes" && episodeRatings.loading) ||
+    (activeTab === "seasons" && seasonRatings.loading)
 
   // Handle trailer click
   const handleWatchTrailer = useCallback(
@@ -290,6 +362,8 @@ export function RatingsPageClient() {
         return { type: "TV show", plural: "TV shows" }
       case "episodes":
         return { type: "episode", plural: "episodes" }
+      case "seasons":
+        return { type: "season", plural: "seasons" }
     }
   }
 
@@ -299,8 +373,8 @@ export function RatingsPageClient() {
   const hasActiveFilters =
     searchQuery.trim() !== "" ||
     filterState.userRating !== "0" ||
-    yearRange[0] !== MIN_YEAR ||
-    yearRange[1] !== CURRENT_YEAR
+    ((activeTab === "movies" || activeTab === "tv") &&
+      (yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR))
 
   // Convert rating to TMDBMedia
   const ratingToMedia = (
@@ -344,6 +418,8 @@ export function RatingsPageClient() {
           placeholder={
             activeTab === "episodes"
               ? "Search by show or episode name..."
+              : activeTab === "seasons"
+                ? "Search by show or season name..."
               : "Search your ratings..."
           }
           className="flex-1"
@@ -360,12 +436,16 @@ export function RatingsPageClient() {
           filterState={filterState}
           onFilterChange={handleFilterChange}
           sortFields={
-            activeTab === "episodes" ? EPISODE_SORT_FIELDS : SORT_FIELDS
+            activeTab === "episodes"
+              ? EPISODE_SORT_FIELDS
+              : activeTab === "seasons"
+                ? SEASON_SORT_FIELDS
+              : SORT_FIELDS
           }
           sortState={sortState}
           onSortChange={setSortState}
           yearRange={
-            activeTab !== "episodes"
+            activeTab === "movies" || activeTab === "tv"
               ? {
                   min: MIN_YEAR,
                   max: CURRENT_YEAR,
@@ -400,6 +480,13 @@ export function RatingsPageClient() {
           isActive={activeTab === "episodes"}
           icon={PlayCircle02Icon}
           onClick={() => setActiveTab("episodes")}
+        />
+        <FilterTabButton
+          label="Seasons"
+          count={seasonRatings.count}
+          isActive={activeTab === "seasons"}
+          icon={StarIcon}
+          onClick={() => setActiveTab("seasons")}
         />
       </div>
 
@@ -449,6 +536,50 @@ export function RatingsPageClient() {
             <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
               {filteredAndSortedEpisodes.map((rating) => (
                 <EpisodeRatingCard key={rating.id} rating={rating} />
+              ))}
+            </div>
+          )
+        })()
+      ) : activeTab === "seasons" ? (
+        (() => {
+          if (seasonRatings.ratings.length === 0) {
+            return (
+              <Empty className="border border-white/10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <HugeiconsIcon icon={StarIcon} />
+                  </EmptyMedia>
+                  <EmptyTitle>No season ratings yet</EmptyTitle>
+                  <EmptyDescription>
+                    Rate seasons from TV season pages to see them here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )
+          }
+
+          if (filteredAndSortedSeasons.length === 0 && hasActiveFilters) {
+            return (
+              <Empty className="border border-white/10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <HugeiconsIcon icon={Search01Icon} />
+                  </EmptyMedia>
+                  <EmptyTitle>No results found</EmptyTitle>
+                  <EmptyDescription>
+                    {searchQuery.trim()
+                      ? `No seasons match "${searchQuery}"`
+                      : "No seasons match your current filters."}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )
+          }
+
+          return (
+            <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+              {filteredAndSortedSeasons.map((rating) => (
+                <SeasonRatingCard key={rating.id} rating={rating} />
               ))}
             </div>
           )

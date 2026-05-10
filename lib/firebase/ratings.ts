@@ -18,30 +18,163 @@ import {
 } from "firebase/firestore"
 import { getFirebaseDb } from "./config"
 
+const VALID_MEDIA_TYPES = new Set<Rating["mediaType"]>([
+  "movie",
+  "tv",
+  "episode",
+  "season",
+])
+const EPISODE_RATING_ID_PATTERN = /^episode-(\d+)-(\d+)-(\d+)$/
+const SEASON_RATING_ID_PATTERN = /^season-(\d+)-(\d+)$/
+
+type SeasonRatingInput = RatingInput & {
+  mediaType: "season"
+  tvShowId: number
+  seasonNumber: number
+  tvShowName?: string
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  if (value instanceof Timestamp) {
+    return value.toMillis()
+  }
+
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.getTime() : null
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    "toMillis" in value &&
+    typeof value.toMillis === "function"
+  ) {
+    const parsed = value.toMillis()
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+function toMediaType(value: unknown): Rating["mediaType"] | null {
+  return VALID_MEDIA_TYPES.has(value as Rating["mediaType"])
+    ? (value as Rating["mediaType"])
+    : null
+}
+
+function parseEpisodeRatingDocId(docId: string) {
+  const match = docId.match(EPISODE_RATING_ID_PATTERN)
+  if (!match) return null
+
+  return {
+    tvShowId: Number(match[1]),
+    seasonNumber: Number(match[2]),
+    episodeNumber: Number(match[3]),
+  }
+}
+
+function parseSeasonRatingDocId(docId: string) {
+  const match = docId.match(SEASON_RATING_ID_PATTERN)
+  if (!match) return null
+
+  return {
+    tvShowId: Number(match[1]),
+    seasonNumber: Number(match[2]),
+  }
+}
+
+function toNormalizedMediaId(
+  docId: string,
+  data: Record<string, unknown>,
+  mediaType: Rating["mediaType"],
+): string | null {
+  if (mediaType === "movie" || mediaType === "tv") {
+    const storedId = toFiniteNumber(data.mediaId) ?? toFiniteNumber(data.id)
+    if (storedId !== null) {
+      return storedId.toString()
+    }
+
+    const prefix = `${mediaType}-`
+    if (!docId.startsWith(prefix)) {
+      return null
+    }
+
+    const parsed = toFiniteNumber(docId.slice(prefix.length))
+    return parsed !== null ? parsed.toString() : null
+  }
+
+  if (mediaType === "episode") {
+    const storedId = toFiniteNumber(data.tvShowId)
+    if (storedId !== null) {
+      return storedId.toString()
+    }
+
+    const parsedDocId = parseEpisodeRatingDocId(docId)
+    return parsedDocId ? parsedDocId.tvShowId.toString() : null
+  }
+
+  const storedId = toFiniteNumber(data.tvShowId)
+  if (storedId !== null) {
+    return storedId.toString()
+  }
+
+  const parsedDocId = parseSeasonRatingDocId(docId)
+  return parsedDocId ? parsedDocId.tvShowId.toString() : null
+}
+
 /**
  * Convert Firestore document data to Rating interface
  * Handles Timestamp -> number conversion for ratedAt
  * Compatible with mobile app's data structure
  */
-function toRating(docId: string, data: Record<string, unknown>): Rating {
-  const ratedAt = data.ratedAt
+function toRating(docId: string, data: Record<string, unknown>): Rating | null {
+  const mediaType = toMediaType(data.mediaType)
+  const rating = toFiniteNumber(data.rating)
+  const ratedAt = toFiniteNumber(data.ratedAt)
+  const parsedEpisodeDocId = parseEpisodeRatingDocId(docId)
+  const parsedSeasonDocId = parseSeasonRatingDocId(docId)
+  const mediaId =
+    mediaType !== null ? toNormalizedMediaId(docId, data, mediaType) : null
+
+  if (!mediaType || rating === null || ratedAt === null || mediaId === null) {
+    console.warn(
+      `[ratings] Skipping invalid rating doc ${docId}: missing valid mediaType, rating, ratedAt, or mediaId.`,
+    )
+    return null
+  }
+
+  const tvShowId =
+    toFiniteNumber(data.tvShowId) ?? parsedEpisodeDocId?.tvShowId ?? parsedSeasonDocId?.tvShowId
+  const seasonNumber =
+    toFiniteNumber(data.seasonNumber) ??
+    parsedEpisodeDocId?.seasonNumber ??
+    parsedSeasonDocId?.seasonNumber
+  const episodeNumber =
+    toFiniteNumber(data.episodeNumber) ?? parsedEpisodeDocId?.episodeNumber
 
   return {
     id: docId,
-    mediaId: data.id as string,
-    mediaType: data.mediaType as Rating["mediaType"],
-    rating: data.rating as number,
-    // For episodes, use episodeName as title
+    mediaId,
+    mediaType,
+    rating,
+    // For episodes, use episodeName as title when title is not stored.
     title: (data.title as string) || (data.episodeName as string) || "",
     originalTitle: data.originalTitle as string | undefined,
     posterPath: (data.posterPath as string) || null,
     releaseDate: (data.releaseDate as string) || null,
-    ratedAt:
-      ratedAt instanceof Timestamp ? ratedAt.toMillis() : (ratedAt as number),
-    // Episode fields
-    tvShowId: data.tvShowId as number | undefined,
-    seasonNumber: data.seasonNumber as number | undefined,
-    episodeNumber: data.episodeNumber as number | undefined,
+    ratedAt,
+    tvShowId: tvShowId ?? undefined,
+    seasonNumber: seasonNumber ?? undefined,
+    episodeNumber: episodeNumber ?? undefined,
     episodeName: data.episodeName as string | undefined,
     tvShowName: data.tvShowName as string | undefined,
   }
@@ -53,6 +186,18 @@ function toRating(docId: string, data: Record<string, unknown>): Rating {
  */
 function getRatingDocId(mediaType: "movie" | "tv", mediaId: number): string {
   return `${mediaType}-${mediaId}`
+}
+
+function getEpisodeRatingDocId(
+  tvShowId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+): string {
+  return `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
+}
+
+function getSeasonRatingDocId(tvShowId: number, seasonNumber: number): string {
+  return `season-${tvShowId}-${seasonNumber}`
 }
 
 /**
@@ -72,7 +217,9 @@ export async function fetchRatings(userId: string): Promise<Map<string, Rating>>
 
   snapshot.docs.forEach((docSnapshot) => {
     const rating = toRating(docSnapshot.id, docSnapshot.data())
-    ratingsMap.set(docSnapshot.id, rating)
+    if (rating) {
+      ratingsMap.set(docSnapshot.id, rating)
+    }
   })
 
   return ratingsMap
@@ -90,6 +237,15 @@ function getRatingRef(
     mediaType,
     typeof mediaId === "number" ? mediaId : parseInt(mediaId),
   )
+  return doc(getFirebaseDb(), "users", userId, "ratings", docId)
+}
+
+function getSeasonRatingRef(
+  userId: string,
+  tvShowId: number,
+  seasonNumber: number,
+) {
+  const docId = getSeasonRatingDocId(tvShowId, seasonNumber)
   return doc(getFirebaseDb(), "users", userId, "ratings", docId)
 }
 
@@ -116,7 +272,11 @@ export async function setRating(
       )
     }
 
-    const docId = `episode-${input.tvShowId}-${input.seasonNumber}-${input.episodeNumber}`
+    const docId = getEpisodeRatingDocId(
+      input.tvShowId,
+      input.seasonNumber,
+      input.episodeNumber,
+    )
     const ratingRef = doc(getFirebaseDb(), "users", userId, "ratings", docId)
 
     await runTransaction(getFirebaseDb(), async (transaction) => {
@@ -141,6 +301,10 @@ export async function setRating(
     return
   }
 
+  if (input.mediaType === "season") {
+    throw new Error("Use setSeasonRating for season ratings")
+  }
+
   const ratingRef = getRatingRef(userId, input.mediaType, input.mediaId)
 
   await runTransaction(getFirebaseDb(), async (transaction) => {
@@ -163,6 +327,43 @@ export async function setRating(
     transaction.set(
       ratingRef,
       data,
+      { merge: true },
+    )
+  })
+}
+
+export async function setSeasonRating(
+  userId: string,
+  input: SeasonRatingInput,
+): Promise<void> {
+  if (userId !== input.userId) {
+    throw new Error(
+      `UserId mismatch: path userId ${userId} does not match input userId ${input.userId}`,
+    )
+  }
+
+  const ratingRef = getSeasonRatingRef(
+    userId,
+    input.tvShowId,
+    input.seasonNumber,
+  )
+  const docId = getSeasonRatingDocId(input.tvShowId, input.seasonNumber)
+
+  await runTransaction(getFirebaseDb(), async (transaction) => {
+    transaction.set(
+      ratingRef,
+      {
+        id: docId,
+        mediaType: "season",
+        rating: input.rating,
+        title: input.title,
+        posterPath: input.posterPath,
+        releaseDate: input.releaseDate,
+        ratedAt: serverTimestamp(),
+        tvShowId: input.tvShowId,
+        seasonNumber: input.seasonNumber,
+        tvShowName: input.tvShowName,
+      },
       { merge: true },
     )
   })
@@ -208,7 +409,16 @@ export async function deleteEpisodeRating(
   seasonNumber: number,
   episodeNumber: number,
 ): Promise<void> {
-  const docId = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
+  const docId = getEpisodeRatingDocId(tvShowId, seasonNumber, episodeNumber)
   const ratingRef = doc(getFirebaseDb(), "users", userId, "ratings", docId)
+  await deleteDoc(ratingRef)
+}
+
+export async function deleteSeasonRating(
+  userId: string,
+  tvShowId: number,
+  seasonNumber: number,
+): Promise<void> {
+  const ratingRef = getSeasonRatingRef(userId, tvShowId, seasonNumber)
   await deleteDoc(ratingRef)
 }

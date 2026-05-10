@@ -9,7 +9,7 @@ export interface Rating {
   /** TMDB media ID as string */
   mediaId: string
   /** Type of media */
-  mediaType: "movie" | "tv" | "episode"
+  mediaType: "movie" | "tv" | "episode" | "season"
   /** Rating value from 1-10 */
   rating: number
   /** Title of the media for display purposes */
@@ -22,10 +22,10 @@ export interface Rating {
   releaseDate: string | null
   /** Timestamp when rating was created (milliseconds) */
   ratedAt: number
-  // Episode-specific fields (only present for episodes)
-  /** TMDB TV Show ID (for episodes) */
+  // Episode/season-specific fields
+  /** TMDB TV Show ID (for episodes and seasons) */
   tvShowId?: number
-  /** Season number (for episodes) */
+  /** Season number (for episodes and seasons) */
   seasonNumber?: number
   /** Episode number (for episodes) */
   episodeNumber?: number
