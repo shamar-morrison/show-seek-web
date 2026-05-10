@@ -5,6 +5,7 @@ import type { ExternalRatings } from "@/types/external-ratings"
 
 const OMDB_BASE_URL = "https://www.omdbapi.com/"
 const OMDB_REVALIDATE_SECONDS = 24 * 60 * 60 // 24 hours
+const OMDB_TIMEOUT_MS = 10_000
 
 type MediaType = "movie" | "tv"
 
@@ -98,9 +99,18 @@ async function fetchOmdbExternalRatings(
   url.searchParams.set("apikey", apiKey)
   url.searchParams.set("i", imdbId)
 
-  const response = await fetch(url, {
-    next: { revalidate: OMDB_REVALIDATE_SECONDS },
-  })
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => abortController.abort(), OMDB_TIMEOUT_MS)
+  let response: Response
+
+  try {
+    response = await fetch(url, {
+      next: { revalidate: OMDB_REVALIDATE_SECONDS },
+      signal: abortController.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     return null

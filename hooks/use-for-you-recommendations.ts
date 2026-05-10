@@ -80,7 +80,7 @@ export function useForYouRecommendations() {
       .sort((a, b) => b.ratedAt - a.ratedAt)
       .forEach((rating) => {
         const id = Number(rating.mediaId)
-        if (!Number.isFinite(id)) {
+        if (!Number.isInteger(id) || id <= 0) {
           return
         }
 

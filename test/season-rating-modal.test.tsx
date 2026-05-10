@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@/test/utils"
 import type { TMDBSeasonDetails } from "@/types/tmdb"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getSeasonRating: vi.fn(),
@@ -59,6 +59,10 @@ describe("SeasonRatingModal", () => {
     mocks.getSeasonRating.mockReturnValue(null)
     mocks.saveSeasonRating.mockResolvedValue(undefined)
     mocks.removeSeasonRating.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it("saves a season rating with the expected payload", async () => {
@@ -130,7 +134,7 @@ describe("SeasonRatingModal", () => {
   it("shows a toast and keeps the modal open when saving fails", async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(console, "error").mockImplementation(() => {})
 
     mocks.saveSeasonRating.mockRejectedValue(new Error("Network down"))
 
@@ -154,13 +158,12 @@ describe("SeasonRatingModal", () => {
     })
 
     expect(onClose).not.toHaveBeenCalled()
-    consoleErrorSpy.mockRestore()
   })
 
   it("shows a toast and keeps the modal open when clearing fails", async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(console, "error").mockImplementation(() => {})
 
     mocks.getSeasonRating.mockReturnValue({
       id: "season-777-2",
@@ -196,6 +199,5 @@ describe("SeasonRatingModal", () => {
     })
 
     expect(onClose).not.toHaveBeenCalled()
-    consoleErrorSpy.mockRestore()
   })
 })

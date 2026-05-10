@@ -17,6 +17,7 @@ describe("OMDb external ratings helper", () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
   })
@@ -66,9 +67,8 @@ describe("OMDb external ratings helper", () => {
 
     const [requestedUrl, requestInit] = firstFetchCall
 
-    expect(requestInit).toEqual({
-      next: { revalidate: 86400 },
-    })
+    expect(requestInit?.next).toEqual({ revalidate: 86400 })
+    expect(requestInit?.signal).toBeInstanceOf(AbortSignal)
     expect(requestedUrl).toBeInstanceOf(URL)
 
     if (!(requestedUrl instanceof URL)) {
@@ -159,5 +159,31 @@ describe("OMDb external ratings helper", () => {
     const { getMediaExternalRatings } = await import("@/lib/omdb")
 
     await expect(getMediaExternalRatings("movie", 11104)).resolves.toBeNull()
+  })
+
+  it("returns null when the OMDb request is aborted by the timeout", async () => {
+    vi.useFakeTimers()
+    vi.stubEnv("OMDB_API_KEY", "test-omdb-key")
+    mocks.tmdbFetch.mockResolvedValue({
+      json: vi.fn(async () => ({ imdb_id: "tt0133093" })),
+      ok: true,
+    })
+
+    const fetchMock = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"))
+          })
+        }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { getMediaExternalRatings } = await import("@/lib/omdb")
+    const resultPromise = getMediaExternalRatings("movie", 603)
+
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    await expect(resultPromise).resolves.toBeNull()
   })
 })

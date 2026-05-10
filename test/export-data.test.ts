@@ -103,7 +103,16 @@ describe("export-data", () => {
   it("includes season ratings in markdown exports", async () => {
     await exportToMarkdown("user-1")
 
-    const content = await mocks.blob?.text()
+    const blob = mocks.blob
+
+    expect(mocks.blob).toBeDefined()
+    expect(blob).not.toBeNull()
+
+    if (!blob) {
+      throw new Error("Expected exportToMarkdown to create a Blob")
+    }
+
+    const content = await blob.text()
 
     expect(content).toContain("### Seasons")
     expect(content).toContain("**Signal Run - Season 2**: 8.5/10")
@@ -114,7 +123,16 @@ describe("export-data", () => {
   it("includes season ratings in csv exports", async () => {
     await exportToCSV("user-1")
 
-    const content = await mocks.blob?.text()
+    const blob = mocks.blob
+
+    expect(mocks.blob).toBeDefined()
+    expect(blob).not.toBeNull()
+
+    if (!blob) {
+      throw new Error("Expected exportToCSV to create a Blob")
+    }
+
+    const content = await blob.text()
 
     expect(content).toContain("Category,Title,Type,Rating")
     expect(content).toContain("Rating,Signal Run - Season 2,Season,8.5")

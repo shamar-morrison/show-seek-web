@@ -127,6 +127,24 @@ describe("useForYouRecommendations", () => {
         }),
       ],
       [
+        "movie-zero",
+        createRating({
+          id: "movie-zero",
+          mediaId: "0",
+          title: "Zero Seed",
+          ratedAt: 4,
+        }),
+      ],
+      [
+        "movie-decimal",
+        createRating({
+          id: "movie-decimal",
+          mediaId: "1.5",
+          title: "Decimal Seed",
+          ratedAt: 4,
+        }),
+      ],
+      [
         "movie-1",
         createRating({
           id: "movie-1",

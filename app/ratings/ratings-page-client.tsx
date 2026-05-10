@@ -44,7 +44,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 type RatingTab = "movies" | "tv" | "episodes" | "seasons"
 
@@ -114,7 +114,7 @@ function normalizeSortStateForTab(
 export function RatingsPageClient() {
   const { loading: authLoading } = useAuth()
   const { preferences } = usePreferences()
-  const [activeTab, setActiveTab] = useState<RatingTab>("movies")
+  const [activeTab, setActiveTabState] = useState<RatingTab>("movies")
   const [searchQuery, setSearchQuery] = useState("")
 
   // Filter state (for movies/TV only)
@@ -137,14 +137,11 @@ export function RatingsPageClient() {
   const episodeRatings = useEpisodeRatings(undefined, activeTab === "episodes")
   const seasonRatings = useSeasonRatings(undefined, activeTab === "seasons")
   const activeSortFields = TAB_SORT_FIELDS[activeTab]
+  const normalizedSortState = normalizeSortStateForTab(activeTab, sortState)
 
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
-
-  useEffect(() => {
-    setSortState((prev) => normalizeSortStateForTab(activeTab, prev))
-  }, [activeTab])
 
   // Filter and sort movie/TV ratings
   const filteredAndSortedRatings = useMemo(() => {
@@ -187,7 +184,7 @@ export function RatingsPageClient() {
     const sorted = [...filtered].sort((a, b) => {
       let comparison = 0
 
-      switch (sortState.field) {
+      switch (normalizedSortState.field) {
         case "ratedAt":
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
           break
@@ -218,7 +215,7 @@ export function RatingsPageClient() {
         }
       }
 
-      return sortState.direction === "asc" ? comparison : -comparison
+      return normalizedSortState.direction === "asc" ? comparison : -comparison
     })
 
     return sorted
@@ -230,7 +227,7 @@ export function RatingsPageClient() {
     filterState,
     preferences.showOriginalTitles,
     yearRange,
-    sortState,
+    normalizedSortState,
   ])
 
   // Filter and sort episode ratings
@@ -263,7 +260,7 @@ export function RatingsPageClient() {
     const sorted = [...filtered].sort((a, b) => {
       let comparison = 0
 
-      switch (sortState.field) {
+      switch (normalizedSortState.field) {
         case "ratedAt":
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
           break
@@ -284,11 +281,11 @@ export function RatingsPageClient() {
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
       }
 
-      return sortState.direction === "asc" ? comparison : -comparison
+      return normalizedSortState.direction === "asc" ? comparison : -comparison
     })
 
     return sorted
-  }, [episodeRatings.ratings, searchQuery, filterState, sortState])
+  }, [episodeRatings.ratings, searchQuery, filterState, normalizedSortState])
 
   const filteredAndSortedSeasons = useMemo(() => {
     const filtered = seasonRatings.ratings.filter((rating) => {
@@ -321,7 +318,7 @@ export function RatingsPageClient() {
     const sorted = [...filtered].sort((a, b) => {
       let comparison = 0
 
-      switch (sortState.field) {
+      switch (normalizedSortState.field) {
         case "ratedAt":
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
           break
@@ -345,11 +342,11 @@ export function RatingsPageClient() {
           comparison = (a.ratedAt || 0) - (b.ratedAt || 0)
       }
 
-      return sortState.direction === "asc" ? comparison : -comparison
+      return normalizedSortState.direction === "asc" ? comparison : -comparison
     })
 
     return sorted
-  }, [filterState, searchQuery, seasonRatings.ratings, sortState])
+  }, [filterState, searchQuery, seasonRatings.ratings, normalizedSortState])
 
   // Determine loading state based on active tab
   const isLoading =
@@ -386,9 +383,16 @@ export function RatingsPageClient() {
   }, [])
 
   const handleTabChange = useCallback((nextTab: RatingTab) => {
-    setActiveTab(nextTab)
+    setActiveTabState(nextTab)
     setSortState((prev) => normalizeSortStateForTab(nextTab, prev))
   }, [])
+
+  const handleSortChange = useCallback(
+    (nextSortState: SortState) => {
+      setSortState(normalizeSortStateForTab(activeTab, nextSortState))
+    },
+    [activeTab],
+  )
 
   // Get the appropriate empty state text
   const getEmptyText = () => {
@@ -473,8 +477,8 @@ export function RatingsPageClient() {
           filterState={filterState}
           onFilterChange={handleFilterChange}
           sortFields={activeSortFields}
-          sortState={sortState}
-          onSortChange={setSortState}
+          sortState={normalizedSortState}
+          onSortChange={handleSortChange}
           yearRange={
             activeTab === "movies" || activeTab === "tv"
               ? {
