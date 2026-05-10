@@ -9,6 +9,7 @@ import { SimilarMedia } from "@/components/similar-media"
 import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
+import { getMediaExternalRatings } from "@/lib/omdb"
 import {
   getBestTrailer,
   getMediaVideos,
@@ -38,12 +39,14 @@ export default async function TVPage({ params }: TVPageProps) {
   }
 
   // Fetch TV show details, videos, watch providers, and similar shows in parallel
-  const [tvShow, videos, watchProviders, similarShows] = await Promise.all([
-    getTVDetails(tvId),
-    getMediaVideos(tvId, "tv"),
-    getWatchProviders(tvId, "tv"),
-    getSimilarMedia(tvId, "tv"),
-  ])
+  const [tvShow, videos, watchProviders, similarShows, externalRatings] =
+    await Promise.all([
+      getTVDetails(tvId),
+      getMediaVideos(tvId, "tv"),
+      getWatchProviders(tvId, "tv"),
+      getSimilarMedia(tvId, "tv"),
+      getMediaExternalRatings("tv", tvId),
+    ])
 
   if (!tvShow) {
     notFound()
@@ -55,7 +58,12 @@ export default async function TVPage({ params }: TVPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <MediaDetailHero media={tvShow} mediaType="tv" trailerKey={trailerKey} />
+      <MediaDetailHero
+        media={tvShow}
+        mediaType="tv"
+        trailerKey={trailerKey}
+        externalRatings={externalRatings}
+      />
       <SeasonsRow title="Seasons" seasons={seasons} tvShowId={tvId} />
       <CastRow
         title="Cast"

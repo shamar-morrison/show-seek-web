@@ -2,6 +2,7 @@
 
 import { AddToListModal } from "@/components/add-to-list-modal"
 import { AuthModal } from "@/components/auth-modal"
+import { ExternalRatingsRail } from "@/components/external-ratings-rail"
 import { MarkAsWatchedModal } from "@/components/mark-as-watched-modal"
 import { MarkAsWatchedSplitButton } from "@/components/mark-as-watched-split-button"
 import { NotesModal } from "@/components/notes-modal"
@@ -24,6 +25,7 @@ import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatTmdbDate } from "@/lib/tmdb-date"
 import { cn } from "@/lib/utils"
+import type { ExternalRatings } from "@/types/external-ratings"
 import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
@@ -47,6 +49,8 @@ interface MediaDetailHeroProps {
   mediaType: "movie" | "tv"
   /** YouTube trailer key if available */
   trailerKey: string | null
+  /** External critic ratings shown inside the hero */
+  externalRatings: ExternalRatings | null
 }
 
 /**
@@ -160,6 +164,7 @@ export function MediaDetailHero({
   media,
   mediaType,
   trailerKey,
+  externalRatings,
 }: MediaDetailHeroProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
@@ -452,6 +457,11 @@ export function MediaDetailHero({
                       </span>
                     )}
                 </div>
+
+                <ExternalRatingsRail
+                  ratings={externalRatings}
+                  className="mx-auto w-full lg:mx-0"
+                />
 
                 {/* Director/Creator */}
                 {creators.length > 0 && (

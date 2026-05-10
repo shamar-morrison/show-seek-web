@@ -36,6 +36,12 @@ interface Seed {
   title: string
 }
 
+interface FetchedSeedTitle {
+  id: number
+  mediaType: "movie" | "tv"
+  title: string
+}
+
 /** A recommendation section with seed media and results */
 export interface RecommendationSection {
   seed: Seed
@@ -100,13 +106,17 @@ export function useForYouRecommendations() {
     queries: seedsNeedingTitles.map((seed) => ({
       ...queryCacheProfiles.profile,
       queryKey: queryKeys.forYou.seedTitle(seed.mediaType, seed.id),
-      queryFn: async (): Promise<{ id: number; title: string } | null> => {
+      queryFn: async (): Promise<FetchedSeedTitle | null> => {
         if (seed.mediaType === "movie") {
           const movie = await fetchMovieDetails(seed.id)
-          return movie ? { id: seed.id, title: movie.title } : null
+          return movie
+            ? { id: seed.id, mediaType: seed.mediaType, title: movie.title }
+            : null
         } else {
           const show = await fetchFullTVDetails(seed.id)
-          return show ? { id: seed.id, title: show.name } : null
+          return show
+            ? { id: seed.id, mediaType: seed.mediaType, title: show.name }
+            : null
         }
       },
       enabled: !isGuest && seed.title === null,
@@ -120,10 +130,10 @@ export function useForYouRecommendations() {
   // Extract just the data values to stabilize the dependency
   const queryDataValues = titleQueries.map((q) => q.data)
   const fetchedTitlesMap = useMemo(() => {
-    const map = new Map<number, string>()
+    const map = new Map<string, string>()
     queryDataValues.forEach((data) => {
       if (data) {
-        map.set(data.id, data.title)
+        map.set(`${data.mediaType}-${data.id}`, data.title)
       }
     })
     return map
@@ -136,7 +146,10 @@ export function useForYouRecommendations() {
         id: seed.id,
         mediaType: seed.mediaType,
         // Priority: stored title > fetched title > null (will be filtered)
-        title: seed.title || fetchedTitlesMap.get(seed.id) || null,
+        title:
+          seed.title ||
+          fetchedTitlesMap.get(`${seed.mediaType}-${seed.id}`) ||
+          null,
       }))
       .filter((s): s is Seed => s.title !== null) // Only include seeds with resolved titles
   }, [preliminarySeeds, fetchedTitlesMap])

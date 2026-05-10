@@ -164,4 +164,54 @@ describe("useForYouRecommendations", () => {
     expect(mocks.fetchRecommendations).toHaveBeenCalledWith(1, "movie")
     expect(mocks.fetchMovieDetails).not.toHaveBeenCalled()
   })
+
+  it("keeps movie and TV title fetches separate when ids collide", async () => {
+    mocks.ratings = new Map<string, Rating>([
+      [
+        "tv-1",
+        createRating({
+          id: "tv-1",
+          mediaId: "1",
+          mediaType: "tv",
+          title: "",
+          ratedAt: 2,
+        }),
+      ],
+      [
+        "movie-1",
+        createRating({
+          id: "movie-1",
+          mediaId: "1",
+          mediaType: "movie",
+          title: "",
+          ratedAt: 1,
+        }),
+      ],
+    ])
+    mocks.fetchMovieDetails.mockResolvedValue({ title: "Movie One" })
+    mocks.fetchFullTVDetails.mockResolvedValue({ name: "Show One" })
+
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(() => useForYouRecommendations(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.sections).toHaveLength(2)
+    })
+
+    expect(
+      result.current.sections.map((section) => ({
+        mediaType: section.seed.mediaType,
+        title: section.seed.title,
+      })),
+    ).toEqual([
+      { mediaType: "tv", title: "Show One" },
+      { mediaType: "movie", title: "Movie One" },
+    ])
+    expect(mocks.fetchMovieDetails).toHaveBeenCalledWith(1)
+    expect(mocks.fetchFullTVDetails).toHaveBeenCalledWith(1)
+    expect(mocks.fetchRecommendations).toHaveBeenCalledWith(1, "movie")
+    expect(mocks.fetchRecommendations).toHaveBeenCalledWith(1, "tv")
+  })
 })

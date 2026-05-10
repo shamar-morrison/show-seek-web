@@ -71,6 +71,27 @@ describe("export-data", () => {
                 ratedAt: 123,
               }),
             },
+            {
+              id: "season-broken",
+              data: () => ({
+                mediaType: "season",
+                rating: 6,
+                tvShowId: 888,
+                tvShowName: "Broken Season Show",
+                ratedAt: 456,
+              }),
+            },
+            {
+              id: "episode-broken",
+              data: () => ({
+                mediaType: "episode",
+                rating: 7,
+                tvShowId: 999,
+                tvShowName: "Broken Episode Show",
+                episodeName: "Missing Numbers",
+                ratedAt: 789,
+              }),
+            },
           ],
         }
       }
@@ -86,6 +107,8 @@ describe("export-data", () => {
 
     expect(content).toContain("### Seasons")
     expect(content).toContain("**Signal Run - Season 2**: 8.5/10")
+    expect(content).not.toContain("Broken Season Show")
+    expect(content).not.toContain("Broken Episode Show")
   })
 
   it("includes season ratings in csv exports", async () => {
@@ -95,5 +118,7 @@ describe("export-data", () => {
 
     expect(content).toContain("Category,Title,Type,Rating")
     expect(content).toContain("Rating,Signal Run - Season 2,Season,8.5")
+    expect(content).not.toContain("Broken Season Show")
+    expect(content).not.toContain("Broken Episode Show")
   })
 })

@@ -11,7 +11,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
+import {
+  FilterSort,
+  FilterState,
+  SortField,
+  SortState,
+} from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -39,7 +44,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 type RatingTab = "movies" | "tv" | "episodes" | "seasons"
 
@@ -70,6 +75,13 @@ const SEASON_SORT_FIELDS = [
   { value: "seasonNumber", label: "Season Order" },
 ]
 
+const TAB_SORT_FIELDS: Record<RatingTab, SortField[]> = {
+  movies: SORT_FIELDS,
+  tv: SORT_FIELDS,
+  episodes: EPISODE_SORT_FIELDS,
+  seasons: SEASON_SORT_FIELDS,
+}
+
 // Filter for user's personal rating (minimum)
 const USER_RATING_OPTIONS = [
   { value: "0", label: "All Ratings" },
@@ -79,6 +91,21 @@ const USER_RATING_OPTIONS = [
   { value: "6", label: "6+" },
   { value: "5", label: "5+" },
 ]
+
+function normalizeSortStateForTab(
+  activeTab: RatingTab,
+  sortState: SortState,
+): SortState {
+  const validSortFields = TAB_SORT_FIELDS[activeTab]
+  if (validSortFields.some((field) => field.value === sortState.field)) {
+    return sortState
+  }
+
+  return {
+    field: validSortFields[0]?.value ?? "ratedAt",
+    direction: sortState.direction,
+  }
+}
 
 /**
  * Ratings Page Client Component
@@ -109,10 +136,15 @@ export function RatingsPageClient() {
   const tvRatings = useTVRatings(undefined, activeTab === "tv")
   const episodeRatings = useEpisodeRatings(undefined, activeTab === "episodes")
   const seasonRatings = useSeasonRatings(undefined, activeTab === "seasons")
+  const activeSortFields = TAB_SORT_FIELDS[activeTab]
 
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
+
+  useEffect(() => {
+    setSortState((prev) => normalizeSortStateForTab(activeTab, prev))
+  }, [activeTab])
 
   // Filter and sort movie/TV ratings
   const filteredAndSortedRatings = useMemo(() => {
@@ -353,6 +385,11 @@ export function RatingsPageClient() {
     setSearchQuery("")
   }, [])
 
+  const handleTabChange = useCallback((nextTab: RatingTab) => {
+    setActiveTab(nextTab)
+    setSortState((prev) => normalizeSortStateForTab(nextTab, prev))
+  }, [])
+
   // Get the appropriate empty state text
   const getEmptyText = () => {
     switch (activeTab) {
@@ -435,13 +472,7 @@ export function RatingsPageClient() {
           ]}
           filterState={filterState}
           onFilterChange={handleFilterChange}
-          sortFields={
-            activeTab === "episodes"
-              ? EPISODE_SORT_FIELDS
-              : activeTab === "seasons"
-                ? SEASON_SORT_FIELDS
-              : SORT_FIELDS
-          }
+          sortFields={activeSortFields}
           sortState={sortState}
           onSortChange={setSortState}
           yearRange={
@@ -465,28 +496,28 @@ export function RatingsPageClient() {
           count={movieRatings.count}
           isActive={activeTab === "movies"}
           icon={Film01Icon}
-          onClick={() => setActiveTab("movies")}
+          onClick={() => handleTabChange("movies")}
         />
         <FilterTabButton
           label="TV Shows"
           count={tvRatings.count}
           isActive={activeTab === "tv"}
           icon={Tv01Icon}
-          onClick={() => setActiveTab("tv")}
+          onClick={() => handleTabChange("tv")}
         />
         <FilterTabButton
           label="Episodes"
           count={episodeRatings.count}
           isActive={activeTab === "episodes"}
           icon={PlayCircle02Icon}
-          onClick={() => setActiveTab("episodes")}
+          onClick={() => handleTabChange("episodes")}
         />
         <FilterTabButton
           label="Seasons"
           count={seasonRatings.count}
           isActive={activeTab === "seasons"}
           icon={StarIcon}
-          onClick={() => setActiveTab("seasons")}
+          onClick={() => handleTabChange("seasons")}
         />
       </div>
 

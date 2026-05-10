@@ -13,6 +13,7 @@ import type { TMDBSeasonDetails } from "@/types/tmdb"
 import { Loading03Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect, useState } from "react"
+import { toast } from "sonner"
 
 interface SeasonRatingModalProps {
   /** Whether the modal is open */
@@ -29,6 +30,14 @@ interface SeasonRatingModalProps {
   displayTvShowName?: string
   /** Fallback poster path when the season has none */
   fallbackPosterPath?: string | null
+}
+
+function getToastErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return `${fallback}: ${error.message}`
+  }
+
+  return fallback
 }
 
 /**
@@ -89,6 +98,7 @@ export function SeasonRatingModal({
       onClose()
     } catch (error) {
       console.error("Error saving season rating:", error)
+      toast.error(getToastErrorMessage(error, "Failed to save season rating"))
     } finally {
       setIsSaving(false)
     }
@@ -118,6 +128,7 @@ export function SeasonRatingModal({
       onClose()
     } catch (error) {
       console.error("Error clearing season rating:", error)
+      toast.error(getToastErrorMessage(error, "Failed to clear season rating"))
     } finally {
       setIsSaving(false)
     }

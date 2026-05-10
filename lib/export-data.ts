@@ -182,6 +182,17 @@ async function fetchRatings(userId: string): Promise<RatingDoc[]> {
       return []
     }
 
+    if (mediaType === "season" && (tvShowId == null || seasonNumber == null)) {
+      return []
+    }
+
+    if (
+      mediaType === "episode" &&
+      (tvShowId == null || seasonNumber == null || episodeNumber == null)
+    ) {
+      return []
+    }
+
     return [
       {
         id: doc.id,

@@ -9,6 +9,7 @@ import { SimilarMedia } from "@/components/similar-media"
 import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
+import { getMediaExternalRatings } from "@/lib/omdb"
 import {
   buildImageUrl,
   getBestTrailer,
@@ -39,12 +40,14 @@ export default async function MoviePage({ params }: MoviePageProps) {
   }
 
   // Fetch movie details, videos, watch providers, and similar movies in parallel
-  const [movie, videos, watchProviders, similarMovies] = await Promise.all([
-    getMovieDetails(movieId),
-    getMediaVideos(movieId, "movie"),
-    getWatchProviders(movieId, "movie"),
-    getSimilarMedia(movieId, "movie"),
-  ])
+  const [movie, videos, watchProviders, similarMovies, externalRatings] =
+    await Promise.all([
+      getMovieDetails(movieId),
+      getMediaVideos(movieId, "movie"),
+      getWatchProviders(movieId, "movie"),
+      getSimilarMedia(movieId, "movie"),
+      getMediaExternalRatings("movie", movieId),
+    ])
 
   if (!movie) {
     notFound()
@@ -59,6 +62,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
         media={movie}
         mediaType="movie"
         trailerKey={trailerKey}
+        externalRatings={externalRatings}
       />
       <CastRow
         title="Cast"

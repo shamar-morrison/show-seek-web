@@ -161,6 +161,23 @@ function toRating(docId: string, data: Record<string, unknown>): Rating | null {
   const episodeNumber =
     toFiniteNumber(data.episodeNumber) ?? parsedEpisodeDocId?.episodeNumber
 
+  if (mediaType === "season" && (tvShowId == null || seasonNumber == null)) {
+    console.warn(
+      `[ratings] Skipping invalid season rating doc ${docId}: missing tvShowId or seasonNumber.`,
+    )
+    return null
+  }
+
+  if (
+    mediaType === "episode" &&
+    (tvShowId == null || seasonNumber == null || episodeNumber == null)
+  ) {
+    console.warn(
+      `[ratings] Skipping invalid episode rating doc ${docId}: missing tvShowId, seasonNumber, or episodeNumber.`,
+    )
+    return null
+  }
+
   return {
     id: docId,
     mediaId,

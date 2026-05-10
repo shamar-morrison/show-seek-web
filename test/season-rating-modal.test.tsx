@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getSeasonRating: vi.fn(),
   removeSeasonRating: vi.fn(),
   saveSeasonRating: vi.fn(),
+  toastError: vi.fn(),
 }))
 
 vi.mock("@/hooks/use-ratings", () => ({
@@ -17,6 +18,12 @@ vi.mock("@/hooks/use-ratings", () => ({
     saveSeasonRating: mocks.saveSeasonRating,
     removeSeasonRating: mocks.removeSeasonRating,
   }),
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: mocks.toastError,
+  },
 }))
 
 vi.mock("@/components/ui/dialog", () => ({
@@ -118,5 +125,77 @@ describe("SeasonRatingModal", () => {
     await waitFor(() => {
       expect(mocks.removeSeasonRating).toHaveBeenCalledWith(777, 2)
     })
+  })
+
+  it("shows a toast and keeps the modal open when saving fails", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    mocks.saveSeasonRating.mockRejectedValue(new Error("Network down"))
+
+    render(
+      <SeasonRatingModal
+        isOpen
+        onClose={onClose}
+        season={createSeason()}
+        tvShowId={777}
+        tvShowName="Signal Run"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Rate 8 out of 10" }))
+    await user.click(screen.getByRole("button", { name: "Save Rating" }))
+
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Failed to save season rating: Network down",
+      )
+    })
+
+    expect(onClose).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it("shows a toast and keeps the modal open when clearing fails", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    mocks.getSeasonRating.mockReturnValue({
+      id: "season-777-2",
+      mediaId: "777",
+      mediaType: "season",
+      rating: 8.5,
+      title: "Season 2",
+      posterPath: "/season-2.jpg",
+      releaseDate: "2025-01-01",
+      ratedAt: 1,
+      tvShowId: 777,
+      seasonNumber: 2,
+      tvShowName: "Signal Run",
+    })
+    mocks.removeSeasonRating.mockRejectedValue(new Error("Network down"))
+
+    render(
+      <SeasonRatingModal
+        isOpen
+        onClose={onClose}
+        season={createSeason()}
+        tvShowId={777}
+        tvShowName="Signal Run"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Clear Rating" }))
+
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Failed to clear season rating: Network down",
+      )
+    })
+
+    expect(onClose).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
   })
 })

@@ -130,12 +130,17 @@ vi.mock("@/hooks/use-trailer", () => ({
 vi.mock("@/components/ui/filter-sort", () => ({
   FilterSort: ({
     onSortChange,
+    sortState,
     yearRange,
   }: {
     onSortChange: (state: { field: string; direction: string }) => void
+    sortState: { field: string; direction: string }
     yearRange?: { onChange: (range: [number, number]) => void }
   }) => (
     <>
+      <div data-testid="sort-state">
+        {sortState.field}:{sortState.direction}
+      </div>
       <button
         type="button"
         onClick={() => onSortChange({ field: "title", direction: "asc" })}
@@ -344,6 +349,20 @@ describe("RatingsPageClient", () => {
     const cards = screen.getAllByTestId("media-card")
     expect(cards[0]).toHaveTextContent("December Finale")
     expect(cards[1]).toHaveTextContent("January First")
+  })
+
+  it("normalizes invalid sort fields when switching to another ratings tab", async () => {
+    const user = userEvent.setup()
+
+    render(<RatingsPageClient />)
+
+    await user.click(screen.getByRole("button", { name: "Sort release" }))
+    expect(screen.getByTestId("sort-state")).toHaveTextContent(
+      "releaseDate:asc",
+    )
+
+    await user.click(screen.getByRole("button", { name: /Seasons/i }))
+    expect(screen.getByTestId("sort-state")).toHaveTextContent("ratedAt:asc")
   })
 
   it("renders season ratings in a fourth tab with search, sorting, and season links", async () => {

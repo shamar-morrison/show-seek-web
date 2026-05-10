@@ -139,6 +139,8 @@ describe("firebase ratings writes", () => {
   })
 
   it("skips malformed shared rating docs when fetching ratings", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
     mocks.getDocs.mockResolvedValue({
       docs: [
         {
@@ -150,6 +152,27 @@ describe("firebase ratings writes", () => {
             tvShowId: 777,
             seasonNumber: 2,
             tvShowName: "Signal Run",
+          }),
+        },
+        {
+          id: "season-broken",
+          data: () => ({
+            mediaType: "season",
+            rating: 7,
+            ratedAt: 123,
+            tvShowId: 888,
+            tvShowName: "Broken Season Show",
+          }),
+        },
+        {
+          id: "episode-broken",
+          data: () => ({
+            mediaType: "episode",
+            rating: 9,
+            ratedAt: 123,
+            tvShowId: 999,
+            tvShowName: "Broken Episode Show",
+            episodeName: "Missing Numbers",
           }),
         },
         {
@@ -167,7 +190,10 @@ describe("firebase ratings writes", () => {
 
     expect(ratings.size).toBe(1)
     expect(ratings.has("season-777-2")).toBe(true)
+    expect(ratings.has("season-broken")).toBe(false)
+    expect(ratings.has("episode-broken")).toBe(false)
     expect(ratings.has("broken-1")).toBe(false)
+    consoleWarnSpy.mockRestore()
   })
 
   it("deletes season ratings using the shared season document id", async () => {
