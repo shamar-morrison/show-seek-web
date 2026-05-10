@@ -67,6 +67,7 @@ Keep the Worker runtime configuration populated as well. The current runtime sec
 - `FIREBASE_ADMIN_PROJECT_ID`
 - `FIREBASE_ADMIN_CLIENT_EMAIL`
 - `FIREBASE_ADMIN_PRIVATE_KEY`
+- `OMDB_API_KEY` (optional, enables IMDb/Rotten Tomatoes/Metacritic ratings on detail pages)
 - `TURNSTILE_SECRET_KEY`
 - `TRAKT_CLIENT_ID`
 - `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`

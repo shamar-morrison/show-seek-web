@@ -7,8 +7,10 @@ import { usePreferences } from "@/hooks/use-preferences"
 import {
   deleteEpisodeRating,
   deleteRating,
+  deleteSeasonRating,
   fetchRatings,
   setRating,
+  setSeasonRating,
 } from "@/lib/firebase/ratings"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import {
@@ -46,6 +48,16 @@ export type SaveRatingOptions = {
   posterPath: string | null
   releaseDate: string | null
   voteAverage?: number
+}
+
+export type SaveSeasonRatingOptions = {
+  tvShowId: number
+  seasonNumber: number
+  rating: number
+  seasonName: string
+  tvShowName: string
+  posterPath: string | null
+  airDate: string | null
 }
 
 function ratingsOptimisticConfig<TVariables>(
@@ -270,6 +282,46 @@ export function useRatings() {
     ),
   })
 
+  const saveSeasonRatingMutation = useMutation({
+    mutationFn: async (variables: SaveSeasonRatingOptions) => {
+      if (!userId) throw new Error("User must be authenticated to rate")
+
+      await setSeasonRating(userId, {
+        userId,
+        id: `season-${variables.tvShowId}-${variables.seasonNumber}`,
+        mediaId: variables.tvShowId.toString(),
+        mediaType: "season",
+        rating: variables.rating,
+        title: variables.seasonName,
+        posterPath: variables.posterPath,
+        releaseDate: variables.airDate,
+        tvShowId: variables.tvShowId,
+        seasonNumber: variables.seasonNumber,
+        tvShowName: variables.tvShowName,
+      })
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables, now) => {
+        const key = `season-${variables.tvShowId}-${variables.seasonNumber}`
+        nextRatings.set(key, {
+          id: key,
+          mediaId: variables.tvShowId.toString(),
+          mediaType: "season",
+          rating: variables.rating,
+          title: variables.seasonName,
+          posterPath: variables.posterPath,
+          releaseDate: variables.airDate,
+          ratedAt: now,
+          tvShowId: variables.tvShowId,
+          seasonNumber: variables.seasonNumber,
+          tvShowName: variables.tvShowName,
+        })
+      },
+    ),
+  })
+
   const removeEpisodeRatingMutation = useMutation({
     mutationFn: async (variables: {
       tvShowId: number
@@ -298,10 +350,32 @@ export function useRatings() {
     ),
   })
 
+  const removeSeasonRatingMutation = useMutation({
+    mutationFn: async (variables: {
+      tvShowId: number
+      seasonNumber: number
+    }) => {
+      if (!userId) {
+        throw new Error("User must be authenticated to remove rating")
+      }
+
+      await deleteSeasonRating(userId, variables.tvShowId, variables.seasonNumber)
+    },
+    ...ratingsOptimisticConfig(
+      queryClient,
+      ratingsQueryKey,
+      (nextRatings, variables) => {
+        nextRatings.delete(`season-${variables.tvShowId}-${variables.seasonNumber}`)
+      },
+    ),
+  })
+
   const { mutateAsync: saveRatingAsync } = saveRatingMutation
   const { mutateAsync: removeRatingAsync } = removeRatingMutation
   const { mutateAsync: saveEpisodeRatingAsync } = saveEpisodeRatingMutation
+  const { mutateAsync: saveSeasonRatingAsync } = saveSeasonRatingMutation
   const { mutateAsync: removeEpisodeRatingAsync } = removeEpisodeRatingMutation
+  const { mutateAsync: removeSeasonRatingAsync } = removeSeasonRatingMutation
 
   const getRating = useCallback(
     (mediaType: "movie" | "tv", mediaId: number): Rating | null => {
@@ -334,6 +408,14 @@ export function useRatings() {
       episodeNumber: number,
     ): Rating | null => {
       const key = `episode-${tvShowId}-${seasonNumber}-${episodeNumber}`
+      return ratings.get(key) || null
+    },
+    [ratings],
+  )
+
+  const getSeasonRating = useCallback(
+    (tvShowId: number, seasonNumber: number): Rating | null => {
+      const key = `season-${tvShowId}-${seasonNumber}`
       return ratings.get(key) || null
     },
     [ratings],
@@ -381,6 +463,22 @@ export function useRatings() {
     [isTraktConnected, removeEpisodeRatingAsync],
   )
 
+  const saveSeasonRating = useCallback(
+    async (options: SaveSeasonRatingOptions): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
+      await saveSeasonRatingAsync({ ...options })
+    },
+    [isTraktConnected, saveSeasonRatingAsync],
+  )
+
+  const removeSeasonRating = useCallback(
+    async (tvShowId: number, seasonNumber: number): Promise<void> => {
+      maybeWarnTraktManagedRatingEdit(isTraktConnected, toast.info)
+      await removeSeasonRatingAsync({ tvShowId, seasonNumber })
+    },
+    [isTraktConnected, removeSeasonRatingAsync],
+  )
+
   return {
     ratings,
     loading,
@@ -390,6 +488,9 @@ export function useRatings() {
     getEpisodeRating,
     saveEpisodeRating,
     removeEpisodeRating,
+    getSeasonRating,
+    saveSeasonRating,
+    removeSeasonRating,
   }
 }
 
@@ -433,6 +534,32 @@ function sortEpisodeRatings(
         const seasonCompare = (a.seasonNumber || 0) - (b.seasonNumber || 0)
         if (seasonCompare !== 0) return seasonCompare
         return (a.episodeNumber || 0) - (b.episodeNumber || 0)
+      }
+      default:
+        return 0
+    }
+  })
+}
+
+/**
+ * Sort season ratings by the specified option
+ */
+function sortSeasonRatings(
+  ratings: Rating[],
+  sortBy: RatingSortOption,
+): Rating[] {
+  return [...ratings].sort((a, b) => {
+    switch (sortBy) {
+      case "ratedAt":
+        return b.ratedAt - a.ratedAt
+      case "rating":
+        return b.rating - a.rating
+      case "alphabetical": {
+        const showCompare = (a.tvShowName || "").localeCompare(
+          b.tvShowName || "",
+        )
+        if (showCompare !== 0) return showCompare
+        return (a.seasonNumber || 0) - (b.seasonNumber || 0)
       }
       default:
         return 0
@@ -512,5 +639,29 @@ export function useEpisodeRatings(
     ratings: episodeRatings,
     loading: ratingsLoading,
     count: episodeRatings.length,
+  }
+}
+
+/**
+ * Hook for season ratings.
+ * Uses Firebase data directly - no TMDB enrichment needed.
+ */
+export function useSeasonRatings(
+  sortBy: RatingSortOption = "ratedAt",
+  sorted: boolean = true,
+) {
+  const { ratings, loading: ratingsLoading } = useRatingsData()
+
+  const seasonRatings = useMemo(() => {
+    const filtered = Array.from(ratings.values()).filter(
+      (r) => r.mediaType === "season",
+    )
+    return sorted ? sortSeasonRatings(filtered, sortBy) : filtered
+  }, [ratings, sortBy, sorted])
+
+  return {
+    ratings: seasonRatings,
+    loading: ratingsLoading,
+    count: seasonRatings.length,
   }
 }
