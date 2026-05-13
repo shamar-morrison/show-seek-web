@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { useLists } from "@/hooks/use-lists"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { restoreList } from "@/lib/firebase/lists"
 import type { UserList } from "@/types/list"
@@ -51,8 +52,6 @@ interface CustomListsClientProps {
   tvGenres?: Genre[]
   /** Error message if genre fetch failed */
   genreFetchError?: string
-  /** Optional list ID parsed from the URL on the server */
-  initialListId?: string
 }
 
 /**
@@ -63,12 +62,10 @@ export function CustomListsClient({
   movieGenres = [],
   tvGenres = [],
   genreFetchError,
-  initialListId,
 }: CustomListsClientProps) {
   const { user } = useAuth()
   const { deleteListsBatch } = useBulkListOperations()
   const { lists, loading, error, removeList, updateList } = useLists()
-  const [selectedListId, setSelectedListId] = useState<string>("")
 
   // Show toast if genre fetch failed
   useEffect(() => {
@@ -98,24 +95,52 @@ export function CustomListsClient({
 
   // Filter to only custom lists
   const customLists = useMemo(() => lists.filter((l) => l.isCustom), [lists])
-  const urlSelectedListId = initialListId?.trim() || null
+  const defaultListId = customLists[0]?.id ?? ""
+  const [urlState, setUrlState] = useUrlStateSync<{ selectedListId: string }>({
+    keys: ["listId"],
+    parse: (params) => ({
+      selectedListId: params.get("listId") ?? "",
+    }),
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.selectedListId && state.selectedListId !== defaultListId) {
+        params.set("listId", state.selectedListId)
+      }
+
+      return params
+    },
+  })
   const effectiveSelectedListId = useMemo(() => {
     if (
-      urlSelectedListId &&
-      customLists.some((list) => list.id === urlSelectedListId)
+      urlState.selectedListId &&
+      customLists.some((list) => list.id === urlState.selectedListId)
     ) {
-      return urlSelectedListId
+      return urlState.selectedListId
     }
 
-    if (
-      selectedListId &&
-      customLists.some((list) => list.id === selectedListId)
-    ) {
-      return selectedListId
+    return defaultListId
+  }, [customLists, defaultListId, urlState.selectedListId])
+
+  useEffect(() => {
+    if (customLists.length === 0) {
+      return
     }
 
-    return customLists[0]?.id ?? ""
-  }, [customLists, selectedListId, urlSelectedListId])
+    const normalizedSelectedListId =
+      effectiveSelectedListId && effectiveSelectedListId !== defaultListId
+        ? effectiveSelectedListId
+        : ""
+
+    if (urlState.selectedListId !== normalizedSelectedListId) {
+      setUrlState({ selectedListId: normalizedSelectedListId })
+    }
+  }, [
+    defaultListId,
+    effectiveSelectedListId,
+    setUrlState,
+    urlState.selectedListId,
+  ])
 
   // Get current active list
   const activeList = useMemo(
@@ -167,7 +192,7 @@ export function CustomListsClient({
           label: "Undo",
           onClick: async () => {
             await restoreList(user.uid, deletedList)
-            setSelectedListId(deletedList.id)
+            setUrlState({ selectedListId: deletedList.id })
           },
           errorMessage: "Failed to restore deleted list",
           logMessage: "Failed to undo custom list deletion:",
@@ -311,7 +336,7 @@ export function CustomListsClient({
         movieGenres={movieGenres}
         tvGenres={tvGenres}
         selectedListId={effectiveSelectedListId}
-        onListSelect={setSelectedListId}
+        onListSelect={(selectedListId) => setUrlState({ selectedListId })}
         showDynamicHeader={true}
         showShuffleAction={true}
         showDefaultSelectAction={false}

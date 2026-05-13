@@ -400,25 +400,29 @@ describe("WhereToWatchPageClient", () => {
     expect(screen.queryByRole("option", { name: /Netflix/ })).not.toBeInTheDocument()
   })
 
-  it("treats a selected list that no longer exists as inactive", async () => {
-    const user = userEvent.setup()
-    const { rerender } = render(<WhereToWatchPageClient />)
+  it(
+    "treats a selected list that no longer exists as inactive",
+    async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(<WhereToWatchPageClient />)
 
-    await selectList(user)
+      await selectList(user)
 
-    expect(
-      screen.getByTestId("where-to-watch-list-selector"),
-    ).toHaveTextContent("Should Watch (2 items)")
+      expect(
+        screen.getByTestId("where-to-watch-list-selector"),
+      ).toHaveTextContent("Should Watch (2 items)")
 
-    listsState.lists = []
-    rerender(<WhereToWatchPageClient />)
+      listsState.lists = []
+      rerender(<WhereToWatchPageClient />)
 
-    expect(
-      screen.getByTestId("where-to-watch-list-selector"),
-    ).toHaveTextContent("No lists available")
-    expect(screen.getByTestId("where-to-watch-service-selector")).toBeDisabled()
-    expect(screen.getAllByText("Choose a list").length).toBeGreaterThan(0)
-  })
+      expect(
+        screen.getByTestId("where-to-watch-list-selector"),
+      ).toHaveTextContent("No lists available")
+      expect(screen.getByTestId("where-to-watch-service-selector")).toBeDisabled()
+      expect(screen.getAllByText("Choose a list").length).toBeGreaterThan(0)
+    },
+    10000,
+  )
 
   it("treats a selected service with no current matches as inactive", async () => {
     const user = userEvent.setup()

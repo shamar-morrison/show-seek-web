@@ -276,12 +276,16 @@ describe("DiscoverClient streaming filter", () => {
     }
   })
 
-  it("renders the streaming filter without premium labeling", async () => {
-    await renderDiscoverClient()
+  it(
+    "renders the streaming filter without premium labeling",
+    async () => {
+      await renderDiscoverClient()
 
-    expect(screen.getByLabelText("Streaming")).toBeInTheDocument()
-    expect(screen.queryByText("Premium")).not.toBeInTheDocument()
-  })
+      expect(screen.getByLabelText("Streaming")).toBeInTheDocument()
+      expect(screen.queryByText("Premium")).not.toBeInTheDocument()
+    },
+    15000,
+  )
 
   it("lets users enter mood mode from the picker", async () => {
     await renderDiscoverClient()

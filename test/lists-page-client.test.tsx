@@ -31,6 +31,14 @@ function restoreTimeZone() {
   process.env.TZ = originalTimeZone
 }
 
+function setLocation(search = "", pathname = "/lists/watch-lists") {
+  window.history.pushState({}, "", `${pathname}${search}`)
+}
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}))
+
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
     preferences: mocks.preferences,
@@ -293,6 +301,7 @@ function createJanBoundaryLists(): UserList[] {
 describe("ListsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setLocation()
     mocks.addToListModalProps = null
     mocks.bulkModalRenderCount = 0
     mocks.preferences.copyInsteadOfMove = false
@@ -342,6 +351,66 @@ describe("ListsPageClient", () => {
     const cards = screen.getAllByTestId("media-card")
     expect(cards[0]).toHaveTextContent("Kimi no Na wa.")
     expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
+  })
+
+  it("preserves a parent-owned listId when controlled filters update the URL", async () => {
+    const user = userEvent.setup()
+
+    setLocation("?listId=favorites")
+
+    render(
+      <ListsPageClient
+        lists={[
+          ...createLists(),
+          {
+            id: "favorites",
+            name: "Favorites",
+            createdAt: 1,
+            items: {
+              789: {
+                id: 789,
+                title: "Perfect Blue",
+                original_title: "Perfect Blue",
+                poster_path: null,
+                media_type: "movie",
+                vote_average: 8.0,
+                release_date: "1998-02-28",
+                addedAt: 3,
+                genre_ids: [],
+              },
+            },
+          },
+        ]}
+        loading={false}
+        error={null}
+        selectedListId="favorites"
+      />,
+    )
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "Blue")
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("listId")).toBe("favorites")
+      expect(params.get("q")).toBe("Blue")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Filter TV" }))
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("listId")).toBe("favorites")
+      expect(params.get("mediaType")).toBe("tv")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Sort title" }))
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("listId")).toBe("favorites")
+      expect(params.get("sort")).toBe("title")
+      expect(params.get("dir")).toBe("asc")
+    })
   })
 
   it("keeps January 1 list items in the correct release year filter", async () => {

@@ -13,10 +13,12 @@ import {
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import {
   buildPersonCredits,
   getAvailablePersonCreditCombinations,
   getPersonCreditCombinationLabel,
+  resolveInitialPersonCreditsSelection,
   type PersonCreditMediaType,
   type PersonCreditType,
 } from "@/lib/person-credits"
@@ -29,39 +31,71 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface PersonCreditsClientProps {
   person: TMDBPersonDetails
-  initialMediaType: PersonCreditMediaType
-  initialCreditType: PersonCreditType
 }
 
-export function PersonCreditsClient({
-  person,
-  initialMediaType,
-  initialCreditType,
-}: PersonCreditsClientProps) {
-  const [activeMediaType, setActiveMediaType] =
-    useState<PersonCreditMediaType>(initialMediaType)
-  const [activeCreditType, setActiveCreditType] =
-    useState<PersonCreditType>(initialCreditType)
-  const [searchQuery, setSearchQuery] = useState("")
+export function PersonCreditsClient({ person }: PersonCreditsClientProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const [selectedTrailerMedia, setSelectedTrailerMedia] =
     useState<TMDBActionableMedia | null>(null)
   const [loadingMediaId, setLoadingMediaId] = useState<number | null>(null)
   const { preferences } = usePreferences()
-  const router = useRouter()
 
   const creditsByTab = useMemo(() => buildPersonCredits(person), [person])
   const availableCombinations = useMemo(
     () => getAvailablePersonCreditCombinations(creditsByTab),
     [creditsByTab],
   )
+  const defaultSelection = useMemo(
+    () => resolveInitialPersonCreditsSelection(person),
+    [person],
+  )
+  const [urlState, setUrlState] = useUrlStateSync<{
+    activeMediaType: PersonCreditMediaType
+    activeCreditType: PersonCreditType
+    searchQuery: string
+  }>({
+    keys: ["mediaType", "creditType", "q"],
+    parse: (params) => {
+      const resolvedSelection = resolveInitialPersonCreditsSelection(
+        person,
+        params.get("mediaType") ?? undefined,
+        params.get("creditType") ?? undefined,
+      )
+
+      return {
+        activeMediaType: resolvedSelection.mediaType,
+        activeCreditType: resolvedSelection.creditType,
+        searchQuery: params.get("q")?.trim() ?? "",
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      const isDefaultSelection =
+        state.activeMediaType === defaultSelection.mediaType &&
+        state.activeCreditType === defaultSelection.creditType
+
+      if (!isDefaultSelection) {
+        params.set("mediaType", state.activeMediaType)
+        params.set("creditType", state.activeCreditType)
+      }
+
+      if (state.searchQuery.trim()) {
+        params.set("q", state.searchQuery)
+      }
+
+      return params
+    },
+  })
+  const activeMediaType = urlState.activeMediaType
+  const activeCreditType = urlState.activeCreditType
+  const searchQuery = urlState.searchQuery
   const activeCombination =
     availableCombinations.find(
       (combination) =>
@@ -113,13 +147,11 @@ export function PersonCreditsClient({
       return
     }
 
-    setActiveMediaType(mediaType)
-    setActiveCreditType(creditType)
-    setSearchQuery("")
-    router.replace(
-      `/person/${person.id}/credits?mediaType=${mediaType}&creditType=${creditType}`,
-      { scroll: false },
-    )
+    setUrlState({
+      activeMediaType: mediaType,
+      activeCreditType: creditType,
+      searchQuery: "",
+    })
   }
 
   return (
@@ -163,7 +195,12 @@ export function PersonCreditsClient({
         <SearchInput
           id="person-credits-search-input"
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              searchQuery: value,
+            }))
+          }
           placeholder="Search by title or original title..."
           className="w-full"
           aria-label="Search by title or original title"

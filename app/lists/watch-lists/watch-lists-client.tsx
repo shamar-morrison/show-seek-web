@@ -1,17 +1,16 @@
 "use client"
 
 import { ListsPageClient } from "@/components/lists-page-client"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { useLists } from "@/hooks/use-lists"
 import type { Genre } from "@/types/tmdb"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 
 interface WatchListsClientProps {
   /** Movie genres for filter options */
   movieGenres?: Genre[]
   /** TV genres for filter options */
   tvGenres?: Genre[]
-  /** Optional list ID parsed from the URL on the server */
-  initialListId?: string
 }
 
 /**
@@ -21,32 +20,56 @@ interface WatchListsClientProps {
 export function WatchListsClient({
   movieGenres = [],
   tvGenres = [],
-  initialListId,
 }: WatchListsClientProps) {
   const { lists, loading, error } = useLists()
-  const [selectedListId, setSelectedListId] = useState<string>("")
-
-  // Filter to only default lists (non-custom)
   const defaultLists = useMemo(() => lists.filter((l) => !l.isCustom), [lists])
-  const urlSelectedListId = initialListId?.trim() || null
+  const defaultListId = defaultLists[0]?.id ?? ""
+  const [urlState, setUrlState] = useUrlStateSync<{ selectedListId: string }>({
+    keys: ["listId"],
+    parse: (params) => ({
+      selectedListId: params.get("listId") ?? "",
+    }),
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.selectedListId && state.selectedListId !== defaultListId) {
+        params.set("listId", state.selectedListId)
+      }
+
+      return params
+    },
+  })
 
   const effectiveSelectedListId = useMemo(() => {
     if (
-      urlSelectedListId &&
-      defaultLists.some((list) => list.id === urlSelectedListId)
+      urlState.selectedListId &&
+      defaultLists.some((list) => list.id === urlState.selectedListId)
     ) {
-      return urlSelectedListId
+      return urlState.selectedListId
     }
 
-    if (
-      selectedListId &&
-      defaultLists.some((list) => list.id === selectedListId)
-    ) {
-      return selectedListId
+    return defaultListId
+  }, [defaultListId, defaultLists, urlState.selectedListId])
+
+  useEffect(() => {
+    if (defaultLists.length === 0) {
+      return
     }
 
-    return defaultLists[0]?.id ?? ""
-  }, [defaultLists, selectedListId, urlSelectedListId])
+    const normalizedSelectedListId =
+      effectiveSelectedListId && effectiveSelectedListId !== defaultListId
+        ? effectiveSelectedListId
+        : ""
+
+    if (urlState.selectedListId !== normalizedSelectedListId) {
+      setUrlState({ selectedListId: normalizedSelectedListId })
+    }
+  }, [
+    defaultListId,
+    effectiveSelectedListId,
+    setUrlState,
+    urlState.selectedListId,
+  ])
 
   return (
     <ListsPageClient
@@ -58,7 +81,7 @@ export function WatchListsClient({
       movieGenres={movieGenres}
       tvGenres={tvGenres}
       selectedListId={effectiveSelectedListId}
-      onListSelect={setSelectedListId}
+      onListSelect={(selectedListId) => setUrlState({ selectedListId })}
       showShuffleAction={true}
     />
   )

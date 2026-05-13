@@ -17,6 +17,14 @@ const mocks = vi.hoisted(() => ({
   updateList: vi.fn(),
 }))
 
+function setLocation(search = "", pathname = "/lists/custom-lists") {
+  window.history.pushState({}, "", `${pathname}${search}`)
+}
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}))
+
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
     user: { uid: "user-1" },
@@ -43,6 +51,7 @@ vi.mock("@/components/lists-page-client", () => ({
   ListsPageClient: ({
     filterRowAction,
     lists,
+    onListSelect,
     selectedListId,
     showDefaultSelectAction = true,
   }: {
@@ -55,6 +64,7 @@ vi.mock("@/components/lists-page-client", () => ({
           isSelectionMode: boolean
         }) => ReactNode)
     lists: UserList[]
+    onListSelect?: (listId: string) => void
     selectedListId?: string
     showDefaultSelectAction?: boolean
   }) => {
@@ -74,6 +84,16 @@ vi.mock("@/components/lists-page-client", () => ({
 
     return (
       <div>
+        <div data-testid="active-list-id">{activeList?.id ?? ""}</div>
+        {lists.map((list) => (
+          <button
+            key={list.id}
+            type="button"
+            onClick={() => onListSelect?.(list.id)}
+          >
+            Open {list.name}
+          </button>
+        ))}
         {resolvedFilterRowAction}
         {showDefaultSelectAction && canSelectItems ? (
           <button type="button" data-testid="default-select-button">
@@ -263,6 +283,7 @@ function createSecondCustomList(): UserList {
 describe("CustomListsClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setLocation()
     mocks.lists = [createCustomList()]
     mocks.updateList.mockResolvedValue(undefined)
     mocks.removeList.mockResolvedValue(undefined)
@@ -348,6 +369,31 @@ describe("CustomListsClient", () => {
     await user.click(screen.getByRole("button", { name: "Select" }))
 
     expect(screen.getByRole("button", { name: "Select Items" })).toBeDisabled()
+  })
+
+  it("switches custom list tabs and clears the URL when returning to the default list", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [createCustomList(), createSecondCustomList()]
+
+    setLocation("?listId=date-night")
+
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-list-id")).toHaveTextContent(
+        "date-night",
+      )
+      expect(window.location.search).toBe("?listId=date-night")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Open Road Trip" }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-list-id")).toHaveTextContent(
+        "road-trip",
+      )
+      expect(window.location.search).toBe("")
+    })
   })
 
   it("opens the bulk delete dialog and deletes the selected custom lists", async () => {
