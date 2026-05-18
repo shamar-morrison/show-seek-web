@@ -298,6 +298,46 @@ function createJanBoundaryLists(): UserList[] {
   ]
 }
 
+function createPaginatedList({
+  id = "watchlist",
+  name = "Should Watch",
+  totalItems = 25,
+  titlePrefix = "Item",
+  startId = 1,
+}: {
+  id?: string
+  name?: string
+  totalItems?: number
+  titlePrefix?: string
+  startId?: number
+} = {}): UserList {
+  const items: NonNullable<UserList["items"]> = {}
+
+  for (let index = 1; index <= totalItems; index += 1) {
+    const itemId = startId + index - 1
+    const title = `${titlePrefix} ${index}`
+
+    items[itemId] = {
+      id: itemId,
+      title,
+      original_title: title,
+      poster_path: null,
+      media_type: "movie",
+      vote_average: 8.5,
+      release_date: `2024-01-${String(((index - 1) % 28) + 1).padStart(2, "0")}`,
+      addedAt: index,
+      genre_ids: [],
+    }
+  }
+
+  return {
+    id,
+    name,
+    createdAt: 0,
+    items,
+  }
+}
+
 describe("ListsPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -353,7 +393,107 @@ describe("ListsPageClient", () => {
     expect(cards[1]).toHaveTextContent("Sen to Chihiro no Kamikakushi")
   })
 
-  it("preserves a parent-owned listId when controlled filters update the URL", async () => {
+  it("renders only the first page of large lists and shows pagination", () => {
+    render(
+      <ListsPageClient
+        lists={[createPaginatedList()]}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getAllByTestId("media-card")).toHaveLength(20)
+    expect(screen.getByText("Showing 1-20 of 25 results")).toBeInTheDocument()
+    expect(screen.getByText("Item 25")).toBeInTheDocument()
+    expect(screen.getByText("Item 6")).toBeInTheDocument()
+    expect(screen.queryByText("Item 5")).not.toBeInTheDocument()
+  })
+
+  it("resets pagination to the first page when the search query changes", async () => {
+    const user = userEvent.setup()
+
+    setLocation("?page=2")
+
+    render(
+      <ListsPageClient
+        lists={[createPaginatedList()]}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText("Item 5")).toBeInTheDocument()
+
+    await user.type(screen.getByPlaceholderText("Search in this list..."), "25")
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("page")).toBeNull()
+      expect(params.get("q")).toBe("25")
+    })
+
+    expect(screen.getByText("Item 25")).toBeInTheDocument()
+    expect(screen.queryByText("Item 5")).not.toBeInTheDocument()
+  })
+
+  it("resets pagination to the first page when the sort changes", async () => {
+    const user = userEvent.setup()
+
+    setLocation("?page=2")
+
+    render(
+      <ListsPageClient
+        lists={[createPaginatedList()]}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Sort title" }))
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("page")).toBeNull()
+      expect(params.get("sort")).toBe("title")
+      expect(params.get("dir")).toBe("asc")
+    })
+
+    const cards = screen.getAllByTestId("media-card")
+    expect(cards[0]).toHaveTextContent("Item 1")
+  })
+
+  it("resets pagination to the first page when switching tabs", async () => {
+    const user = userEvent.setup()
+
+    setLocation("?page=2")
+
+    render(
+      <ListsPageClient
+        lists={[
+          createPaginatedList(),
+          createPaginatedList({
+            id: "already-watched",
+            name: "Already Watched",
+            titlePrefix: "Watched Item",
+            startId: 100,
+          }),
+        ]}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: /Already Watched/i }))
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("page")).toBeNull()
+    })
+
+    expect(screen.getByText("Watched Item 25")).toBeInTheDocument()
+    expect(screen.queryByText("Watched Item 5")).not.toBeInTheDocument()
+  })
+
+  it("preserves a parent-owned listId when controlled filters and pagination update the URL", async () => {
     const user = userEvent.setup()
 
     setLocation("?listId=favorites")
@@ -362,24 +502,12 @@ describe("ListsPageClient", () => {
       <ListsPageClient
         lists={[
           ...createLists(),
-          {
+          createPaginatedList({
             id: "favorites",
             name: "Favorites",
-            createdAt: 1,
-            items: {
-              789: {
-                id: 789,
-                title: "Perfect Blue",
-                original_title: "Perfect Blue",
-                poster_path: null,
-                media_type: "movie",
-                vote_average: 8.0,
-                release_date: "1998-02-28",
-                addedAt: 3,
-                genre_ids: [],
-              },
-            },
-          },
+            titlePrefix: "Favorite Item",
+            startId: 500,
+          }),
         ]}
         loading={false}
         error={null}
@@ -387,12 +515,12 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.type(screen.getByPlaceholderText("Search in this list..."), "Blue")
+    await user.click(screen.getByRole("button", { name: "Page 2" }))
 
     await waitFor(() => {
       const params = new URLSearchParams(window.location.search)
       expect(params.get("listId")).toBe("favorites")
-      expect(params.get("q")).toBe("Blue")
+      expect(params.get("page")).toBe("2")
     })
 
     await user.click(screen.getByRole("button", { name: "Filter TV" }))
@@ -401,6 +529,7 @@ describe("ListsPageClient", () => {
       const params = new URLSearchParams(window.location.search)
       expect(params.get("listId")).toBe("favorites")
       expect(params.get("mediaType")).toBe("tv")
+      expect(params.get("page")).toBeNull()
     })
 
     await user.click(screen.getByRole("button", { name: "Sort title" }))
@@ -410,6 +539,7 @@ describe("ListsPageClient", () => {
       expect(params.get("listId")).toBe("favorites")
       expect(params.get("sort")).toBe("title")
       expect(params.get("dir")).toBe("asc")
+      expect(params.get("page")).toBeNull()
     })
   })
 
@@ -699,6 +829,40 @@ describe("ListsPageClient", () => {
       screen.getByRole("button", { name: "Sen to Chihiro no Kamikakushi" }),
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Kimi no Na wa." })).toBeInTheDocument()
+  })
+
+  it("preserves bulk-selected items across pagination changes in selection mode", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={[createPaginatedList()]}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Item 25" }))
+    await user.click(screen.getByRole("button", { name: "Page 2" }))
+    await user.click(screen.getByRole("button", { name: "Item 5" }))
+
+    expect(screen.getByText("2 items selected")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Move to lists" }))
+
+    expect(mocks.addToListModalProps).toEqual(
+      expect.objectContaining({
+        bulkAddMode: "move",
+        isOpen: true,
+        sourceListId: "watchlist",
+      }),
+    )
+    expect(
+      (mocks.addToListModalProps?.mediaItems as Array<{ id: number }>)?.map(
+        (item) => item.id,
+      ),
+    ).toEqual([25, 5])
   })
 
   it("removes selected items in bulk and exits selection mode on success", async () => {

@@ -130,6 +130,36 @@ function CanonicalizationHarness({
   )
 }
 
+function HistoryModeHarness() {
+  const [urlState, setUrlState] = useUrlStateSync<{ page: number }>({
+    keys: ["page"],
+    parse: (params) => ({
+      page: params.get("page") === "2" ? 2 : 1,
+    }),
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.page > 1) {
+        params.set("page", state.page.toString())
+      }
+
+      return params
+    },
+  })
+
+  return (
+    <div>
+      <div data-testid="page">{urlState.page}</div>
+      <button
+        type="button"
+        onClick={() => setUrlState({ page: 2 }, { history: "push" })}
+      >
+        Page 2
+      </button>
+    </div>
+  )
+}
+
 describe("useUrlStateSync", () => {
   beforeEach(() => {
     setLocation()
@@ -183,5 +213,28 @@ describe("useUrlStateSync", () => {
     )
     expect(screen.getByTestId("canonical-direction")).toHaveTextContent("desc")
     expect(replaceStateSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it("pushes new history entries when requested while preserving unmanaged params", async () => {
+    const user = userEvent.setup()
+
+    setLocation("?listId=favorites")
+
+    const pushStateSpy = vi.spyOn(window.history, "pushState")
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState")
+
+    render(<HistoryModeHarness />)
+
+    await user.click(screen.getByRole("button", { name: "Page 2" }))
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("listId")).toBe("favorites")
+      expect(params.get("page")).toBe("2")
+    })
+
+    expect(screen.getByTestId("page")).toHaveTextContent("2")
+    expect(pushStateSpy).toHaveBeenCalledTimes(1)
+    expect(replaceStateSpy).not.toHaveBeenCalled()
   })
 })

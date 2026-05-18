@@ -4,8 +4,14 @@ import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const URL_STATE_SYNC_EVENT = "showseek:url-state-sync"
+const DEFAULT_HISTORY_MODE = "replace"
 
 type StateUpdater<T> = T | ((currentState: T) => T)
+type UrlStateHistoryMode = "replace" | "push"
+
+interface UpdateUrlStateOptions {
+  history?: UrlStateHistoryMode
+}
 
 interface UseUrlStateSyncOptions<T> {
   keys: string[]
@@ -59,6 +65,9 @@ export function useUrlStateSync<T>({
   const keysRef = useRef(keys)
   const parseRef = useRef(parse)
   const serializeRef = useRef(serialize)
+  const pendingHistoryModeRef = useRef<UrlStateHistoryMode>(
+    DEFAULT_HISTORY_MODE,
+  )
 
   keysRef.current = keys
   parseRef.current = parse
@@ -103,17 +112,25 @@ export function useUrlStateSync<T>({
   }, [syncFromParams])
 
   const updateState = useCallback(
-    (updater: StateUpdater<T>) => {
+    (updater: StateUpdater<T>, options?: UpdateUrlStateOptions) => {
       setState((currentState) => {
         const nextState =
           typeof updater === "function"
             ? (updater as (currentState: T) => T)(currentState)
             : updater
 
-        return getSerializedState(currentState, serializeRef.current) ===
+        const hasChanged =
+          getSerializedState(currentState, serializeRef.current) !==
           getSerializedState(nextState, serializeRef.current)
-          ? currentState
-          : nextState
+
+        if (!hasChanged) {
+          return currentState
+        }
+
+        pendingHistoryModeRef.current =
+          options?.history ?? DEFAULT_HISTORY_MODE
+
+        return nextState
       })
     },
     [],
@@ -128,9 +145,18 @@ export function useUrlStateSync<T>({
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
 
     if (nextUrl !== currentUrl) {
-      window.history.replaceState(window.history.state, "", nextUrl)
+      if (pendingHistoryModeRef.current === "push") {
+        window.history.pushState(window.history.state, "", nextUrl)
+      } else {
+        window.history.replaceState(window.history.state, "", nextUrl)
+      }
+
+      pendingHistoryModeRef.current = DEFAULT_HISTORY_MODE
       window.dispatchEvent(new Event(URL_STATE_SYNC_EVENT))
+      return
     }
+
+    pendingHistoryModeRef.current = DEFAULT_HISTORY_MODE
   }, [keysSignature, searchParamsString, serializedState, state])
 
   return [state, updateState] as const
