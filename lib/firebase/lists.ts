@@ -8,6 +8,7 @@
 import { getFirebaseDb } from "@/lib/firebase/config"
 import {
   buildListItemKey,
+  getListItemCandidateKeys,
   getLegacyListItemKey,
   type ListItemMediaType,
 } from "@/lib/list-item-keys"
@@ -105,33 +106,106 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+type NormalizedListItem = ListWriteMediaItem & { addedAt: number }
+
+function isListItemMediaType(value: unknown): value is ListItemMediaType {
+  return value === "movie" || value === "tv"
+}
+
+function getCanonicalListItemKey(item: NormalizedListItem): string | null {
+  if (!Number.isFinite(item.id) || !isListItemMediaType(item.media_type)) {
+    return null
+  }
+
+  return buildListItemKey(item.media_type, item.id)
+}
+
+function isLegacyRawItemKey(itemKey: string, item: NormalizedListItem): boolean {
+  if (!Number.isFinite(item.id)) {
+    return false
+  }
+
+  return itemKey === getLegacyListItemKey(item.id)
+}
+
+function shouldReplaceNormalizedListItem(
+  existingItemKey: string,
+  existingItem: NormalizedListItem,
+  candidateItemKey: string,
+  candidateItem: NormalizedListItem,
+): boolean {
+  if (candidateItem.addedAt > existingItem.addedAt) {
+    return true
+  }
+
+  if (candidateItem.addedAt < existingItem.addedAt) {
+    return false
+  }
+
+  const existingIsLegacy = isLegacyRawItemKey(existingItemKey, existingItem)
+  const candidateIsLegacy = isLegacyRawItemKey(candidateItemKey, candidateItem)
+
+  if (candidateIsLegacy !== existingIsLegacy) {
+    return candidateIsLegacy
+  }
+
+  return false
+}
+
 function normalizeListItems(
   items: unknown,
-): Record<string, ListWriteMediaItem & { addedAt: number }> {
+): Record<string, NormalizedListItem> {
   if (!isRecord(items)) {
     return {}
   }
 
-  return Object.fromEntries(
-    Object.entries(items).flatMap(([itemKey, item]) => {
-      if (!isRecord(item)) {
-        return []
-      }
+  const normalizedItems: Record<string, NormalizedListItem> = {}
+  const canonicalItemKeyMap = new Map<string, string>()
 
-      const normalizedAddedAt = normalizeTimestampLike(item.addedAt)
+  for (const [itemKey, item] of Object.entries(items)) {
+    if (!isRecord(item)) {
+      continue
+    }
 
-      return [
-        [
-          itemKey,
-          {
-            ...item,
-            addedAt:
-              typeof normalizedAddedAt === "number" ? normalizedAddedAt : 0,
-          } as ListWriteMediaItem & { addedAt: number },
-        ],
-      ]
-    }),
-  )
+    const normalizedAddedAt = normalizeTimestampLike(item.addedAt)
+    const normalizedItem = {
+      ...item,
+      addedAt: typeof normalizedAddedAt === "number" ? normalizedAddedAt : 0,
+    } as NormalizedListItem
+
+    const canonicalItemKey = getCanonicalListItemKey(normalizedItem)
+
+    if (!canonicalItemKey) {
+      normalizedItems[itemKey] = normalizedItem
+      continue
+    }
+
+    const existingItemKey = canonicalItemKeyMap.get(canonicalItemKey)
+
+    if (!existingItemKey) {
+      normalizedItems[itemKey] = normalizedItem
+      canonicalItemKeyMap.set(canonicalItemKey, itemKey)
+      continue
+    }
+
+    const existingItem = normalizedItems[existingItemKey]
+
+    if (
+      existingItem &&
+      shouldReplaceNormalizedListItem(
+        existingItemKey,
+        existingItem,
+        itemKey,
+        normalizedItem,
+      )
+    ) {
+      delete normalizedItems[existingItemKey]
+      normalizedItems[itemKey] = normalizedItem
+      canonicalItemKeyMap.set(canonicalItemKey, itemKey)
+    }
+  }
+
+  return normalizedItems
 }
 
 function normalizeUserList(
@@ -186,8 +260,11 @@ export async function addToList(
   mediaItem: ListWriteMediaItem,
 ): Promise<boolean> {
   const listRef = getListRef(userId, listId)
-  // Use numeric ID as key to match mobile app format
-  const itemKey = String(mediaItem.id)
+  const legacyItemKey = getLegacyListItemKey(mediaItem.id)
+  const candidateItemKeys = getListItemCandidateKeys(
+    mediaItem.media_type,
+    mediaItem.id,
+  )
 
   const addedAt = mediaItem.addedAt ?? Date.now()
   const sanitizedItem = sanitizeForFirestore({
@@ -202,12 +279,21 @@ export async function addToList(
   return await runTransaction(getFirebaseDb(), async (transaction) => {
     const docSnap = await transaction.get(listRef)
     const isNewDocument = !docSnap.exists()
+    let itemKey = legacyItemKey
 
     // Check if item already exists
     let isNewItem = true
     if (!isNewDocument) {
       const data = docSnap.data()
-      if (data?.items?.[itemKey]) {
+      const storedItems = isRecord(data?.items) ? data.items : null
+      const existingItemKey = storedItems
+        ? candidateItemKeys.find((candidateItemKey) =>
+            Object.prototype.hasOwnProperty.call(storedItems, candidateItemKey),
+          )
+        : undefined
+
+      if (existingItemKey) {
+        itemKey = existingItemKey
         isNewItem = false
       }
     }
