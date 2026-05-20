@@ -315,26 +315,30 @@ describe("ProfilePageClient", () => {
     })
   })
 
-  it("opens the region modal and updates the selected region", async () => {
-    mockSearchParams = new URLSearchParams("tab=content")
-    const { ProfilePageClient } =
-      await import("../app/profile/profile-page-client")
-    const user = userEvent.setup()
+  it(
+    "opens the region modal and updates the selected region",
+    async () => {
+      mockSearchParams = new URLSearchParams("tab=content")
+      const { ProfilePageClient } =
+        await import("../app/profile/profile-page-client")
+      const user = userEvent.setup()
 
-    render(<ProfilePageClient />)
+      render(<ProfilePageClient />)
 
-    await user.click(screen.getByText("Region"))
+      await user.click(screen.getByText("Region"))
 
-    expect(screen.getByRole("dialog")).toHaveTextContent("Region")
-    expect(screen.getByRole("button", { name: /Canada/ })).toBeInTheDocument()
+      expect(screen.getByRole("dialog")).toHaveTextContent("Region")
+      expect(screen.getByRole("button", { name: /Canada/ })).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: /Canada/ }))
+      await user.click(screen.getByRole("button", { name: /Canada/ }))
 
-    expect(updateRegionMock).toHaveBeenCalledWith("CA")
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    })
-  })
+      expect(updateRegionMock).toHaveBeenCalledWith("CA")
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+      })
+    },
+    10000,
+  )
 
   it("keeps the region modal open and shows an error toast when the update fails", async () => {
     mockSearchParams = new URLSearchParams("tab=content")

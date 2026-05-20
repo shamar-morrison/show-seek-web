@@ -15,18 +15,8 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/components/person-credits-client", () => ({
-  PersonCreditsClient: ({
-    person,
-    initialMediaType,
-    initialCreditType,
-  }: {
-    person: TMDBPersonDetails
-    initialMediaType: string
-    initialCreditType: string
-  }) => (
-    <div>
-      {person.name}:{initialMediaType}:{initialCreditType}
-    </div>
+  PersonCreditsClient: ({ person }: { person: TMDBPersonDetails }) => (
+    <div>{person.name}</div>
   ),
 }))
 
@@ -70,13 +60,7 @@ function createPerson(
   }
 }
 
-async function renderPersonCreditsPage(
-  person: TMDBPersonDetails | null,
-  searchParams: {
-    mediaType?: string
-    creditType?: string
-  } = {},
-) {
+async function renderPersonCreditsPage(person: TMDBPersonDetails | null) {
   getPersonDetailsMock.mockResolvedValue(person)
 
   const { default: PersonCreditsPage } = await import(
@@ -86,155 +70,16 @@ async function renderPersonCreditsPage(
     params: Promise.resolve({
       id: person ? String(person.id) : "1",
     }),
-    searchParams: Promise.resolve(searchParams),
   })
 
   return render(ui)
 }
 
 describe("PersonCreditsPage", () => {
-  it("passes valid query params through to the client component", async () => {
-    await renderPersonCreditsPage(
-      createPerson({
-        combined_credits: {
-          cast: [
-            {
-              id: 5,
-              media_type: "movie",
-              title: "Movie Credit",
-              original_title: "Movie Credit",
-              poster_path: "/movie.jpg",
-              backdrop_path: null,
-              release_date: "2020-01-01",
-              first_air_date: undefined,
-              character: "Lead",
-              vote_average: 8,
-              vote_count: 100,
-              overview: "",
-              adult: false,
-              genre_ids: [18],
-              popularity: 20,
-            },
-          ],
-          crew: [
-            {
-              id: 10,
-              media_type: "tv",
-              title: undefined,
-              original_title: undefined,
-              name: "TV Crew Credit",
-              original_name: "TV Crew Credit",
-              poster_path: "/tv.jpg",
-              backdrop_path: null,
-              release_date: undefined,
-              first_air_date: "2020-01-01",
-              department: "Production",
-              job: "Creator",
-              vote_average: 8,
-              vote_count: 100,
-              overview: "",
-              adult: false,
-              genre_ids: [18],
-              popularity: 10,
-            },
-          ],
-        },
-      }),
-      {
-        mediaType: "tv",
-        creditType: "crew",
-      },
-    )
+  it("renders the client component with the fetched person", async () => {
+    await renderPersonCreditsPage(createPerson())
 
-    expect(screen.getByText("Sample Person:tv:crew")).toBeInTheDocument()
-  })
-
-  it("defaults to the first available combination in fixed order when params are missing", async () => {
-    await renderPersonCreditsPage(
-      createPerson({
-        combined_credits: {
-          cast: [],
-          crew: [
-            {
-              id: 10,
-              media_type: "movie",
-              title: "Directed Movie",
-              original_title: "Directed Movie",
-              poster_path: "/movie.jpg",
-              backdrop_path: null,
-              release_date: "2020-01-01",
-              first_air_date: undefined,
-              department: "Directing",
-              job: "Director",
-              vote_average: 8,
-              vote_count: 100,
-              overview: "",
-              adult: false,
-              genre_ids: [18],
-              popularity: 10,
-            },
-          ],
-        },
-      }),
-    )
-
-    expect(screen.getByText("Sample Person:movie:crew")).toBeInTheDocument()
-  })
-
-  it("falls back to the first available combination when query params are invalid", async () => {
-    await renderPersonCreditsPage(
-      createPerson({
-        combined_credits: {
-          cast: [],
-          crew: [
-            {
-              id: 10,
-              media_type: "movie",
-              title: "Directed Movie",
-              original_title: "Directed Movie",
-              poster_path: "/movie.jpg",
-              backdrop_path: null,
-              release_date: "2020-01-01",
-              first_air_date: undefined,
-              department: "Directing",
-              job: "Director",
-              vote_average: 8,
-              vote_count: 100,
-              overview: "",
-              adult: false,
-              genre_ids: [],
-              popularity: 10,
-            },
-            {
-              id: 20,
-              media_type: "tv",
-              title: undefined,
-              original_title: undefined,
-              name: "Acted TV Show",
-              original_name: "Acted TV Show",
-              poster_path: "/tv.jpg",
-              backdrop_path: null,
-              release_date: undefined,
-              first_air_date: "2020-01-01",
-              department: "Production",
-              job: "Creator",
-              vote_average: 8,
-              vote_count: 100,
-              overview: "",
-              adult: false,
-              genre_ids: [18],
-              popularity: 10,
-            },
-          ],
-        },
-      }),
-      {
-        mediaType: "tv",
-        creditType: "cast",
-      },
-    )
-
-    expect(screen.getByText("Sample Person:movie:crew")).toBeInTheDocument()
+    expect(screen.getByText("Sample Person")).toBeInTheDocument()
   })
 
   it("calls notFound for invalid ids and missing people", async () => {
@@ -245,7 +90,6 @@ describe("PersonCreditsPage", () => {
     await expect(
       PersonCreditsPage({
         params: Promise.resolve({ id: "abc" }),
-        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("notFound")
 
@@ -254,7 +98,6 @@ describe("PersonCreditsPage", () => {
     await expect(
       PersonCreditsPage({
         params: Promise.resolve({ id: "1" }),
-        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("notFound")
   })

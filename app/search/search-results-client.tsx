@@ -15,8 +15,8 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Input } from "@/components/ui/input"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
-import { useSearchUrlSync } from "@/hooks/use-search-url-sync"
 import { useTrailer } from "@/hooks/use-trailer"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { debounceWithCancel } from "@/lib/debounce"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn } from "@/lib/utils"
@@ -35,8 +35,7 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 const DEBOUNCE_DELAY = 300
 
@@ -55,6 +54,19 @@ const tabs: Tab[] = [
   { id: "person", label: "Person", icon: UserIcon },
 ]
 
+function isTabType(value: string | null): value is TabType {
+  return tabs.some((tab) => tab.id === value)
+}
+
+interface SearchUrlState {
+  query: string
+  tab: TabType
+}
+
+function normalizeSearchQuery(query: string) {
+  return query.trim()
+}
+
 interface SearchResultsClientProps {
   initialQuery: string
   initialResults: TMDBSearchResponse
@@ -68,14 +80,35 @@ export function SearchResultsClient({
   initialQuery,
   initialResults,
 }: SearchResultsClientProps) {
-  const router = useRouter()
   const { preferences } = usePreferences()
-
-  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(initialResults)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>("all")
   const [isPending, startTransition] = useTransition()
+  const [urlState, setUrlState] = useUrlStateSync<SearchUrlState>({
+    keys: ["q", "tab"],
+    parse: (params) => ({
+      query: params.get("q")?.trim() ?? "",
+      tab: isTabType(params.get("tab")) ? (params.get("tab") as TabType) : "all",
+    }),
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      const q = state.query.trim()
+      if (q) {
+        params.set("q", q)
+      }
+
+      if (state.tab !== "all") {
+        params.set("tab", state.tab)
+      }
+
+      return params
+    },
+  })
+  const lastRequestedQueryRef = useRef(normalizeSearchQuery(initialQuery))
+  const skippedQueryEffectRef = useRef<string | null>(null)
+  const query = urlState.query
+  const activeTab = urlState.tab
 
   // Trailer hook for modal state
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
@@ -146,13 +179,9 @@ export function SearchResultsClient({
   // Debounced search
   const debouncedSearch = useMemo(() => {
     return debounceWithCancel((searchQuery: string) => {
-      // Update URL
-      router.replace(`/search?q=${encodeURIComponent(searchQuery)}`, {
-        scroll: false,
-      })
-      performSearch(searchQuery)
+      void performSearch(searchQuery)
     }, DEBOUNCE_DELAY)
-  }, [performSearch, router])
+  }, [performSearch])
 
   // Cleanup debounce timer on unmount or change
   useEffect(() => {
@@ -164,7 +193,13 @@ export function SearchResultsClient({
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    setQuery(value)
+    const normalized = normalizeSearchQuery(value)
+    skippedQueryEffectRef.current = normalized
+    lastRequestedQueryRef.current = normalized
+    setUrlState((currentState) => ({
+      ...currentState,
+      query: value,
+    }))
     debouncedSearch(value)
   }
 
@@ -172,16 +207,34 @@ export function SearchResultsClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     debouncedSearch.cancel()
-    if (query.trim()) {
-      router.replace(`/search?q=${encodeURIComponent(query)}`, {
-        scroll: false,
-      })
-      performSearch(query)
-    }
+    skippedQueryEffectRef.current = null
+    lastRequestedQueryRef.current = normalizeSearchQuery(query)
+    void performSearch(query)
   }
 
-  // Sync with URL params
-  useSearchUrlSync({ query, setQuery, performSearch })
+  useEffect(() => {
+    const normalizedQuery = normalizeSearchQuery(query)
+
+    if (skippedQueryEffectRef.current === normalizedQuery) {
+      skippedQueryEffectRef.current = null
+      return
+    }
+
+    if (normalizedQuery === lastRequestedQueryRef.current) {
+      return
+    }
+
+    debouncedSearch.cancel()
+    lastRequestedQueryRef.current = normalizedQuery
+
+    const timer = setTimeout(() => {
+      void performSearch(query)
+    }, 0)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [debouncedSearch, performSearch, query])
 
   // Filter results based on active tab
   const filteredResults = useMemo(
@@ -266,7 +319,12 @@ export function SearchResultsClient({
               count={counts[tab.id]}
               isActive={activeTab === tab.id}
               icon={tab.icon}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() =>
+                setUrlState((currentState) => ({
+                  ...currentState,
+                  tab: tab.id,
+                }))
+              }
             />
           ))}
         </div>

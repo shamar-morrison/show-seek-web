@@ -32,13 +32,16 @@ import {
 } from "@/components/ui/empty"
 import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
+import { Pagination } from "@/components/ui/pagination"
 import { SearchInput } from "@/components/ui/search-input"
 import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { listItemToMedia } from "@/lib/list-media"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
+import { safeParseInt } from "@/lib/utils"
 import type { ListMediaItem, UserList } from "@/types/list"
 import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -70,6 +73,76 @@ export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
 // Current year for year range filter
 const CURRENT_YEAR = new Date().getFullYear()
 const MIN_YEAR = 1950
+const LISTS_RESULTS_PER_PAGE = 20
+const DEFAULT_FILTER_STATE: FilterState = {
+  mediaType: "all",
+  genre: "all",
+}
+const DEFAULT_SORT_STATE: SortState = {
+  field: "added",
+  direction: "desc",
+}
+const LIST_SORT_FIELDS = ["added", "release_date", "rating", "title"] as const
+
+interface ListsPageUrlState {
+  filterState: FilterState
+  minRating: number
+  page: number
+  searchQuery: string
+  sortState: SortState
+  yearRange: [number, number]
+}
+
+function isListMediaTypeFilter(value: string | null): value is "all" | "movie" | "tv" {
+  return value === "all" || value === "movie" || value === "tv"
+}
+
+function isListSortField(
+  value: string | null,
+): value is (typeof LIST_SORT_FIELDS)[number] {
+  return LIST_SORT_FIELDS.some((field) => field === value)
+}
+
+function isSortDirection(value: string | null): value is "asc" | "desc" {
+  return value === "asc" || value === "desc"
+}
+
+function parseListsYearRange(params: URLSearchParams): [number, number] {
+  const yearMin = safeParseInt(params.get("yearMin"))
+  const yearMax = safeParseInt(params.get("yearMax"))
+
+  if (
+    yearMin === undefined ||
+    yearMax === undefined ||
+    yearMin < MIN_YEAR ||
+    yearMax > CURRENT_YEAR ||
+    yearMin > yearMax
+  ) {
+    return [MIN_YEAR, CURRENT_YEAR]
+  }
+
+  return [yearMin, yearMax]
+}
+
+function parseListsMinRating(params: URLSearchParams) {
+  const minRating = safeParseInt(params.get("minRating"))
+
+  if (minRating === undefined || minRating < 0 || minRating > 10) {
+    return 0
+  }
+
+  return minRating
+}
+
+function parseListsPage(params: URLSearchParams) {
+  const page = safeParseInt(params.get("page"))
+
+  if (page === undefined || page < 1) {
+    return 1
+  }
+
+  return page
+}
 
 interface ListsPageClientProps {
   /** Lists to display as tabs */
@@ -136,7 +209,6 @@ export function ListsPageClient({
   const { removeItemsFromListBatch } = useBulkListOperations()
   const [internalSelectedListId, setInternalSelectedListId] =
     useState<string>("")
-  const [searchQuery, setSearchQuery] = useState("")
   const [shuffleDialogOpen, setShuffleDialogOpen] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedItems, setSelectedItems] = useState<
@@ -165,34 +237,109 @@ export function ListsPageClient({
 
     return lists[0]?.id ?? ""
   }, [controlledSelectedListId, internalSelectedListId, lists])
+  const [urlState, setUrlState] = useUrlStateSync<ListsPageUrlState>({
+    keys: [
+      "q",
+      "mediaType",
+      "genre",
+      "yearMin",
+      "yearMax",
+      "minRating",
+      "sort",
+      "dir",
+      "page",
+    ],
+    parse: (params) => {
+      const mediaType = params.get("mediaType")
+      const genre = params.get("genre")
+      const sort = params.get("sort")
+      const direction = params.get("dir")
+
+      return {
+        searchQuery: params.get("q")?.trim() ?? "",
+        page: parseListsPage(params),
+        filterState: {
+          mediaType: isListMediaTypeFilter(mediaType)
+            ? mediaType
+            : DEFAULT_FILTER_STATE.mediaType,
+          genre:
+            genre && safeParseInt(genre) !== undefined
+              ? genre
+              : DEFAULT_FILTER_STATE.genre,
+        },
+        yearRange: parseListsYearRange(params),
+        minRating: parseListsMinRating(params),
+        sortState: {
+          field: isListSortField(sort) ? sort : DEFAULT_SORT_STATE.field,
+          direction: isSortDirection(direction)
+            ? direction
+            : DEFAULT_SORT_STATE.direction,
+        },
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.searchQuery.trim()) {
+        params.set("q", state.searchQuery)
+      }
+
+      if (state.filterState.mediaType !== DEFAULT_FILTER_STATE.mediaType) {
+        params.set("mediaType", state.filterState.mediaType)
+      }
+
+      if (state.filterState.genre !== DEFAULT_FILTER_STATE.genre) {
+        params.set("genre", state.filterState.genre)
+      }
+
+      if (state.yearRange[0] !== MIN_YEAR) {
+        params.set("yearMin", state.yearRange[0].toString())
+      }
+
+      if (state.yearRange[1] !== CURRENT_YEAR) {
+        params.set("yearMax", state.yearRange[1].toString())
+      }
+
+      if (state.minRating > 0) {
+        params.set("minRating", state.minRating.toString())
+      }
+
+      if (state.sortState.field !== DEFAULT_SORT_STATE.field) {
+        params.set("sort", state.sortState.field)
+      }
+
+      if (state.sortState.direction !== DEFAULT_SORT_STATE.direction) {
+        params.set("dir", state.sortState.direction)
+      }
+
+      if (state.page > 1) {
+        params.set("page", state.page.toString())
+      }
+
+      return params
+    },
+  })
+  const searchQuery = urlState.searchQuery
 
   const handleListSelect = useCallback(
     (id: string) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        page: 1,
+      }))
+
       if (onListSelect) {
         onListSelect(id)
       } else {
         setInternalSelectedListId(id)
       }
     },
-    [onListSelect],
+    [onListSelect, setUrlState],
   )
-
-  // Filter state
-  const [filterState, setFilterState] = useState<FilterState>({
-    mediaType: "all",
-    genre: "all",
-  })
-  const [yearRange, setYearRange] = useState<[number, number]>([
-    MIN_YEAR,
-    CURRENT_YEAR,
-  ])
-  const [minRating, setMinRating] = useState<number>(0)
-
-  // Sort state
-  const [sortState, setSortState] = useState<SortState>({
-    field: "added",
-    direction: "desc",
-  })
+  const filterState = urlState.filterState
+  const yearRange = urlState.yearRange
+  const minRating = urlState.minRating
+  const sortState = urlState.sortState
 
   // Trailer hook
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
@@ -331,6 +478,17 @@ export function ListsPageClient({
     return sorted
   }, [filteredItems, getItemDisplayTitle, sortState])
 
+  const totalPages =
+    sortedItems.length > 0
+      ? Math.ceil(sortedItems.length / LISTS_RESULTS_PER_PAGE)
+      : 1
+  const currentPage = Math.min(urlState.page, totalPages)
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * LISTS_RESULTS_PER_PAGE
+    return sortedItems.slice(startIndex, startIndex + LISTS_RESULTS_PER_PAGE)
+  }, [currentPage, sortedItems])
+
   // Get item count for each list
   const getItemCount = useCallback(
     (list: UserList) => Object.keys(list.items || {}).length,
@@ -357,17 +515,31 @@ export function ListsPageClient({
   )
 
   // Handle filter change
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    setFilterState((prev) => ({ ...prev, [key]: value }))
-  }, [])
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        page: 1,
+        filterState: {
+          ...currentState.filterState,
+          [key]: value,
+        },
+      }))
+    },
+    [setUrlState],
+  )
 
   // Handle clear all filters
   const handleClearAll = useCallback(() => {
-    setFilterState({ mediaType: "all", genre: "all" })
-    setYearRange([MIN_YEAR, CURRENT_YEAR])
-    setMinRating(0)
-    setSortState({ field: "added", direction: "desc" })
-  }, [])
+    setUrlState((currentState) => ({
+      ...currentState,
+      page: 1,
+      filterState: DEFAULT_FILTER_STATE,
+      yearRange: [MIN_YEAR, CURRENT_YEAR],
+      minRating: 0,
+      sortState: DEFAULT_SORT_STATE,
+    }))
+  }, [setUrlState])
 
   const canShuffle = sortedItems.length >= 2
   const canSelectItems = listItems.length > 0
@@ -377,6 +549,17 @@ export function ListsPageClient({
     [selectedItems],
   )
   const selectedCount = selectedMediaItems.length
+
+  useEffect(() => {
+    if (urlState.page === currentPage) {
+      return
+    }
+
+    setUrlState((currentState) => ({
+      ...currentState,
+      page: currentPage,
+    }))
+  }, [currentPage, setUrlState, urlState.page])
 
   useEffect(() => {
     if (!isSelectionMode) {
@@ -393,13 +576,17 @@ export function ListsPageClient({
   }, [getSelectionKey, isSelectionMode, listItems])
 
   const enterSelectionMode = useCallback(() => {
-    setSearchQuery("")
-    setFilterState({ mediaType: "all", genre: "all" })
-    setYearRange([MIN_YEAR, CURRENT_YEAR])
-    setMinRating(0)
+    setUrlState((currentState) => ({
+      ...currentState,
+      page: 1,
+      searchQuery: "",
+      filterState: DEFAULT_FILTER_STATE,
+      yearRange: [MIN_YEAR, CURRENT_YEAR],
+      minRating: 0,
+    }))
     setSelectedItems({})
     setIsSelectionMode(true)
-  }, [])
+  }, [setUrlState])
 
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false)
@@ -601,7 +788,13 @@ export function ListsPageClient({
             <SearchInput
               id="lists-search-input"
               value={searchQuery}
-              onChange={setSearchQuery}
+              onChange={(value) =>
+                setUrlState((currentState) => ({
+                  ...currentState,
+                  page: 1,
+                  searchQuery: value,
+                }))
+              }
               placeholder="Search in this list..."
               className="min-w-[240px] flex-1"
             />
@@ -622,16 +815,32 @@ export function ListsPageClient({
               onFilterChange={handleFilterChange}
               sortFields={sortFields}
               sortState={sortState}
-              onSortChange={setSortState}
+              onSortChange={(nextSortState) =>
+                setUrlState((currentState) => ({
+                  ...currentState,
+                  page: 1,
+                  sortState: nextSortState,
+                }))
+              }
               yearRange={{
                 min: MIN_YEAR,
                 max: CURRENT_YEAR,
                 value: yearRange,
-                onChange: setYearRange,
+                onChange: (nextYearRange) =>
+                  setUrlState((currentState) => ({
+                    ...currentState,
+                    page: 1,
+                    yearRange: nextYearRange,
+                  })),
               }}
               ratingFilter={{
                 value: minRating,
-                onChange: setMinRating,
+                onChange: (nextMinRating) =>
+                  setUrlState((currentState) => ({
+                    ...currentState,
+                    page: 1,
+                    minRating: nextMinRating,
+                  })),
               }}
               onClearAll={handleClearAll}
             />
@@ -670,7 +879,7 @@ export function ListsPageClient({
       {/* Results */}
       {sortedItems.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {sortedItems.map((item) => (
+          {paginatedItems.map((item) => (
             <MediaCardWithActions
               key={`${item.media_type}-${item.id}`}
               media={listItemToMedia(item)}
@@ -713,6 +922,24 @@ export function ListsPageClient({
           </EmptyHeader>
         </Empty>
       )}
+
+      {sortedItems.length > 0 && totalPages > 1 ? (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalResults={sortedItems.length}
+          resultsPerPage={LISTS_RESULTS_PER_PAGE}
+          onPageChange={(page) =>
+            setUrlState(
+              (currentState) => ({
+                ...currentState,
+                page,
+              }),
+              { history: "push" },
+            )
+          }
+        />
+      ) : null}
 
       {/* Trailer Modal */}
       <TrailerModal

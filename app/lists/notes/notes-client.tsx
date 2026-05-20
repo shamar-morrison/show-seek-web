@@ -14,10 +14,11 @@ import { FilterSort, SortState } from "@/components/ui/filter-sort"
 import { SearchInput } from "@/components/ui/search-input"
 import { useAuth } from "@/context/auth-context"
 import { useNotes } from "@/hooks/use-notes"
-import { showActionableSuccessToast } from "@/lib/actionable-toast"
-import { getEpisodeNoteMetadata } from "@/lib/note-utils"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
+import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getDisplayNormalizedTitle } from "@/lib/media-title"
+import { getEpisodeNoteMetadata } from "@/lib/note-utils"
 import type { Note } from "@/types/note"
 import {
   Film01Icon,
@@ -37,8 +38,24 @@ const SORT_FIELDS = [
   { value: "createdAt", label: "Date Added" },
   { value: "title", label: "Alphabetically" },
 ]
+const DEFAULT_NOTES_SORT_STATE: SortState = {
+  field: "updatedAt",
+  direction: "desc",
+}
 
 type NoteTab = "all" | Note["mediaType"]
+
+function isNoteTab(value: string | null): value is NoteTab {
+  return value === "all" || value === "movie" || value === "tv" || value === "episode"
+}
+
+function isNotesSortField(value: string | null): value is "updatedAt" | "createdAt" | "title" {
+  return value === "updatedAt" || value === "createdAt" || value === "title"
+}
+
+function isSortDirection(value: string | null): value is "asc" | "desc" {
+  return value === "asc" || value === "desc"
+}
 
 /**
  * NotesClient Component
@@ -48,16 +65,56 @@ export function NotesClient() {
   const { user, loading: authLoading } = useAuth()
   const { preferences } = usePreferences()
   const { notes, loading: notesLoading, removeNote, saveNote } = useNotes()
-  const [searchQuery, setSearchQuery] = useState("")
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<NoteTab>("all")
+  const [urlState, setUrlState] = useUrlStateSync<{
+    activeTab: NoteTab
+    searchQuery: string
+    sortState: SortState
+  }>({
+    keys: ["tab", "q", "sort", "dir"],
+    parse: (params) => {
+      const tab = params.get("tab")
+      const sort = params.get("sort")
+      const direction = params.get("dir")
 
-  // Sort state
-  const [sortState, setSortState] = useState<SortState>({
-    field: "updatedAt",
-    direction: "desc",
+      return {
+        activeTab: isNoteTab(tab) ? tab : "all",
+        searchQuery: params.get("q")?.trim() ?? "",
+        sortState: {
+          field: isNotesSortField(sort) ? sort : DEFAULT_NOTES_SORT_STATE.field,
+          direction: isSortDirection(direction)
+            ? direction
+            : DEFAULT_NOTES_SORT_STATE.direction,
+        },
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.activeTab !== "all") {
+        params.set("tab", state.activeTab)
+      }
+
+      const q = state.searchQuery.trim()
+      if (q) {
+        params.set("q", q)
+      }
+
+      if (state.sortState.field !== DEFAULT_NOTES_SORT_STATE.field) {
+        params.set("sort", state.sortState.field)
+      }
+
+      if (state.sortState.direction !== DEFAULT_NOTES_SORT_STATE.direction) {
+        params.set("dir", state.sortState.direction)
+      }
+
+      return params
+    },
   })
+  const activeTab = urlState.activeTab
+  const searchQuery = urlState.searchQuery
+  const sortState = urlState.sortState
 
   // Convert notes Map to array
   const notesArray = useMemo(() => Array.from(notes.values()), [notes])
@@ -289,7 +346,12 @@ export function NotesClient() {
         <SearchInput
           id="notes-search-input"
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              searchQuery: value,
+            }))
+          }
           placeholder="Search by media title, original title, or note content..."
           aria-label="Search notes by media title, original title, or content"
           className="flex-1"
@@ -300,7 +362,12 @@ export function NotesClient() {
           onFilterChange={() => {}}
           sortFields={SORT_FIELDS}
           sortState={sortState}
-          onSortChange={setSortState}
+          onSortChange={(nextSortState) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              sortState: nextSortState,
+            }))
+          }
         />
       </div>
 
@@ -310,28 +377,48 @@ export function NotesClient() {
           count={noteCounts.all}
           isActive={activeTab === "all"}
           icon={Note01Icon}
-          onClick={() => setActiveTab("all")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "all",
+            }))
+          }
         />
         <FilterTabButton
           label="Movies"
           count={noteCounts.movie}
           isActive={activeTab === "movie"}
           icon={Film01Icon}
-          onClick={() => setActiveTab("movie")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "movie",
+            }))
+          }
         />
         <FilterTabButton
           label="TV Shows"
           count={noteCounts.tv}
           isActive={activeTab === "tv"}
           icon={Tv01Icon}
-          onClick={() => setActiveTab("tv")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "tv",
+            }))
+          }
         />
         <FilterTabButton
           label="Episodes"
           count={noteCounts.episode}
           isActive={activeTab === "episode"}
           icon={PlayCircle02Icon}
-          onClick={() => setActiveTab("episode")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "episode",
+            }))
+          }
         />
       </div>
 

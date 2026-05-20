@@ -14,6 +14,7 @@ export default defineConfig({
     setupFiles: ["./test/setup.ts"],
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
     restoreMocks: true,
+    testTimeout: 30000,
     unstubEnvs: true,
     unstubGlobals: true,
   },

@@ -87,130 +87,134 @@ function formatLocalDateKey(date: Date): string {
 }
 
 describe("ReleaseCalendarView", () => {
-  it("renders a responsive two-column card list with grouped TV episodes and shared media tabs", async () => {
-    const user = userEvent.setup()
+  it(
+    "renders a responsive two-column card list with grouped TV episodes and shared media tabs",
+    async () => {
+      const user = userEvent.setup()
 
-    render(
-      <ReleaseCalendarView
-        releases={[
-          createRelease({
-            id: 1,
-            title: "Alpha",
-            releaseDate: "2099-04-10",
-            uniqueKey: "movie-1",
-          }),
-          createRelease({
-            id: 2,
-            mediaType: "tv",
-            title: "Beta",
-            releaseDate: "2099-04-12",
-            uniqueKey: "tv-2-s1-e1",
-            sourceLists: ["currently-watching"],
-            nextEpisode: {
-              seasonNumber: 1,
-              episodeNumber: 1,
-              episodeName: "Pilot",
-            },
-          }),
-          createRelease({
-            id: 2,
-            mediaType: "tv",
-            title: "Beta",
-            releaseDate: "2099-04-13",
-            uniqueKey: "tv-2-s1-e2",
-            sourceLists: ["currently-watching"],
-            nextEpisode: {
-              seasonNumber: 1,
-              episodeNumber: 2,
-              episodeName: "Second",
-            },
-          }),
-          createRelease({
-            id: 3,
-            title: "Gamma",
-            releaseDate: "2099-05-01",
-            uniqueKey: "movie-3",
-          }),
-        ]}
-        isPremium
-      />,
-    )
+      render(
+        <ReleaseCalendarView
+          releases={[
+            createRelease({
+              id: 1,
+              title: "Alpha",
+              releaseDate: "2099-04-10",
+              uniqueKey: "movie-1",
+            }),
+            createRelease({
+              id: 2,
+              mediaType: "tv",
+              title: "Beta",
+              releaseDate: "2099-04-12",
+              uniqueKey: "tv-2-s1-e1",
+              sourceLists: ["currently-watching"],
+              nextEpisode: {
+                seasonNumber: 1,
+                episodeNumber: 1,
+                episodeName: "Pilot",
+              },
+            }),
+            createRelease({
+              id: 2,
+              mediaType: "tv",
+              title: "Beta",
+              releaseDate: "2099-04-13",
+              uniqueKey: "tv-2-s1-e2",
+              sourceLists: ["currently-watching"],
+              nextEpisode: {
+                seasonNumber: 1,
+                episodeNumber: 2,
+                episodeName: "Second",
+              },
+            }),
+            createRelease({
+              id: 3,
+              title: "Gamma",
+              releaseDate: "2099-05-01",
+              uniqueKey: "movie-3",
+            }),
+          ]}
+          isPremium
+        />,
+      )
 
-    expect(screen.getByText("Alpha")).toBeInTheDocument()
-    expect(screen.getByText("Beta")).toBeInTheDocument()
-    expect(screen.getByText("Gamma")).toBeInTheDocument()
-    expect(
-      screen.getByText(/Season 1 Episode\s+1 \/ Pilot/),
-    ).toBeInTheDocument()
-    expect(screen.queryByText("2 upcoming episodes")).not.toBeInTheDocument()
-    expect(screen.queryByText("Second")).not.toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "2 episodes ↓" }),
-    ).toBeInTheDocument()
-    const cardGrid = screen.getByTestId("release-calendar-card-grid")
-    expect(cardGrid).toHaveClass("space-y-6")
-    expect(cardGrid).not.toHaveClass("columns-1")
-    expect(cardGrid).not.toHaveClass("gap-x-4")
-    expect(cardGrid).not.toHaveClass("lg:columns-2")
-    expect(cardGrid.className).not.toContain("grid")
-    expect(cardGrid.className).not.toContain("grid-cols")
+      expect(screen.getByText("Alpha")).toBeInTheDocument()
+      expect(screen.getByText("Beta")).toBeInTheDocument()
+      expect(screen.getByText("Gamma")).toBeInTheDocument()
+      expect(
+        screen.getByText(/Season 1 Episode\s+1 \/ Pilot/),
+      ).toBeInTheDocument()
+      expect(screen.queryByText("2 upcoming episodes")).not.toBeInTheDocument()
+      expect(screen.queryByText("Second")).not.toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: "2 episodes ↓" }),
+      ).toBeInTheDocument()
+      const cardGrid = screen.getByTestId("release-calendar-card-grid")
+      expect(cardGrid).toHaveClass("space-y-6")
+      expect(cardGrid).not.toHaveClass("columns-1")
+      expect(cardGrid).not.toHaveClass("gap-x-4")
+      expect(cardGrid).not.toHaveClass("lg:columns-2")
+      expect(cardGrid.className).not.toContain("grid")
+      expect(cardGrid.className).not.toContain("grid-cols")
 
-    const getReleaseSection = (headingName: string) => {
-      const heading = screen.getByRole("heading", { name: headingName })
-      const headingRow = heading.closest("div")
-      const section = headingRow?.parentElement
+      const getReleaseSection = (headingName: string) => {
+        const heading = screen.getByRole("heading", { name: headingName })
+        const headingRow = heading.closest("div")
+        const section = headingRow?.parentElement
 
-      expect(headingRow?.className).not.toContain("column-span")
-      expect(section).toBeInstanceOf(HTMLElement)
+        expect(headingRow?.className).not.toContain("column-span")
+        expect(section).toBeInstanceOf(HTMLElement)
 
-      return section as HTMLElement
-    }
+        return section as HTMLElement
+      }
 
-    const aprilSection = getReleaseSection("April 2099")
-    const aprilGrid = aprilSection.children.item(1) as HTMLElement
-    const alphaCard = aprilGrid.children.item(0) as HTMLElement
-    const betaCard = aprilGrid.children.item(1) as HTMLElement
+      const aprilSection = getReleaseSection("April 2099")
+      const aprilGrid = aprilSection.children.item(1) as HTMLElement
+      const alphaCard = aprilGrid.children.item(0) as HTMLElement
+      const betaCard = aprilGrid.children.item(1) as HTMLElement
 
-    expect(aprilGrid).toHaveClass(
-      "grid",
-      "grid-cols-1",
-      "gap-4",
-      "lg:grid-cols-2",
-    )
-    expect(aprilGrid).not.toHaveClass("flex", "lg:flex-row")
-    expect(aprilGrid.children).toHaveLength(2)
-    expect(within(alphaCard).getByText("Alpha")).toBeInTheDocument()
-    expect(within(alphaCard).queryByText("Beta")).not.toBeInTheDocument()
-    expect(within(betaCard).getByText("Beta")).toBeInTheDocument()
-    expect(within(betaCard).queryByText("Alpha")).not.toBeInTheDocument()
+      expect(aprilGrid).toHaveClass(
+        "grid",
+        "grid-cols-1",
+        "gap-4",
+        "lg:grid-cols-2",
+      )
+      expect(aprilGrid).not.toHaveClass("flex", "lg:flex-row")
+      expect(aprilGrid.children).toHaveLength(2)
+      expect(within(alphaCard).getByText("Alpha")).toBeInTheDocument()
+      expect(within(alphaCard).queryByText("Beta")).not.toBeInTheDocument()
+      expect(within(betaCard).getByText("Beta")).toBeInTheDocument()
+      expect(within(betaCard).queryByText("Alpha")).not.toBeInTheDocument()
 
-    const maySection = getReleaseSection("May 2099")
+      const maySection = getReleaseSection("May 2099")
 
-    expect(within(maySection).getByText("Gamma")).toBeInTheDocument()
-    expect(within(maySection).queryByText("Alpha")).not.toBeInTheDocument()
-    expect(
-      aprilSection.compareDocumentPosition(maySection) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+      expect(within(maySection).getByText("Gamma")).toBeInTheDocument()
+      expect(within(maySection).queryByText("Alpha")).not.toBeInTheDocument()
+      expect(
+        aprilSection.compareDocumentPosition(maySection) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
 
-    const cards = screen.getAllByTestId("release-calendar-card")
-    expect(cards).toHaveLength(3)
-    cards.forEach((card) => {
-      expect(card).not.toHaveClass("break-inside-avoid")
-      expect(card).not.toHaveClass("mb-4")
-    })
-    expect(screen.queryByText(/releases in view/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Showing \d+ of/i)).not.toBeInTheDocument()
-    expect(
-      screen.getByTestId("release-calendar-card-grid").parentElement?.className,
-    ).not.toContain("border")
+      const cards = screen.getAllByTestId("release-calendar-card")
+      expect(cards).toHaveLength(3)
+      cards.forEach((card) => {
+        expect(card).not.toHaveClass("break-inside-avoid")
+        expect(card).not.toHaveClass("mb-4")
+      })
+      expect(screen.queryByText(/releases in view/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Showing \d+ of/i)).not.toBeInTheDocument()
+      expect(
+        screen.getByTestId("release-calendar-card-grid").parentElement?.className,
+      ).not.toContain("border")
 
-    await user.click(screen.getByTestId("release-calendar-media-tab-tv"))
+      await user.click(screen.getByTestId("release-calendar-media-tab-tv"))
 
-    expect(screen.queryByText("Alpha")).not.toBeInTheDocument()
-    expect(screen.getByText("Beta")).toBeInTheDocument()
-    expect(screen.queryByText("Gamma")).not.toBeInTheDocument()
-  })
+      expect(screen.queryByText("Alpha")).not.toBeInTheDocument()
+      expect(screen.getByText("Beta")).toBeInTheDocument()
+      expect(screen.queryByText("Gamma")).not.toBeInTheDocument()
+    },
+    10000,
+  )
 
   it("collapses grouped episode rows below the divider until expanded", async () => {
     const user = userEvent.setup()

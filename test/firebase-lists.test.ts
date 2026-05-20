@@ -269,7 +269,7 @@ describe("fetchUserList", () => {
 })
 
 describe("fetchUserLists", () => {
-  it("preserves numeric and prefixed list item keys while normalizing addedAt", async () => {
+  it("collapses duplicate legacy and prefixed keys for the same media item", async () => {
     vi.mocked(getDocs).mockResolvedValue({
       docs: [
         {
@@ -283,8 +283,8 @@ describe("fetchUserLists", () => {
                 media_type: "movie",
                 addedAt: createTimestampLike(1710000000000),
               },
-              "movie-456": {
-                id: 456,
+              "movie-123": {
+                id: 123,
                 title: "Prefixed Movie",
                 poster_path: null,
                 media_type: "movie",
@@ -301,11 +301,57 @@ describe("fetchUserLists", () => {
       expect.objectContaining({
         id: "already-watched",
         items: {
+          "movie-123": expect.objectContaining({
+            addedAt: 1710000005000,
+            id: 123,
+            media_type: "movie",
+          }),
+        },
+      }),
+    ])
+  })
+
+  it("keeps distinct mixed-format media items while normalizing addedAt", async () => {
+    vi.mocked(getDocs).mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            name: "Already Watched",
+            items: {
+              "123": {
+                id: 123,
+                title: "Legacy Movie",
+                poster_path: null,
+                media_type: "movie",
+                addedAt: createTimestampLike(1710000000000),
+              },
+              "tv-456": {
+                id: 456,
+                title: "Prefixed Show",
+                poster_path: null,
+                media_type: "tv",
+                addedAt: 1710000005000,
+              },
+            },
+          }),
+          id: "already-watched",
+        },
+      ],
+    } as Awaited<ReturnType<typeof getDocs>>)
+
+    await expect(fetchUserLists("user-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "already-watched",
+        items: {
           "123": expect.objectContaining({
             addedAt: 1710000000000,
+            id: 123,
+            media_type: "movie",
           }),
-          "movie-456": expect.objectContaining({
+          "tv-456": expect.objectContaining({
             addedAt: 1710000005000,
+            id: 456,
+            media_type: "tv",
           }),
         },
       }),
@@ -492,6 +538,51 @@ describe("addToList", () => {
     } finally {
       nowSpy.mockRestore()
     }
+  })
+
+  it("reuses an existing prefixed key instead of creating a numeric duplicate", async () => {
+    const { wasAdded, transaction } = await runAddToListWithCurrentDoc(
+      {
+        exists: () => true,
+        data: () => ({
+          items: {
+            "movie-123": {
+              id: 123,
+              title: "Mad Max",
+              poster_path: null,
+              media_type: "movie",
+              addedAt: 111,
+            },
+          },
+        }),
+      },
+      {
+        id: 123,
+        title: "Mad Max",
+        poster_path: null,
+        media_type: "movie",
+        addedAt: 222,
+      },
+    )
+
+    expect(wasAdded).toBe(false)
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/watchlist" },
+      {
+        name: "Should Watch",
+        items: {
+          "movie-123": {
+            id: 123,
+            title: "Mad Max",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 222,
+          },
+        },
+        updatedAt: "server-timestamp",
+      },
+      { merge: true },
+    )
   })
 })
 

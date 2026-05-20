@@ -12,6 +12,7 @@ import {
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import type { CastMember, CrewMember } from "@/types/tmdb"
 import {
   Search01Icon,
@@ -20,9 +21,13 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 type TabType = "cast" | "crew"
+
+function isCreditsTab(value: string | null): value is TabType {
+  return value === "cast" || value === "crew"
+}
 
 interface CreditsClientProps {
   /** Title of the media (movie or TV show name) */
@@ -49,8 +54,36 @@ export function CreditsClient({
   cast,
   crew,
 }: CreditsClientProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("cast")
-  const [searchQuery, setSearchQuery] = useState("")
+  const [urlState, setUrlState] = useUrlStateSync<{
+    activeTab: TabType
+    searchQuery: string
+  }>({
+    keys: ["tab", "q"],
+    parse: (params) => {
+      const tab = params.get("tab")
+
+      return {
+        activeTab: isCreditsTab(tab) ? tab : "cast",
+        searchQuery: params.get("q")?.trim() ?? "",
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.activeTab !== "cast") {
+        params.set("tab", state.activeTab)
+      }
+
+      const q = state.searchQuery.trim()
+      if (q) {
+        params.set("q", q)
+      }
+
+      return params
+    },
+  })
+  const activeTab = urlState.activeTab
+  const searchQuery = urlState.searchQuery
 
   // Filter cast/crew based on search query
   const filteredCast = useMemo(() => {
@@ -112,14 +145,24 @@ export function CreditsClient({
           count={cast.length}
           isActive={activeTab === "cast"}
           icon={UserIcon}
-          onClick={() => setActiveTab("cast")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "cast",
+            }))
+          }
         />
         <FilterTabButton
           label="Crew"
           count={crew.length}
           isActive={activeTab === "crew"}
           icon={UserGroupIcon}
-          onClick={() => setActiveTab("crew")}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "crew",
+            }))
+          }
         />
       </div>
 
@@ -127,7 +170,12 @@ export function CreditsClient({
       <SearchInput
         id="credits-search-input"
         value={searchQuery}
-        onChange={setSearchQuery}
+        onChange={(value) =>
+          setUrlState((currentState) => ({
+            ...currentState,
+            searchQuery: value,
+          }))
+        }
         placeholder={
           activeTab === "cast"
             ? "Search by name or character..."

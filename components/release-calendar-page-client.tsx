@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useReleaseCalendar } from "@/hooks/use-release-calendar"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import {
   ALL_DATES_TEMPORAL_TAB_KEY,
   CALENDAR_SOURCE_FILTERS,
@@ -55,7 +56,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 const PREVIEW_LIMIT = 3
 
@@ -110,6 +111,21 @@ const SORT_FIELDS: SortField[] = [
   { value: "alphabetical", label: "Alphabetical" },
   { value: "type", label: "By Type" },
 ]
+
+interface ReleaseCalendarUrlState {
+  mediaFilter: CalendarMediaFilter
+  selectedSources: CalendarSourceFilter[]
+  sortMode: CalendarSortMode
+  temporalFilter: string
+}
+
+function isCalendarMediaFilter(value: string | null): value is CalendarMediaFilter {
+  return value === "all" || value === "movie" || value === "tv"
+}
+
+function isCalendarSortMode(value: string): value is CalendarSortMode {
+  return SORT_FIELDS.some((field) => field.value === value)
+}
 
 function getReleaseHref(release: ReleaseCalendarViewItem): string {
   if (release.mediaType === "movie") {
@@ -513,15 +529,9 @@ interface ReleaseCalendarViewProps {
   releases: ReleaseCalendarRelease[]
 }
 
-function isCalendarSortMode(value: string): value is CalendarSortMode {
-  return SORT_FIELDS.some((field) => field.value === value)
-}
-
 function normalizeSelectedSources(values: string[]): CalendarSourceFilter[] {
-  const validSources = new Set<CalendarSourceFilter>(CALENDAR_SOURCE_FILTERS)
-
-  return values.filter((value): value is CalendarSourceFilter =>
-    validSources.has(value as CalendarSourceFilter),
+  return CALENDAR_SOURCE_FILTERS.filter((source) =>
+    values.includes(source),
   )
 }
 
@@ -564,14 +574,62 @@ export function ReleaseCalendarView({
   onUpgradeClick,
   releases,
 }: ReleaseCalendarViewProps) {
-  const [mediaFilter, setMediaFilter] = useState<CalendarMediaFilter>("all")
-  const [selectedSources, setSelectedSources] = useState<
-    CalendarSourceFilter[]
-  >([...CALENDAR_SOURCE_FILTERS])
-  const [sortMode, setSortMode] = useState<CalendarSortMode>("soonest")
-  const [temporalFilter, setTemporalFilter] = useState<string>(
-    ALL_DATES_TEMPORAL_TAB_KEY,
-  )
+  const [urlState, setUrlState] = useUrlStateSync<ReleaseCalendarUrlState>({
+    keys: ["media", "source", "sort", "temporal"],
+    parse: (params) => {
+      const media = params.get("media")
+      const sort = params.get("sort")
+      const sortMode: CalendarSortMode = isCalendarSortMode(sort ?? "")
+        ? ((sort ?? "soonest") as CalendarSortMode)
+        : "soonest"
+      const rawSources = params.getAll("source")
+      const normalizedSources = normalizeSelectedSources(rawSources)
+      const hasExplicitEmptySources = rawSources.some((source) => source === "")
+      const selectedSources =
+        rawSources.length === 0
+          ? [...CALENDAR_SOURCE_FILTERS]
+          : hasExplicitEmptySources && normalizedSources.length === 0
+            ? []
+            : normalizedSources.length > 0
+              ? normalizedSources
+              : [...CALENDAR_SOURCE_FILTERS]
+
+      return {
+        mediaFilter: isCalendarMediaFilter(media) ? media : "all",
+        selectedSources,
+        sortMode,
+        temporalFilter:
+          params.get("temporal")?.trim() || ALL_DATES_TEMPORAL_TAB_KEY,
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.mediaFilter !== "all") {
+        params.set("media", state.mediaFilter)
+      }
+
+      if (state.selectedSources.length === 0) {
+        params.append("source", "")
+      } else if (state.selectedSources.length !== CALENDAR_SOURCE_FILTERS.length) {
+        state.selectedSources.forEach((source) => params.append("source", source))
+      }
+
+      if (state.sortMode !== "soonest") {
+        params.set("sort", state.sortMode)
+      }
+
+      if (state.temporalFilter !== ALL_DATES_TEMPORAL_TAB_KEY) {
+        params.set("temporal", state.temporalFilter)
+      }
+
+      return params
+    },
+  })
+  const mediaFilter = urlState.mediaFilter
+  const selectedSources = urlState.selectedSources
+  const sortMode = urlState.sortMode
+  const temporalFilter = urlState.temporalFilter
 
   const labels = useMemo<ReleaseCalendarLabels>(
     () => ({
@@ -619,6 +677,16 @@ export function ReleaseCalendarView({
   )
     ? temporalFilter
     : ALL_DATES_TEMPORAL_TAB_KEY
+
+  useEffect(() => {
+    if (activeTemporalTab !== temporalFilter) {
+      setUrlState((currentState) => ({
+        ...currentState,
+        temporalFilter: activeTemporalTab,
+      }))
+    }
+  }, [activeTemporalTab, setUrlState, temporalFilter])
+
   const visibleRows = useMemo(
     () =>
       filterReleaseCalendarRowsByTemporalTab(
@@ -637,10 +705,12 @@ export function ReleaseCalendarView({
   const showUpgradeFooter =
     isPreviewing && activePresentation.totalContentCount > PREVIEW_LIMIT
   const resetCalendarControls = () => {
-    setMediaFilter("all")
-    setSelectedSources([...CALENDAR_SOURCE_FILTERS])
-    setSortMode("soonest")
-    setTemporalFilter(ALL_DATES_TEMPORAL_TAB_KEY)
+    setUrlState({
+      mediaFilter: "all",
+      selectedSources: [...CALENDAR_SOURCE_FILTERS],
+      sortMode: "soonest",
+      temporalFilter: ALL_DATES_TEMPORAL_TAB_KEY,
+    })
   }
 
   if (isLoading) {
@@ -687,9 +757,24 @@ export function ReleaseCalendarView({
         <CalendarToolbar
           mediaFilter={mediaFilter}
           onClearAll={resetCalendarControls}
-          onSelectMediaFilter={setMediaFilter}
-          onSelectSources={setSelectedSources}
-          onSelectSortMode={setSortMode}
+          onSelectMediaFilter={(nextMediaFilter) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              mediaFilter: nextMediaFilter,
+            }))
+          }
+          onSelectSources={(nextSelectedSources) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              selectedSources: nextSelectedSources,
+            }))
+          }
+          onSelectSortMode={(nextSortMode) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              sortMode: nextSortMode,
+            }))
+          }
           presentations={presentations}
           selectedSources={selectedSources}
           sortMode={sortMode}
@@ -720,9 +805,24 @@ export function ReleaseCalendarView({
       <CalendarToolbar
         mediaFilter={mediaFilter}
         onClearAll={resetCalendarControls}
-        onSelectMediaFilter={setMediaFilter}
-        onSelectSources={setSelectedSources}
-        onSelectSortMode={setSortMode}
+        onSelectMediaFilter={(nextMediaFilter) =>
+          setUrlState((currentState) => ({
+            ...currentState,
+            mediaFilter: nextMediaFilter,
+          }))
+        }
+        onSelectSources={(nextSelectedSources) =>
+          setUrlState((currentState) => ({
+            ...currentState,
+            selectedSources: nextSelectedSources,
+          }))
+        }
+        onSelectSortMode={(nextSortMode) =>
+          setUrlState((currentState) => ({
+            ...currentState,
+            sortMode: nextSortMode,
+          }))
+        }
         presentations={presentations}
         selectedSources={selectedSources}
         sortMode={sortMode}
@@ -758,7 +858,12 @@ export function ReleaseCalendarView({
                 key={tab.key}
                 isActive={activeTemporalTab === tab.key}
                 label={tab.label}
-                onClick={() => setTemporalFilter(tab.key)}
+                onClick={() =>
+                  setUrlState((currentState) => ({
+                    ...currentState,
+                    temporalFilter: tab.key,
+                  }))
+                }
                 testId={`release-calendar-temporal-tab-${tab.key}`}
               />
             ))}

@@ -29,11 +29,13 @@ import {
 } from "@/hooks/use-ratings"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import {
   getDisplayMediaTitle,
   getDisplayNormalizedTitle,
 } from "@/lib/media-title"
 import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
+import { safeParseInt } from "@/lib/utils"
 import type { Rating } from "@/types/rating"
 import type { TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -44,7 +46,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo } from "react"
 
 type RatingTab = "movies" | "tv" | "episodes" | "seasons"
 
@@ -91,6 +93,51 @@ const USER_RATING_OPTIONS = [
   { value: "6", label: "6+" },
   { value: "5", label: "5+" },
 ]
+const DEFAULT_RATING_FILTER_STATE: FilterState = {
+  userRating: "0",
+}
+const DEFAULT_RATING_SORT_STATE: SortState = {
+  field: "ratedAt",
+  direction: "desc",
+}
+
+interface RatingsUrlState {
+  activeTab: RatingTab
+  filterState: FilterState
+  searchQuery: string
+  sortState: SortState
+  yearRange: [number, number]
+}
+
+function isRatingTab(value: string | null): value is RatingTab {
+  return (
+    value === "movies" ||
+    value === "tv" ||
+    value === "episodes" ||
+    value === "seasons"
+  )
+}
+
+function isSortDirection(value: string | null): value is "asc" | "desc" {
+  return value === "asc" || value === "desc"
+}
+
+function parseRatingsYearRange(params: URLSearchParams): [number, number] {
+  const yearMin = safeParseInt(params.get("yearMin"))
+  const yearMax = safeParseInt(params.get("yearMax"))
+
+  if (
+    yearMin === undefined ||
+    yearMax === undefined ||
+    yearMin < MIN_YEAR ||
+    yearMax > CURRENT_YEAR ||
+    yearMin > yearMax
+  ) {
+    return [MIN_YEAR, CURRENT_YEAR]
+  }
+
+  return [yearMin, yearMax]
+}
 
 function normalizeSortStateForTab(
   activeTab: RatingTab,
@@ -114,23 +161,75 @@ function normalizeSortStateForTab(
 export function RatingsPageClient() {
   const { loading: authLoading } = useAuth()
   const { preferences } = usePreferences()
-  const [activeTab, setActiveTabState] = useState<RatingTab>("movies")
-  const [searchQuery, setSearchQuery] = useState("")
+  const [urlState, setUrlState] = useUrlStateSync<RatingsUrlState>({
+    keys: ["tab", "q", "userRating", "yearMin", "yearMax", "sort", "dir"],
+    parse: (params) => {
+      const tab = params.get("tab")
+      const sort = params.get("sort")
+      const direction = params.get("dir")
+      const activeTab: RatingTab = isRatingTab(tab) ? tab : "movies"
+      const parsedSortState = normalizeSortStateForTab(activeTab, {
+        field: sort ?? DEFAULT_RATING_SORT_STATE.field,
+        direction: isSortDirection(direction)
+          ? direction
+          : DEFAULT_RATING_SORT_STATE.direction,
+      })
+      const userRating = params.get("userRating")
 
-  // Filter state (for movies/TV only)
-  const [filterState, setFilterState] = useState<FilterState>({
-    userRating: "0",
-  })
-  const [yearRange, setYearRange] = useState<[number, number]>([
-    MIN_YEAR,
-    CURRENT_YEAR,
-  ])
+      return {
+        activeTab,
+        searchQuery: params.get("q")?.trim() ?? "",
+        filterState: {
+          userRating:
+            userRating &&
+            USER_RATING_OPTIONS.some((option) => option.value === userRating)
+              ? userRating
+              : DEFAULT_RATING_FILTER_STATE.userRating,
+        },
+        yearRange: parseRatingsYearRange(params),
+        sortState: parsedSortState,
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
 
-  // Sort state
-  const [sortState, setSortState] = useState<SortState>({
-    field: "ratedAt",
-    direction: "desc",
+      if (state.activeTab !== "movies") {
+        params.set("tab", state.activeTab)
+      }
+
+      const q = state.searchQuery.trim()
+      if (q) {
+        params.set("q", q)
+      }
+
+      if (state.filterState.userRating !== DEFAULT_RATING_FILTER_STATE.userRating) {
+        params.set("userRating", state.filterState.userRating)
+      }
+
+      if (state.yearRange[0] !== MIN_YEAR) {
+        params.set("yearMin", state.yearRange[0].toString())
+      }
+
+      if (state.yearRange[1] !== CURRENT_YEAR) {
+        params.set("yearMax", state.yearRange[1].toString())
+      }
+
+      if (state.sortState.field !== DEFAULT_RATING_SORT_STATE.field) {
+        params.set("sort", state.sortState.field)
+      }
+
+      if (state.sortState.direction !== DEFAULT_RATING_SORT_STATE.direction) {
+        params.set("dir", state.sortState.direction)
+      }
+
+      return params
+    },
   })
+  const activeTab = urlState.activeTab
+  const searchQuery = urlState.searchQuery
+  const filterState = urlState.filterState
+  const yearRange = urlState.yearRange
+  const sortState = urlState.sortState
 
   const movieRatings = useMovieRatings(undefined, activeTab === "movies")
   const tvRatings = useTVRatings(undefined, activeTab === "tv")
@@ -370,28 +469,49 @@ export function RatingsPageClient() {
   )
 
   // Handle filter change
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    setFilterState((prev) => ({ ...prev, [key]: value }))
-  }, [])
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        filterState: {
+          ...currentState.filterState,
+          [key]: value,
+        },
+      }))
+    },
+    [setUrlState],
+  )
 
   // Handle clear all filters
   const handleClearAll = useCallback(() => {
-    setFilterState({ userRating: "0" })
-    setYearRange([MIN_YEAR, CURRENT_YEAR])
-    setSortState({ field: "ratedAt", direction: "desc" })
-    setSearchQuery("")
-  }, [])
+    setUrlState({
+      activeTab,
+      searchQuery: "",
+      filterState: DEFAULT_RATING_FILTER_STATE,
+      yearRange: [MIN_YEAR, CURRENT_YEAR],
+      sortState: DEFAULT_RATING_SORT_STATE,
+    })
+  }, [activeTab, setUrlState])
 
-  const handleTabChange = useCallback((nextTab: RatingTab) => {
-    setActiveTabState(nextTab)
-    setSortState((prev) => normalizeSortStateForTab(nextTab, prev))
-  }, [])
+  const handleTabChange = useCallback(
+    (nextTab: RatingTab) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        activeTab: nextTab,
+        sortState: normalizeSortStateForTab(nextTab, currentState.sortState),
+      }))
+    },
+    [setUrlState],
+  )
 
   const handleSortChange = useCallback(
     (nextSortState: SortState) => {
-      setSortState(normalizeSortStateForTab(activeTab, nextSortState))
+      setUrlState((currentState) => ({
+        ...currentState,
+        sortState: normalizeSortStateForTab(activeTab, nextSortState),
+      }))
     },
-    [activeTab],
+    [activeTab, setUrlState],
   )
 
   // Get the appropriate empty state text
@@ -455,7 +575,12 @@ export function RatingsPageClient() {
         <SearchInput
           id="ratings-search-input"
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value) =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              searchQuery: value,
+            }))
+          }
           placeholder={
             activeTab === "episodes"
               ? "Search by show or episode name..."
@@ -485,7 +610,11 @@ export function RatingsPageClient() {
                   min: MIN_YEAR,
                   max: CURRENT_YEAR,
                   value: yearRange,
-                  onChange: setYearRange,
+                  onChange: (nextYearRange) =>
+                    setUrlState((currentState) => ({
+                      ...currentState,
+                      yearRange: nextYearRange,
+                    })),
                 }
               : undefined
           }

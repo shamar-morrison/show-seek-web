@@ -7,6 +7,7 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { ViewAllLink } from "@/components/ui/view-all-link"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import {
   buildPersonCredits,
   getPersonCreditTypeLabel,
@@ -31,8 +32,31 @@ type PersonCreditSection = {
   items: TMDBActionableMedia[]
 }
 
+function isPersonContentTab(value: string | null): value is "movie" | "tv" {
+  return value === "movie" || value === "tv"
+}
+
 export function PersonContent({ person }: PersonContentProps) {
-  const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie")
+  const [urlState, setUrlState] = useUrlStateSync<{ tab: "movie" | "tv" }>({
+    keys: ["tab"],
+    parse: (params) => {
+      const tab = params.get("tab")
+
+      return {
+        tab: isPersonContentTab(tab) ? tab : "movie",
+      }
+    },
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.tab !== "movie") {
+        params.set("tab", state.tab)
+      }
+
+      return params
+    },
+  })
+  const activeTab = urlState.tab
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const [selectedTrailerMedia, setSelectedTrailerMedia] =
@@ -80,14 +104,14 @@ export function PersonContent({ person }: PersonContentProps) {
           count={creditsByTab.movie.count}
           isActive={activeTab === "movie"}
           icon={Film01Icon}
-          onClick={() => setActiveTab("movie")}
+          onClick={() => setUrlState({ tab: "movie" })}
         />
         <FilterTabButton
           label="TV Shows"
           count={creditsByTab.tv.count}
           isActive={activeTab === "tv"}
           icon={Tv01Icon}
-          onClick={() => setActiveTab("tv")}
+          onClick={() => setUrlState({ tab: "tv" })}
         />
       </div>
 

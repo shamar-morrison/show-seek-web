@@ -8,22 +8,11 @@ export const metadata: Metadata = {
   description: "Manage your movie and TV show watch lists",
 }
 
-interface WatchListsPageProps {
-  searchParams: Promise<{ listId?: string | string[] }>
-}
-
 /**
  * Watch Lists Page
  * Displays user's default lists with tab navigation and search filtering
  */
-export default async function WatchListsPage({
-  searchParams,
-}: WatchListsPageProps) {
-  const params = await searchParams
-  const initialListId = Array.isArray(params.listId)
-    ? params.listId[0]
-    : params.listId
-
+export default async function WatchListsPage() {
   // Fetch genres in parallel - these are cached indefinitely
   const [movieGenres, tvGenres] = await Promise.all([
     getMovieGenres(),
@@ -36,7 +25,6 @@ export default async function WatchListsPage({
       <WatchListsClient
         movieGenres={movieGenres}
         tvGenres={tvGenres}
-        initialListId={initialListId}
       />
     </>
   )

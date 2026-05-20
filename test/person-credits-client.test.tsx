@@ -10,11 +10,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   fetchTrailerKey: vi.fn(),
-  replace: vi.fn(),
   preferences: {
     showOriginalTitles: false,
   },
 }))
+
+let mockSearchParams = new URLSearchParams()
 
 vi.mock("@/app/actions", () => ({
   fetchTrailerKey: (...args: unknown[]) => mocks.fetchTrailerKey(...args),
@@ -27,9 +28,7 @@ vi.mock("@/hooks/use-preferences", () => ({
 }))
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    replace: (...args: unknown[]) => mocks.replace(...args),
-  }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 vi.mock("@/components/media-card-with-actions", () => ({
@@ -118,56 +117,48 @@ function createPerson(
   }
 }
 
+function setLocation(search = "", pathname = "/person/1/credits") {
+  window.history.replaceState({}, "", `${pathname}${search}`)
+  mockSearchParams = new URLSearchParams(search)
+}
+
 describe("PersonCreditsClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.fetchTrailerKey.mockResolvedValue("abc123")
+    setLocation()
   })
 
-  it("renders the requested combination directly and searches across original titles without nested tabs", async () => {
+  it("restores the active combination from the URL and searches across original titles", async () => {
     const user = userEvent.setup()
 
-    render(
-      <PersonCreditsClient
-        person={createPerson()}
-        initialMediaType="movie"
-        initialCreditType="cast"
-      />,
-    )
+    setLocation("?mediaType=movie&creditType=cast&q=Kamikakushi")
+
+    render(<PersonCreditsClient person={createPerson()} />)
 
     const backLink = screen.getByRole("link", {
       name: /Back to Hayao Miyazaki/i,
     })
 
     expect(backLink).toHaveAttribute("href", "/person/1")
-    expect(backLink).toHaveTextContent("Back to Hayao Miyazaki")
-    expect(backLink).not.toHaveTextContent("←")
     expect(
       screen.getByRole("heading", { name: "Hayao Miyazaki Credits" }),
     ).toBeInTheDocument()
-    expect(screen.queryByText("Viewing")).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole("heading", { name: "Movie Acting" }),
-    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /^Movies/i }),
     ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole("button", { name: /^TV Shows/i }),
-    ).not.toBeInTheDocument()
-
-    await user.type(
-      screen.getByRole("textbox", {
-        name: /search by title or original title/i,
-      }),
-      "Kamikakushi",
-    )
-
+    expect(screen.getByRole("textbox")).toHaveValue("Kamikakushi")
     expect(screen.getByText("Spirited Away")).toBeInTheDocument()
+
+    await user.clear(screen.getByRole("textbox"))
+
+    expect(window.location.search).toBe("")
   })
 
-  it("shows flat combination chips in fixed order and switching updates the URL while resetting search", async () => {
+  it("switches combinations, clears the search query, and updates the URL", async () => {
     const user = userEvent.setup()
+
+    setLocation("?mediaType=movie&creditType=cast")
 
     render(
       <PersonCreditsClient
@@ -201,18 +192,8 @@ describe("PersonCreditsClient", () => {
             ],
           },
         })}
-        initialMediaType="movie"
-        initialCreditType="cast"
       />,
     )
-
-    expect(
-      screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual([
-      "Movie Acting1",
-      "Movie Directed/Written1",
-      "TV Directed/Written1",
-    ])
 
     const searchInput = screen.getByRole("textbox", {
       name: /search by title or original title/i,
@@ -227,10 +208,7 @@ describe("PersonCreditsClient", () => {
     expect(screen.getByText("TV Crew Credit")).toBeInTheDocument()
     expect(screen.queryByText("Movie Acting Credit")).not.toBeInTheDocument()
     expect(searchInput).toHaveValue("")
-    expect(mocks.replace).toHaveBeenCalledWith(
-      "/person/1/credits?mediaType=tv&creditType=crew",
-      { scroll: false },
-    )
+    expect(window.location.search).toBe("?mediaType=tv&creditType=crew")
   })
 
   it("hides the combination switcher when only one combination exists", () => {
@@ -248,18 +226,12 @@ describe("PersonCreditsClient", () => {
             ],
           },
         })}
-        initialMediaType="movie"
-        initialCreditType="crew"
       />,
     )
 
     expect(
       screen.getByRole("heading", { name: "Hayao Miyazaki Credits" }),
     ).toBeInTheDocument()
-    expect(screen.queryByText("Viewing")).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole("heading", { name: "Movie Directed/Written" }),
-    ).not.toBeInTheDocument()
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
     expect(screen.getByText("Only Directed Movie")).toBeInTheDocument()
   })

@@ -8,6 +8,7 @@ import { ViewAllLink } from "@/components/ui/view-all-link"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { isActionableMedia } from "@/lib/tmdb-media"
 import type { TMDBActionableMedia, TMDBMedia } from "@/types/tmdb"
+import { useMemo } from "react"
 
 interface MediaRowProps {
   title: string
@@ -25,6 +26,20 @@ interface MediaRowProps {
   preferOriginalTitles?: boolean
 }
 
+function dedupeMediaItems(items: TMDBMedia[]): TMDBMedia[] {
+  const dedupedItems = new Map<string, TMDBMedia>()
+
+  for (const item of items) {
+    const itemKey = `${item.media_type}-${item.id}`
+
+    if (!dedupedItems.has(itemKey)) {
+      dedupedItems.set(itemKey, item)
+    }
+  }
+
+  return Array.from(dedupedItems.values())
+}
+
 export function MediaRow({
   title,
   items,
@@ -36,8 +51,10 @@ export function MediaRow({
   showActions = false,
   preferOriginalTitles = false,
 }: MediaRowProps) {
+  const dedupedItems = useMemo(() => dedupeMediaItems(items), [items])
+
   // Filter out watched content
-  const filteredItems = useContentFilter(items)
+  const filteredItems = useContentFilter(dedupedItems)
 
   // Default limits: 7 for grid, all items for scrollable
   const displayLimit = limit ?? (scrollable ? filteredItems.length : 7)
@@ -52,7 +69,7 @@ export function MediaRow({
       {filteredItems.length === 0 ? (
         <div className="flex h-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/5 px-4 text-center text-gray-400">
           <p>
-            {items.length > 0
+            {dedupedItems.length > 0
               ? "All items in this list are hidden based on your preferences."
               : "No items in this list"}
           </p>
