@@ -7,14 +7,11 @@ export const metadata: Metadata = {
   description: "Manage your custom movie and TV show lists",
 }
 
-interface CustomListsPageProps {
-}
-
 /**
  * Custom Lists Page
  * Displays user's custom lists with tab navigation and search filtering
  */
-export default async function CustomListsPage({}: CustomListsPageProps) {
+export default async function CustomListsPage() {
   // Fetch genres in parallel - these are cached indefinitely
   const [movieGenres, tvGenres] = await Promise.all([
     getMovieGenres(),

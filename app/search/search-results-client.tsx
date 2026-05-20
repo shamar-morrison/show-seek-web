@@ -93,8 +93,9 @@ export function SearchResultsClient({
     serialize: (state) => {
       const params = new URLSearchParams()
 
-      if (state.query.trim()) {
-        params.set("q", state.query)
+      const q = state.query.trim()
+      if (q) {
+        params.set("q", q)
       }
 
       if (state.tab !== "all") {
@@ -178,7 +179,6 @@ export function SearchResultsClient({
   // Debounced search
   const debouncedSearch = useMemo(() => {
     return debounceWithCancel((searchQuery: string) => {
-      lastRequestedQueryRef.current = normalizeSearchQuery(searchQuery)
       void performSearch(searchQuery)
     }, DEBOUNCE_DELAY)
   }, [performSearch])
@@ -193,7 +193,9 @@ export function SearchResultsClient({
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    skippedQueryEffectRef.current = normalizeSearchQuery(value)
+    const normalized = normalizeSearchQuery(value)
+    skippedQueryEffectRef.current = normalized
+    lastRequestedQueryRef.current = normalized
     setUrlState((currentState) => ({
       ...currentState,
       query: value,
@@ -224,7 +226,14 @@ export function SearchResultsClient({
 
     debouncedSearch.cancel()
     lastRequestedQueryRef.current = normalizedQuery
-    void performSearch(query)
+
+    const timer = setTimeout(() => {
+      void performSearch(query)
+    }, 0)
+
+    return () => {
+      clearTimeout(timer)
+    }
   }, [debouncedSearch, performSearch, query])
 
   // Filter results based on active tab

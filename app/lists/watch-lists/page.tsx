@@ -8,14 +8,11 @@ export const metadata: Metadata = {
   description: "Manage your movie and TV show watch lists",
 }
 
-interface WatchListsPageProps {
-}
-
 /**
  * Watch Lists Page
  * Displays user's default lists with tab navigation and search filtering
  */
-export default async function WatchListsPage({}: WatchListsPageProps) {
+export default async function WatchListsPage() {
   // Fetch genres in parallel - these are cached indefinitely
   const [movieGenres, tvGenres] = await Promise.all([
     getMovieGenres(),

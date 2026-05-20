@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 const URL_STATE_SYNC_EVENT = "showseek:url-state-sync"
 const DEFAULT_HISTORY_MODE = "replace"
@@ -69,9 +69,11 @@ export function useUrlStateSync<T>({
     DEFAULT_HISTORY_MODE,
   )
 
-  keysRef.current = keys
-  parseRef.current = parse
-  serializeRef.current = serialize
+  useLayoutEffect(() => {
+    keysRef.current = keys
+    parseRef.current = parse
+    serializeRef.current = serialize
+  })
 
   const [state, setState] = useState<T>(() =>
     parse(new URLSearchParams(searchParamsString)),

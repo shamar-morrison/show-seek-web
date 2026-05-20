@@ -197,8 +197,9 @@ export function RatingsPageClient() {
         params.set("tab", state.activeTab)
       }
 
-      if (state.searchQuery.trim()) {
-        params.set("q", state.searchQuery)
+      const q = state.searchQuery.trim()
+      if (q) {
+        params.set("q", q)
       }
 
       if (state.filterState.userRating !== DEFAULT_RATING_FILTER_STATE.userRating) {

@@ -96,8 +96,9 @@ export function NotesClient() {
         params.set("tab", state.activeTab)
       }
 
-      if (state.searchQuery.trim()) {
-        params.set("q", state.searchQuery)
+      const q = state.searchQuery.trim()
+      if (q) {
+        params.set("q", q)
       }
 
       if (state.sortState.field !== DEFAULT_NOTES_SORT_STATE.field) {
