@@ -28,9 +28,14 @@ import type {
   WatchProviders,
   WatchProvidersResponse,
 } from "@/types/tmdb"
+import { unstable_cache } from "next/cache"
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY
 const TMDB_BASE_URL = "https://api.themoviedb.org/3"
+
+/** Refresh the homepage hero selection every three days. */
+const HERO_MEDIA_REVALIDATE_SECONDS = 259_200
+const HERO_MEDIA_CACHE_KEY = "hero-media-list-v1"
 
 /** Default image base URL as fallback */
 const DEFAULT_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
@@ -778,9 +783,7 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
  * @param count - Number of items to return (default: 5)
  * @returns Array of HeroMedia objects ready for UI consumption
  */
-export async function getHeroMediaList(
-  count: number = 5,
-): Promise<HeroMedia[]> {
+async function buildHeroMediaList(count: number): Promise<HeroMedia[]> {
   try {
     // Fetch trending media
     const trendingMedia = await getTrendingMedia("day")
@@ -833,6 +836,24 @@ export async function getHeroMediaList(
     console.error("Failed to get hero media list:", error)
     return []
   }
+}
+
+const getCachedHeroMediaList = unstable_cache(
+  buildHeroMediaList,
+  [HERO_MEDIA_CACHE_KEY],
+  { revalidate: HERO_MEDIA_REVALIDATE_SECONDS },
+)
+
+/**
+ * Get cached hero media for the homepage carousel.
+ *
+ * `count` is passed to the cached function so Next stores separate entries for
+ * each requested slideshow size.
+ */
+export async function getHeroMediaList(
+  count: number = 5,
+): Promise<HeroMedia[]> {
+  return getCachedHeroMediaList(count)
 }
 
 /**
