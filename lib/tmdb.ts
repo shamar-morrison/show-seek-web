@@ -28,14 +28,12 @@ import type {
   WatchProviders,
   WatchProvidersResponse,
 } from "@/types/tmdb"
-import { unstable_cache } from "next/cache"
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY
 const TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
 /** Refresh the homepage hero selection every three days. */
 const HERO_MEDIA_REVALIDATE_SECONDS = 259_200
-const HERO_MEDIA_CACHE_KEY = "hero-media-list-v1"
 
 /** Default image base URL as fallback */
 const DEFAULT_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
@@ -129,6 +127,14 @@ export async function getTMDBConfiguration(): Promise<TMDBConfiguration | null> 
 export async function getTrendingMedia(
   timeWindow: "day" | "week" = "day",
 ): Promise<TMDBMedia[]> {
+  return fetchTrendingMedia(timeWindow, 3600)
+}
+
+async function fetchTrendingMedia(
+  timeWindow: "day" | "week",
+  revalidate: number,
+  queryParams?: Record<string, string>,
+): Promise<TMDBMedia[]> {
   if (!TMDB_BEARER_TOKEN) {
     console.error("TMDB API credentials not set")
     return []
@@ -136,8 +142,8 @@ export async function getTrendingMedia(
 
   try {
     const response = await tmdbFetch(`/trending/all/${timeWindow}`, {
-      next: { revalidate: 3600 },
-    }) // Cache for 1 hour
+      next: { revalidate },
+    }, queryParams)
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -150,6 +156,17 @@ export async function getTrendingMedia(
     console.error("Failed to fetch trending media:", error)
     return []
   }
+}
+
+/**
+ * Fetch the homepage hero selection separately from the regular trending rail.
+ * The language parameter gives it a distinct Next data-cache key while
+ * preserving the app's existing English TMDB content.
+ */
+async function getHeroTrendingMedia(): Promise<TMDBMedia[]> {
+  return fetchTrendingMedia("day", HERO_MEDIA_REVALIDATE_SECONDS, {
+    language: "en-US",
+  })
 }
 
 /**
@@ -729,7 +746,7 @@ export function getBestTrailer(
 export async function getHeroMedia(): Promise<HeroMedia | null> {
   try {
     // Fetch trending media
-    const trendingMedia = await getTrendingMedia("day")
+    const trendingMedia = await getHeroTrendingMedia()
 
     if (trendingMedia.length === 0) {
       console.error("No trending media found")
@@ -783,10 +800,12 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
  * @param count - Number of items to return (default: 5)
  * @returns Array of HeroMedia objects ready for UI consumption
  */
-async function buildHeroMediaList(count: number): Promise<HeroMedia[]> {
+export async function getHeroMediaList(
+  count: number = 5,
+): Promise<HeroMedia[]> {
   try {
     // Fetch trending media
-    const trendingMedia = await getTrendingMedia("day")
+    const trendingMedia = await getHeroTrendingMedia()
 
     if (trendingMedia.length === 0) {
       console.error("No trending media found")
@@ -836,24 +855,6 @@ async function buildHeroMediaList(count: number): Promise<HeroMedia[]> {
     console.error("Failed to get hero media list:", error)
     return []
   }
-}
-
-const getCachedHeroMediaList = unstable_cache(
-  buildHeroMediaList,
-  [HERO_MEDIA_CACHE_KEY],
-  { revalidate: HERO_MEDIA_REVALIDATE_SECONDS },
-)
-
-/**
- * Get cached hero media for the homepage carousel.
- *
- * `count` is passed to the cached function so Next stores separate entries for
- * each requested slideshow size.
- */
-export async function getHeroMediaList(
-  count: number = 5,
-): Promise<HeroMedia[]> {
-  return getCachedHeroMediaList(count)
 }
 
 /**

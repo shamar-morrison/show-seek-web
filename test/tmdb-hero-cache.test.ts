@@ -1,38 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const mocks = vi.hoisted(() => ({
-  cachedResults: new Map<string, Promise<unknown>>(),
-  cachedInvocationArgs: [] as unknown[][],
-  unstableCache: vi.fn(
-    <Args extends unknown[], Result>(
-      callback: (...args: Args) => Promise<Result>,
-    ) =>
-      async (...args: Args): Promise<Result> => {
-        mocks.cachedInvocationArgs.push(args)
-        const cacheKey = JSON.stringify(args)
-        const cachedResult = mocks.cachedResults.get(cacheKey)
-
-        if (cachedResult) {
-          return cachedResult as Promise<Result>
-        }
-
-        const result = callback(...args)
-        mocks.cachedResults.set(cacheKey, result)
-        return result
-      },
-  ),
-}))
-
-vi.mock("next/cache", () => ({
-  unstable_cache: mocks.unstableCache,
-}))
-
 describe("hero media cache", () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    mocks.cachedResults.clear()
-    mocks.cachedInvocationArgs.length = 0
     vi.stubEnv("TMDB_BEARER_TOKEN", "test-token")
   })
 
@@ -41,24 +12,35 @@ describe("hero media cache", () => {
     vi.unstubAllGlobals()
   })
 
-  it("caches hero lists for 72 hours and keys entries by requested count", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+  it("caches the hero selection for 72 hours without changing regular trending", async () => {
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        new Response(JSON.stringify({ results: [] }), { status: 200 }),
     )
     vi.stubGlobal("fetch", fetchMock)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const { getHeroMediaList } = await import("@/lib/tmdb")
+    const { getHeroMediaList, getTrendingMedia } = await import("@/lib/tmdb")
 
     await getHeroMediaList(2)
-    await getHeroMediaList(2)
-    await getHeroMediaList(4)
+    await getTrendingMedia("day")
 
-    expect(mocks.unstableCache).toHaveBeenCalledWith(
-      expect.any(Function),
-      ["hero-media-list-v1"],
-      { revalidate: 259_200 },
+    const heroCall = fetchMock.mock.calls[0]
+    const trendingCall = fetchMock.mock.calls[1]
+
+    if (!heroCall || !trendingCall) {
+      throw new Error("Expected hero and regular trending requests")
+    }
+
+    const [heroUrl, heroOptions] = heroCall
+    const [trendingUrl, trendingOptions] = trendingCall
+
+    expect(new URL(heroUrl.toString()).searchParams.get("language")).toBe(
+      "en-US",
     )
-    expect(mocks.cachedInvocationArgs).toEqual([[2], [2], [4]])
+    expect(heroOptions?.next).toEqual({ revalidate: 259_200 })
+    expect(new URL(trendingUrl.toString()).searchParams.get("language")).toBeNull()
+    expect(trendingOptions?.next).toEqual({ revalidate: 3600 })
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
