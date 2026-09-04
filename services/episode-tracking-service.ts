@@ -408,6 +408,115 @@ class EpisodeTrackingService {
   }
 
   /**
+   * Mark multiple episodes across seasons as watched in chunks with delays
+   * and cancellation support.
+   * Ported from the mobile app (EpisodeTrackingService.markMultipleEpisodesWatched).
+   * Chunking keeps Firestore writes small and the progress UI responsive.
+   */
+  async markEntireShowWatched(
+    tvShowId: number,
+    episodesToMark: Array<{
+      seasonNumber: number
+      episode: SeasonEpisodeInput
+    }>,
+    showMetadata: {
+      tvShowName: string
+      posterPath: string | null
+    },
+    options?: {
+      batchSize?: number
+      delayMs?: number
+      isCancelled?: () => boolean
+      onProgress?: (markedCount: number, totalCount: number) => void
+    },
+  ): Promise<{ markedCount: number; wasCancelled: boolean }> {
+    const user = this.getCurrentUser()
+    if (!user) throw new Error("Please sign in to continue")
+    if (episodesToMark.length === 0) return { markedCount: 0, wasCancelled: false }
+
+    const batchSize =
+      typeof options?.batchSize === "number" &&
+      Number.isInteger(options.batchSize) &&
+      options.batchSize > 0
+        ? options.batchSize
+        : 10
+    const delayMs =
+      typeof options?.delayMs === "number" &&
+      Number.isFinite(options.delayMs) &&
+      options.delayMs >= 0
+        ? options.delayMs
+        : 300
+
+    const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+    let markedCount = 0
+    let wasCancelled = false
+
+    for (let i = 0; i < episodesToMark.length; i += batchSize) {
+      if (options?.isCancelled?.()) {
+        wasCancelled = true
+        break
+      }
+
+      const chunk = episodesToMark.slice(i, i + batchSize)
+      const now = Date.now()
+      const episodesMap: Record<string, WatchedEpisode> = {}
+
+      chunk.forEach(({ seasonNumber, episode }) => {
+        const episodeKey = this.getEpisodeKey(
+          seasonNumber,
+          episode.episode_number,
+        )
+        episodesMap[episodeKey] = {
+          episodeId: episode.id,
+          tvShowId,
+          seasonNumber,
+          episodeNumber: episode.episode_number,
+          watchedAt: now,
+          episodeName: episode.name,
+          episodeAirDate: episode.air_date,
+        }
+      })
+
+      const metadata: EpisodeTrackingMetadata = {
+        tvShowName: showMetadata.tvShowName,
+        posterPath: showMetadata.posterPath,
+        lastUpdated: now,
+      }
+
+      try {
+        await this.withTimeout(
+          setDoc(
+            trackingRef,
+            {
+              episodes: episodesMap,
+              metadata,
+            },
+            { merge: true },
+          ),
+        )
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error
+        }
+        throw new Error(getFirestoreErrorMessage(error))
+      }
+
+      markedCount += chunk.length
+      options?.onProgress?.(markedCount, episodesToMark.length)
+
+      if (i + batchSize < episodesToMark.length) {
+        if (options?.isCancelled?.()) {
+          wasCancelled = true
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+
+    return { markedCount, wasCancelled }
+  }
+
+  /**
    * Calculate progress for a specific season
    * Excludes unaired episodes from total count
    */

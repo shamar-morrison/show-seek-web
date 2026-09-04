@@ -48,6 +48,18 @@ describe("user preferences", () => {
     })
   })
 
+  it("defaults unreleased episode watches to disabled", () => {
+    expect(DEFAULT_PREFERENCES.allowUnreleasedEpisodeWatches).toBe(false)
+  })
+
+  it("hydrates allowUnreleasedEpisodeWatches from stored preferences", () => {
+    expect(
+      hydrateUserPreferences({ allowUnreleasedEpisodeWatches: true }),
+    ).toMatchObject({
+      allowUnreleasedEpisodeWatches: true,
+    })
+  })
+
   it("hydrates original title preference from stored preferences", () => {
     expect(hydrateUserPreferences({ showOriginalTitles: true })).toMatchObject({
       showOriginalTitles: true,

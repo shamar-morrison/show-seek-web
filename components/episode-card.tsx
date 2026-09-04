@@ -88,8 +88,11 @@ export function EpisodeCard({
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
 
-  // Check if episode has aired
+  // Check if episode has aired. Users who allow unreleased watches can
+  // mark future episodes too (matches mobile EpisodeItem).
   const hasAired = isTmdbDateOnOrBeforeToday(episode.air_date)
+  const canToggleWatched =
+    isWatched || hasAired || preferences.allowUnreleasedEpisodeWatches
 
   // Get user's rating for this episode
   const userRating = getEpisodeRating(
@@ -220,7 +223,7 @@ export function EpisodeCard({
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
-    if (!user || !hasAired || isToggling) return
+    if (!user || !canToggleWatched || isToggling) return
 
     setIsToggling(true)
     try {
@@ -236,7 +239,7 @@ export function EpisodeCard({
     }
   }, [
     user,
-    hasAired,
+    canToggleWatched,
     isToggling,
     isWatched,
     handleMarkUnwatched,
@@ -285,7 +288,7 @@ export function EpisodeCard({
             )}
 
             {/* Future Episode Overlay */}
-            {!hasAired && (
+            {!hasAired && !preferences.allowUnreleasedEpisodeWatches && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                 <span className="rounded-md bg-primary/20 px-3 py-1.5 text-sm font-medium text-primary">
                   {episode.air_date
@@ -348,7 +351,7 @@ export function EpisodeCard({
 
             {/* Actions */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              {hasAired && (
+              {canToggleWatched && (
                 <>
                   {/* Watched Toggle */}
                   <button

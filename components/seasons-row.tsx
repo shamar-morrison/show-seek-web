@@ -1,5 +1,6 @@
 "use client"
 
+import { MarkEntireShowWatchedButton } from "@/components/mark-entire-show-watched-button"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
@@ -12,6 +13,12 @@ interface SeasonsRowProps {
   seasons: TMDBSeason[]
   tvShowId: number
   limit?: number
+  tvShowName?: string
+  posterPath?: string | null
+  voteAverage?: number
+  firstAirDate?: string
+  totalEpisodes?: number
+  avgRuntime?: number
 }
 
 /**
@@ -42,6 +49,12 @@ export function SeasonsRow({
   seasons,
   tvShowId,
   limit,
+  tvShowName,
+  posterPath,
+  voteAverage,
+  firstAirDate,
+  totalEpisodes,
+  avgRuntime,
 }: SeasonsRowProps) {
   // Call hooks unconditionally to comply with React's Rules of Hooks
   const { tracking, loading } = useEpisodeTracking()
@@ -69,7 +82,28 @@ export function SeasonsRow({
   if (!seasons || seasons.length === 0) return null
 
   return (
-    <Section title={title}>
+    <Section
+      title={title}
+      headerExtra={
+        tvShowName ? (
+          <div className="mr-auto ml-3 pb-0.5">
+            <MarkEntireShowWatchedButton
+              tvShowId={tvShowId}
+              tvShowName={tvShowName}
+              posterPath={posterPath ?? null}
+              seasons={seasons}
+              showStats={
+                totalEpisodes !== undefined && avgRuntime !== undefined
+                  ? { totalEpisodes, avgRuntime }
+                  : undefined
+              }
+              voteAverage={voteAverage}
+              firstAirDate={firstAirDate}
+            />
+          </div>
+        ) : undefined
+      }
+    >
       <ScrollableRow className="pb-4">
         {displaySeasons.map((season) => {
           const watchedCount = seasonProgress[season.season_number] || 0

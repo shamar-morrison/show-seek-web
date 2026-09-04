@@ -16,6 +16,7 @@ export interface UserPreferences {
   autoRemoveFromShouldWatch: boolean
   copyInsteadOfMove: boolean
   markPreviousEpisodesWatched: boolean
+  allowUnreleasedEpisodeWatches: boolean
   showListIndicators: boolean
   showOriginalTitles: boolean
   blurPlotSpoilers: boolean
@@ -38,6 +39,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   autoRemoveFromShouldWatch: true,
   copyInsteadOfMove: false,
   markPreviousEpisodesWatched: false,
+  allowUnreleasedEpisodeWatches: false,
   showListIndicators: false,
   showOriginalTitles: false,
   blurPlotSpoilers: false,
@@ -67,5 +69,8 @@ export function hydrateUserPreferences(
       DEFAULT_PREFERENCES.autoRemoveFromShouldWatch,
     showOriginalTitles:
       rest.showOriginalTitles ?? DEFAULT_PREFERENCES.showOriginalTitles,
+    allowUnreleasedEpisodeWatches:
+      rest.allowUnreleasedEpisodeWatches ??
+      DEFAULT_PREFERENCES.allowUnreleasedEpisodeWatches,
   }
 }

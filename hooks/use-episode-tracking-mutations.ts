@@ -46,6 +46,23 @@ interface EpisodeWatchedVariables {
   seasonEpisodes?: SeasonEpisodeInput[]
 }
 
+interface EntireShowWatchedVariables {
+  tvShowId: number
+  episodesToMark: Array<{
+    seasonNumber: number
+    episode: SeasonEpisodeInput
+  }>
+  showMetadata: ShowMetadata
+  showStats?: ShowStats
+  nextEpisode?: NextEpisode | null
+  bulkOptions?: {
+    batchSize?: number
+    delayMs?: number
+    isCancelled?: () => boolean
+    onProgress?: (markedCount: number, totalCount: number) => void
+  }
+}
+
 function episodeKey(seasonNumber: number, episodeNumber: number) {
   return `${seasonNumber}_${episodeNumber}`
 }
@@ -388,6 +405,48 @@ export function useEpisodeTrackingMutations() {
     applyOptimistic: () => null,
   })
 
+  const markEntireShowWatchedMutation =
+    useTrackingMutation<EntireShowWatchedVariables>({
+      getTvShowId: (variables) => variables.tvShowId,
+      mutationFn: async (variables) => {
+        await episodeTrackingService.markEntireShowWatched(
+          variables.tvShowId,
+          variables.episodesToMark,
+          variables.showMetadata,
+          variables.bulkOptions,
+        )
+      },
+      applyOptimistic: ({ previousShow, variables }) => {
+        const nextShow = cloneTracking(
+          previousShow ?? null,
+          variables.showMetadata,
+        )
+        const now = Date.now()
+
+        variables.episodesToMark.forEach(({ seasonNumber, episode }) => {
+          nextShow.episodes[episodeKey(seasonNumber, episode.episode_number)] =
+            {
+              episodeId: episode.id,
+              tvShowId: variables.tvShowId,
+              seasonNumber,
+              episodeNumber: episode.episode_number,
+              watchedAt: now,
+              episodeName: episode.name,
+              episodeAirDate: episode.air_date,
+            }
+        })
+
+        nextShow.metadata = patchMetadata(
+          nextShow.metadata,
+          variables.showMetadata,
+          variables.showStats,
+          variables.nextEpisode,
+        )
+
+        return nextShow
+      },
+    })
+
   const wrapWithTraktWarning =
     <TVariables, TResult>(mutation: {
       mutateAsync: (variables: TVariables) => Promise<TResult>
@@ -407,11 +466,13 @@ export function useEpisodeTrackingMutations() {
       markAllEpisodesUnwatchedMutation,
     ),
     clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
+    markEntireShowWatched: wrapWithTraktWarning(markEntireShowWatchedMutation),
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||
       markAllEpisodesWatchedMutation.isPending ||
       markAllEpisodesUnwatchedMutation.isPending ||
-      clearAllEpisodesMutation.isPending,
+      clearAllEpisodesMutation.isPending ||
+      markEntireShowWatchedMutation.isPending,
   }
 }

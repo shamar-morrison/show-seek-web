@@ -69,9 +69,12 @@ export function SeasonDetailClient({
   const [showSeasonRatingModal, setShowSeasonRatingModal] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
 
-  // Get aired episodes only (exclude future episodes)
+  // Get markable episodes: aired only, unless the user allows unreleased watches
+  // (matches mobile: allowUnreleased bypasses the date check entirely).
   const airedEpisodes = season.episodes.filter(
-    (ep) => isTmdbDateOnOrBeforeToday(ep.air_date),
+    (ep) =>
+      preferences.allowUnreleasedEpisodeWatches ||
+      isTmdbDateOnOrBeforeToday(ep.air_date),
   )
   const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
   const showName = tvShow.name
@@ -452,7 +455,9 @@ export function SeasonDetailClient({
             <DialogDescription>
               {allWatched
                 ? `This will unmark all ${airedEpisodes.length} episodes in ${season.name} as unwatched.`
-                : `This will mark all ${airedEpisodes.length} aired episodes in ${season.name} as watched.`}
+                : preferences.allowUnreleasedEpisodeWatches
+                  ? `This will mark all ${airedEpisodes.length} episodes in ${season.name} as watched, including unreleased episodes.`
+                  : `This will mark all ${airedEpisodes.length} aired episodes in ${season.name} as watched.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
