@@ -393,53 +393,53 @@ export function EpisodeDetailClient({
                 {/* Action Buttons - matching media-detail-hero style */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-4 lg:justify-start">
                   {canToggleWatched && (
-                    <>
-                      {/* Watched Toggle */}
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() =>
-                          requireAuth(
-                            handleToggleWatched,
-                            "Sign in to track your watch progress",
-                          )
-                        }
-                        disabled={isToggling}
-                        className={
-                          isWatched
-                            ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
-                            : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                        }
-                      >
-                        {isToggling ? (
-                          <HugeiconsIcon
-                            icon={Loading03Icon}
-                            className="size-5 animate-spin"
-                          />
-                        ) : (
-                          <HugeiconsIcon
-                            icon={
-                              isWatched ? Tick02Icon : CheckmarkCircle02Icon
-                            }
-                            className={`size-5 ${isWatched ? " text-green-400" : ""}`}
-                          />
-                        )}
-                        {isWatched ? "Watched" : "Mark Watched"}
-                      </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() =>
+                        requireAuth(
+                          handleToggleWatched,
+                          "Sign in to track your watch progress",
+                        )
+                      }
+                      disabled={isToggling}
+                      className={
+                        isWatched
+                          ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
+                          : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                      }
+                    >
+                      {isToggling ? (
+                        <HugeiconsIcon
+                          icon={Loading03Icon}
+                          className="size-5 animate-spin"
+                        />
+                      ) : (
+                        <HugeiconsIcon
+                          icon={
+                            isWatched ? Tick02Icon : CheckmarkCircle02Icon
+                          }
+                          className={`size-5 ${isWatched ? " text-green-400" : ""}`}
+                        />
+                      )}
+                      {isWatched ? "Watched" : "Mark Watched"}
+                    </Button>
+                  )}
 
-                      {/* Rate Button */}
-                      <RateButton
-                        hasRating={!!userRating}
-                        rating={userRating?.rating}
-                        onClick={() =>
-                          requireAuth(
-                            () => setShowRatingModal(true),
-                            "Sign in to rate episodes",
-                          )
-                        }
-                        disabled={isToggling}
-                      />
-                    </>
+                  {/* Rate Button stays gated by air date: future episodes
+                      cannot be rated regardless of the unreleased preference. */}
+                  {hasAired && (
+                    <RateButton
+                      hasRating={!!userRating}
+                      rating={userRating?.rating}
+                      onClick={() =>
+                        requireAuth(
+                          () => setShowRatingModal(true),
+                          "Sign in to rate episodes",
+                        )
+                      }
+                      disabled={isToggling}
+                    />
                   )}
 
                   <Button

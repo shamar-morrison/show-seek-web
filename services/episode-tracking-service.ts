@@ -429,6 +429,18 @@ class EpisodeTrackingService {
       isCancelled?: () => boolean
       onProgress?: (markedCount: number, totalCount: number) => void
     },
+    /** Optional cached TMDB stats to store for faster read access */
+    showStats?: {
+      totalEpisodes: number
+      avgRuntime: number
+    },
+    /** Optional next episode to watch (null means caught up) */
+    nextEpisode?: {
+      season: number
+      episode: number
+      title: string
+      airDate: string | null
+    } | null,
   ): Promise<{ markedCount: number; wasCancelled: boolean }> {
     const user = this.getCurrentUser()
     if (!user) throw new Error("Please sign in to continue")
@@ -481,6 +493,13 @@ class EpisodeTrackingService {
         tvShowName: showMetadata.tvShowName,
         posterPath: showMetadata.posterPath,
         lastUpdated: now,
+        // Include cached stats if provided
+        ...(showStats && {
+          totalEpisodes: showStats.totalEpisodes,
+          avgRuntime: showStats.avgRuntime,
+        }),
+        // nextEpisode can be null (caught up) or object - only include if explicitly provided
+        ...(nextEpisode !== undefined && { nextEpisode }),
       }
 
       try {

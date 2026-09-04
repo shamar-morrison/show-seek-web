@@ -414,37 +414,15 @@ export function useEpisodeTrackingMutations() {
           variables.episodesToMark,
           variables.showMetadata,
           variables.bulkOptions,
-        )
-      },
-      applyOptimistic: ({ previousShow, variables }) => {
-        const nextShow = cloneTracking(
-          previousShow ?? null,
-          variables.showMetadata,
-        )
-        const now = Date.now()
-
-        variables.episodesToMark.forEach(({ seasonNumber, episode }) => {
-          nextShow.episodes[episodeKey(seasonNumber, episode.episode_number)] =
-            {
-              episodeId: episode.id,
-              tvShowId: variables.tvShowId,
-              seasonNumber,
-              episodeNumber: episode.episode_number,
-              watchedAt: now,
-              episodeName: episode.name,
-              episodeAirDate: episode.air_date,
-            }
-        })
-
-        nextShow.metadata = patchMetadata(
-          nextShow.metadata,
-          variables.showMetadata,
           variables.showStats,
           variables.nextEpisode,
         )
-
-        return nextShow
       },
+      // Mobile parity: no optimistic episode writes for show-wide marks.
+      // useMarkShowAllEpisodesWatched has no onMutate; per-chunk Firestore
+      // writes become visible via invalidation/refetch on settle, so partial
+      // (cancelled) runs never show unwritten episodes as watched.
+      applyOptimistic: ({ previousShow }) => previousShow ?? null,
     })
 
   const wrapWithTraktWarning =

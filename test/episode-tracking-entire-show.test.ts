@@ -94,6 +94,35 @@ describe("markEntireShowWatched", () => {
     expect(vi.mocked(setDoc)).toHaveBeenCalledTimes(1)
   })
 
+  it("persists showStats and null nextEpisode in metadata", async () => {
+    await episodeTrackingService.markEntireShowWatched(
+      777,
+      makeEpisodes(2),
+      { tvShowName: "Signal Run", posterPath: "/show.jpg" },
+      { batchSize: 10, delayMs: 0 },
+      { totalEpisodes: 3, avgRuntime: 42 },
+      null,
+    )
+
+    expect(vi.mocked(setDoc)).toHaveBeenCalledTimes(1)
+    const body = vi.mocked(setDoc).mock.calls[0][1] as {
+      metadata: {
+        tvShowName: string
+        posterPath: string | null
+        totalEpisodes: number
+        avgRuntime: number
+        nextEpisode: null
+      }
+    }
+    expect(body.metadata).toMatchObject({
+      tvShowName: "Signal Run",
+      posterPath: "/show.jpg",
+      totalEpisodes: 3,
+      avgRuntime: 42,
+      nextEpisode: null,
+    })
+  })
+
   it("returns zero without writing when there is nothing to mark", async () => {
     const result = await episodeTrackingService.markEntireShowWatched(
       777,

@@ -352,61 +352,61 @@ export function EpisodeCard({
             {/* Actions */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {canToggleWatched && (
-                <>
-                  {/* Watched Toggle */}
-                  <button
-                    onClick={() =>
-                      requireAuth(
-                        handleToggleWatched,
-                        "Sign in to track your watch progress",
-                      )
-                    }
-                    disabled={isToggling}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      isWatched
-                        ? "bg-green-500/20 text-green-500 hover:bg-green-500/30"
-                        : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
-                    }`}
-                    aria-label={
-                      isWatched ? "Mark as unwatched" : "Mark as watched"
-                    }
-                  >
-                    {isToggling ? (
-                      <HugeiconsIcon
-                        icon={Loading03Icon}
-                        className="size-4 animate-spin"
-                      />
-                    ) : (
-                      <HugeiconsIcon
-                        icon={CheckmarkCircle02Icon}
-                        className="size-4"
-                      />
-                    )}
-                    {isWatched ? "Watched" : "Mark Watched"}
-                  </button>
-
-                  {/* Rate Button */}
-                  <button
-                    onClick={() =>
-                      requireAuth(
-                        () => setShowRatingModal(true),
-                        "Sign in to rate episodes",
-                      )
-                    }
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      userRating
-                        ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
-                        : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
-                    }`}
-                    aria-label="Rate episode"
-                  >
+                <button
+                  onClick={() =>
+                    requireAuth(
+                      handleToggleWatched,
+                      "Sign in to track your watch progress",
+                    )
+                  }
+                  disabled={isToggling}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isWatched
+                      ? "bg-green-500/20 text-green-500 hover:bg-green-500/30"
+                      : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
+                  }`}
+                  aria-label={
+                    isWatched ? "Mark as unwatched" : "Mark as watched"
+                  }
+                >
+                  {isToggling ? (
                     <HugeiconsIcon
-                      icon={StarIcon}
-                      className={`size-4 ${userRating ? "fill-yellow-500" : ""}`}
+                      icon={Loading03Icon}
+                      className="size-4 animate-spin"
                     />
-                    {userRating ? `${userRating.rating}/10` : "Rate"}
-                  </button>
-                </>
+                  ) : (
+                    <HugeiconsIcon
+                      icon={CheckmarkCircle02Icon}
+                      className="size-4"
+                    />
+                  )}
+                  {isWatched ? "Watched" : "Mark Watched"}
+                </button>
+              )}
+
+              {/* Rate Button stays gated by air date: future episodes
+                  cannot be rated regardless of the unreleased preference. */}
+              {hasAired && (
+                <button
+                  onClick={() =>
+                    requireAuth(
+                      () => setShowRatingModal(true),
+                      "Sign in to rate episodes",
+                    )
+                  }
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    userRating
+                      ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
+                      : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
+                  }`}
+                  aria-label="Rate episode"
+                >
+                  <HugeiconsIcon
+                    icon={StarIcon}
+                    className={`size-4 ${userRating ? "fill-yellow-500" : ""}`}
+                  />
+                  {userRating ? `${userRating.rating}/10` : "Rate"}
+                </button>
               )}
 
               <button
