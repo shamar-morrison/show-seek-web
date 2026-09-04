@@ -31,12 +31,17 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 interface PersonCreditsClientProps {
   person: TMDBPersonDetails
 }
+
+/** Credits rendered on first paint; further chunks load as you scroll. */
+const INITIAL_VISIBLE_CREDITS = 42
+/** Credits appended each time the sentinel scrolls into view. */
+const CREDITS_PAGE_SIZE = 42
 
 export function PersonCreditsClient({ person }: PersonCreditsClientProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -71,7 +76,10 @@ export function PersonCreditsClient({ person }: PersonCreditsClientProps) {
       return {
         activeMediaType: resolvedSelection.mediaType,
         activeCreditType: resolvedSelection.creditType,
-        searchQuery: params.get("q")?.trim() ?? "",
+        // Don't trim here: trimming would eat trailing spaces while the user
+        // is still typing (each keystroke round-trips through the URL).
+        // Matching already trims via filteredItems.
+        searchQuery: params.get("q") ?? "",
       }
     },
     serialize: (state) => {
@@ -120,6 +128,39 @@ export function PersonCreditsClient({ person }: PersonCreditsClientProps) {
       ].some((value) => value?.toLowerCase().includes(query)),
     )
   }, [currentItems, searchQuery])
+
+  // Incremental rendering: mount only the first chunk so tab switches stay
+  // fast, then append more as the sentinel scrolls into view.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_CREDITS)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // Reset to the first chunk whenever the list identity changes.
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_CREDITS)
+  }, [activeMediaType, activeCreditType, searchQuery, person.id])
+
+  const hasMoreItems = visibleCount < filteredItems.length
+  const visibleItems = hasMoreItems
+    ? filteredItems.slice(0, visibleCount)
+    : filteredItems
+
+  useEffect(() => {
+    if (!hasMoreItems) return
+    const node = sentinelRef.current
+    if (!node) return
+
+    const total = filteredItems.length
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((count) => Math.min(count + CREDITS_PAGE_SIZE, total))
+        }
+      },
+      { rootMargin: "600px" },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMoreItems, filteredItems.length])
 
   const handleWatchTrailer = async (media: TMDBActionableMedia) => {
     setLoadingMediaId(media.id)
@@ -257,19 +298,35 @@ export function PersonCreditsClient({ person }: PersonCreditsClientProps) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {filteredItems.map((media, index) => (
-            <MediaCardWithActions
-              key={`${activeMediaType}-${activeCreditType}-${media.id}`}
-              media={media}
-              buttonText="Trailer"
-              onWatchTrailer={handleWatchTrailer}
-              isLoading={loadingMediaId === media.id}
-              priority={index < 7}
-              preferOriginalTitles={preferences.showOriginalTitles}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+            {visibleItems.map((media, index) => (
+              <MediaCardWithActions
+                key={`${activeMediaType}-${activeCreditType}-${media.id}`}
+                media={media}
+                buttonText="Trailer"
+                onWatchTrailer={handleWatchTrailer}
+                isLoading={loadingMediaId === media.id}
+                priority={index < 7}
+                preferOriginalTitles={preferences.showOriginalTitles}
+              />
+            ))}
+          </div>
+          {hasMoreItems && (
+            <div
+              ref={sentinelRef}
+              className="flex items-center justify-center gap-3 py-6 text-sm text-gray-400"
+              data-testid="credits-load-more-sentinel"
+            >
+              <span
+                className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80"
+                aria-hidden="true"
+              />
+              Showing {visibleItems.length} of {filteredItems.length} — loading
+              more…
+            </div>
+          )}
+        </>
       )}
 
       <TrailerModal

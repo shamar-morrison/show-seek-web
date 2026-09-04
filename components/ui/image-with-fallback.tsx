@@ -35,6 +35,8 @@ export function ImageWithFallback({
       <img
         src={src}
         alt={alt}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
         className={cn(
           "absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105",
           imageClassName,

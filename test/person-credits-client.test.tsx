@@ -6,6 +6,7 @@ import type {
   TMDBPersonDetails,
 } from "@/types/tmdb"
 import userEvent from "@testing-library/user-event"
+import { act } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -117,6 +118,17 @@ function createPerson(
   }
 }
 
+function createManyCastCredits(count: number): PersonCastMember[] {
+  return Array.from({ length: count }, (_, index) =>
+    createCastCredit({
+      id: 1000 + index,
+      title: `Film ${index + 1}`,
+      original_title: `Film ${index + 1}`,
+      popularity: 10 - index * 0.01,
+    }),
+  )
+}
+
 function setLocation(search = "", pathname = "/person/1/credits") {
   window.history.replaceState({}, "", `${pathname}${search}`)
   mockSearchParams = new URLSearchParams(search)
@@ -211,7 +223,8 @@ describe("PersonCreditsClient", () => {
     expect(window.location.search).toBe("?mediaType=tv&creditType=crew")
   })
 
-  it("hides the combination switcher when only one combination exists", () => {
+    it("hides the combination switcher when only one combination exists", () => {
+
     render(
       <PersonCreditsClient
         person={createPerson({
@@ -234,5 +247,138 @@ describe("PersonCreditsClient", () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
     expect(screen.getByText("Only Directed Movie")).toBeInTheDocument()
+  })
+
+  it("renders only the first chunk of a large tab and keeps search working across all credits", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <PersonCreditsClient
+        person={createPerson({
+          combined_credits: {
+            cast: createManyCastCredits(100),
+            crew: [],
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getAllByTestId("media-card")).toHaveLength(42)
+    expect(
+      screen.getByTestId("credits-load-more-sentinel"),
+    ).toBeInTheDocument()
+
+    // Search spans all credits, not just the visible chunk
+    await user.type(
+      screen.getByRole("textbox", {
+        name: /search by title or original title/i,
+      }),
+      "Film 99",
+    )
+
+    expect(screen.getAllByTestId("media-card")).toHaveLength(1)
+    expect(screen.getByText("Film 99")).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("credits-load-more-sentinel"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("appends the next chunk when the sentinel scrolls into view", async () => {
+    let observerCallback:
+      | ((entries: Array<{ isIntersecting: boolean }>) => void)
+      | null = null
+    const originalObserver = window.IntersectionObserver
+
+    class TestObserver {
+      constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        observerCallback = callback
+      }
+      observe = vi.fn()
+      disconnect = vi.fn()
+      unobserve = vi.fn()
+    }
+
+    // Direct assignment: the setup.ts mock is writable but not configurable,
+    // so vi.stubGlobal cannot redefine it.
+    window.IntersectionObserver =
+      TestObserver as unknown as typeof IntersectionObserver
+
+    try {
+      render(
+        <PersonCreditsClient
+          person={createPerson({
+            combined_credits: {
+              cast: createManyCastCredits(100),
+              crew: [],
+            },
+          })}
+        />,
+      )
+
+      expect(screen.getAllByTestId("media-card")).toHaveLength(42)
+      expect(observerCallback).not.toBeNull()
+
+      await act(async () => {
+        observerCallback?.([{ isIntersecting: true }])
+      })
+
+      expect(screen.getAllByTestId("media-card")).toHaveLength(84)
+      expect(
+        screen.getByTestId("credits-load-more-sentinel"),
+      ).toBeInTheDocument()
+    } finally {
+      window.IntersectionObserver = originalObserver
+    }
+  })
+
+  it("resets to the first chunk when switching tabs", async () => {
+    const user = userEvent.setup()
+    let observerCallback:
+      | ((entries: Array<{ isIntersecting: boolean }>) => void)
+      | null = null
+    const originalObserver = window.IntersectionObserver
+
+    class TestObserver {
+      constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        observerCallback = callback
+      }
+      observe = vi.fn()
+      disconnect = vi.fn()
+      unobserve = vi.fn()
+    }
+
+    // Direct assignment: the setup.ts mock is writable but not configurable,
+    // so vi.stubGlobal cannot redefine it.
+    window.IntersectionObserver =
+      TestObserver as unknown as typeof IntersectionObserver
+
+    try {
+      render(
+        <PersonCreditsClient
+          person={createPerson({
+            combined_credits: {
+              cast: createManyCastCredits(100),
+              crew: [createCrewCredit()],
+            },
+          })}
+        />,
+      )
+
+      await act(async () => {
+        observerCallback?.([{ isIntersecting: true }])
+      })
+      expect(screen.getAllByTestId("media-card")).toHaveLength(84)
+
+      await user.click(
+        screen.getByRole("button", { name: /Movie Directed\/Written/i }),
+      )
+
+      expect(screen.getAllByTestId("media-card")).toHaveLength(1)
+      expect(
+        screen.queryByTestId("credits-load-more-sentinel"),
+      ).not.toBeInTheDocument()
+    } finally {
+      window.IntersectionObserver = originalObserver
+    }
   })
 })
