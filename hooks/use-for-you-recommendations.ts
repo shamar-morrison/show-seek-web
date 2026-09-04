@@ -8,13 +8,15 @@ import {
   fetchTrendingWeek,
 } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
+import { useLists } from "@/hooks/use-lists"
 import { useRatings } from "@/hooks/use-ratings"
+import { hasStoredListItem } from "@/lib/list-item-keys"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import type { Rating } from "@/types/rating"
 import type { TMDBMedia } from "@/types/tmdb"
 import { useQueries, useQuery } from "@tanstack/react-query"
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 
 /** Minimum rating threshold to be considered a "loved" item */
 const MIN_RATING_THRESHOLD = 8
@@ -59,6 +61,20 @@ function isRecommendationSeedRating(
 }
 
 /**
+ * Removes duplicate entries by numeric `id`, keeping the first occurrence.
+ * Guards against TMDB responses that occasionally repeat the same item.
+ * Matches the mobile app implementation.
+ */
+function dedupeById<T extends { id: number }>(items: T[]): T[] {
+  const seen = new Set<number>()
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+}
+
+/**
  * Hook for personalized "For You" recommendations.
  * Extracts highly-rated items as seeds and fetches recommendations for each.
  * Includes hidden gems and trending fallback for users with limited data.
@@ -66,8 +82,48 @@ function isRecommendationSeedRating(
 export function useForYouRecommendations() {
   const { user, loading: isAuthLoading } = useAuth()
   const { ratings, loading: isLoadingRatings } = useRatings()
+  const { lists, loading: isLoadingLists } = useLists()
 
   const isGuest = !isAuthLoading && (!user || user.isAnonymous)
+
+  // IDs of every rated movie (any score, not just seeds).
+  // Matches the mobile app implementation.
+  const ratedMovieIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const rating of ratings?.values() ?? []) {
+      if (rating.mediaType !== "movie") continue
+      const id = Number(rating.mediaId)
+      if (!Number.isInteger(id)) continue
+      ids.add(id)
+    }
+    return ids
+  }, [ratings])
+
+  const alreadyWatchedItems = useMemo(() => {
+    const alreadyWatchedList = lists?.find(
+      (list) => list.id === "already-watched",
+    )
+    return alreadyWatchedList?.items
+  }, [lists])
+
+  // Excludes already-watched movies from recommendation lists.
+  // Matches the mobile app implementation (movies only; TV passes through).
+  const excludeWatchedMovies = useCallback(
+    <T extends { id: number }>(items: T[]): T[] => {
+      if (ratedMovieIds.size === 0 && !alreadyWatchedItems) return items
+      return items.filter((item) => {
+        if (ratedMovieIds.has(item.id)) return false
+        if (
+          alreadyWatchedItems &&
+          hasStoredListItem(alreadyWatchedItems, "movie", item.id)
+        ) {
+          return false
+        }
+        return true
+      })
+    },
+    [alreadyWatchedItems, ratedMovieIds],
+  )
 
   // Step 1: Extract preliminary seeds (title may be null if missing from rating)
   const preliminarySeeds = useMemo((): PreliminarySeed[] => {
@@ -170,16 +226,28 @@ export function useForYouRecommendations() {
     })),
   })
 
-  // Build sections from seeds and their recommendations
+  // Build sections from seeds and their recommendations.
+  // Already-watched movies are excluded from movie sections (TV untouched),
+  // matching the mobile app implementation.
   const sections = useMemo((): RecommendationSection[] => {
     return seeds
-      .map((seed, i) => ({
-        seed,
-        recommendations: (recommendationQueries[i]?.data || []) as TMDBMedia[],
-        isLoading: recommendationQueries[i]?.isLoading ?? false,
-      }))
+      .map((seed, i) => {
+        const isMovieSection = seed.mediaType === "movie"
+        const deduped = dedupeById(
+          (recommendationQueries[i]?.data || []) as TMDBMedia[],
+        )
+        return {
+          seed,
+          recommendations: isMovieSection
+            ? excludeWatchedMovies(deduped)
+            : deduped,
+          isLoading:
+            (recommendationQueries[i]?.isLoading ?? false) ||
+            (isMovieSection && isLoadingLists),
+        }
+      })
       .filter((s) => s.recommendations.length > 0 || s.isLoading)
-  }, [seeds, recommendationQueries])
+  }, [seeds, recommendationQueries, excludeWatchedMovies, isLoadingLists])
 
   // Fetch hidden gems (high-rated, low-popularity movies)
   const { data: hiddenGemsData, isLoading: isLoadingHiddenGems } = useQuery({
@@ -210,9 +278,9 @@ export function useForYouRecommendations() {
     /** Personalized recommendation sections */
     sections,
     /** Hidden gems (high-quality, low-popularity content) */
-    hiddenGems: hiddenGemsData || [],
+    hiddenGems: excludeWatchedMovies(dedupeById(hiddenGemsData || [])),
     /** Trending content for fallback */
-    trendingMovies: trendingData || [],
+    trendingMovies: excludeWatchedMovies(dedupeById(trendingData || [])),
     /** Overall loading state */
     isLoading,
     /** Whether auth is still loading */

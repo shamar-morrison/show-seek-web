@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
   fetchMovieDetails: vi.fn(),
   fetchRecommendations: vi.fn(),
   fetchTrendingWeek: vi.fn(),
+  lists: [] as Array<{
+    id: string
+    name: string
+    items: Record<string, unknown>
+  }>,
+  listsLoading: false,
   ratings: new Map<string, Rating>(),
   user: {
     uid: "user-1",
@@ -32,6 +38,13 @@ vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
     user: mocks.user,
     loading: false,
+  }),
+}))
+
+vi.mock("@/hooks/use-lists", () => ({
+  useLists: () => ({
+    lists: mocks.lists,
+    loading: mocks.listsLoading,
   }),
 }))
 
@@ -94,6 +107,8 @@ function createRecommendedMedia(id: number) {
 describe("useForYouRecommendations", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.lists = []
+    mocks.listsLoading = false
     mocks.ratings = new Map<string, Rating>()
     mocks.fetchRecommendations.mockResolvedValue([createRecommendedMedia(900)])
     mocks.fetchMovieDetails.mockResolvedValue(null)
@@ -231,5 +246,104 @@ describe("useForYouRecommendations", () => {
     expect(mocks.fetchFullTVDetails).toHaveBeenCalledWith(1)
     expect(mocks.fetchRecommendations).toHaveBeenCalledWith(1, "movie")
     expect(mocks.fetchRecommendations).toHaveBeenCalledWith(1, "tv")
+  })
+
+  it("excludes rated and already-watched movies from movie recs, gems, and trending while leaving TV untouched", async () => {
+    mocks.ratings = new Map<string, Rating>([
+      [
+        "movie-1",
+        createRating({
+          id: "movie-1",
+          mediaId: "1",
+          title: "Alpha",
+          ratedAt: 3,
+        }),
+      ],
+      [
+        "movie-900",
+        createRating({
+          id: "movie-900",
+          mediaId: "900",
+          mediaType: "movie",
+          rating: 5,
+          title: "Seen It",
+          ratedAt: 2,
+        }),
+      ],
+      [
+        "tv-50",
+        createRating({
+          id: "tv-50",
+          mediaId: "50",
+          mediaType: "tv",
+          title: "Show Fifty",
+          ratedAt: 1,
+        }),
+      ],
+    ])
+    mocks.lists = [
+      {
+        id: "already-watched",
+        name: "Already Watched",
+        items: {
+          "movie-902": {
+            id: 902,
+            title: "Watched Gem",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 1,
+          },
+        },
+      },
+    ]
+    mocks.fetchRecommendations.mockImplementation(
+      async (id: number, mediaType: string) => {
+        if (mediaType === "tv") return [createRecommendedMedia(900)]
+        void id
+        return [
+          createRecommendedMedia(900),
+          createRecommendedMedia(901),
+          createRecommendedMedia(901),
+          createRecommendedMedia(902),
+        ]
+      },
+    )
+    mocks.fetchDiscoverHiddenGems.mockResolvedValue([
+      createRecommendedMedia(900),
+      createRecommendedMedia(903),
+    ])
+    mocks.fetchTrendingWeek.mockResolvedValue([
+      createRecommendedMedia(902),
+      createRecommendedMedia(904),
+    ])
+
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(() => useForYouRecommendations(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.sections).toHaveLength(2)
+    })
+
+    await waitFor(() => {
+      expect(
+        result.current.sections.every((section) => !section.isLoading),
+      ).toBe(true)
+    })
+
+    const movieSection = result.current.sections.find(
+      (section) => section.seed.mediaType === "movie",
+    )
+    const tvSection = result.current.sections.find(
+      (section) => section.seed.mediaType === "tv",
+    )
+
+    // Rated (900) and listed (902) movies removed, duplicates collapsed
+    expect(movieSection?.recommendations.map((item) => item.id)).toEqual([901])
+    // TV sections pass through untouched, even for colliding ids
+    expect(tvSection?.recommendations.map((item) => item.id)).toEqual([900])
+    expect(result.current.hiddenGems.map((item) => item.id)).toEqual([903])
+    expect(result.current.trendingMovies.map((item) => item.id)).toEqual([904])
   })
 })

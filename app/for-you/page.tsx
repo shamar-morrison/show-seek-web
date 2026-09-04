@@ -152,7 +152,6 @@ export default function ForYouPage() {
       {/* Page Header */}
       <div className="mx-auto mb-10 max-w-[1800px] px-4 sm:px-8 lg:px-12">
         <div className="flex items-center gap-3">
-          <HugeiconsIcon icon={SparklesIcon} className="size-8 text-primary" />
           <h1 className="text-3xl font-bold text-white">Just For You</h1>
         </div>
         <p className="mt-2 text-muted-foreground">
@@ -171,7 +170,12 @@ export default function ForYouPage() {
             <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
               <h2 className="text-xl font-bold text-white sm:text-2xl">
                 Because you loved{" "}
-                <span className="text-primary">{section.seed.title}</span>
+                <Link
+                  href={`/${section.seed.mediaType}/${section.seed.id}`}
+                  className="text-primary transition-colors hover:text-primary/80 hover:underline"
+                >
+                  {section.seed.title}
+                </Link>
               </h2>
             </div>
             {/* Content */}
