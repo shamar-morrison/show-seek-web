@@ -121,4 +121,21 @@ describe("PersonPage", () => {
       screen.getByText("June 15, 1990 (29 years old at death)"),
     ).toBeInTheDocument()
   })
+
+  it("shows the date of death only for deceased people", async () => {
+    await renderPersonPage(
+      createPerson({
+        deathday: "2020-06-14",
+      }),
+    )
+
+    expect(screen.getByText("Date of Death")).toBeInTheDocument()
+    expect(screen.getByText("June 14, 2020")).toBeInTheDocument()
+  })
+
+  it("hides the date of death for living people", async () => {
+    await renderPersonPage(createPerson())
+
+    expect(screen.queryByText("Date of Death")).not.toBeInTheDocument()
+  })
 })

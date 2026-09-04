@@ -36,6 +36,13 @@ export default async function PersonPage({ params }: PersonPageProps) {
         year: "numeric",
       })
     : null
+  const formattedDeathday = person.deathday
+    ? formatTmdbDate(person.deathday, {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
 
   const ageDisplay =
     age === null
@@ -96,6 +103,17 @@ export default async function PersonPage({ params }: PersonPageProps) {
                   <h4 className="font-semibold text-gray-300">Birthday</h4>
                   <p className="text-sm text-gray-400">{birthdayDisplay}</p>
                 </div>
+
+                {formattedDeathday && (
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-gray-300">
+                      Date of Death
+                    </h4>
+                    <p className="text-sm text-gray-400">
+                      {formattedDeathday}
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <h4 className="font-semibold text-gray-300">
