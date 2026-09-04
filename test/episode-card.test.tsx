@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   addToList: vi.fn(),
+  allowUnreleasedEpisodeWatches: false,
   getEpisodeRating: vi.fn(),
   getNote: vi.fn(),
   markEpisodeUnwatched: vi.fn(),
@@ -90,6 +91,7 @@ vi.mock("@/hooks/use-notes", () => ({
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
     preferences: {
+      allowUnreleasedEpisodeWatches: mocks.allowUnreleasedEpisodeWatches,
       autoAddToWatching: false,
       blurPlotSpoilers: false,
       markPreviousEpisodesWatched: false,
@@ -134,6 +136,7 @@ function renderEpisodeCard(episode: TMDBSeasonEpisode) {
 describe("EpisodeCard", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.allowUnreleasedEpisodeWatches = false
     mocks.addToList.mockResolvedValue(false)
     mocks.getEpisodeRating.mockReturnValue(null)
     mocks.getNote.mockReturnValue(null)
@@ -205,6 +208,17 @@ describe("EpisodeCard", () => {
       screen.getByRole("button", { name: /add episode note/i }),
     ).toBeInTheDocument()
     expect(screen.queryByText("Mark Watched")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Rate episode" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows the watched toggle but not the rate action for unaired episodes when unreleased watches are allowed", () => {
+    mocks.allowUnreleasedEpisodeWatches = true
+
+    renderEpisodeCard(createEpisode("2099-01-08"))
+
+    expect(screen.getByText("Mark Watched")).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: "Rate episode" }),
     ).not.toBeInTheDocument()

@@ -1,5 +1,5 @@
 import { SeasonDetailClient } from "@/app/tv/[id]/season/[seasonNumber]/season-detail-client"
-import { render, screen } from "@/test/utils"
+import { render, screen, waitFor } from "@/test/utils"
 import type { ReactNode } from "react"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import userEvent from "@testing-library/user-event"
@@ -186,6 +186,7 @@ function createSeason(): TMDBSeasonDetails {
 describe("SeasonDetailClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.tracking = null
     mocks.user = {
       uid: "user-1",
       isAnonymous: false,
@@ -241,5 +242,73 @@ describe("SeasonDetailClient", () => {
     await user.click(screen.getByRole("button", { name: "Rate" }))
 
     expect(screen.getByText("Sign in to rate seasons")).toBeInTheDocument()
+  })
+
+  it("includes previously watched unreleased episodes when unmarking all", async () => {
+    const user = userEvent.setup()
+
+    // S2E2 was marked while unreleased watches were allowed; the preference
+    // is now off, but Unmark All must still clear it.
+    mocks.tracking = { episodes: { "2_1": {}, "2_2": {} } }
+
+    const season = {
+      ...createSeason(),
+      episodes: [
+        {
+          id: 1001,
+          episode_number: 1,
+          name: "First Signal",
+          overview: "",
+          air_date: "2025-01-01",
+          runtime: 42,
+          still_path: null,
+          vote_average: 8,
+          vote_count: 10,
+          season_number: 2,
+        },
+        {
+          id: 1002,
+          episode_number: 2,
+          name: "Future Signal",
+          overview: "",
+          air_date: "2999-01-01",
+          runtime: 42,
+          still_path: null,
+          vote_average: 0,
+          vote_count: 0,
+          season_number: 2,
+        },
+      ],
+    }
+
+    render(
+      <SeasonDetailClient
+        tvShow={createTvShow()}
+        season={season}
+        tvShowId={777}
+      />,
+    )
+
+    const unmarkButtons = screen.getAllByRole("button", {
+      name: "Unmark All",
+    })
+    await user.click(unmarkButtons[0])
+
+    expect(
+      screen.getByText(/unmark all 2 episodes/i),
+    ).toBeInTheDocument()
+
+    const confirmButtons = screen.getAllByRole("button", {
+      name: "Unmark All",
+    })
+    await user.click(confirmButtons[confirmButtons.length - 1])
+
+    await waitFor(() => {
+      expect(mocks.markAllEpisodesUnwatched).toHaveBeenCalledWith({
+        tvShowId: 777,
+        seasonNumber: 2,
+        episodeNumbers: [1, 2],
+      })
+    })
   })
 })

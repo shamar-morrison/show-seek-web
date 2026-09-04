@@ -46,6 +46,23 @@ interface EpisodeWatchedVariables {
   seasonEpisodes?: SeasonEpisodeInput[]
 }
 
+interface EntireShowWatchedVariables {
+  tvShowId: number
+  episodesToMark: Array<{
+    seasonNumber: number
+    episode: SeasonEpisodeInput
+  }>
+  showMetadata: ShowMetadata
+  showStats?: ShowStats
+  nextEpisode?: NextEpisode | null
+  bulkOptions?: {
+    batchSize?: number
+    delayMs?: number
+    isCancelled?: () => boolean
+    onProgress?: (markedCount: number, totalCount: number) => void
+  }
+}
+
 function episodeKey(seasonNumber: number, episodeNumber: number) {
   return `${seasonNumber}_${episodeNumber}`
 }
@@ -388,6 +405,26 @@ export function useEpisodeTrackingMutations() {
     applyOptimistic: () => null,
   })
 
+  const markEntireShowWatchedMutation =
+    useTrackingMutation<EntireShowWatchedVariables>({
+      getTvShowId: (variables) => variables.tvShowId,
+      mutationFn: async (variables) => {
+        await episodeTrackingService.markEntireShowWatched(
+          variables.tvShowId,
+          variables.episodesToMark,
+          variables.showMetadata,
+          variables.bulkOptions,
+          variables.showStats,
+          variables.nextEpisode,
+        )
+      },
+      // Mobile parity: no optimistic episode writes for show-wide marks.
+      // useMarkShowAllEpisodesWatched has no onMutate; per-chunk Firestore
+      // writes become visible via invalidation/refetch on settle, so partial
+      // (cancelled) runs never show unwritten episodes as watched.
+      applyOptimistic: ({ previousShow }) => previousShow ?? null,
+    })
+
   const wrapWithTraktWarning =
     <TVariables, TResult>(mutation: {
       mutateAsync: (variables: TVariables) => Promise<TResult>
@@ -407,11 +444,13 @@ export function useEpisodeTrackingMutations() {
       markAllEpisodesUnwatchedMutation,
     ),
     clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
+    markEntireShowWatched: wrapWithTraktWarning(markEntireShowWatchedMutation),
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||
       markAllEpisodesWatchedMutation.isPending ||
       markAllEpisodesUnwatchedMutation.isPending ||
-      clearAllEpisodesMutation.isPending,
+      clearAllEpisodesMutation.isPending ||
+      markEntireShowWatchedMutation.isPending,
   }
 }

@@ -93,7 +93,7 @@ export function EpisodeDetailClient({
   const displayShowTitle =
     getDisplayMediaTitle(tvShow, preferences.showOriginalTitles) || tvShow.name
 
-  // Compute whether episode has aired
+  // Compute whether episode has aired.
   const hasAired = isTmdbDateOnOrBeforeToday(episode.air_date)
 
   // Get user's rating for this episode
@@ -113,6 +113,10 @@ export function EpisodeDetailClient({
     const key = `${episode.season_number}_${episode.episode_number}`
     return !!tracking?.episodes && key in tracking.episodes
   }, [tracking, episode.season_number, episode.episode_number])
+  // Users who allow unreleased watches can mark future episodes too
+  // (matches mobile EpisodeDetailScreen).
+  const canToggleWatched =
+    isWatched || hasAired || preferences.allowUnreleasedEpisodeWatches
   const watchedEpisodes = useMemo(() => {
     if (!tracking?.episodes) return {}
 
@@ -162,7 +166,7 @@ export function EpisodeDetailClient({
 
   // Toggle watched status
   const handleToggleWatched = useCallback(async () => {
-    if (!user || !hasAired || isToggling) return
+    if (!user || !canToggleWatched || isToggling) return
 
     setIsToggling(true)
     try {
@@ -205,7 +209,7 @@ export function EpisodeDetailClient({
     }
   }, [
     user,
-    hasAired,
+    canToggleWatched,
     isToggling,
     isWatched,
     markEpisodeWatched,
@@ -388,54 +392,54 @@ export function EpisodeDetailClient({
 
                 {/* Action Buttons - matching media-detail-hero style */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-4 lg:justify-start">
-                  {hasAired && (
-                    <>
-                      {/* Watched Toggle */}
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() =>
-                          requireAuth(
-                            handleToggleWatched,
-                            "Sign in to track your watch progress",
-                          )
-                        }
-                        disabled={isToggling}
-                        className={
-                          isWatched
-                            ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
-                            : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
-                        }
-                      >
-                        {isToggling ? (
-                          <HugeiconsIcon
-                            icon={Loading03Icon}
-                            className="size-5 animate-spin"
-                          />
-                        ) : (
-                          <HugeiconsIcon
-                            icon={
-                              isWatched ? Tick02Icon : CheckmarkCircle02Icon
-                            }
-                            className={`size-5 ${isWatched ? " text-green-400" : ""}`}
-                          />
-                        )}
-                        {isWatched ? "Watched" : "Mark Watched"}
-                      </Button>
+                  {canToggleWatched && (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() =>
+                        requireAuth(
+                          handleToggleWatched,
+                          "Sign in to track your watch progress",
+                        )
+                      }
+                      disabled={isToggling}
+                      className={
+                        isWatched
+                          ? "border-green-500/50 bg-green-500/20 px-6 font-semibold text-green-400 backdrop-blur-sm transition-all hover:border-green-500 hover:bg-green-500/30"
+                          : "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+                      }
+                    >
+                      {isToggling ? (
+                        <HugeiconsIcon
+                          icon={Loading03Icon}
+                          className="size-5 animate-spin"
+                        />
+                      ) : (
+                        <HugeiconsIcon
+                          icon={
+                            isWatched ? Tick02Icon : CheckmarkCircle02Icon
+                          }
+                          className={`size-5 ${isWatched ? " text-green-400" : ""}`}
+                        />
+                      )}
+                      {isWatched ? "Watched" : "Mark Watched"}
+                    </Button>
+                  )}
 
-                      {/* Rate Button */}
-                      <RateButton
-                        hasRating={!!userRating}
-                        rating={userRating?.rating}
-                        onClick={() =>
-                          requireAuth(
-                            () => setShowRatingModal(true),
-                            "Sign in to rate episodes",
-                          )
-                        }
-                        disabled={isToggling}
-                      />
-                    </>
+                  {/* Rate Button stays gated by air date: future episodes
+                      cannot be rated regardless of the unreleased preference. */}
+                  {hasAired && (
+                    <RateButton
+                      hasRating={!!userRating}
+                      rating={userRating?.rating}
+                      onClick={() =>
+                        requireAuth(
+                          () => setShowRatingModal(true),
+                          "Sign in to rate episodes",
+                        )
+                      }
+                      disabled={isToggling}
+                    />
                   )}
 
                   <Button
@@ -494,7 +498,8 @@ export function EpisodeDetailClient({
                         : "Notes"}
                   </Button>
 
-                  {!hasAired && (
+                  {!hasAired &&
+                    !preferences.allowUnreleasedEpisodeWatches && (
                     <div className="rounded-full bg-primary/20 px-6 py-2.5 text-sm font-semibold text-primary backdrop-blur-sm">
                       {episode.air_date
                         ? `Coming ${formatDateLong(episode.air_date)}`

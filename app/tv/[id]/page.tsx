@@ -64,7 +64,17 @@ export default async function TVPage({ params }: TVPageProps) {
         trailerKey={trailerKey}
         externalRatings={externalRatings}
       />
-      <SeasonsRow title="Seasons" seasons={seasons} tvShowId={tvId} />
+      <SeasonsRow
+        title="Seasons"
+        seasons={seasons}
+        tvShowId={tvId}
+        tvShowName={tvShow.name}
+        posterPath={tvShow.poster_path}
+        voteAverage={tvShow.vote_average}
+        firstAirDate={tvShow.first_air_date}
+        totalEpisodes={tvShow.number_of_episodes}
+        avgRuntime={tvShow.episode_run_time?.[0] ?? 45}
+      />
       <CastRow
         title="Cast"
         cast={cast}

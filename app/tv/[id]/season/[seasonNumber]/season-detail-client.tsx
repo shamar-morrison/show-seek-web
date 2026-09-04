@@ -69,9 +69,12 @@ export function SeasonDetailClient({
   const [showSeasonRatingModal, setShowSeasonRatingModal] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
 
-  // Get aired episodes only (exclude future episodes)
+  // Get markable episodes: aired only, unless the user allows unreleased watches
+  // (matches mobile: allowUnreleased bypasses the date check entirely).
   const airedEpisodes = season.episodes.filter(
-    (ep) => isTmdbDateOnOrBeforeToday(ep.air_date),
+    (ep) =>
+      preferences.allowUnreleasedEpisodeWatches ||
+      isTmdbDateOnOrBeforeToday(ep.air_date),
   )
   const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
   const showName = tvShow.name
@@ -186,6 +189,20 @@ export function SeasonDetailClient({
     showStats,
   ])
 
+  // Unmark all episodes in this season.
+  // Derived from actually-watched episodes (not the preference-filtered
+  // airedEpisodes) so episodes marked while unreleased watches were allowed
+  // are still included after the preference is turned off.
+  const watchedEpisodeNumbers = useMemo(
+    () =>
+      season.episodes
+        .filter((ep) =>
+          isEpisodeWatched(season.season_number, ep.episode_number),
+        )
+        .map((ep) => ep.episode_number),
+    [season.episodes, season.season_number, isEpisodeWatched],
+  )
+
   // Unmark all episodes in this season
   const handleUnmarkAllWatched = useCallback(async () => {
     if (!user) return
@@ -198,7 +215,7 @@ export function SeasonDetailClient({
       await markAllEpisodesUnwatched({
         tvShowId,
         seasonNumber: season.season_number,
-        episodeNumbers: airedEpisodes.map((ep) => ep.episode_number),
+        episodeNumbers: watchedEpisodeNumbers,
       })
     } catch (error) {
       console.error("Failed to unmark all episodes:", error)
@@ -209,7 +226,7 @@ export function SeasonDetailClient({
     }
   }, [
     user,
-    airedEpisodes,
+    watchedEpisodeNumbers,
     markAllEpisodesUnwatched,
     tvShowId,
     season.season_number,
@@ -451,8 +468,10 @@ export function SeasonDetailClient({
             </DialogTitle>
             <DialogDescription>
               {allWatched
-                ? `This will unmark all ${airedEpisodes.length} episodes in ${season.name} as unwatched.`
-                : `This will mark all ${airedEpisodes.length} aired episodes in ${season.name} as watched.`}
+                ? `This will unmark all ${watchedEpisodeNumbers.length} episodes in ${season.name} as unwatched.`
+                : preferences.allowUnreleasedEpisodeWatches
+                  ? `This will mark all ${airedEpisodes.length} episodes in ${season.name} as watched, including unreleased episodes.`
+                  : `This will mark all ${airedEpisodes.length} aired episodes in ${season.name} as watched.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

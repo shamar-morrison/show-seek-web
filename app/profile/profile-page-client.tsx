@@ -258,6 +258,16 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Allow unreleased episode watches"
+            description="Lets you mark future-dated episodes as watched before their official air date"
+            checked={preferences.allowUnreleasedEpisodeWatches}
+            onChange={(value) =>
+              updatePreference("allowUnreleasedEpisodeWatches", value)
+            }
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Show list indicators"
             description="Display a bookmark badge on cards when an item is in any of your lists"
             checked={preferences.showListIndicators}
