@@ -147,12 +147,13 @@ export function VirtualizedFilterCombobox({
     // Note: virtualizer.scrollToIndex is stable, using virtualizerOptions for stability
   }, [open, value, filteredOptions, virtualizerOptions, virtualizer])
 
-  // Calculate the list height - show up to 8 items, then scroll
+  // Calculate the list height - show up to 8 items, then scroll.
+  // Short lists size to their content naturally (the inner virtualized div
+  // already has an exact height), so no scrollbar appears when everything
+  // fits. Only long lists get a fixed height with scrolling.
   const maxVisibleItems = 8
-  const listHeight = Math.min(
-    filteredOptions.length * itemHeight,
-    maxVisibleItems * itemHeight,
-  )
+  const isScrollable = filteredOptions.length > maxVisibleItems
+  const listHeight = maxVisibleItems * itemHeight
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -209,8 +210,12 @@ export function VirtualizedFilterCombobox({
             ) : (
               <div
                 ref={scrollContainerRef}
-                style={{ height: listHeight }}
-                className="overflow-y-auto overflow-x-hidden p-2"
+                style={isScrollable ? { height: listHeight } : undefined}
+                className={cn(
+                  "overflow-x-hidden p-2",
+                  isScrollable ? "overflow-y-auto" : "overflow-y-hidden",
+                )}
+                data-testid="filter-combobox-list"
               >
                 <div
                   style={{
