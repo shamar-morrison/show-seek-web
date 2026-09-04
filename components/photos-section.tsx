@@ -4,9 +4,11 @@ import { PhotoLightbox } from "@/components/photo-lightbox"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { SectionSkeleton } from "@/components/ui/section-skeleton"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useMediaImages } from "@/hooks/use-tmdb-queries"
+import { getPosterLanguagesForRegion } from "@/lib/regions"
 import { buildImageUrl } from "@/lib/tmdb"
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 
 interface PhotosSectionProps {
   /** TMDB media ID */
@@ -42,9 +44,28 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
     isFetched,
   } = useMediaImages(mediaId, mediaType, shouldFetch)
 
+  // Only show photos/backdrops matching the user's region language
+  // (language-neutral images always pass), same as Change Poster.
+  const { region } = usePreferences()
+  const [showAllLanguages, setShowAllLanguages] = useState(false)
+  const allowedLanguages = useMemo(
+    () => new Set(getPosterLanguagesForRegion(region)),
+    [region],
+  )
+  const visibleImages = useMemo(() => {
+    if (showAllLanguages) return images
+    return images.filter(
+      (image) =>
+        image.iso_639_1 === null || allowedLanguages.has(image.iso_639_1),
+    )
+  }, [images, allowedLanguages, showAllLanguages])
+  const hiddenCount = images.length - visibleImages.length
+
   // Determine which images to display
-  const displayImages = showAll ? images : images.slice(0, INITIAL_LIMIT)
-  const hasMore = images.length > INITIAL_LIMIT && !showAll
+  const displayImages = showAll
+    ? visibleImages
+    : visibleImages.slice(0, INITIAL_LIMIT)
+  const hasMore = visibleImages.length > INITIAL_LIMIT && !showAll
 
   // Don't render section if loaded and no images
   if (isFetched && images.length === 0) return null
@@ -55,12 +76,28 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
       <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Photos</h2>
         {isFetched && images.length > 0 && (
-          <span className="text-sm text-gray-400">
-            {showAll
-              ? images.length
-              : `${Math.min(images.length, INITIAL_LIMIT)} of ${images.length}`}{" "}
-            images
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400">
+              {showAll
+                ? visibleImages.length
+                : `${Math.min(visibleImages.length, INITIAL_LIMIT)} of ${visibleImages.length}`}{" "}
+              images
+            </span>
+            {(hiddenCount > 0 || showAllLanguages) && (
+              <button
+                type="button"
+                onClick={() => setShowAllLanguages((value) => !value)}
+                className="text-xs font-medium text-gray-400 transition-colors hover:text-white"
+                data-testid={
+                  showAllLanguages
+                    ? "photos-show-matching"
+                    : "photos-show-all"
+                }
+              >
+                {showAllLanguages ? "Show matching only" : "Show all"}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -68,6 +105,23 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
         {isLoading || !isFetched ? (
           <SectionSkeleton count={8} cardWidth={100} cardHeight={150} />
+        ) : visibleImages.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center gap-3 py-8 text-center"
+            data-testid="photos-region-empty"
+          >
+            <p className="text-sm text-gray-400">
+              No photos available in your region language.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowAllLanguages(true)}
+              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+              data-testid="photos-show-all-empty"
+            >
+              Show all {images.length} photos
+            </button>
+          </div>
         ) : (
           /* Photo Grid */
           <ScrollableRow className="pb-2">
@@ -105,7 +159,7 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
                 className="flex h-[150px] w-[120px] shrink-0 flex-col items-center justify-center gap-2 rounded-lg bg-gray-800 text-white transition-colors hover:bg-gray-700 sm:h-[180px] sm:w-[140px]"
               >
                 <span className="text-2xl font-bold">
-                  +{images.length - INITIAL_LIMIT}
+                  +{visibleImages.length - INITIAL_LIMIT}
                 </span>
                 <span className="text-xs text-gray-400">View all</span>
               </button>
@@ -114,9 +168,9 @@ export function PhotosSection({ mediaId, mediaType }: PhotosSectionProps) {
         )}
       </div>
 
-      {/* Lightbox - uses all images for navigation, not just displayed */}
+      {/* Lightbox - uses visible images for navigation, not just displayed */}
       <PhotoLightbox
-        images={images}
+        images={visibleImages}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
