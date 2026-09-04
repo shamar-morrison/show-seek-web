@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useMediaImageCatalog } from "@/hooks/use-tmdb-queries"
+import { getPosterLanguagesForRegion } from "@/lib/regions"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { PosterOverrideMediaType } from "@/lib/poster-overrides"
 import type { TMDBLogo } from "@/types/tmdb"
@@ -50,7 +51,7 @@ export function PosterPickerModal({
   title,
   defaultPosterPath,
 }: PosterPickerModalProps) {
-  const { setPosterOverride, clearPosterOverride } = usePreferences()
+  const { setPosterOverride, clearPosterOverride, region } = usePreferences()
   const { resolvePosterPath } = usePosterOverrides()
   const { data, isLoading, isError, isFetching, refetch } =
     useMediaImageCatalog(mediaId, mediaType, isOpen)
@@ -62,13 +63,55 @@ export function PosterPickerModal({
     () => activePosterPath ?? null,
   )
   const [isSaving, setIsSaving] = useState(false)
+  const [showAllLanguages, setShowAllLanguages] = useState(false)
   const lastSyncedPosterPathRef = useRef<string | null>(activePosterPath ?? null)
   const wasOpenRef = useRef(false)
 
-  const posterOptions = useMemo(
+  const allowedPosterLanguages = useMemo(
+    () => new Set(getPosterLanguagesForRegion(region)),
+    [region],
+  )
+
+  const allPosterOptions = useMemo(
     () => dedupePosters(data?.posters ?? []),
     [data?.posters],
   )
+
+  const posterOptions = useMemo(() => {
+    if (showAllLanguages) {
+      return allPosterOptions
+    }
+
+    const filtered = allPosterOptions.filter(
+      (poster) =>
+        poster.iso_639_1 === null ||
+        allowedPosterLanguages.has(poster.iso_639_1),
+    )
+
+    // Keep the active poster visible even if its language is filtered out,
+    // so the current selection never mysteriously disappears.
+    if (
+      activePosterPath &&
+      !filtered.some((poster) => poster.file_path === activePosterPath)
+    ) {
+      const active = allPosterOptions.find(
+        (poster) => poster.file_path === activePosterPath,
+      )
+      if (active) {
+        return [active, ...filtered]
+      }
+    }
+
+    return filtered
+  }, [allPosterOptions, allowedPosterLanguages, activePosterPath, showAllLanguages])
+
+  const hiddenPosterCount = allPosterOptions.length - posterOptions.length
+
+  useEffect(() => {
+    if (isOpen) {
+      setShowAllLanguages(false)
+    }
+  }, [isOpen, mediaId, mediaType])
 
   useEffect(() => {
     if (!isOpen) {
@@ -212,10 +255,49 @@ export function PosterPickerModal({
         ) : posterOptions.length === 0 ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 text-center text-white/65">
             <HugeiconsIcon icon={Image01Icon} className="size-8" />
-            <p>No posters available for this title.</p>
+            {allPosterOptions.length === 0 ? (
+              <p>No posters available for this title.</p>
+            ) : (
+              <>
+                <p data-testid="poster-picker-region-empty">
+                  No posters available in your region language.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAllLanguages(true)}
+                  data-testid="poster-picker-show-all"
+                >
+                  Show all {allPosterOptions.length} posters
+                </Button>
+              </>
+            )}
           </div>
         ) : (
-          <div className="max-h-[65vh] overflow-y-auto pr-1">
+          <div className="flex flex-col gap-3">
+            {hiddenPosterCount > 0 || showAllLanguages ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/55">
+                <p data-testid="poster-picker-region-note">
+                  {showAllLanguages
+                    ? `Showing all ${allPosterOptions.length} posters`
+                    : `Showing ${posterOptions.length} of ${allPosterOptions.length} posters matching your region`}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setShowAllLanguages((value) => !value)}
+                  data-testid={
+                    showAllLanguages
+                      ? "poster-picker-show-matching"
+                      : "poster-picker-show-all"
+                  }
+                >
+                  {showAllLanguages ? "Show matching only" : "Show all"}
+                </Button>
+              </div>
+            ) : null}
+            <div className="max-h-[65vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {posterOptions.map((poster) => {
                 const isSelected = selectedPosterPath === poster.file_path
@@ -272,6 +354,7 @@ export function PosterPickerModal({
                 )
               })}
             </div>
+          </div>
           </div>
         )}
       </div>

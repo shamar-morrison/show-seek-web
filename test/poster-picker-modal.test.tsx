@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   clearPosterOverride: vi.fn(),
   refetch: vi.fn(),
+  region: "US",
   resolvePosterPath: vi.fn(
     (
       _mediaType: "movie" | "tv",
@@ -23,6 +24,7 @@ vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
     setPosterOverride: mocks.setPosterOverride,
     clearPosterOverride: mocks.clearPosterOverride,
+    region: mocks.region,
   }),
 }))
 
@@ -105,6 +107,7 @@ function createImagesResponse() {
 describe("PosterPickerModal", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.region = "US"
     mocks.clearPosterOverride.mockResolvedValue(undefined)
     mocks.refetch.mockResolvedValue(undefined)
     mocks.resolvePosterPath.mockImplementation(
@@ -263,5 +266,181 @@ describe("PosterPickerModal", () => {
       )
     })
     expect(mocks.toastError).toHaveBeenCalledWith("Save failed")
+  })
+
+  it("filters out posters that do not match the user region", async () => {
+    mocks.region = "US"
+    mocks.useMediaImageCatalog.mockReturnValue({
+      data: {
+        id: 123,
+        backdrops: [],
+        logos: [],
+        posters: [
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: "en",
+            file_path: "/poster-en.jpg",
+            vote_average: 5,
+            vote_count: 1,
+            width: 1000,
+          },
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: "fr",
+            file_path: "/poster-fr.jpg",
+            vote_average: 5,
+            vote_count: 1,
+            width: 1000,
+          },
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: null,
+            file_path: "/poster-neutral.jpg",
+            vote_average: 4,
+            vote_count: 1,
+            width: 1000,
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: mocks.refetch,
+    })
+
+    render(
+      <PosterPickerModal
+        isOpen
+        onClose={vi.fn()}
+        mediaId={123}
+        mediaType="movie"
+        title="Test"
+        defaultPosterPath="/poster-en.jpg"
+      />,
+    )
+
+    expect(
+      screen.getByTestId("poster-picker-option-/poster-en.jpg"),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId("poster-picker-option-/poster-neutral.jpg"),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("poster-picker-option-/poster-fr.jpg"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows region posters for non-English regions and offers show-all fallback", async () => {
+    const user = userEvent.setup()
+    mocks.region = "JP"
+    mocks.useMediaImageCatalog.mockReturnValue({
+      data: {
+        id: 123,
+        backdrops: [],
+        logos: [],
+        posters: [
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: "en",
+            file_path: "/poster-en.jpg",
+            vote_average: 5,
+            vote_count: 1,
+            width: 1000,
+          },
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: "ja",
+            file_path: "/poster-ja.jpg",
+            vote_average: 5,
+            vote_count: 1,
+            width: 1000,
+          },
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: null,
+            file_path: "/poster-neutral.jpg",
+            vote_average: 4,
+            vote_count: 1,
+            width: 1000,
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: mocks.refetch,
+    })
+
+    render(
+      <PosterPickerModal
+        isOpen
+        onClose={vi.fn()}
+        mediaId={123}
+        mediaType="movie"
+        title="Test"
+        defaultPosterPath="/poster-ja.jpg"
+      />,
+    )
+
+    expect(
+      screen.getByTestId("poster-picker-option-/poster-ja.jpg"),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("poster-picker-option-/poster-en.jpg"),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId("poster-picker-show-all"))
+
+    expect(
+      screen.getByTestId("poster-picker-option-/poster-en.jpg"),
+    ).toBeInTheDocument()
+  })
+
+  it("shows a region empty state when nothing matches", () => {
+    mocks.region = "JP"
+    mocks.useMediaImageCatalog.mockReturnValue({
+      data: {
+        id: 123,
+        backdrops: [],
+        logos: [],
+        posters: [
+          {
+            aspect_ratio: 0.666,
+            height: 1500,
+            iso_639_1: "fr",
+            file_path: "/poster-fr.jpg",
+            vote_average: 5,
+            vote_count: 1,
+            width: 1000,
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: mocks.refetch,
+    })
+
+    render(
+      <PosterPickerModal
+        isOpen
+        onClose={vi.fn()}
+        mediaId={123}
+        mediaType="movie"
+        title="Test"
+        defaultPosterPath={null}
+      />,
+    )
+
+    expect(
+      screen.getByTestId("poster-picker-region-empty"),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId("poster-picker-show-all")).toBeInTheDocument()
   })
 })

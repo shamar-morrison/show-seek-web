@@ -76,3 +76,87 @@ export function resolveUserRegion(
     ? normalizedValue
     : DEFAULT_REGION
 }
+
+/**
+ * Primary poster language(s) for each supported region.
+ * Posters from TMDB carry `iso_639_1` (e.g. "en", "fr", "ja", or null when
+ * language-neutral). A region maps to the ISO 639-1 code(s) a user in that
+ * country most likely wants to see.
+ */
+export const REGION_TO_POSTER_LANGUAGES: Record<
+  SupportedRegionCode,
+  readonly string[]
+> = {
+  AR: ["es"],
+  AU: ["en"],
+  AT: ["de"],
+  BE: ["nl", "fr"],
+  BR: ["pt"],
+  CA: ["en", "fr"],
+  CL: ["es"],
+  CO: ["es"],
+  CZ: ["cs"],
+  DK: ["da"],
+  FI: ["fi"],
+  FR: ["fr"],
+  DE: ["de"],
+  GR: ["el"],
+  HK: ["zh", "en"],
+  HU: ["hu"],
+  IN: ["hi", "en"],
+  ID: ["id"],
+  IE: ["en"],
+  IL: ["he"],
+  IT: ["it"],
+  JP: ["ja"],
+  MY: ["ms", "en"],
+  MX: ["es"],
+  NL: ["nl"],
+  NZ: ["en"],
+  NO: ["no"],
+  PE: ["es"],
+  PH: ["en"],
+  PL: ["pl"],
+  PT: ["pt"],
+  RO: ["ro"],
+  RU: ["ru"],
+  SG: ["en", "zh", "ms"],
+  ZA: ["en"],
+  KR: ["ko"],
+  ES: ["es"],
+  SE: ["sv"],
+  CH: ["de", "fr", "it"],
+  TW: ["zh"],
+  TH: ["th"],
+  TR: ["tr"],
+  UA: ["uk"],
+  GB: ["en"],
+  US: ["en"],
+  VN: ["vi"],
+}
+
+/**
+ * Get the allowed poster language codes for a region.
+ * Falls back to the default region when the input is unknown.
+ */
+export function getPosterLanguagesForRegion(
+  value: string | null | undefined,
+): readonly string[] {
+  const resolved = resolveUserRegion(value)
+  return REGION_TO_POSTER_LANGUAGES[resolved] ?? ["en"]
+}
+
+/**
+ * Whether a poster with the given `iso_639_1` should be shown for a region.
+ * Language-neutral posters (`null`) are always allowed.
+ */
+export function isPosterLanguageAllowedForRegion(
+  iso6391: string | null | undefined,
+  region: string | null | undefined,
+): boolean {
+  if (iso6391 === null || iso6391 === undefined) {
+    return true
+  }
+
+  return getPosterLanguagesForRegion(region).includes(iso6391)
+}

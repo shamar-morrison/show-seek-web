@@ -52,8 +52,8 @@ export function RegionSelectorModal({
         <DialogHeader className="gap-3 border-b border-white/10 px-6 pt-6 pb-4">
           <DialogTitle className="text-base font-semibold">Region</DialogTitle>
           <DialogDescription className="max-w-md text-sm text-white/60">
-            Select your region to see local streaming availability and release
-            dates.
+            Select your region to see local streaming availability, release
+            dates, and poster languages.
           </DialogDescription>
         </DialogHeader>
 
@@ -115,7 +115,8 @@ export function RegionSelectorModal({
         </ScrollArea>
 
         <div className="border-t border-white/10 px-6 py-4 text-center text-xs text-white/45">
-          This affects where to watch information and local release dates.
+          This affects where to watch information, local release dates, and
+          poster languages.
         </div>
       </DialogContent>
     </Dialog>
