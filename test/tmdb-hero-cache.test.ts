@@ -12,7 +12,7 @@ describe("hero media cache", () => {
     vi.unstubAllGlobals()
   })
 
-  it("caches the hero selection for 72 hours without changing regular trending", async () => {
+  it("caches the hero day+week pool for 24 hours without changing regular trending", async () => {
     const fetchMock = vi.fn(
       async (_input: string | URL | Request, _init?: RequestInit) =>
         new Response(JSON.stringify({ results: [] }), { status: 200 }),
@@ -25,23 +25,37 @@ describe("hero media cache", () => {
     await getHeroMediaList(2)
     await getTrendingMedia("day")
 
-    const heroCall = fetchMock.mock.calls[0]
-    const trendingCall = fetchMock.mock.calls[1]
+    expect(fetchMock).toHaveBeenCalledTimes(3)
 
-    if (!heroCall || !trendingCall) {
-      throw new Error("Expected hero and regular trending requests")
-    }
+    const [heroDayUrl, heroDayOptions] = fetchMock.mock.calls[0] as [
+      string,
+      { next?: { revalidate?: number } },
+    ]
+    const [heroWeekUrl, heroWeekOptions] = fetchMock.mock.calls[1] as [
+      string,
+      { next?: { revalidate?: number } },
+    ]
+    const [trendingUrl, trendingOptions] = fetchMock.mock.calls[2] as [
+      string,
+      { next?: { revalidate?: number } },
+    ]
 
-    const [heroUrl, heroOptions] = heroCall
-    const [trendingUrl, trendingOptions] = trendingCall
-
-    expect(new URL(heroUrl.toString()).searchParams.get("language")).toBe(
+    expect(new URL(heroDayUrl.toString()).pathname).toContain(
+      "/trending/all/day",
+    )
+    expect(new URL(heroWeekUrl.toString()).pathname).toContain(
+      "/trending/all/week",
+    )
+    expect(new URL(heroDayUrl.toString()).searchParams.get("language")).toBe(
       "en-US",
     )
-    expect(heroOptions?.next).toEqual({ revalidate: 259_200 })
+    expect(new URL(heroWeekUrl.toString()).searchParams.get("language")).toBe(
+      "en-US",
+    )
+    expect(heroDayOptions?.next).toEqual({ revalidate: 86_400 })
+    expect(heroWeekOptions?.next).toEqual({ revalidate: 86_400 })
     expect(new URL(trendingUrl.toString()).searchParams.get("language")).toBeNull()
     expect(trendingOptions?.next).toEqual({ revalidate: 3600 })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it("builds the cached hero payload with trending metadata, logos, and trailers", async () => {
@@ -66,6 +80,10 @@ describe("hero media cache", () => {
           }),
           { status: 200 },
         )
+      }
+
+      if (url.pathname.endsWith("/trending/all/week")) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 })
       }
 
       if (url.pathname.endsWith("/movie/123/images")) {
@@ -114,5 +132,88 @@ describe("hero media cache", () => {
         trailerKey: "trailer-key",
       },
     ])
+  })
+
+  it("rotates the hero window daily with wrap-around", async () => {
+    const { getHeroRotationSlice } = await import("@/lib/tmdb")
+
+    const pool = [1, 2, 3, 4, 5, 6]
+    const dayMs = 86_400_000
+    const dayZero = dayMs * 10
+
+    expect(getHeroRotationSlice(pool, 2, dayZero)).toEqual([3, 4])
+    expect(getHeroRotationSlice(pool, 2, dayZero + dayMs)).toEqual([5, 6])
+    // Wraps around the end of the pool
+    expect(getHeroRotationSlice(pool, 2, dayZero + dayMs * 2)).toEqual([1, 2])
+  })
+
+  it("dedupes day and week trending into one rotation pool", async () => {
+    const dayResults = [
+      {
+        id: 1,
+        media_type: "movie",
+        title: "Day One",
+        overview: "Day one overview.",
+        backdrop_path: "/one.jpg",
+        release_date: "2026-01-01",
+        vote_average: 7,
+      },
+      {
+        id: 2,
+        media_type: "tv",
+        name: "Day Two",
+        overview: "Day two overview.",
+        backdrop_path: "/two.jpg",
+        first_air_date: "2026-02-01",
+        vote_average: 8,
+      },
+    ]
+    const weekResults = [
+      {
+        id: 1,
+        media_type: "movie",
+        title: "Day One",
+        overview: "Day one overview.",
+        backdrop_path: "/one.jpg",
+        release_date: "2026-01-01",
+        vote_average: 7,
+      },
+      {
+        id: 3,
+        media_type: "movie",
+        title: "Week Three",
+        overview: "Week three overview.",
+        backdrop_path: "/three.jpg",
+        release_date: "2026-03-01",
+        vote_average: 9,
+      },
+    ]
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString())
+      if (url.pathname.endsWith("/trending/all/day")) {
+        return new Response(JSON.stringify({ results: dayResults }), {
+          status: 200,
+        })
+      }
+      if (url.pathname.endsWith("/trending/all/week")) {
+        return new Response(JSON.stringify({ results: weekResults }), {
+          status: 200,
+        })
+      }
+      if (url.pathname.includes("/images")) {
+        return new Response(JSON.stringify({ logos: [] }), { status: 200 })
+      }
+      if (url.pathname.includes("/videos")) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 })
+      }
+      throw new Error(`Unexpected TMDB request: ${url.pathname}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const { getHeroMediaList } = await import("@/lib/tmdb")
+
+    const hero = await getHeroMediaList(5)
+    expect(hero.map((item) => item.id).sort()).toEqual([1, 2, 3])
   })
 })

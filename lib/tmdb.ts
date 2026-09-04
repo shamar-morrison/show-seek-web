@@ -32,8 +32,14 @@ import type {
 const TMDB_API_KEY = process.env.TMDB_API_KEY
 const TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
-/** Refresh the homepage hero selection every three days. */
-const HERO_MEDIA_REVALIDATE_SECONDS = 259_200
+/** Refresh the homepage hero pool daily; daily sliding-window rotation picks a fresh slice. */
+const HERO_MEDIA_REVALIDATE_SECONDS = 86_400
+
+/** Number of milliseconds in a day (UTC) — one rotation period for the hero. */
+const HERO_ROTATION_PERIOD_MS = 86_400_000
+
+/** Max items kept in the hero rotation pool (day + week trending, deduped). */
+const HERO_ROTATION_POOL_SIZE = 20
 
 /** Default image base URL as fallback */
 const DEFAULT_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
@@ -159,14 +165,52 @@ async function fetchTrendingMedia(
 }
 
 /**
- * Fetch the homepage hero selection separately from the regular trending rail.
+ * Fetch the homepage hero rotation pool separately from the regular trending rail.
+ * Combines day + week trending (deduped) so the daily sliding window has enough
+ * variety to rotate even when the day-trending top 5 is stable.
  * The language parameter gives it a distinct Next data-cache key while
  * preserving the app's existing English TMDB content.
  */
 async function getHeroTrendingMedia(): Promise<TMDBMedia[]> {
-  return fetchTrendingMedia("day", HERO_MEDIA_REVALIDATE_SECONDS, {
-    language: "en-US",
-  })
+  const [dayTrending, weekTrending] = await Promise.all([
+    fetchTrendingMedia("day", HERO_MEDIA_REVALIDATE_SECONDS, {
+      language: "en-US",
+    }),
+    fetchTrendingMedia("week", HERO_MEDIA_REVALIDATE_SECONDS, {
+      language: "en-US",
+    }),
+  ])
+
+  const seen = new Set<string>()
+  const pool: TMDBMedia[] = []
+  for (const media of [...dayTrending, ...weekTrending]) {
+    const key = `${media.media_type}-${media.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    pool.push(media)
+    if (pool.length >= HERO_ROTATION_POOL_SIZE) break
+  }
+  return pool
+}
+
+/**
+ * Pick a daily-rotating slice from the hero pool.
+ * Advances one full window per UTC day so consecutive days show different
+ * titles, wrapping around when the offset exceeds the pool length.
+ */
+export function getHeroRotationSlice<T>(
+  pool: T[],
+  count: number,
+  now: number = Date.now(),
+): T[] {
+  if (pool.length === 0 || count <= 0) return []
+  if (pool.length <= count) return pool.slice()
+  const dayNumber = Math.floor(now / HERO_ROTATION_PERIOD_MS)
+  const start = (dayNumber * count) % pool.length
+  return Array.from(
+    { length: count },
+    (_, i) => pool[(start + i) % pool.length] as T,
+  )
 }
 
 /**
@@ -753,8 +797,11 @@ export async function getHeroMedia(): Promise<HeroMedia | null> {
       return null
     }
 
-    // Get the first trending item with a backdrop
-    const featuredMedia = trendingMedia.find((media) => media.backdrop_path)
+    // Get the daily-rotated featured item with a backdrop
+    const featuredMedia = getHeroRotationSlice(
+      trendingMedia.filter((media) => media.backdrop_path),
+      1,
+    )[0]
 
     if (!featuredMedia) {
       console.error("No media with backdrop found")
@@ -812,10 +859,12 @@ export async function getHeroMediaList(
       return []
     }
 
-    // Filter items with backdrops and take top N
-    const mediaWithBackdrops = trendingMedia
-      .filter((media) => media.backdrop_path)
-      .slice(0, count)
+    // Filter items with backdrops and pick a daily-rotating window
+    // so consecutive days show different titles even when TMDB order is stable.
+    const mediaWithBackdrops = getHeroRotationSlice(
+      trendingMedia.filter((media) => media.backdrop_path),
+      count,
+    )
 
     if (mediaWithBackdrops.length === 0) {
       console.error("No media with backdrop found")
