@@ -52,6 +52,10 @@ export async function fetchMediaImages(
   )
 }
 
+export async function fetchPersonImages(personId: number) {
+  return (await import("./server-actions/tmdb")).fetchPersonImages(personId)
+}
+
 export async function fetchMediaVideos(
   mediaId: number,
   mediaType: "movie" | "tv",

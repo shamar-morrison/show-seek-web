@@ -10,6 +10,7 @@ export const queryKeys = {
       ["tv", tvShowId, "season", seasonNumber] as const,
     mediaImages: (mediaId: number, mediaType: "movie" | "tv") =>
       [mediaType, mediaId, "images"] as const,
+    personImages: (personId: number) => ["person", personId, "images"] as const,
     mediaVideos: (mediaId: number, mediaType: "movie" | "tv") =>
       [mediaType, mediaId, "videos"] as const,
     mediaReviews: (mediaId: number, mediaType: "movie" | "tv") =>

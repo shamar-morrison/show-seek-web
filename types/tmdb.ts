@@ -72,6 +72,12 @@ export interface TMDBImagesResponse {
   posters: TMDBLogo[]
 }
 
+/** Response from person images endpoint */
+export interface TMDBPersonImagesResponse {
+  id: number
+  profiles: TMDBLogo[]
+}
+
 /** Individual video from videos endpoint */
 export interface TMDBVideo {
   id: string

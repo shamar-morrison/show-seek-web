@@ -3,6 +3,7 @@
 import {
   fetchMediaImages,
   fetchMediaVideos,
+  fetchPersonImages,
   fetchRecommendations,
   fetchReviews,
   fetchSeasonEpisodes,
@@ -106,6 +107,27 @@ export function useMediaImages(
     data: query.data
       ? ([...query.data.posters, ...query.data.backdrops] satisfies TMDBLogo[])
       : [],
+  }
+}
+
+/**
+ * Hook to fetch person profile images
+ */
+export function usePersonImages(personId: number, enabled = true) {
+  const query = useQuery({
+    ...queryCacheProfiles.profile,
+    ...tmdbRefetchOptions,
+    queryKey: tmdbQueryKeys.personImages(personId),
+    queryFn: async (): Promise<TMDBLogo[]> => {
+      const data = await fetchPersonImages(personId)
+      return data?.profiles ?? []
+    },
+    enabled,
+  })
+
+  return {
+    ...query,
+    data: query.data ?? [],
   }
 }
 

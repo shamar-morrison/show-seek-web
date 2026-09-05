@@ -7,6 +7,7 @@ import {
   getMediaImages,
   getMediaVideos,
   getMovieDetails,
+  getPersonImages,
   getRecommendations,
   getReviews,
   getSeasonDetails,
@@ -113,6 +114,19 @@ export async function fetchMediaImages(
     return await getMediaImages(mediaId, mediaType)
   } catch (error) {
     console.error("Server Action: Failed to fetch media images", error)
+    return null
+  }
+}
+
+/**
+ * Server action to fetch person images (profile photos).
+ * Used for lazy-loading the person photos tab.
+ */
+export async function fetchPersonImages(personId: number) {
+  try {
+    return await getPersonImages(personId)
+  } catch (error) {
+    console.error("Server Action: Failed to fetch person images", error)
     return null
   }
 }

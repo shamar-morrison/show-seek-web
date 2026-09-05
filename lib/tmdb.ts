@@ -18,6 +18,7 @@ import type {
   TMDBMedia,
   TMDBMovieDetails,
   TMDBPersonDetails,
+  TMDBPersonImagesResponse,
   TMDBReviewsResponse,
   TMDBSearchResponse,
   TMDBTrendingResponse,
@@ -613,6 +614,35 @@ export async function getMediaImages(
     return response.json()
   } catch (error) {
     console.error("Failed to fetch media images:", error)
+    return null
+  }
+}
+
+/**
+ * Fetch profile images for a specific person
+ * @param personId - TMDB person ID
+ * @returns Person images response with profiles
+ */
+export async function getPersonImages(
+  personId: number,
+): Promise<TMDBPersonImagesResponse | null> {
+  if (!TMDB_BEARER_TOKEN) {
+    console.error("TMDB API credentials not set")
+    return null
+  }
+
+  try {
+    const response = await tmdbFetch(`/person/${personId}/images`, {
+      next: { revalidate: 2592000 },
+    }) // Cache for 30 days
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error("Failed to fetch person images:", error)
     return null
   }
 }
