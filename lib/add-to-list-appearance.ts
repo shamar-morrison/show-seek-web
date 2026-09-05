@@ -52,7 +52,9 @@ const MULTIPLE_LISTS_APPEARANCE: AddToListAppearanceConfig = {
   iconKey: "multiple",
   buttonClassName:
     "border-green-400/40 bg-green-500/15 text-white hover:border-green-300/60 hover:bg-green-500/25 hover:text-white",
-  dropdownIconClassName: "text-green-400 fill-green-400",
+  // No fill: CheckListIcon is open stroke paths; filling would paint the
+  // implicit closures instead of the check strokes.
+  dropdownIconClassName: "text-green-400",
 }
 
 const CUSTOM_LIST_APPEARANCE: AddToListAppearanceConfig = {
@@ -83,7 +85,9 @@ const DEFAULT_LIST_APPEARANCE: Record<string, AddToListAppearanceConfig> = {
     iconKey: "already-watched",
     buttonClassName:
       "border-green-400/40 bg-green-500/15 text-white hover:border-green-300/60 hover:bg-green-500/25 hover:text-white",
-    dropdownIconClassName: "text-green-400 fill-green-400",
+    // No fill: Tick02Icon is a single open stroke path; filling would paint
+    // the implicit closure wedge instead of the check stroke.
+    dropdownIconClassName: "text-green-400",
   },
   favorites: {
     icon: FavouriteIcon,

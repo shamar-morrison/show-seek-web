@@ -109,6 +109,27 @@ describe("add-to-list appearance", () => {
     expect(appearance.buttonClassName).toContain("border-green-400/40")
   })
 
+  it("renders stroke-only dropdown icons for open-path check glyphs", () => {
+    const watched = resolveAddToListAppearance(
+      [createList("already-watched", ["123"])],
+      123,
+      "movie",
+    )
+    expect(watched.dropdownIconClassName).toContain("text-green-400")
+    expect(watched.dropdownIconClassName).not.toMatch(/fill-\S+/)
+
+    const multiple = resolveAddToListAppearance(
+      [
+        createList("watchlist", ["123"]),
+        createList("road-trip", ["123"]),
+      ],
+      123,
+      "movie",
+    )
+    expect(multiple.dropdownIconClassName).toContain("text-green-400")
+    expect(multiple.dropdownIconClassName).not.toMatch(/fill-\S+/)
+  })
+
   it("matches legacy prefixed keys when resolving membership", () => {
     const lists = [createList("watchlist", ["movie-123"])]
 
