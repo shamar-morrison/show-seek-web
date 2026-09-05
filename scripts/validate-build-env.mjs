@@ -86,6 +86,13 @@ const missingFirebaseBuildKeys = REQUIRED_FIREBASE_BUILD_KEYS.filter(
 const hasTmdbCredential = TMDB_BUILD_KEYS.some((key) => getEnvValue(key) !== "")
 
 if (missingFirebaseBuildKeys.length === 0 && hasTmdbCredential) {
+  const fetchCacheDir = path.join(process.cwd(), ".next/cache/fetch-cache")
+  if (existsSync(fetchCacheDir)) {
+    try {
+      rmSync(fetchCacheDir, { recursive: true, force: true })
+      console.log("Cleared stale .next/cache/fetch-cache before build.")
+    } catch {}
+  }
   console.log("Build environment validation passed.")
   process.exit(0)
 }

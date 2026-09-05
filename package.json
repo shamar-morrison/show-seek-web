@@ -9,7 +9,7 @@
     "start": "next start",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
-    "cf:build": "opennextjs-cloudflare build",
+    "cf:build": "opennextjs-cloudflare build && node scripts/cloudflare-prune-fetch-cache.mjs",
     "cf:prepare-local-config": "node scripts/cloudflare-generate-local-config.mjs",
     "cf:prepare-dev-vars": "node scripts/cloudflare-sync-dev-vars.mjs",
     "cf:preflight": "pnpm cf:prepare-local-config && pnpm cf:build && node scripts/cloudflare-free-plan-preflight.mjs --config .wrangler/wrangler.local.jsonc",

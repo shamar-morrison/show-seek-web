@@ -224,11 +224,12 @@ async function fetchMediaList(
   endpoint: string,
   mediaType: "movie" | "tv",
   errorMessage: string,
+  revalidate: number = 3600,
 ): Promise<TMDBMedia[]> {
   if (!TMDB_BEARER_TOKEN) return []
 
   try {
-    const response = await tmdbFetch(endpoint, { next: { revalidate: 3600 } })
+    const response = await tmdbFetch(endpoint, { next: { revalidate } })
 
     if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
 
@@ -922,9 +923,9 @@ export async function getMovieDetails(
   try {
     const response = await tmdbFetch(
       `/movie/${movieId}`,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 86400 } },
       { append_to_response: "credits,release_dates" },
-    ) // Cache for 1 hour
+    ) // Cache for 24 hours
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -990,9 +991,9 @@ export async function getTVDetails(
   try {
     const response = await tmdbFetch(
       `/tv/${tvId}`,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 86400 } },
       { append_to_response: "credits,content_ratings" },
-    ) // Cache for 1 hour
+    ) // Cache for 24 hours
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -1397,6 +1398,7 @@ export async function getSimilarMedia(
     `/${mediaType}/${mediaId}/similar`,
     mediaType,
     "Failed to fetch similar media:",
+    86400,
   )
 }
 

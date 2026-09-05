@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process"
+import { pruneFetchCache } from "./cloudflare-prune-fetch-cache.mjs"
 
 const FREE_PLAN_MAX_GZIP_BYTES = 3 * 1024 * 1024
 
@@ -32,6 +33,9 @@ function toBytes(value, unit) {
 
   throw new Error(`Unsupported size unit: ${unit}`)
 }
+
+// Prune build-time fetch-cache entries so KV limit of 1000 puts/day is preserved
+pruneFetchCache()
 
 const { configPath } = parseArgs(process.argv.slice(2))
 const wranglerArgs = ["exec", "wrangler"]
