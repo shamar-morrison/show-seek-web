@@ -69,7 +69,7 @@ export function PersonCard({
               {name}
             </h3>
             {subtext && (
-              <p className="line-clamp-1 text-xs text-gray-400 font-medium">
+              <p className="line-clamp-2 min-h-8 text-xs text-gray-400 font-medium">
                 {subtext}
               </p>
             )}
