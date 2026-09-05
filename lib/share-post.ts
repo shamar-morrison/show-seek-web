@@ -135,8 +135,10 @@ export async function renderShareCard(
   ctx.fillStyle = base
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT)
 
-  // Blurred artwork backdrop (prefer backdrop, else poster)
-  const backdropSource = media.backdropUrl ?? media.posterUrl
+  // Blurred artwork backdrop. Matches mobile (ShareCard renders the poster
+  // blurred, not the backdrop): prefer the poster — the same URL already
+  // proven loadable by the foreground — with the backdrop as fallback.
+  const backdropSource = media.posterUrl ?? media.backdropUrl
   if (backdropSource) {
     try {
       const backdrop = await loadImage(backdropSource)
@@ -144,14 +146,18 @@ export async function renderShareCard(
       ctx.filter = "blur(60px) brightness(0.9)"
       drawCover(ctx, backdrop, -80, -80, SHARE_CARD_WIDTH + 160, SHARE_CARD_HEIGHT + 160)
       ctx.restore()
-    } catch {
-      // Keep gradient background
+    } catch (error) {
+      console.warn("Share card: background artwork failed to load", {
+        url: backdropSource,
+        error,
+      })
     }
   }
 
-  // Dark overlay gradient for legibility
+  // Dark overlay gradient for legibility (mobile three-stop values)
   const overlay = ctx.createLinearGradient(0, 0, 0, SHARE_CARD_HEIGHT)
   overlay.addColorStop(0, "rgba(0,0,0,0.4)")
+  overlay.addColorStop(0.5, "rgba(0,0,0,0.6)")
   overlay.addColorStop(1, "rgba(0,0,0,0.85)")
   ctx.fillStyle = overlay
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT)
@@ -171,8 +177,11 @@ export async function renderShareCard(
       ctx.shadowOffsetY = 20
       drawCover(ctx, poster, posterX, posterY, posterWidth, posterHeight)
       ctx.restore()
-    } catch {
-      // Poster area stays on the gradient background
+    } catch (error) {
+      console.warn("Share card: poster artwork failed to load", {
+        url: media.posterUrl,
+        error,
+      })
     }
   }
 

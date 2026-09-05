@@ -189,6 +189,74 @@ describe("renderShareCard", () => {
       vi.unstubAllGlobals()
     }
   })
+
+  it("prefers the poster for the blurred background like mobile", async () => {
+    mockCanvas()
+    const loadedUrls: string[] = []
+
+    class RecordingImage {
+      crossOrigin = ""
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      width = 1000
+      height = 1500
+      set src(value: string) {
+        loadedUrls.push(value)
+        window.setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal("Image", RecordingImage)
+
+    try {
+      await renderShareCard(
+        createMedia({
+          posterUrl: "https://image.tmdb.org/t/p/original/poster.jpg",
+          backdropUrl: "https://image.tmdb.org/t/p/original/backdrop.jpg",
+        }),
+      )
+
+      // Background first, then the foreground poster
+      expect(loadedUrls).toEqual([
+        "https://image.tmdb.org/t/p/original/poster.jpg",
+        "https://image.tmdb.org/t/p/original/poster.jpg",
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it("falls back to the backdrop for the background when no poster exists", async () => {
+    mockCanvas()
+    const loadedUrls: string[] = []
+
+    class RecordingImage {
+      crossOrigin = ""
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      width = 1920
+      height = 1080
+      set src(value: string) {
+        loadedUrls.push(value)
+        window.setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal("Image", RecordingImage)
+
+    try {
+      await renderShareCard(
+        createMedia({
+          posterUrl: null,
+          backdropUrl: "https://image.tmdb.org/t/p/original/backdrop.jpg",
+        }),
+      )
+
+      expect(loadedUrls).toEqual([
+        "https://image.tmdb.org/t/p/original/backdrop.jpg",
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 describe("canvasToPngBlob", () => {
