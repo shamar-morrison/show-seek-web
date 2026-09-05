@@ -9,6 +9,7 @@ import { NotesModal } from "@/components/notes-modal"
 import { PosterPickerModal } from "@/components/poster-picker-modal"
 import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
+import { ShareMenuButton } from "@/components/share-menu-button"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -311,6 +312,30 @@ export function MediaDetailHero({
 
   const creatorLabel = mediaType === "movie" ? "Director" : "Creator"
 
+  // Share post data (mirrors mobile ShareCardModal mediaData)
+  const shareMedia = useMemo(
+    () => ({
+      id: media.id,
+      mediaType,
+      title,
+      posterUrl: buildImageUrl(resolvedPosterPath, "original"),
+      backdropUrl: buildImageUrl(media.backdrop_path, "original"),
+      releaseYear: releaseDate ? releaseDate.split("-")[0] || "" : "",
+      genres: (media.genres ?? []).map((genre) => genre.name),
+      userRating: userRating?.rating ?? 0,
+    }),
+    [
+      media.id,
+      mediaType,
+      title,
+      resolvedPosterPath,
+      media.backdrop_path,
+      releaseDate,
+      media.genres,
+      userRating,
+    ],
+  )
+
   const handlePosterPickerOpen = useCallback(() => {
     requireAuth(
       () => setIsPosterPickerOpen(true),
@@ -603,6 +628,9 @@ export function MediaDetailHero({
                         ? "View Note"
                         : "Notes"}
                   </Button>
+
+                  {/* Share - extensible dropdown menu */}
+                  <ShareMenuButton media={shareMedia} />
                 </div>
               </div>
             </div>
