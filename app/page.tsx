@@ -5,7 +5,8 @@ import {
   getPopularMovies,
   getTopRatedMovies,
   getTopRatedTV,
-  getTrendingMedia,
+  getTrendingMoviesPaginated,
+  getTrendingTVPaginated,
   getUpcomingMovies,
   getUpcomingTV,
 } from "@/lib/tmdb"
@@ -13,10 +14,13 @@ import {
 export const revalidate = 3600 // Revalidate every hour
 
 export default async function Home() {
-  // Fetch all required data in parallel
+  // Fetch all required data in parallel.
+  // Trending movies/TV use dedicated endpoints (first page each) so both
+  // rails get full ~20-item lists instead of splitting one mixed page.
   const [
     heroMediaListRaw,
-    trendingList,
+    trendingMoviesData,
+    trendingTVData,
     popularMovies,
     topRatedMovies,
     topRatedTV,
@@ -24,7 +28,8 @@ export default async function Home() {
     upcomingTV,
   ] = await Promise.all([
     getHeroMediaList(),
-    getTrendingMedia("day"),
+    getTrendingMoviesPaginated(1),
+    getTrendingTVPaginated(1),
     getPopularMovies(),
     getTopRatedMovies(),
     getTopRatedTV(),
@@ -38,7 +43,8 @@ export default async function Home() {
   return (
     <HomePageClient
       heroMediaList={heroMediaList}
-      trendingList={trendingList}
+      trendingMovies={trendingMoviesData.results}
+      trendingTV={trendingTVData.results}
       popularMovies={popularMovies}
       topRatedMovies={topRatedMovies}
       topRatedTV={topRatedTV}

@@ -31,7 +31,8 @@ const TrailerModal = dynamic(
 
 interface HomePageClientProps {
   heroMediaList: HeroMedia[]
-  trendingList: TMDBMedia[]
+  trendingMovies: TMDBMedia[]
+  trendingTV: TMDBMedia[]
   popularMovies: TMDBMedia[]
   topRatedMovies: TMDBMedia[]
   topRatedTV: TMDBMedia[]
@@ -47,7 +48,8 @@ interface ListConfig {
 
 export function HomePageClient({
   heroMediaList,
-  trendingList,
+  trendingMovies,
+  trendingTV,
   popularMovies,
   topRatedMovies,
   topRatedTV,
@@ -68,15 +70,7 @@ export function HomePageClient({
   const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null)
   const preferOriginalTitles = preferences.showOriginalTitles
 
-  // Filter trending list by media type
-  const trendingMovies = useMemo(
-    () => trendingList.filter((m) => m.media_type === "movie"),
-    [trendingList],
-  )
-  const trendingTV = useMemo(
-    () => trendingList.filter((m) => m.media_type === "tv"),
-    [trendingList],
-  )
+  // Trending rails arrive pre-split from dedicated endpoints
   const displayHeroMediaList = useMemo(
     () =>
       heroMediaList.map((media) => ({
