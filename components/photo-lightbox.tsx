@@ -178,7 +178,10 @@ export function PhotoLightbox({
           <div className="relative flex max-h-[70vh] max-w-full items-center justify-center">
             {isImageLoading && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+                <div
+                  className="h-10 w-10 shrink-0 animate-spin aspect-square rounded-full border-4 border-white/20 border-t-white"
+                  data-testid="photo-lightbox-spinner"
+                />
               </div>
             )}
             <img
