@@ -2,6 +2,7 @@ import { FavoritePersonButton } from "@/components/favorite-person-button"
 import { PageContainer } from "@/components/page-container"
 import { PersonBiography } from "@/components/person-biography"
 import { PersonContent } from "@/components/person-content"
+import { PersonSocialLinks } from "@/components/person-social-links"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
 import { calculateTmdbAge, formatTmdbDate } from "@/lib/tmdb-date"
 import { Metadata } from "next"
@@ -138,6 +139,8 @@ export default async function PersonPage({ params }: PersonPageProps) {
                     </div>
                   </div>
                 )}
+
+                <PersonSocialLinks externalIds={person.external_ids} />
               </div>
             </div>
           </div>

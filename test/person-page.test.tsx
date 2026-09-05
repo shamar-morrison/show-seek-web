@@ -138,4 +138,44 @@ describe("PersonPage", () => {
 
     expect(screen.queryByText("Date of Death")).not.toBeInTheDocument()
   })
+
+  it("renders social links with exact profile urls", async () => {
+    await renderPersonPage(
+      createPerson({
+        external_ids: {
+          facebook_id: "somefb ",
+          instagram_id: " someinsta",
+          twitter_id: "sometw",
+          tiktok_id: "@somett",
+          youtube_id: "someyt",
+        },
+      }),
+    )
+
+    const row = screen.getByTestId("person-social-links")
+    expect(row).toBeInTheDocument()
+
+    const links = ["Instagram", "Twitter", "Facebook", "TikTok", "YouTube"].map(
+      (label) => screen.getByRole("link", { name: label }),
+    )
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "https://www.instagram.com/someinsta",
+      "https://x.com/sometw",
+      "https://www.facebook.com/somefb",
+      "https://www.tiktok.com/@somett",
+      "https://www.youtube.com/someyt",
+    ])
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank")
+      expect(link.getAttribute("rel")).toContain("noopener")
+    }
+  })
+
+  it("hides the social row when no external ids exist", async () => {
+    await renderPersonPage(createPerson({ external_ids: null }))
+
+    expect(
+      screen.queryByTestId("person-social-links"),
+    ).not.toBeInTheDocument()
+  })
 })

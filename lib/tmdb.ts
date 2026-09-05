@@ -1363,7 +1363,7 @@ export async function getPersonDetails(
     const response = await tmdbFetch(
       `/person/${personId}`,
       { next: { revalidate: 604800 } },
-      { append_to_response: "combined_credits" },
+      { append_to_response: "combined_credits,external_ids" },
     ) // Cache for 1 week
 
     if (!response.ok) {

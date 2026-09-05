@@ -476,6 +476,15 @@ export interface TMDBPersonCombinedCredits {
   crew: PersonCrewMember[]
 }
 
+/** External social IDs for a person (from append_to_response=external_ids) */
+export interface TMDBPersonExternalIds {
+  facebook_id: string | null
+  instagram_id: string | null
+  twitter_id: string | null
+  tiktok_id: string | null
+  youtube_id: string | null
+}
+
 /** Full person details response */
 export interface TMDBPersonDetails {
   id: number
@@ -493,6 +502,7 @@ export interface TMDBPersonDetails {
   profile_path: string | null
   adult: boolean
   combined_credits?: TMDBPersonCombinedCredits
+  external_ids?: TMDBPersonExternalIds | null
 }
 
 /** Individual watch provider */
