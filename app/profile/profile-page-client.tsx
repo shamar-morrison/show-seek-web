@@ -2,6 +2,7 @@
 
 import { PremiumModal } from "@/components/premium-modal"
 import { ActionButton } from "@/components/profile/action-button"
+import { AccentColorModal } from "@/components/profile/accent-color-modal"
 import { ExportDataModal } from "@/components/profile/export-data-modal"
 import { HomeScreenCustomizer } from "@/components/profile/HomeScreenCustomizer"
 import { ImdbImportModal } from "@/components/profile/imdb-import-modal"
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
 import { useTrakt } from "@/context/trakt-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import { getAccentColorName } from "@/lib/accent-colors"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
 import {
   PREMIUM_LOADING_MESSAGE,
@@ -33,6 +35,7 @@ import {
   Location01Icon,
   Loading03Icon,
   Logout01Icon,
+  PaintBoardIcon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -73,6 +76,7 @@ export function ProfilePageClient() {
     isLoading: prefsLoading,
     updatePreference,
     updateRegion,
+    updateAccentColor,
   } = usePreferences()
   const pathname = usePathname()
   const router = useRouter()
@@ -83,6 +87,7 @@ export function ProfilePageClient() {
   const [showImdbImportModal, setShowImdbImportModal] = useState(false)
   const [showTraktZipImportModal, setShowTraktZipImportModal] = useState(false)
   const [showRegionModal, setShowRegionModal] = useState(false)
+  const [showAccentColorModal, setShowAccentColorModal] = useState(false)
   const [showTraktModal, setShowTraktModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -212,6 +217,16 @@ export function ProfilePageClient() {
     } catch (error) {
       captureException(error)
       toast.error("Failed to update region. Please try again.")
+      throw error
+    }
+  }
+
+  async function handleAccentColorChange(nextColor: string) {
+    try {
+      await updateAccentColor(nextColor)
+    } catch (error) {
+      captureException(error)
+      toast.error("Failed to update accent color. Please try again.")
       throw error
     }
   }
@@ -364,6 +379,23 @@ export function ProfilePageClient() {
           }
           badgeClassName="bg-white/10 text-white/75"
           onClick={() => setShowRegionModal(true)}
+        />
+        <div className="mx-4 border-t border-white/10" />
+        <ActionButton
+          icon={PaintBoardIcon}
+          label="Accent Color"
+          badge={
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="size-2.5 rounded-full"
+                style={{ backgroundColor: preferences.accentColor }}
+              />
+              {getAccentColorName(preferences.accentColor)}
+            </span>
+          }
+          badgeClassName="bg-white/10 text-white/75"
+          onClick={() => setShowAccentColorModal(true)}
         />
         <div className="mx-4 border-t border-white/10" />
         <ActionButton
@@ -633,6 +665,13 @@ export function ProfilePageClient() {
         onOpenChange={setShowRegionModal}
         region={region}
         onSelectRegion={handleRegionChange}
+      />
+
+      <AccentColorModal
+        open={showAccentColorModal}
+        onOpenChange={setShowAccentColorModal}
+        accentColor={preferences.accentColor}
+        onSelectColor={handleAccentColorChange}
       />
 
       <TraktSettingsModal

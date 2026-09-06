@@ -1,5 +1,6 @@
 "use client"
 
+import { AccentColorEffect } from "@/components/accent-color-effect"
 import { PreferencesBootstrap } from "@/components/preferences-bootstrap"
 import { QueryProvider } from "@/components/query-provider"
 import { AuthProvider } from "@/context/auth-context"
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryProvider>
       <AuthProvider>
         <PreferencesBootstrap />
+        <AccentColorEffect />
         <TraktProvider>
           {children}
           <AppClientShell />

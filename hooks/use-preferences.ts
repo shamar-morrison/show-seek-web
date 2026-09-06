@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import { isAccentColor } from "@/lib/accent-colors"
 import {
   clearPosterOverride as clearPosterOverrideInFirestore,
   setPosterOverride as setPosterOverrideInFirestore,
@@ -40,6 +41,7 @@ interface UsePreferencesReturn {
   ) => Promise<void>
   updateHomeScreenLists: (lists: HomeScreenListItem[]) => Promise<void>
   updateRegion: (region: SupportedRegionCode) => Promise<void>
+  updateAccentColor: (accentColor: string) => Promise<void>
   setPosterOverride: (
     mediaType: PosterOverrideMediaType,
     mediaId: number,
@@ -190,6 +192,46 @@ export function usePreferences(): UsePreferencesReturn {
     [queryClient, region, userId],
   )
 
+  const updateAccentColor = useCallback(
+    async (accentColor: string): Promise<void> => {
+      if (!userId) {
+        throw new Error("User must be logged in to update preferences")
+      }
+
+      if (!isAccentColor(accentColor)) {
+        throw new Error("Invalid accent color")
+      }
+
+      const userDocRef = doc(getFirebaseDb(), "users", userId)
+      const queryKey = queryKeys.firestore.preferences(userId)
+      const previousData =
+        queryClient.getQueryData<PreferencesCacheData>(queryKey)
+
+      queryClient.setQueryData<PreferencesCacheData>(queryKey, (current) => ({
+        ...(current ?? DEFAULT_PREFERENCES_CACHE_DATA),
+        preferences: {
+          ...(current?.preferences ?? DEFAULT_PREFERENCES),
+          accentColor,
+        },
+      }))
+
+      try {
+        // Dual-write: nested preference for web + top-level field so the
+        // mobile app picks it up on its next sync.
+        await setDoc(
+          userDocRef,
+          { preferences: { accentColor }, accentColor },
+          { merge: true },
+        )
+      } catch (error) {
+        console.error("Error updating accent color:", error)
+        rollbackPreferencesCacheData(queryClient, queryKey, previousData)
+        throw error
+      }
+    },
+    [queryClient, userId],
+  )
+
   const setPosterOverride = useCallback(
     async (
       mediaType: PosterOverrideMediaType,
@@ -282,6 +324,7 @@ export function usePreferences(): UsePreferencesReturn {
     updatePreference,
     updateHomeScreenLists,
     updateRegion,
+    updateAccentColor,
     setPosterOverride,
     clearPosterOverride,
   }

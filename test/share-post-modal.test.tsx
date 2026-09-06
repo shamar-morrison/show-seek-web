@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }))
 
+vi.mock("@/hooks/use-preferences", () => ({
+  usePreferences: () => ({
+    preferences: { accentColor: "#E50914" },
+  }),
+}))
+
 vi.mock("@/lib/share-post", () => ({
   canvasToPngBlob: (...args: unknown[]) => mocks.canvasToPngBlob(...args),
   copyPngToClipboard: (...args: unknown[]) =>
@@ -83,7 +89,9 @@ describe("SharePostModal", () => {
     await waitFor(() => {
       expect(screen.getByTestId("share-post-preview")).toBeInTheDocument()
     })
-    expect(mocks.renderShareCard).toHaveBeenCalledWith(MEDIA)
+    expect(mocks.renderShareCard).toHaveBeenCalledWith(MEDIA, {
+      accentColor: "#E50914",
+    })
     expect(screen.getByTestId("share-post-caption")).toHaveTextContent(CAPTION)
   })
 

@@ -4,6 +4,7 @@ import { AuthRequiredRecovery } from "@/components/auth-required-recovery"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { ServerSessionSyncController } from "@/components/server-session-sync-controller"
+import { usePreferences } from "@/hooks/use-preferences"
 import NextTopLoader from "nextjs-toploader"
 import { Suspense, useEffect } from "react"
 import { Toaster } from "sonner"
@@ -30,9 +31,11 @@ function ServiceWorkerRegistration() {
 }
 
 export function AppClientShell() {
+  const { preferences } = usePreferences()
+
   return (
     <>
-      <NextTopLoader color="#E50914" showSpinner={false} />
+      <NextTopLoader color={preferences.accentColor} showSpinner={false} />
       <Suspense fallback={null}>
         <ServerSessionSyncController />
       </Suspense>

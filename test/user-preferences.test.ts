@@ -21,6 +21,26 @@ describe("user preferences", () => {
     expect(DEFAULT_PREFERENCES.posterOverrides).toEqual({})
   })
 
+  it("defaults accent color to brand red", () => {
+    expect(DEFAULT_PREFERENCES.accentColor).toBe("#E50914")
+  })
+
+  it("hydrates accent color from stored preferences", () => {
+    expect(
+      hydrateUserPreferences({ accentColor: "#3B82F6" }),
+    ).toMatchObject({
+      accentColor: "#3B82F6",
+    })
+  })
+
+  it("falls back to the default for an invalid stored accent color", () => {
+    expect(hydrateUserPreferences({ accentColor: "not-a-color" })).toMatchObject(
+      {
+        accentColor: "#E50914",
+      },
+    )
+  })
+
   it("hydrates the new preference key from stored preferences", () => {
     expect(
       hydrateUserPreferences({ autoRemoveFromShouldWatch: false }),
