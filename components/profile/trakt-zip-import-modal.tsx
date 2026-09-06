@@ -287,6 +287,7 @@ export function TraktZipImportModal({
               </h4>
               <p className="mt-1 text-xs text-amber-100/80">
                 {nextAllowedZipImportAt &&
+                // eslint-disable-next-line react-hooks/purity -- intentional render-time read (mobile parity); parent re-renders on the cooldown tick
                 nextAllowedZipImportAt.getTime() > Date.now()
                   ? `You can start another import ${formatDistanceToNow(nextAllowedZipImportAt, { addSuffix: true })}.`
                   : "Please wait before starting another import."}

@@ -182,6 +182,7 @@ export function useTraktZipImport({
 
   const isZipImportRateLimited =
     nextAllowedZipImportAt !== null &&
+    // eslint-disable-next-line react-hooks/purity -- intentional render-time read (mobile parity); refreshed by the cooldown tick interval below
     nextAllowedZipImportAt.getTime() > Date.now()
 
   // Cooldown tick interval — identical logic from mobile
