@@ -4,6 +4,7 @@ import { AuthModal } from "@/components/auth-modal"
 import { EpisodeCard } from "@/components/episode-card"
 import { PageContainer } from "@/components/page-container"
 import { RateButton } from "@/components/rate-button"
+import { SeasonOverview } from "@/components/season-overview"
 import { SeasonRatingModal } from "@/components/season-rating-modal"
 import { Button } from "@/components/ui/button"
 import {
@@ -305,15 +306,10 @@ export function SeasonDetailClient({
 
             {/* Overview */}
             {season.overview && (
-              <p
-                className={`mb-6 max-w-2xl text-gray-300 line-clamp-3 ${
-                  preferences.blurPlotSpoilers
-                    ? "blur-md transition-all duration-300 hover:blur-none"
-                    : ""
-                }`}
-              >
-                {season.overview}
-              </p>
+              <SeasonOverview
+                overview={season.overview}
+                blurPlotSpoilers={preferences.blurPlotSpoilers}
+              />
             )}
 
             {/* Progress & Actions */}
