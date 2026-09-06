@@ -583,4 +583,53 @@ describe("AuthModal", () => {
       expect(markServerSessionReadyMock).not.toHaveBeenCalled()
     })
   })
+
+  it("rejects an invalid email address without contacting the server", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+
+    // Submit the form directly: the email input's native type="email"
+    // validation would otherwise block submission before React validation
+    // runs (same as in a real browser).
+    const { container } = render(<AuthModal isOpen />)
+    fillEmailForm("not-an-email", "secret123")
+
+    const form = container.querySelector("form")
+    expect(form).not.toBeNull()
+    fireEvent.submit(form as HTMLFormElement)
+
+    expect(
+      await screen.findByText("Please enter a valid email address"),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(signInWithCustomTokenMock).not.toHaveBeenCalled()
+  })
+
+  it("requires a password of at least 6 characters", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<AuthModal isOpen />)
+    fillEmailForm("user@example.com", "short")
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(
+      await screen.findByText("Password must be at least 6 characters"),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("requires a non-empty password", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<AuthModal isOpen />)
+    fillEmailForm("user@example.com", "")
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }))
+
+    expect(await screen.findByText("Password is required")).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

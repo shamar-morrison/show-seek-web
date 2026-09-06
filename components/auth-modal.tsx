@@ -39,18 +39,54 @@ import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { signInWithCustomToken, type User } from "firebase/auth"
 import { useState } from "react"
-import { z } from "zod"
 
-/** Validation schema for sign-in form */
-const signInSchema = z.object({
-  email: z.string().trim().email("Please enter a valid email address"),
-  password: z
-    .string()
-    .min(1, "Password is required")
-    .pipe(z.string().min(6, "Password must be at least 6 characters")),
-})
+type SignInFormData = {
+  email: string
+  password: string
+}
 
-type SignInFormData = z.infer<typeof signInSchema>
+const SIGN_IN_EMAIL_PATTERN = /^(?!\.)(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+type SignInValidationIssue = {
+  path: [keyof SignInFormData]
+  message: string
+}
+
+type SignInValidationResult =
+  | { success: true; data: SignInFormData }
+  | { success: false; error: { issues: SignInValidationIssue[] } }
+
+/**
+ * Validate the sign-in form: trimmed email must look like an address,
+ * password is required with at least 6 characters. Returns the
+ * safeParse-shaped result the submit handler consumes.
+ */
+function validateSignInForm(formData: SignInFormData): SignInValidationResult {
+  const email = formData.email.trim()
+  const issues: SignInValidationIssue[] = []
+
+  if (!SIGN_IN_EMAIL_PATTERN.test(email)) {
+    issues.push({
+      path: ["email"],
+      message: "Please enter a valid email address",
+    })
+  }
+
+  if (formData.password.length < 1) {
+    issues.push({ path: ["password"], message: "Password is required" })
+  } else if (formData.password.length < 6) {
+    issues.push({
+      path: ["password"],
+      message: "Password must be at least 6 characters",
+    })
+  }
+
+  if (issues.length > 0) {
+    return { success: false, error: { issues } }
+  }
+
+  return { success: true, data: { email, password: formData.password } }
+}
 type PendingEmailAccountCreation = {
   email: string
   password: string
@@ -329,7 +365,7 @@ export function AuthModal({
     const form = e.currentTarget as HTMLFormElement
 
     // Validate form data
-    const result = signInSchema.safeParse(formData)
+    const result = validateSignInForm(formData)
     if (!result.success) {
       const fieldErrors: Partial<SignInFormData> = {}
       result.error.issues.forEach((issue) => {
