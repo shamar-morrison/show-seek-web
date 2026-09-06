@@ -18,6 +18,7 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -45,6 +46,8 @@ export function SharePostModal({
   const [isCopyingCaption, setIsCopyingCaption] = useState(false)
   const blobRef = useRef<Blob | null>(null)
   const urlsRef = useRef<string[]>([])
+  const { preferences } = usePreferences()
+  const accentColor = preferences.accentColor
 
   useEffect(() => {
     if (!isOpen) return
@@ -54,7 +57,7 @@ export function SharePostModal({
     setPreviewUrl(null)
     blobRef.current = null
 
-    renderShareCard(media)
+    renderShareCard(media, { accentColor })
       .then(async (canvas) => {
         if (cancelled) return
         const blob = await canvasToPngBlob(canvas)
@@ -77,7 +80,7 @@ export function SharePostModal({
     return () => {
       cancelled = true
     }
-  }, [isOpen, media])
+  }, [isOpen, media, accentColor])
 
   useEffect(() => {
     const urls = urlsRef.current

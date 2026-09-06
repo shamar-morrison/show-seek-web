@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from "./utils"
 
 const updatePreferenceMock = vi.fn()
 const updateRegionMock = vi.fn()
+const updateAccentColorMock = vi.fn()
 const pushMock = vi.fn()
 const signOutMock = vi.fn()
 const useTraktMock = vi.fn()
@@ -79,6 +80,7 @@ vi.mock("@hugeicons/core-free-icons", () => ({
   Location01Icon: {},
   Loading03Icon: {},
   Logout01Icon: {},
+  PaintBoardIcon: {},
   Tick02Icon: {},
 }))
 
@@ -123,6 +125,7 @@ vi.mock("@/hooks/use-preferences", async () => {
       isLoading: false,
       updatePreference: updatePreferenceMock,
       updateRegion: updateRegionMock,
+      updateAccentColor: updateAccentColorMock,
     }),
   }
 })
@@ -208,6 +211,17 @@ describe("ProfilePageClient", () => {
     expect(
       screen.queryByText("Auto-remove from Should Watch"),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows the accent color row with the current color on the content tab", async () => {
+    mockSearchParams = new URLSearchParams("tab=content")
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByText("Accent Color")).toBeInTheDocument()
+    expect(screen.getByText("Red")).toBeInTheDocument()
   })
 
   it("falls back to preferences for an invalid tab param", async () => {

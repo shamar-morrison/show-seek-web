@@ -3,10 +3,10 @@
  * (mirrors the mobile ShareCard layout), and clipboard/download utilities.
  */
 
+import { DEFAULT_ACCENT_COLOR } from "@/lib/accent-colors"
+
 export const SHARE_CARD_WIDTH = 1080
 export const SHARE_CARD_HEIGHT = 1920
-
-const ACCENT_COLOR = "#E50914"
 
 export interface SharePostMedia {
   id: number
@@ -118,9 +118,16 @@ function wrapLines(
  * `year • genres` metadata, and a rating pill.
  * Falls back to a pure gradient background when artwork fails to load.
  */
+export interface RenderShareCardOptions {
+  /** Defaults to the brand red when the caller's accent is unknown. */
+  accentColor?: string
+}
+
 export async function renderShareCard(
   media: SharePostMedia,
+  options?: RenderShareCardOptions,
 ): Promise<HTMLCanvasElement> {
+  const accentColor = options?.accentColor ?? DEFAULT_ACCENT_COLOR
   const canvas = document.createElement("canvas")
   canvas.width = SHARE_CARD_WIDTH
   canvas.height = SHARE_CARD_HEIGHT
@@ -229,7 +236,7 @@ export async function renderShareCard(
     const pillWidth = pillTextWidth + 120
     const pillHeight = 110
     const pillX = centerX - pillWidth / 2
-    ctx.fillStyle = ACCENT_COLOR
+    ctx.fillStyle = accentColor
     ctx.beginPath()
     ctx.roundRect(pillX, cursorY, pillWidth, pillHeight, pillHeight / 2)
     ctx.fill()
@@ -242,7 +249,7 @@ export async function renderShareCard(
     ctx.font = "700 40px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     ctx.fillText("My Rating", centerX, cursorY)
     cursorY += 60
-    ctx.fillStyle = ACCENT_COLOR
+    ctx.fillStyle = accentColor
     ctx.font = "700 120px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     ctx.fillText(`${displayRating}/10`, centerX, cursorY)
   }
