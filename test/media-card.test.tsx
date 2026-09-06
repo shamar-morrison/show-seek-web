@@ -132,4 +132,32 @@ describe("MediaCard", () => {
       "https://image.tmdb.org/t/p/w500/custom-poster.jpg",
     )
   })
+
+  it("keeps interactive controls outside the detail link so their clicks never start a navigation", () => {
+    const onWatchTrailer = vi.fn()
+    const { container } = render(
+      <MediaCard
+        media={{ ...createMedia(), poster_path: "/poster.jpg" }}
+        onWatchTrailer={onWatchTrailer}
+        dropdownItems={[{ id: "save", label: "Save" }]}
+      />,
+    )
+
+    const link = container.querySelector('a[href="/movie/42"]')
+    expect(link).not.toBeNull()
+
+    // Poster and title navigate; trailer button and dropdown trigger must not
+    // sit inside the anchor (their clicks cancel navigation, which previously
+    // still activated the top loader).
+    expect(link?.querySelector("img")).not.toBeNull()
+    expect(link?.querySelector("h3")).not.toBeNull()
+    expect(link?.querySelector("button")).toBeNull()
+    expect(screen.getByRole("button", { name: "Trailer" })).not.toBeNull()
+    expect(
+      screen.getByRole("button", { name: "More options" }),
+    ).not.toBeNull()
+
+    // Only the navigating region shows the pointer cursor.
+    expect(link).toHaveClass("cursor-pointer")
+  })
 })

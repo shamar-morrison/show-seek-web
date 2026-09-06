@@ -110,14 +110,14 @@ export function MediaCard({
   const hasRating = (media.vote_average || 0) > 0
   const detailUrl = getMediaUrl(media.media_type, media.id)
   const visibleListIndicators = getVisibleListIndicators(listIds)
-  const cardContent = (
-    <div
-      className={cn(
-        "group relative w-full cursor-pointer overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300",
-        selectionMode && "border border-white/10 hover:border-white/20",
-        selectionMode && isSelected && "border-primary ring-2 ring-primary/70",
-      )}
-    >
+  // Only the poster and title navigate to the detail page. Interactive
+  // controls (trailer button, dropdown) render outside the link so their
+  // clicks never bubble into an anchor — this keeps the top loader from
+  // firing on non-navigating interactions. In selection mode there is no
+  // link at all (the outer button handles clicks).
+  const showTrailerButton = Boolean(onWatchTrailer && !selectionMode)
+  const navigableInner = (
+    <>
       <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
         <ImageWithFallback
           src={posterUrl}
@@ -125,19 +125,6 @@ export function MediaCard({
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
           priority={priority}
         />
-
-        {dropdownItems && dropdownItems.length > 0 && !selectionMode ? (
-          <MediaCardDropdownMenu
-            items={dropdownItems}
-            className="absolute top-2 right-2"
-          />
-        ) : null}
-
-        {selectionMode ? (
-          <div className="absolute top-2 right-2 rounded-full bg-black/75 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-            {isSelected ? "Selected" : "Select"}
-          </div>
-        ) : null}
 
         <div className="absolute top-2 left-2 flex flex-col gap-2">
           {isWatched && (
@@ -197,7 +184,7 @@ export function MediaCard({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 p-3">
+      <div className={cn("px-3 pt-3", !showTrailerButton && "pb-3")}>
         <div>
           <h3 className="line-clamp-1 text-base font-bold text-white ">
             {title}
@@ -216,13 +203,47 @@ export function MediaCard({
             )}
           </div>
         </div>
+      </div>
+    </>
+  )
 
-        {onWatchTrailer && !selectionMode ? (
+  const navigableContent = selectionMode ? (
+    navigableInner
+  ) : (
+    <Link href={detailUrl} className="block cursor-pointer">
+      {navigableInner}
+    </Link>
+  )
+
+  const cardContent = (
+    <div
+      className={cn(
+        "group relative w-full overflow-hidden rounded-xl bg-card p-0 shadow-md transition-all duration-300",
+        selectionMode && "border border-white/10 hover:border-white/20",
+        selectionMode && isSelected && "border-primary ring-2 ring-primary/70",
+      )}
+    >
+      {navigableContent}
+
+      {dropdownItems && dropdownItems.length > 0 && !selectionMode ? (
+        <MediaCardDropdownMenu
+          items={dropdownItems}
+          className="absolute top-2 right-2"
+        />
+      ) : null}
+
+      {selectionMode ? (
+        <div className="absolute top-2 right-2 rounded-full bg-black/75 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+          {isSelected ? "Selected" : "Select"}
+        </div>
+      ) : null}
+
+      {showTrailerButton && onWatchTrailer ? (
+        <div className="px-3 pt-3 pb-3">
           <Button
             size="sm"
             className="w-full bg-muted font-semibold text-white transition-colors hover:bg-primary group-hover:text-white"
-            onClick={(e) => {
-              e.preventDefault()
+            onClick={() => {
               onWatchTrailer(media)
             }}
             disabled={isLoading}
@@ -242,8 +263,8 @@ export function MediaCard({
               </>
             )}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 
@@ -260,9 +281,5 @@ export function MediaCard({
     )
   }
 
-  return (
-    <Link href={detailUrl} className="block">
-      {cardContent}
-    </Link>
-  )
+  return cardContent
 }
