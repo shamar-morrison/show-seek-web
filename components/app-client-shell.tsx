@@ -31,11 +31,11 @@ function ServiceWorkerRegistration() {
 }
 
 export function AppClientShell() {
-  const { preferences } = usePreferences()
+  const { accentColor } = usePreferences()
 
   return (
     <>
-      <NextTopLoader color={preferences.accentColor} showSpinner={false} />
+      <NextTopLoader color={accentColor} showSpinner={false} />
       <Suspense fallback={null}>
         <ServerSessionSyncController />
       </Suspense>

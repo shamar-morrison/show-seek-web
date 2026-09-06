@@ -46,8 +46,7 @@ export function SharePostModal({
   const [isCopyingCaption, setIsCopyingCaption] = useState(false)
   const blobRef = useRef<Blob | null>(null)
   const urlsRef = useRef<string[]>([])
-  const { preferences } = usePreferences()
-  const accentColor = preferences.accentColor
+  const { accentColor } = usePreferences()
 
   useEffect(() => {
     if (!isOpen) return

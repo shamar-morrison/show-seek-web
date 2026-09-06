@@ -122,6 +122,7 @@ vi.mock("@/hooks/use-preferences", async () => {
     usePreferences: () => ({
       preferences: DEFAULT_PREFERENCES,
       region: "US" as const,
+      accentColor: "#E50914",
       isLoading: false,
       updatePreference: updatePreferenceMock,
       updateRegion: updateRegionMock,

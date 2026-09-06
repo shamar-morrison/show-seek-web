@@ -35,41 +35,36 @@ describe("accent colors", () => {
   })
 })
 
-describe("accent color cross-device mapping", () => {
-  it("prefers the nested web preference over the mobile top-level field", () => {
-    expect(
-      mapPreferencesCacheData({
-        preferences: { accentColor: "#3B82F6" },
-        accentColor: "#10B981",
-      }).preferences.accentColor,
-    ).toBe("#3B82F6")
-  })
-
-  it("falls back to the mobile top-level field when no nested value exists", () => {
-    expect(
-      mapPreferencesCacheData({ accentColor: "#10B981" }).preferences
-        .accentColor,
-    ).toBe("#10B981")
-  })
-
-  it("keeps an explicit Red pick instead of a stale top-level value", () => {
-    expect(
-      mapPreferencesCacheData({
-        preferences: { accentColor: "#E50914" },
-        accentColor: "#10B981",
-      }).preferences.accentColor,
-    ).toBe("#E50914")
+describe("accent color cache mapping", () => {
+  it("reads the mobile-owned top-level field", () => {
+    expect(mapPreferencesCacheData({ accentColor: "#10B981" }).accentColor).toBe(
+      "#10B981",
+    )
   })
 
   it("ignores invalid top-level values", () => {
     expect(
-      mapPreferencesCacheData({ accentColor: "bogus" }).preferences.accentColor,
+      mapPreferencesCacheData({ accentColor: "bogus" }).accentColor,
     ).toBe(DEFAULT_ACCENT_COLOR)
   })
 
   it("defaults when nothing is stored", () => {
-    expect(mapPreferencesCacheData(undefined).preferences.accentColor).toBe(
+    expect(mapPreferencesCacheData(undefined).accentColor).toBe(
       DEFAULT_ACCENT_COLOR,
     )
+  })
+
+  it("leaves other preferences mapping untouched", () => {
+    expect(
+      mapPreferencesCacheData({
+        preferences: { showOriginalTitles: true },
+        region: "CA",
+        accentColor: "#3B82F6",
+      }),
+    ).toMatchObject({
+      preferences: { showOriginalTitles: true },
+      region: "CA",
+      accentColor: "#3B82F6",
+    })
   })
 })

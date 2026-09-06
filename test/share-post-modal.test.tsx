@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
-    preferences: { accentColor: "#E50914" },
+    accentColor: "#E50914",
   }),
 }))
 

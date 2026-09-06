@@ -10,17 +10,14 @@ import { useEffect } from "react"
  * per-component changes. Also keeps the `theme-color` meta tag in sync.
  */
 export function AccentColorEffect() {
-  const { preferences } = usePreferences()
+  const { accentColor } = usePreferences()
 
   useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--primary",
-      preferences.accentColor,
-    )
+    document.documentElement.style.setProperty("--primary", accentColor)
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", preferences.accentColor)
-  }, [preferences.accentColor])
+      ?.setAttribute("content", accentColor)
+  }, [accentColor])
 
   return null
 }

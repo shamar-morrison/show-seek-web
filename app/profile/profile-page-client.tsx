@@ -73,6 +73,7 @@ export function ProfilePageClient() {
   const {
     preferences,
     region,
+    accentColor,
     isLoading: prefsLoading,
     updatePreference,
     updateRegion,
@@ -389,9 +390,9 @@ export function ProfilePageClient() {
               <span
                 aria-hidden="true"
                 className="size-2.5 rounded-full"
-                style={{ backgroundColor: preferences.accentColor }}
+                style={{ backgroundColor: accentColor }}
               />
-              {getAccentColorName(preferences.accentColor)}
+              {getAccentColorName(accentColor)}
             </span>
           }
           badgeClassName="bg-white/10 text-white/75"
@@ -670,7 +671,7 @@ export function ProfilePageClient() {
       <AccentColorModal
         open={showAccentColorModal}
         onOpenChange={setShowAccentColorModal}
-        accentColor={preferences.accentColor}
+        accentColor={accentColor}
         onSelectColor={handleAccentColorChange}
       />
 

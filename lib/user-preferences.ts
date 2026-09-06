@@ -1,4 +1,3 @@
-import { DEFAULT_ACCENT_COLOR, resolveAccentColor } from "@/lib/accent-colors"
 import { sanitizePosterOverrides } from "@/lib/poster-overrides"
 
 /** Type of list for home screen customization */
@@ -25,7 +24,6 @@ export interface UserPreferences {
   quickMarkAsWatched: boolean
   hideWatchedContent: boolean
   hideUnreleasedContent: boolean
-  accentColor: string
   homeScreenLists?: HomeScreenListItem[]
   posterOverrides?: Record<string, string>
 }
@@ -49,7 +47,6 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   quickMarkAsWatched: false,
   hideWatchedContent: false,
   hideUnreleasedContent: false,
-  accentColor: DEFAULT_ACCENT_COLOR,
   posterOverrides: {},
 }
 
@@ -66,7 +63,6 @@ export function hydrateUserPreferences(
     ...DEFAULT_PREFERENCES,
     ...rest,
     posterOverrides: sanitizedPosterOverrides,
-    accentColor: resolveAccentColor(storedPreferences?.accentColor),
     autoRemoveFromShouldWatch:
       autoRemoveFromShouldWatch ??
       autoRemoveWatchedFromWatchlist ??

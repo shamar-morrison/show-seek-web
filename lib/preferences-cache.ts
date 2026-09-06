@@ -1,4 +1,7 @@
-import { isAccentColor } from "@/lib/accent-colors"
+import {
+  DEFAULT_ACCENT_COLOR,
+  resolveAccentColor,
+} from "@/lib/accent-colors"
 import {
   DEFAULT_PREFERENCES,
   hydrateUserPreferences,
@@ -11,10 +14,9 @@ interface PreferencesCacheSource {
   preferences?: StoredUserPreferences
   region?: string
   /**
-   * Top-level accent color written by the mobile app
-   * (`users/{uid}.accentColor`). Web reads it as a fallback so a color
-   * picked on mobile appears on web after a refresh, and vice versa —
-   * web dual-writes both locations.
+   * Top-level accent color owned by the mobile app
+   * (`users/{uid}.accentColor`). The web reads and writes this same field
+   * so both apps stay in sync — there is no nested copy.
    */
   accentColor?: string
 }
@@ -22,34 +24,23 @@ interface PreferencesCacheSource {
 export interface PreferencesCacheData {
   preferences: UserPreferences
   region: SupportedRegionCode
+  accentColor: string
 }
 
 export function getDefaultPreferencesCacheData(): PreferencesCacheData {
   return {
     preferences: DEFAULT_PREFERENCES,
     region: resolveUserRegion(undefined),
+    accentColor: DEFAULT_ACCENT_COLOR,
   }
 }
 
 export function mapPreferencesCacheData(
   source?: PreferencesCacheSource,
 ): PreferencesCacheData {
-  const preferences = hydrateUserPreferences(source?.preferences)
-  // Mobile only writes the top-level field, so fall back to it when no
-  // nested preference is stored. Check the raw values (not the hydrated
-  // result) so an explicit "Red" pick isn't mistaken for "absent".
-  const nestedRaw = source?.preferences?.accentColor
-  const hasNested =
-    typeof nestedRaw === "string" && isAccentColor(nestedRaw)
-  if (
-    !hasNested &&
-    typeof source?.accentColor === "string" &&
-    isAccentColor(source.accentColor)
-  ) {
-    preferences.accentColor = source.accentColor
-  }
   return {
-    preferences,
+    preferences: hydrateUserPreferences(source?.preferences),
     region: resolveUserRegion(source?.region),
+    accentColor: resolveAccentColor(source?.accentColor),
   }
 }

@@ -34,6 +34,7 @@ import { useCallback, useMemo } from "react"
 interface UsePreferencesReturn {
   preferences: UserPreferences
   region: SupportedRegionCode
+  accentColor: string
   isLoading: boolean
   updatePreference: <K extends keyof UserPreferences>(
     key: K,
@@ -88,6 +89,7 @@ export function usePreferences(): UsePreferencesReturn {
   const currentData = data ?? DEFAULT_PREFERENCES_CACHE_DATA
   const preferences = currentData.preferences
   const region = currentData.region
+  const accentColor = currentData.accentColor
   const isLoading = authLoading || (!!userId && data === undefined)
 
   const updatePreference = useCallback(
@@ -209,20 +211,14 @@ export function usePreferences(): UsePreferencesReturn {
 
       queryClient.setQueryData<PreferencesCacheData>(queryKey, (current) => ({
         ...(current ?? DEFAULT_PREFERENCES_CACHE_DATA),
-        preferences: {
-          ...(current?.preferences ?? DEFAULT_PREFERENCES),
-          accentColor,
-        },
+        accentColor,
       }))
 
       try {
-        // Dual-write: nested preference for web + top-level field so the
-        // mobile app picks it up on its next sync.
-        await setDoc(
-          userDocRef,
-          { preferences: { accentColor }, accentColor },
-          { merge: true },
-        )
+        // Single source of truth: the top-level field owned by the mobile
+        // app (`users/{uid}.accentColor`). Overwriting it is what syncs
+        // the web pick to mobile, and vice versa.
+        await setDoc(userDocRef, { accentColor }, { merge: true })
       } catch (error) {
         console.error("Error updating accent color:", error)
         rollbackPreferencesCacheData(queryClient, queryKey, previousData)
@@ -320,6 +316,7 @@ export function usePreferences(): UsePreferencesReturn {
   return {
     preferences,
     region,
+    accentColor,
     isLoading,
     updatePreference,
     updateHomeScreenLists,

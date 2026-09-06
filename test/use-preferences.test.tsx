@@ -80,6 +80,7 @@ function emitPreferencesSnapshot(
   data?: {
     preferences?: Record<string, unknown>
     region?: string
+    accentColor?: string
   },
 ) {
   if (!mocks.latestSnapshotNext) {
@@ -258,6 +259,83 @@ describe("usePreferences", () => {
         preferences: { showOriginalTitles: boolean }
       }>(queryKey)?.preferences.showOriginalTitles,
     ).toBe(false)
+  })
+
+  it("seeds the mobile-owned top-level accent color from the snapshot", async () => {
+    const queryClient = createQueryClient()
+    const { result } = renderHook(() => usePreferences(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mocks.onSnapshot).toHaveBeenCalledTimes(1)
+    })
+
+    expect(result.current.accentColor).toBe("#E50914")
+
+    act(() => {
+      emitPreferencesSnapshot({ accentColor: "#3B82F6" })
+    })
+
+    await waitFor(() => {
+      expect(result.current.accentColor).toBe("#3B82F6")
+    })
+  })
+
+  it("writes only the top-level accent field and rolls back on failure", async () => {
+    const queryClient = createQueryClient()
+    const updateDeferred = createDeferredPromise<void>()
+    const queryKey = queryKeys.firestore.preferences("user-1")
+
+    queryClient.setQueryData(queryKey, {
+      preferences: { ...DEFAULT_PREFERENCES },
+      region: "US",
+      accentColor: "#E50914",
+    })
+    mocks.setDoc.mockImplementationOnce(() => updateDeferred.promise)
+
+    const { result } = renderHook(() => usePreferences(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let updatePromise!: Promise<void>
+
+    await act(async () => {
+      updatePromise = result.current.updateAccentColor("#10B981")
+      await Promise.resolve()
+    })
+
+    expect(
+      queryClient.getQueryData<{ accentColor: string }>(queryKey)?.accentColor,
+    ).toBe("#10B981")
+    expect(mocks.setDoc).toHaveBeenCalledWith(
+      "users/user-1",
+      { accentColor: "#10B981" },
+      { merge: true },
+    )
+
+    const expectedError = new Error("Failed to update accent color")
+
+    await act(async () => {
+      updateDeferred.reject(expectedError)
+      await expect(updatePromise).rejects.toThrow(expectedError.message)
+    })
+
+    expect(
+      queryClient.getQueryData<{ accentColor: string }>(queryKey)?.accentColor,
+    ).toBe("#E50914")
+  })
+
+  it("rejects invalid accent colors without writing", async () => {
+    const queryClient = createQueryClient()
+    const { result } = renderHook(() => usePreferences(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await expect(
+      result.current.updateAccentColor("not-a-color"),
+    ).rejects.toThrow("Invalid accent color")
+    expect(mocks.setDoc).not.toHaveBeenCalled()
   })
 
   it("optimistically updates poster override cache and rolls back on failure", async () => {
