@@ -5,7 +5,6 @@ import { TraktReviewModal } from "@/components/trakt-review-modal"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useTraktReviews } from "@/hooks/use-trakt-queries"
-import type { TraktComment } from "@/types/trakt"
 import { useRef, useState } from "react"
 
 interface TraktReviewsSectionProps {
@@ -29,10 +28,8 @@ export function TraktReviewsSection({
   const [shouldFetch, setShouldFetch] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
-  // Modal state
-  const [selectedReview, setSelectedReview] = useState<TraktComment | null>(
-    null,
-  )
+  // Modal state (index into displayReviews so the modal can page between them)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Use intersection observer to trigger fetch
@@ -55,15 +52,15 @@ export function TraktReviewsSection({
   const hasMore = reviews.length > INITIAL_LIMIT && !showAll
 
   // Handle review card click
-  const handleReviewClick = (review: TraktComment) => {
-    setSelectedReview(review)
+  const handleReviewClick = (index: number) => {
+    setSelectedIndex(index)
     setIsModalOpen(true)
   }
 
   // Close modal
   const handleCloseModal = () => {
     setIsModalOpen(false)
-    setSelectedReview(null)
+    setSelectedIndex(null)
   }
 
   // Don't render section if loaded and no reviews
@@ -117,11 +114,11 @@ export function TraktReviewsSection({
           {/* Horizontally Scrollable Row */}
           <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
             <ScrollableRow>
-              {displayReviews.map((review) => (
+              {displayReviews.map((review, index) => (
                 <TraktReviewCard
                   key={review.id}
                   review={review}
-                  onClick={() => handleReviewClick(review)}
+                  onClick={() => handleReviewClick(index)}
                 />
               ))}
 
@@ -143,9 +140,11 @@ export function TraktReviewsSection({
       )}
 
       <TraktReviewModal
-        review={selectedReview}
+        reviews={displayReviews}
+        currentIndex={selectedIndex ?? 0}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        onNavigate={setSelectedIndex}
       />
     </div>
   )

@@ -5,7 +5,6 @@ import { ReviewModal } from "@/components/review-modal"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { useMediaReviews } from "@/hooks/use-tmdb-queries"
-import type { TMDBReview } from "@/types/tmdb"
 import { useRef, useState } from "react"
 
 interface ReviewsSectionProps {
@@ -23,8 +22,8 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
   const hasTriggered = useRef(false)
   const [shouldFetch, setShouldFetch] = useState(false)
 
-  // Modal state
-  const [selectedReview, setSelectedReview] = useState<TMDBReview | null>(null)
+  // Modal state (index into reviews so the modal can page between them)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Use intersection observer to trigger fetch
@@ -43,15 +42,15 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
   } = useMediaReviews(mediaId, mediaType, shouldFetch)
 
   // Handle review card click
-  const handleReviewClick = (review: TMDBReview) => {
-    setSelectedReview(review)
+  const handleReviewClick = (index: number) => {
+    setSelectedIndex(index)
     setIsModalOpen(true)
   }
 
   // Close modal
   const handleCloseModal = () => {
     setIsModalOpen(false)
-    setSelectedReview(null)
+    setSelectedIndex(null)
   }
 
   // Don't render section if loaded and no reviews
@@ -88,11 +87,11 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
           {/* Horizontally Scrollable Row */}
           <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
             <ScrollableRow>
-              {reviews.map((review) => (
+              {reviews.map((review, index) => (
                 <ReviewCard
                   key={review.id}
                   review={review}
-                  onClick={() => handleReviewClick(review)}
+                  onClick={() => handleReviewClick(index)}
                 />
               ))}
             </ScrollableRow>
@@ -101,9 +100,11 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
       )}
 
       <ReviewModal
-        review={selectedReview}
+        reviews={reviews}
+        currentIndex={selectedIndex ?? 0}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        onNavigate={setSelectedIndex}
       />
     </div>
   )
