@@ -104,7 +104,7 @@ describe("ReleaseCalendarPageClient", () => {
     render(<ReleaseCalendarPageClient />)
 
     expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
-    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
+    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(12)
     expect(screen.queryByText("Loading release calendar...")).not.toBeInTheDocument()
   })
 
@@ -126,7 +126,7 @@ describe("ReleaseCalendarPageClient", () => {
 
     expect(screen.getByText("Updating TV episodes...")).toBeInTheDocument()
     expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
-    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(8)
+    expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(12)
     expect(screen.queryByText("No upcoming releases found")).not.toBeInTheDocument()
   })
 })

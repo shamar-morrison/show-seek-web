@@ -88,7 +88,7 @@ function formatLocalDateKey(date: Date): string {
 
 describe("ReleaseCalendarView", () => {
   it(
-    "renders a responsive two-column card list with grouped TV episodes and shared media tabs",
+    "renders a poster card grid with flattened per-episode cards and shared media tabs",
     async () => {
       const user = userEvent.setup()
 
@@ -139,22 +139,19 @@ describe("ReleaseCalendarView", () => {
       )
 
       expect(screen.getByText("Alpha")).toBeInTheDocument()
-      expect(screen.getByText("Beta")).toBeInTheDocument()
+      expect(screen.getAllByText("Beta")).toHaveLength(2)
       expect(screen.getByText("Gamma")).toBeInTheDocument()
-      expect(
-        screen.getByText(/Season 1 Episode\s+1 \/ Pilot/),
-      ).toBeInTheDocument()
-      expect(screen.queryByText("2 upcoming episodes")).not.toBeInTheDocument()
+      expect(screen.getByText("S1 E1 · Pilot")).toBeInTheDocument()
+      expect(screen.getByText("S1 E2 · Second")).toBeInTheDocument()
       expect(screen.queryByText("Second")).not.toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: "2 episodes ↓" }),
-      ).toBeInTheDocument()
+        screen.queryByRole("button", { name: /episodes ↓|Show less ↑/ }),
+      ).not.toBeInTheDocument()
       const cardGrid = screen.getByTestId("release-calendar-card-grid")
       expect(cardGrid).toHaveClass("space-y-6")
       expect(cardGrid).not.toHaveClass("columns-1")
       expect(cardGrid).not.toHaveClass("gap-x-4")
       expect(cardGrid).not.toHaveClass("lg:columns-2")
-      expect(cardGrid.className).not.toContain("grid")
       expect(cardGrid.className).not.toContain("grid-cols")
 
       const getReleaseSection = (headingName: string) => {
@@ -171,20 +168,24 @@ describe("ReleaseCalendarView", () => {
       const aprilSection = getReleaseSection("April 2099")
       const aprilGrid = aprilSection.children.item(1) as HTMLElement
       const alphaCard = aprilGrid.children.item(0) as HTMLElement
-      const betaCard = aprilGrid.children.item(1) as HTMLElement
+      const betaFirstCard = aprilGrid.children.item(1) as HTMLElement
+      const betaSecondCard = aprilGrid.children.item(2) as HTMLElement
 
       expect(aprilGrid).toHaveClass(
         "grid",
-        "grid-cols-1",
-        "gap-4",
-        "lg:grid-cols-2",
+        "grid-cols-2",
+        "sm:grid-cols-3",
+        "md:grid-cols-4",
+        "lg:grid-cols-5",
+        "xl:grid-cols-6",
       )
-      expect(aprilGrid).not.toHaveClass("flex", "lg:flex-row")
-      expect(aprilGrid.children).toHaveLength(2)
+      expect(aprilGrid.children).toHaveLength(3)
       expect(within(alphaCard).getByText("Alpha")).toBeInTheDocument()
       expect(within(alphaCard).queryByText("Beta")).not.toBeInTheDocument()
-      expect(within(betaCard).getByText("Beta")).toBeInTheDocument()
-      expect(within(betaCard).queryByText("Alpha")).not.toBeInTheDocument()
+      expect(within(betaFirstCard).getByText("S1 E1 · Pilot")).toBeInTheDocument()
+      expect(
+        within(betaSecondCard).getByText("S1 E2 · Second"),
+      ).toBeInTheDocument()
 
       const maySection = getReleaseSection("May 2099")
 
@@ -196,7 +197,7 @@ describe("ReleaseCalendarView", () => {
       ).toBeTruthy()
 
       const cards = screen.getAllByTestId("release-calendar-card")
-      expect(cards).toHaveLength(3)
+      expect(cards).toHaveLength(4)
       cards.forEach((card) => {
         expect(card).not.toHaveClass("break-inside-avoid")
         expect(card).not.toHaveClass("mb-4")
@@ -210,15 +211,13 @@ describe("ReleaseCalendarView", () => {
       await user.click(screen.getByTestId("release-calendar-media-tab-tv"))
 
       expect(screen.queryByText("Alpha")).not.toBeInTheDocument()
-      expect(screen.getByText("Beta")).toBeInTheDocument()
+      expect(screen.getAllByText("Beta")).toHaveLength(2)
       expect(screen.queryByText("Gamma")).not.toBeInTheDocument()
     },
     10000,
   )
 
-  it("collapses grouped episode rows below the divider until expanded", async () => {
-    const user = userEvent.setup()
-
+  it("renders every grouped episode as its own card without a toggle", async () => {
     render(
       <ReleaseCalendarView
         releases={[
@@ -266,32 +265,16 @@ describe("ReleaseCalendarView", () => {
       />,
     )
 
+    expect(screen.getByText("S1 E1 · First")).toBeInTheDocument()
+    expect(screen.getByText("S1 E2 · Second")).toBeInTheDocument()
+    expect(screen.getByText("S1 E3 · Third")).toBeInTheDocument()
+    expect(screen.getAllByText("Long Show")).toHaveLength(3)
     expect(
-      screen.getByText(/Season 1 Episode\s+1 \/ First/),
-    ).toBeInTheDocument()
-    expect(screen.queryByText("3 upcoming episodes")).not.toBeInTheDocument()
-    expect(screen.queryByText("First")).not.toBeInTheDocument()
-    expect(screen.queryByText("Second")).not.toBeInTheDocument()
-    expect(screen.queryByText("Third")).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole("button", { name: "3 episodes ↓" }))
-
-    expect(screen.getByText("First")).toBeInTheDocument()
-    expect(screen.getByText("Second")).toBeInTheDocument()
-    expect(screen.getByText("Third")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Show less ↑" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    )
-
-    await user.click(screen.getByRole("button", { name: "Show less ↑" }))
-
-    expect(screen.queryByText("First")).not.toBeInTheDocument()
-    expect(screen.queryByText("Second")).not.toBeInTheDocument()
-    expect(screen.queryByText("Third")).not.toBeInTheDocument()
+      screen.getAllByTestId("release-calendar-card"),
+    ).toHaveLength(3)
     expect(
-      screen.getByRole("button", { name: "3 episodes ↓" }),
-    ).toHaveAttribute("aria-expanded", "false")
+      screen.queryByRole("button", { name: /episodes ↓|Show less ↑/ }),
+    ).not.toBeInTheDocument()
   })
 
   it("shows one visible grouped episode row without a toggle after temporal filtering", () => {
@@ -340,8 +323,7 @@ describe("ReleaseCalendarView", () => {
 
     fireEvent.click(screen.getByTestId("release-calendar-temporal-tab-today"))
 
-    expect(screen.getByText(/Season 4 Episode\s+2 \/ Fray/)).toBeInTheDocument()
-    expect(screen.getByText("Fray")).toBeInTheDocument()
+    expect(screen.getByText("S4 E2 · Fray")).toBeInTheDocument()
     expect(screen.queryByText("After")).not.toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /episodes ↓|Show less ↑/ }),
@@ -562,6 +544,47 @@ describe("ReleaseCalendarView", () => {
     expect(onUpgradeClick).toHaveBeenCalledTimes(1)
   })
 
+  it("caps flattened group cards at the preview limit for free users", () => {
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({ id: 1, title: "One", uniqueKey: "movie-1" }),
+          createRelease({
+            id: 2,
+            mediaType: "tv",
+            title: "Two",
+            releaseDate: "2099-04-11",
+            uniqueKey: "tv-2-s1-e1",
+            nextEpisode: { seasonNumber: 1, episodeNumber: 1 },
+          }),
+          createRelease({
+            id: 2,
+            mediaType: "tv",
+            title: "Two",
+            releaseDate: "2099-04-12",
+            uniqueKey: "tv-2-s1-e2",
+            nextEpisode: { seasonNumber: 1, episodeNumber: 2 },
+          }),
+          createRelease({
+            id: 2,
+            mediaType: "tv",
+            title: "Two",
+            releaseDate: "2099-04-13",
+            uniqueKey: "tv-2-s1-e3",
+            nextEpisode: { seasonNumber: 1, episodeNumber: 3 },
+          }),
+        ]}
+        isPremium={false}
+      />,
+    )
+
+    expect(
+      screen.getAllByTestId("release-calendar-card"),
+    ).toHaveLength(3)
+    expect(screen.getByText("S1 E2")).toBeInTheDocument()
+    expect(screen.queryByText("S1 E3")).not.toBeInTheDocument()
+  })
+
   it("shows card skeletons instead of the empty state while refreshing unresolved TV data", () => {
     render(<ReleaseCalendarView releases={[]} isRefreshing isPremium />)
 
@@ -572,7 +595,7 @@ describe("ReleaseCalendarView", () => {
     ).toBeInTheDocument()
     expect(
       screen.getAllByTestId("release-calendar-skeleton-card"),
-    ).toHaveLength(8)
+    ).toHaveLength(12)
     expect(
       screen.queryByText("No upcoming releases found"),
     ).not.toBeInTheDocument()

@@ -30,7 +30,6 @@ import {
   filterReleaseCalendarRowsByTemporalTab,
   filterReleaseCalendarReleases,
   getCalendarDayOffset,
-  getReleaseCalendarSources,
 } from "@/lib/release-calendar-presentation"
 import { isPremiumStatusPending } from "@/lib/premium-gating"
 import { buildImageUrl } from "@/lib/tmdb"
@@ -39,7 +38,6 @@ import type {
   CalendarMediaFilter,
   CalendarSortMode,
   CalendarSourceFilter,
-  ReleaseCalendarGroupedDisplayItem,
   ReleaseCalendarLabels,
   ReleaseCalendarPresentation,
   ReleaseCalendarRelease,
@@ -153,314 +151,130 @@ function formatCountdown(date: Date): string {
   return `In ${dayOffset} days`
 }
 
-function formatEpisodeDate(date: Date): string {
-  const dayOffset = getCalendarDayOffset(date)
-
-  if (dayOffset === 0) {
-    return "Today"
-  }
-
-  if (dayOffset === 1) {
-    return "Tomorrow"
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-  }).format(date)
-}
-
-function ReleaseDateBadge({ date }: { date: Date }) {
-  const isToday = getCalendarDayOffset(date) === 0
-
-  return (
-    <div
-      className={cn(
-        "absolute left-4 top-4 z-10 flex min-w-16 flex-col items-center rounded-2xl border px-3 py-2 text-center shadow-2xl backdrop-blur-md",
-        isToday
-          ? "border-primary bg-primary text-white"
-          : "border-white/15 bg-black/70 text-white",
-      )}
-    >
-      <span className="text-2xl font-semibold leading-none">
-        {date.getDate()}
-      </span>
-      <span
-        className={cn(
-          "text-[10px] font-semibold uppercase tracking-[0.2em]",
-          isToday ? "text-white/80" : "text-white/55",
-        )}
-      >
-        {date
-          .toLocaleDateString(undefined, { month: "short" })
-          .toLocaleUpperCase()}
-      </span>
-      {isToday ? (
-        <span className="mt-1 rounded-full bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-primary">
-          Today
-        </span>
-      ) : null}
-    </div>
-  )
-}
-
-function ReleaseArtwork({
-  backdropPath,
-  mediaId,
-  mediaType,
-  posterPath,
-  title,
-}: {
-  backdropPath: string | null
+interface FlatReleaseCard {
+  key: string
+  href: string
+  title: string
+  detail: string
+  countdown: string
+  date: Date
+  posterPath: string | null
   mediaId: number
   mediaType: "movie" | "tv"
-  posterPath: string | null
-  title: string
-}) {
-  const { resolvePosterPath } = usePosterOverrides()
-  const resolvedPosterPath = resolvePosterPath(mediaType, mediaId, posterPath)
-  const imageUrl =
-    buildImageUrl(backdropPath, "w780") ??
-    buildImageUrl(resolvedPosterPath, "w342")
-
-  return (
-    <div className="relative h-44 overflow-hidden bg-white/[0.04]">
-      <ImageWithFallback
-        src={imageUrl}
-        alt={title}
-        className="flex h-full w-full items-center justify-center bg-white/[0.04] px-4 text-center text-xs text-white/35"
-        imageClassName="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-        sizes="(max-width: 1024px) 100vw, (max-width: 1536px) 50vw, 33vw"
-      />
-      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/25 to-black/15" />
-      {!imageUrl ? (
-        <div className="absolute inset-0 flex items-center justify-center text-white/45">
-          <HugeiconsIcon
-            icon={mediaType === "movie" ? Film01Icon : Tv01Icon}
-            className="size-8"
-          />
-        </div>
-      ) : null}
-    </div>
-  )
 }
 
-function MediaTypeBadge({ mediaType }: { mediaType: "movie" | "tv" }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-white/70">
-      <HugeiconsIcon
-        icon={mediaType === "movie" ? Film01Icon : Tv01Icon}
-        className="size-3.5"
-      />
-      {mediaType === "movie" ? "Movie" : "TV Show"}
-    </span>
-  )
-}
+/**
+ * Expand section rows into one flat card per release/episode.
+ * Grouped same-show episodes become individual cards.
+ */
+function flattenSectionCards(
+  cards: ReleaseCalendarCardRow[],
+): FlatReleaseCard[] {
+  const flat: FlatReleaseCard[] = []
 
-function SourcePills({ sources }: { sources: CalendarSourceFilter[] }) {
-  if (sources.length === 0) {
-    return null
+  for (const row of cards) {
+    if (row.type === "single-release") {
+      const release = row.item.release
+      flat.push({
+        key: row.key,
+        href: getReleaseHref(release),
+        title: release.title,
+        detail: release.releaseDate.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "long",
+          weekday: "long",
+        }),
+        countdown: formatCountdown(release.releaseDate),
+        date: release.releaseDate,
+        posterPath: release.posterPath,
+        mediaId: release.id,
+        mediaType: release.mediaType,
+      })
+    } else {
+      for (const episode of row.item.episodes) {
+        const nextEpisode = episode.nextEpisode
+        flat.push({
+          key: episode.uniqueKey,
+          href: getReleaseHref(episode),
+          title: row.item.title,
+          detail: nextEpisode
+            ? `S${nextEpisode.seasonNumber} E${nextEpisode.episodeNumber}${
+                nextEpisode.episodeName ? ` · ${nextEpisode.episodeName}` : ""
+              }`
+            : "",
+          countdown: formatCountdown(episode.releaseDate),
+          date: episode.releaseDate,
+          posterPath: row.item.posterPath,
+          mediaId: row.item.showId,
+          mediaType: "tv",
+        })
+      }
+    }
   }
 
-  return (
-    <>
-      {sources.map((source) => (
-        <span
-          key={source}
-          className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-white/52"
-        >
-          {SOURCE_LABELS[source]}
-        </span>
-      ))}
-    </>
-  )
+  return flat
 }
 
-function ReleaseMeta({ date, countdown }: { date: Date; countdown: string }) {
-  return (
-    <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/10 pt-4">
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-        {countdown}
-      </span>
-      <span className="text-xs text-white/48">
-        {date.toLocaleDateString(undefined, {
-          day: "numeric",
-          month: "short",
-          weekday: "short",
-        })}
-      </span>
-    </div>
+function CompactReleaseCard({ card }: { card: FlatReleaseCard }) {
+  const { resolvePosterPath } = usePosterOverrides()
+  const posterUrl = buildImageUrl(
+    resolvePosterPath(card.mediaType, card.mediaId, card.posterPath),
+    "w342",
   )
-}
+  const isToday = getCalendarDayOffset(card.date) === 0
 
-function SingleReleaseCard({
-  className,
-  release,
-}: {
-  className?: string
-  release: ReleaseCalendarViewItem
-}) {
   return (
     <Link
-      href={getReleaseHref(release)}
+      href={card.href}
       data-testid="release-calendar-card"
-      className={cn(
-        "group flex h-full min-h-[360px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.04] transition-colors hover:border-white/20 hover:bg-white/[0.07]",
-        className,
-      )}
+      className="group flex flex-col gap-2"
     >
-      <div className="relative">
-        <ReleaseArtwork
-          backdropPath={release.backdropPath}
-          mediaId={release.id}
-          mediaType={release.mediaType}
-          posterPath={release.posterPath}
-          title={release.title}
-        />
-        <ReleaseDateBadge date={release.releaseDate} />
+      <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-white/[0.04]">
+        {posterUrl ? (
+          <ImageWithFallback
+            src={posterUrl}
+            alt={card.title}
+            className="flex h-full w-full items-center justify-center"
+            imageClassName="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 20vw, 15vw"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-white/45">
+            <HugeiconsIcon
+              icon={card.mediaType === "movie" ? Film01Icon : Tv01Icon}
+              className="size-8"
+            />
+          </div>
+        )}
+        <div
+          className={cn(
+            "absolute left-2 top-2 z-10 flex min-w-11 flex-col items-center rounded-xl border px-2 py-1.5 text-center shadow-xl backdrop-blur-md",
+            isToday
+              ? "border-primary bg-primary text-white"
+              : "border-white/15 bg-black/70 text-white",
+          )}
+        >
+          <span className="text-lg font-semibold leading-none">
+            {card.date.getDate()}
+          </span>
+          <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/60">
+            {card.date
+              .toLocaleDateString(undefined, { month: "short" })
+              .toLocaleUpperCase()}
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 px-5 py-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <MediaTypeBadge mediaType={release.mediaType} />
-          <SourcePills sources={getReleaseCalendarSources(release)} />
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="line-clamp-2 text-lg font-semibold text-white">
-            {release.title}
-          </h3>
-          {release.nextEpisode ? (
-            <div className="space-y-1">
-              <p className="text-sm text-white/65">
-                Season {release.nextEpisode.seasonNumber} Episode{" "}
-                {release.nextEpisode.episodeNumber}
-              </p>
-              {release.nextEpisode.episodeName ? (
-                <p className="line-clamp-2 text-sm text-white/88">
-                  {release.nextEpisode.episodeName}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-sm text-white/65">
-              {release.releaseDate.toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "long",
-                weekday: "long",
-              })}
-            </p>
-          )}
-        </div>
-
-        <ReleaseMeta
-          date={release.releaseDate}
-          countdown={formatCountdown(release.releaseDate)}
-        />
+      <div className="space-y-0.5 px-0.5">
+        <h3 className="line-clamp-1 text-sm font-semibold text-white">
+          {card.title}
+        </h3>
+        <p className="line-clamp-1 text-xs text-white/60">{card.detail}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          {card.countdown}
+        </p>
       </div>
     </Link>
-  )
-}
-
-function GroupedReleaseCard({
-  className,
-  release,
-}: {
-  className?: string
-  release: ReleaseCalendarGroupedDisplayItem
-}) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const nextEpisode = release.episodes[0]?.nextEpisode
-  const shouldShowEpisodeToggle = release.episodes.length > 1
-  const visibleEpisodes =
-    shouldShowEpisodeToggle && !isExpanded ? [] : release.episodes
-
-  return (
-    <div
-      data-testid="release-calendar-card"
-      className={cn(
-        "group flex h-full min-h-[420px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.04]",
-        className,
-      )}
-    >
-      <Link
-        href={`/tv/${release.showId}`}
-        className="group/header block transition-colors hover:bg-white/[0.03]"
-      >
-        <div className="relative">
-          <ReleaseArtwork
-            backdropPath={release.backdropPath}
-            mediaId={release.showId}
-            mediaType="tv"
-            posterPath={release.posterPath}
-            title={release.title}
-          />
-          <ReleaseDateBadge date={release.releaseDate} />
-        </div>
-
-        <div className="space-y-4 px-5 py-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <MediaTypeBadge mediaType="tv" />
-            <SourcePills sources={release.sourceFilters} />
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="line-clamp-2 text-lg font-semibold text-white">
-              {release.title}
-            </h3>
-            {nextEpisode ? (
-              <p className="line-clamp-2 text-sm text-white/65">
-                Season {nextEpisode.seasonNumber} Episode{" "}
-                {nextEpisode.episodeNumber}
-                {nextEpisode.episodeName ? ` / ${nextEpisode.episodeName}` : ""}
-              </p>
-            ) : null}
-          </div>
-
-          <ReleaseMeta
-            date={release.releaseDate}
-            countdown={formatCountdown(release.releaseDate)}
-          />
-        </div>
-      </Link>
-
-      <div className="mt-auto divide-y divide-white/10 border-t border-white/10 bg-black/25">
-        {visibleEpisodes.map((episode) => (
-          <Link
-            key={episode.uniqueKey}
-            href={getReleaseHref(episode)}
-            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3 text-sm transition-colors hover:bg-white/[0.04]"
-          >
-            <div className="min-w-0 space-y-1">
-              <p className="font-medium text-white/88">
-                Season {episode.nextEpisode?.seasonNumber} Episode{" "}
-                {episode.nextEpisode?.episodeNumber}
-              </p>
-              {episode.nextEpisode?.episodeName ? (
-                <p className="truncate text-white/58">
-                  {episode.nextEpisode.episodeName}
-                </p>
-              ) : null}
-            </div>
-            <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              {formatEpisodeDate(episode.releaseDate)}
-            </span>
-          </Link>
-        ))}
-        {shouldShowEpisodeToggle ? (
-          <button
-            type="button"
-            aria-expanded={isExpanded}
-            onClick={() => setIsExpanded((current) => !current)}
-            className="w-full px-5 py-3 text-left text-sm font-semibold text-primary transition-colors hover:bg-white/[0.04]"
-          >
-            {isExpanded
-              ? "Show less ↑"
-              : `${release.episodes.length} episodes ↓`}
-          </button>
-        ) : null}
-      </div>
-    </div>
   )
 }
 
@@ -481,38 +295,20 @@ function CalendarSkeleton() {
 
       <div
         data-testid="release-calendar-skeleton-grid"
-        className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3"
+        className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
       >
-        {Array.from({ length: 8 }).map((_, index) => (
+        {Array.from({ length: 12 }).map((_, index) => (
           <div
             key={index}
             data-testid="release-calendar-skeleton-card"
-            className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.04]"
+            className="flex flex-col gap-2"
           >
-            <div className="relative h-44 bg-white/[0.04]">
-              <Skeleton className="h-full w-full rounded-none" />
-              <div className="absolute left-4 top-4 space-y-2 rounded-2xl border border-white/10 bg-black/60 px-3 py-2">
-                <Skeleton className="h-6 w-9 rounded-full" />
-                <Skeleton className="h-3 w-10 rounded-full" />
-              </div>
-            </div>
+            <Skeleton className="aspect-2/3 w-full rounded-xl" />
 
-            <div className="space-y-5 px-5 py-5">
-              <div className="flex gap-2">
-                <Skeleton className="h-6 w-20 rounded-full" />
-                <Skeleton className="h-6 w-24 rounded-full" />
-              </div>
-
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-2/3 rounded-full" />
-                <Skeleton className="h-4 w-1/2 rounded-full" />
-                <Skeleton className="h-4 w-1/3 rounded-full" />
-              </div>
-
-              <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                <Skeleton className="h-4 w-24 rounded-full" />
-                <Skeleton className="h-4 w-20 rounded-full" />
-              </div>
+            <div className="space-y-1.5 px-0.5">
+              <Skeleton className="h-4 w-3/4 rounded-full" />
+              <Skeleton className="h-3 w-1/2 rounded-full" />
+              <Skeleton className="h-3 w-1/3 rounded-full" />
             </div>
           </div>
         ))}
@@ -704,6 +500,29 @@ export function ReleaseCalendarView({
   const isPreviewing = !isPremium
   const showUpgradeFooter =
     isPreviewing && activePresentation.totalContentCount > PREVIEW_LIMIT
+
+  // Flatten grouped episodes into individual cards. The lib already limited
+  // grouped entries to PREVIEW_LIMIT for free users, so cap the flattened
+  // cards too — otherwise one group could leak past the preview paywall.
+  const displaySections = useMemo(() => {
+    let remaining = isPreviewing ? PREVIEW_LIMIT : Number.POSITIVE_INFINITY
+    const display: Array<{
+      key: string
+      header: ReleaseCalendarSectionHeaderRow | null
+      flatCards: FlatReleaseCard[]
+    }> = []
+
+    for (const section of visibleSections) {
+      if (remaining <= 0) break
+      const flatCards = flattenSectionCards(section.cards).slice(0, remaining)
+      remaining -= flatCards.length
+      if (flatCards.length > 0) {
+        display.push({ key: section.key, header: section.header, flatCards })
+      }
+    }
+
+    return display
+  }, [visibleSections, isPreviewing])
   const resetCalendarControls = () => {
     setUrlState({
       mediaFilter: "all",
@@ -872,8 +691,12 @@ export function ReleaseCalendarView({
       ) : null}
 
       <div data-testid="release-calendar-card-grid" className="space-y-6">
-        {visibleSections.map((section) => (
-          <ReleaseCalendarSectionView key={section.key} section={section} />
+        {displaySections.map((section) => (
+          <ReleaseCalendarSectionView
+            key={section.key}
+            header={section.header}
+            flatCards={section.flatCards}
+          />
         ))}
       </div>
 
@@ -992,29 +815,20 @@ function CalendarToolbar({
 }
 
 function ReleaseCalendarSectionView({
-  section,
+  flatCards,
+  header,
 }: {
-  section: ReleaseCalendarRowSection
+  flatCards: FlatReleaseCard[]
+  header: ReleaseCalendarSectionHeaderRow | null
 }) {
   return (
     <div className="space-y-4">
-      {section.header ? (
-        <ReleaseCalendarSectionHeader row={section.header} />
-      ) : null}
+      {header ? <ReleaseCalendarSectionHeader row={header} /> : null}
 
-      {section.cards.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {section.cards.map((row, index) => (
-            <ReleaseCalendarCardRowView
-              key={row.key}
-              row={row}
-              className={
-                index === section.cards.length - 1 &&
-                section.cards.length % 2 !== 0
-                  ? "lg:col-span-2"
-                  : ""
-              }
-            />
+      {flatCards.length > 0 ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {flatCards.map((card) => (
+            <CompactReleaseCard key={card.key} card={card} />
           ))}
         </div>
       ) : null}
@@ -1033,20 +847,6 @@ function ReleaseCalendarSectionHeader({
       <h2 className="text-xl font-semibold text-white">{row.title}</h2>
     </div>
   )
-}
-
-function ReleaseCalendarCardRowView({
-  className,
-  row,
-}: {
-  className?: string
-  row: ReleaseCalendarCardRow
-}) {
-  if (row.type === "grouped-release") {
-    return <GroupedReleaseCard release={row.item} className={className} />
-  }
-
-  return <SingleReleaseCard release={row.item.release} className={className} />
 }
 
 export function ReleaseCalendarPageClient() {
