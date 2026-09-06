@@ -1,6 +1,10 @@
 "use client"
 
 import { useAuth } from "@/context/auth-context"
+import {
+  useTraktZipImport,
+  type TraktZipImportState,
+} from "@/hooks/use-trakt-zip-import"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import { resetTraktManagedEditWarnings } from "@/lib/trakt-managed-edits"
 import * as TraktService from "@/services/trakt-service"
@@ -124,6 +128,12 @@ export function TraktProvider({ children }: { children: ReactNode }) {
   const latestSyncRequestRef = useRef<symbol | null>(null)
   const previousUserIdRef = useRef<string | null>(null)
   const lastEnrichedAtRef = useRef<Date | null>(null)
+  const isSyncingRef = useRef(false)
+
+  // Keep isSyncingRef in sync with isSyncing state
+  useEffect(() => {
+    isSyncingRef.current = isSyncing
+  }, [isSyncing])
 
   const stopSyncPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -153,6 +163,12 @@ export function TraktProvider({ children }: { children: ReactNode }) {
     },
     [queryClient],
   )
+
+  const zipImport = useTraktZipImport({
+    user,
+    isSyncingRef,
+    invalidateImportedData,
+  })
 
   const persistCurrentState = useCallback(
     ({
@@ -558,6 +574,7 @@ export function TraktProvider({ children }: { children: ReactNode }) {
         syncNow,
         checkSyncStatus,
         enrichData,
+        ...zipImport,
       }}
     >
       {children}

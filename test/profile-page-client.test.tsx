@@ -55,6 +55,11 @@ vi.mock("@/components/profile/trakt-settings-modal", () => ({
     open ? <div role="dialog">Trakt settings</div> : null,
 }))
 
+vi.mock("@/components/profile/trakt-zip-import-modal", () => ({
+  TraktZipImportModal: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Trakt zip import</div> : null,
+}))
+
 vi.mock("@/components/ui/avatar", () => ({
   Avatar: ({ alt }: { alt: string }) => <div>{alt}</div>,
 }))
@@ -69,6 +74,7 @@ vi.mock("@hugeicons/core-free-icons", () => ({
   CrownIcon: {},
   FileExportIcon: {},
   FileImportIcon: {},
+  FileZipIcon: {},
   Home01Icon: {},
   Location01Icon: {},
   Loading03Icon: {},

@@ -253,6 +253,7 @@ export function TraktSettingsModal({
     isConnected,
     isSyncing,
     isEnriching,
+    isZipImporting,
     lastSyncedAt,
     lastEnrichedAt,
     syncStatus,
@@ -278,9 +279,10 @@ export function TraktSettingsModal({
     premiumStatus,
   })
   const isBusy = isLoading || isConnecting || isDisconnecting
-  const isImportUnavailable = isBusy || isSyncing || !isConnected
+  const isImportUnavailable =
+    isBusy || isSyncing || !isConnected || isZipImporting
   const isEnrichUnavailable =
-    isBusy || isEnriching || isSyncing || !lastSyncedAt
+    isBusy || isEnriching || isSyncing || !lastSyncedAt || isZipImporting
 
   const retryText = useMemo(() => {
     if (syncStatus?.status !== "retrying") return null
@@ -413,6 +415,26 @@ export function TraktSettingsModal({
             </DialogHeader>
 
             <SyncErrorBanner status={syncStatus} />
+
+            {isZipImporting && (
+              <div className="rounded-lg border border-[#ed1c24]/30 bg-[#ed1c24]/10 p-4">
+                <div className="flex gap-3">
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="mt-0.5 size-5 shrink-0 animate-spin text-[#ed1c24]"
+                  />
+                  <div>
+                    <h3 className="text-sm font-medium text-white">
+                      Trakt Zip Import In Progress
+                    </h3>
+                    <p className="mt-1 text-sm text-white/70">
+                      A zip import is currently processing. Please wait for it to
+                      complete before running a manual sync.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {isLoading ? (
               <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">

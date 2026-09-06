@@ -8,6 +8,7 @@ import { ImdbImportModal } from "@/components/profile/imdb-import-modal"
 import { PreferenceToggle } from "@/components/profile/preference-toggle"
 import { RegionSelectorModal } from "@/components/profile/region-selector-modal"
 import { TraktSettingsModal } from "@/components/profile/trakt-settings-modal"
+import { TraktZipImportModal } from "@/components/profile/trakt-zip-import-modal"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/auth-context"
@@ -27,6 +28,7 @@ import { captureException, cn } from "@/lib/utils"
 import {
   ArrowRight01Icon,
   FileExportIcon,
+  FileZipIcon,
   Home01Icon,
   Location01Icon,
   Loading03Icon,
@@ -63,6 +65,7 @@ export function ProfilePageClient() {
     isConnected: isTraktConnected,
     isLoading: isTraktLoading,
     isSyncing: isTraktSyncing,
+    isZipImporting: isTraktZipImporting,
   } = useTrakt()
   const {
     preferences,
@@ -78,6 +81,7 @@ export function ProfilePageClient() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
   const [showImdbImportModal, setShowImdbImportModal] = useState(false)
+  const [showTraktZipImportModal, setShowTraktZipImportModal] = useState(false)
   const [showRegionModal, setShowRegionModal] = useState(false)
   const [showTraktModal, setShowTraktModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
@@ -178,6 +182,28 @@ export function ProfilePageClient() {
     }
 
     setShowImdbImportModal(true)
+  }
+
+  function handleTraktZipImport() {
+    if (isPremiumCheckPending) {
+      trackPremiumEvent(
+        "premium_gate_blocked_while_loading",
+        createPremiumTelemetryPayload({
+          uid: user?.uid,
+          premiumStatusBefore: premiumStatus,
+          premiumStatusAfter: premiumStatus,
+        }),
+      )
+      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
+      return
+    }
+
+    if (shouldLockPremiumFeatures) {
+      setShowPremiumModal(true)
+      return
+    }
+
+    setShowTraktZipImportModal(true)
   }
 
   async function handleRegionChange(nextRegion: SupportedRegionCode) {
@@ -429,6 +455,42 @@ export function ProfilePageClient() {
             className="size-5 text-white/40"
           />
         </button>
+        <div className="mx-4 border-t border-white/10" />
+        <button
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/5"
+          onClick={handleTraktZipImport}
+          type="button"
+        >
+          <div className="flex size-9 items-center justify-center rounded-lg bg-white">
+            <HugeiconsIcon
+              icon={FileZipIcon}
+              className="size-5 text-[#ed1c24]"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-white">
+              Import Trakt Export (.zip)
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-white/50">
+              Import watched history and more from a Trakt data export zip file
+            </span>
+          </div>
+          {isTraktZipImporting ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/60">
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-3 animate-spin"
+              />
+              Importing
+            </span>
+          ) : shouldLockPremiumFeatures ? (
+            <Badge variant="premium">Premium</Badge>
+          ) : null}
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            className="size-5 text-white/40"
+          />
+        </button>
       </div>
     )
   }
@@ -582,6 +644,11 @@ export function ProfilePageClient() {
         open={showImdbImportModal}
         onOpenChange={setShowImdbImportModal}
         userId={user.uid}
+      />
+
+      <TraktZipImportModal
+        open={showTraktZipImportModal}
+        onOpenChange={setShowTraktZipImportModal}
       />
     </>
   )
