@@ -9,6 +9,7 @@ import {
 } from "firebase/auth"
 import { getFirestore, type Firestore } from "firebase/firestore"
 import { getFunctions, type Functions } from "firebase/functions"
+import { getStorage, type FirebaseStorage } from "firebase/storage"
 
 const firebaseClientEnv = {
   NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -49,6 +50,7 @@ let appInstance: FirebaseApp | null = null
 let authInstance: Auth | null = null
 let dbInstance: Firestore | null = null
 let functionsInstance: Functions | null = null
+let storageInstance: FirebaseStorage | null = null
 let persistenceConfigured = false
 
 export function getFirebaseClientConfigErrorMessage(): string {
@@ -132,4 +134,13 @@ export function getFirebaseFunctions(): Functions {
 
   functionsInstance = getFunctions(getFirebaseApp())
   return functionsInstance
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  if (storageInstance) {
+    return storageInstance
+  }
+
+  storageInstance = getStorage(getFirebaseApp())
+  return storageInstance
 }

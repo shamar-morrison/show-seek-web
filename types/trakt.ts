@@ -120,6 +120,18 @@ export interface TraktContextValue extends TraktState {
   syncNow: () => Promise<void>
   checkSyncStatus: () => Promise<SyncStatus | undefined>
   enrichData: () => Promise<void>
+  // Zip import state & actions (from useTraktZipImport)
+  isZipImporting: boolean
+  isZipImportRateLimited: boolean
+  nextAllowedZipImportAt: Date | null
+  zipImportUiState: TraktZipImportUIState
+  zipUploadProgress: number
+  zipImportDoc: TraktZipImportProgressDoc | null
+  zipImportError: string | null
+  selectedZipFile: SelectedZipFile | null
+  startZipImport: (file: File) => Promise<void>
+  dismissZipImport: () => void
+  setSelectedZipFile: (file: SelectedZipFile | null) => void
 }
 
 export interface EnrichmentOptions {
@@ -156,3 +168,65 @@ export interface EnrichmentStatus {
   errors?: string[]
   diagnostics?: TraktDiagnostics
 }
+
+// --- Zip Import Types (ported from mobile) ---
+
+export type TraktZipImportUIState =
+  | "idle"
+  | "uploading"
+  | "processing"
+  | "completed"
+  | "failed"
+
+export type TraktZipImportPhase =
+  | "pending"
+  | "downloading"
+  | "parsing"
+  | "syncing"
+  | "completed"
+  | "failed"
+
+export type TraktZipImportStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+
+export interface TraktZipImportStats {
+  customLists: number
+  episodes: number
+  favorites: number
+  movies: number
+  movieWatches: number
+  ratings: number
+  shows: number
+  watchlist: number
+}
+
+export interface TraktZipImportProgressDoc {
+  completedAt?: { seconds: number; nanoseconds: number } | number | Date
+  createdAt?: { seconds: number; nanoseconds: number } | number | Date
+  error?: string
+  failedAt?: { seconds: number; nanoseconds: number } | number | Date
+  id: string
+  nextAllowedImportAt?:
+    | { seconds: number; nanoseconds: number }
+    | number
+    | Date
+  progress: {
+    current: number
+    phase: TraktZipImportPhase
+    total: number
+  }
+  stats: TraktZipImportStats
+  status: TraktZipImportStatus
+  updatedAt?: { seconds: number; nanoseconds: number } | number | Date
+  userId: string
+}
+
+export interface SelectedZipFile {
+  file: File
+  name: string
+  size: number
+}
+
