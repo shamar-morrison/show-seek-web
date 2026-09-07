@@ -68,7 +68,7 @@ export function FavoritePersonButton({ person }: FavoritePersonButtonProps) {
         disabled={isProcessing || isLoading}
         className={`group w-full justify-center gap-2 px-6 font-semibold transition-all ${
           isFavorited
-            ? "bg-red-600 text-white hover:bg-red-700"
+            ? "border border-primary bg-[#232323] text-white hover:bg-white/10"
             : "bg-primary text-white hover:shadow-primary/50"
         }`}
       >
