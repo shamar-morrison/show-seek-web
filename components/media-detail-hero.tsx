@@ -11,6 +11,7 @@ import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
 import { ShareMenuButton } from "@/components/share-menu-button"
 import { TrailerModal } from "@/components/trailer-modal"
+import { UpNextEpisodeCard, shouldShowUpNextEpisode } from "@/components/up-next-episode-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { WatchTrailerButton } from "@/components/watch-trailer-button"
@@ -312,6 +313,16 @@ export function MediaDetailHero({
 
   const creatorLabel = mediaType === "movie" ? "Director" : "Creator"
 
+  // "Up Next" card: only for actively ongoing shows with a next episode
+  // being released (mirrors mobile TVDetailScreen guard).
+  const upNextEpisode =
+    mediaType === "tv"
+      ? (media as TMDBTVDetails).next_episode_to_air
+      : null
+  const showUpNext =
+    mediaType === "tv" &&
+    shouldShowUpNextEpisode(mediaType, media as TMDBTVDetails)
+
   // Share post data (mirrors mobile ShareCardModal mediaData)
   const shareMedia = useMemo(
     () => ({
@@ -366,7 +377,7 @@ export function MediaDetailHero({
         {/* Content */}
         <div className="relative z-20 pb-16 pt-40">
           <div className="mx-auto w-full max-w-[1800px] px-4 sm:px-8 lg:px-12">
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:gap-12">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
               {/* Poster */}
               <div className="mx-auto shrink-0 lg:mx-0">
                 <button
@@ -632,6 +643,14 @@ export function MediaDetailHero({
                   {/* Share - extensible dropdown menu */}
                   <ShareMenuButton media={shareMedia} />
                 </div>
+
+                {/* Up Next episode (ongoing TV shows only) */}
+                {showUpNext && upNextEpisode && (
+                  <UpNextEpisodeCard
+                    tvShowId={media.id}
+                    episode={upNextEpisode}
+                  />
+                )}
               </div>
             </div>
           </div>
