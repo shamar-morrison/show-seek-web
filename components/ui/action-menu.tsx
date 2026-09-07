@@ -31,8 +31,11 @@ interface BaseAction {
   key: string
   /** Display text */
   label: string
-  /** Optional Hugeicons icon component */
-  icon?: IconSvgElement
+  /**
+   * Optional icon: a Hugeicons icon component or a custom React node
+   * (e.g. a brand logo image). Custom nodes render in a size-4 slot.
+   */
+  icon?: IconSvgElement | React.ReactNode
   /** Keyboard shortcut display (e.g., "⌘K") */
   shortcut?: string
   /** Whether the item is disabled */
@@ -177,9 +180,16 @@ function DefaultTrigger({
 // Item Renderers
 // ============================================================================
 
-function renderIcon(icon?: IconSvgElement) {
+function renderIcon(icon?: IconSvgElement | React.ReactNode) {
   if (!icon) return null
-  return <HugeiconsIcon icon={icon} className="size-4" />
+  if (React.isValidElement(icon)) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center [&_img]:max-h-full [&_img]:max-w-full [&_img]:object-contain [&_svg]:size-4">
+        {icon}
+      </span>
+    )
+  }
+  return <HugeiconsIcon icon={icon as IconSvgElement} className="size-4" />
 }
 
 function renderActionItem(item: ActionItem) {

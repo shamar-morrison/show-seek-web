@@ -18,6 +18,7 @@ import { WatchTrailerButton } from "@/components/watch-trailer-button"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useLists } from "@/hooks/use-lists"
 import { useNotes } from "@/hooks/use-notes"
+import { useOpenWithItems } from "@/hooks/use-open-with-items"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
@@ -39,6 +40,7 @@ import {
   NoteDoneIcon,
   StarIcon,
   Tv01FreeIcons,
+  ArrowUpRight01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
@@ -354,6 +356,26 @@ export function MediaDetailHero({
     )
   }, [requireAuth])
 
+  // "Open with" external service links (lazy direct-link IDs, zero KV usage)
+  const openWithItems = useOpenWithItems({
+    mediaType,
+    mediaId: media.id,
+    title,
+    year: releaseDate ? releaseDate.split("-")[0] || null : null,
+  })
+  const shareExtraItems = useMemo(
+    () => [
+      {
+        type: "submenu" as const,
+        key: "open-with",
+        label: "Open with",
+        icon: ArrowUpRight01Icon,
+        items: openWithItems,
+      },
+    ],
+    [openWithItems],
+  )
+
   return (
     <>
       <section className="relative w-full overflow-hidden">
@@ -641,7 +663,7 @@ export function MediaDetailHero({
                   </Button>
 
                   {/* Share - extensible dropdown menu */}
-                  <ShareMenuButton media={shareMedia} />
+                  <ShareMenuButton media={shareMedia} extraItems={shareExtraItems} />
                 </div>
 
                 {/* Up Next episode (ongoing TV shows only) */}
