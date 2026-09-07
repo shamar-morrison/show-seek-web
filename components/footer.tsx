@@ -1,5 +1,6 @@
-import { SHOWSEEK_ICON } from "@/lib/constants"
+import { DISCORD_INVITE_URL, SHOWSEEK_ICON } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { DiscordIcon } from "@hugeicons/core-free-icons"
 import Link from "next/link"
 
 export function Footer() {
@@ -20,6 +21,16 @@ export function Footer() {
           <p className="max-w-xs text-gray-400">
             Discover, track, and share your favorite movies and TV shows.
           </p>
+          <a
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join our Discord"
+            className="inline-flex w-fit items-center gap-2 text-gray-400 transition-colors hover:text-white"
+          >
+            <HugeiconsIcon icon={DiscordIcon} className="size-5" />
+            Join our Discord
+          </a>
         </div>
 
         {/* Navigation Column */}
