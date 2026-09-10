@@ -72,6 +72,11 @@ const libraryMenu: NavItemWithSections = {
       label: "Progress",
       links: [
         {
+          label: "Your Stats",
+          href: "/stats",
+          description: "Total hours watched and monthly breakdowns.",
+        },
+        {
           label: "Watch Progress",
           href: "/lists/watch-progress",
           description: "Pick up shows and movies where you left off.",
