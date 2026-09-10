@@ -61,6 +61,11 @@ export function RatingModal({
   // Get vote average for list feature
   const voteAverage: number | undefined =
     "vote_average" in media ? media.vote_average : undefined
+  // Measured runtime for already-watched auto-add stamping (movies only)
+  const runtimeMinutes: number | null =
+    mediaType === "movie" && "runtime" in media
+      ? (media.runtime ?? null)
+      : null
 
   // Load existing rating when modal opens
   useEffect(() => {
@@ -98,6 +103,7 @@ export function RatingModal({
         posterPath,
         releaseDate,
         voteAverage,
+        runtimeMinutes,
       })
       onClose()
     } catch (error) {
@@ -115,6 +121,7 @@ export function RatingModal({
     posterPath,
     releaseDate,
     voteAverage,
+    runtimeMinutes,
     onClose,
   ])
 

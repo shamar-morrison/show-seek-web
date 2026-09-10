@@ -131,6 +131,7 @@ export function MarkEntireShowWatchedButton({
             episode_number: episode.episode_number,
             name: episode.name,
             air_date: episode.air_date,
+            runtime: episode.runtime ?? null,
           },
         })
       }

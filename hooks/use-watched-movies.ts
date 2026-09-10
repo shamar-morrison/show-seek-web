@@ -30,6 +30,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 
+interface MovieWatchData {
+  title: string
+  posterPath: string | null
+  voteAverage?: number
+  releaseDate?: string
+  genreIds?: number[]
+  collectionId?: number | null
+  /** Measured movie runtime in minutes, for already-watched auto-add stamping */
+  runtimeMinutes?: number | null
+}
+
 interface UseWatchedMoviesReturn {
   instances: WatchInstance[]
   count: number
@@ -37,14 +48,7 @@ interface UseWatchedMoviesReturn {
   isLoading: boolean
   addWatchInstance: (
     watchedAt: Date,
-    movieData: {
-      title: string
-      posterPath: string | null
-      voteAverage?: number
-      releaseDate?: string
-      genreIds?: number[]
-      collectionId?: number | null
-    },
+    movieData: MovieWatchData,
     autoAddToAlreadyWatched?: boolean,
     autoRemoveFromShouldWatch?: boolean,
   ) => Promise<void>
@@ -191,14 +195,7 @@ export function useWatchedMovies(
     mutationFn: async (variables: {
       watchedAt: Date
       isFirstWatch?: boolean
-      movieData: {
-        title: string
-        posterPath: string | null
-        voteAverage?: number
-        releaseDate?: string
-        genreIds?: number[]
-        collectionId?: number | null
-      }
+      movieData: MovieWatchData
       autoAddToAlreadyWatched: boolean
       autoRemoveFromShouldWatch: boolean
     }) => {
@@ -241,6 +238,7 @@ export function useWatchedMovies(
           voteAverage: variables.movieData.voteAverage,
           releaseDate: variables.movieData.releaseDate,
           genreIds: variables.movieData.genreIds,
+          runtimeMinutes: variables.movieData.runtimeMinutes,
         },
         isFirstWatch,
         autoAddToAlreadyWatched: variables.autoAddToAlreadyWatched,
@@ -434,14 +432,7 @@ export function useWatchedMovies(
   const addWatchInstance = useCallback(
     async (
       watchedAt: Date,
-      movieData: {
-        title: string
-        posterPath: string | null
-        voteAverage?: number
-        releaseDate?: string
-        genreIds?: number[]
-        collectionId?: number | null
-      },
+      movieData: MovieWatchData,
       autoAddToAlreadyWatched: boolean = false,
       autoRemoveFromShouldWatch: boolean = false,
     ): Promise<void> => {

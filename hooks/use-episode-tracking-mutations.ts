@@ -38,6 +38,7 @@ interface EpisodeWatchedVariables {
     episodeId: number
     episodeName: string
     episodeAirDate: string | null
+    runtimeMinutes?: number | null
   }
   showMetadata: ShowMetadata
   showStats?: ShowStats
@@ -260,6 +261,10 @@ export function useEpisodeTrackingMutations() {
           watchedAt: now,
           episodeName: variables.episodeData.episodeName,
           episodeAirDate: variables.episodeData.episodeAirDate,
+          ...(typeof variables.episodeData.runtimeMinutes === "number" &&
+          variables.episodeData.runtimeMinutes > 0
+            ? { runtimeMinutes: variables.episodeData.runtimeMinutes }
+            : {}),
         }
 
         if (
@@ -283,6 +288,10 @@ export function useEpisodeTrackingMutations() {
               watchedAt: now,
               episodeName: seasonEpisode.name,
               episodeAirDate: seasonEpisode.air_date,
+              ...(typeof seasonEpisode.runtime === "number" &&
+              seasonEpisode.runtime > 0
+                ? { runtimeMinutes: seasonEpisode.runtime }
+                : {}),
             }
           })
         }
@@ -358,6 +367,9 @@ export function useEpisodeTrackingMutations() {
           watchedAt: now,
           episodeName: episode.name,
           episodeAirDate: episode.air_date,
+          ...(typeof episode.runtime === "number" && episode.runtime > 0
+            ? { runtimeMinutes: episode.runtime }
+            : {}),
         }
       })
 

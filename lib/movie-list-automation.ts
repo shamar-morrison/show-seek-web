@@ -1,5 +1,6 @@
 import { toast } from "sonner"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
+import { measuredRuntimeMinutes } from "@/lib/utils"
 
 type MovieListPayload = {
   movieId: number
@@ -9,6 +10,8 @@ type MovieListPayload = {
   voteAverage?: number
   releaseDate?: string | null
   genreIds?: number[]
+  /** Measured movie runtime in minutes (TMDB), when the caller has it */
+  runtimeMinutes?: number | null
 }
 
 type AddToListFn = (
@@ -22,6 +25,7 @@ type AddToListFn = (
     vote_average?: number
     release_date?: string
     genre_ids?: number[]
+    runtimeMinutes?: number
   },
 ) => Promise<boolean>
 
@@ -63,6 +67,7 @@ export async function applyMovieRatingListAutomation(params: {
         media_type: "movie",
         vote_average: movie.voteAverage,
         release_date: movie.releaseDate || undefined,
+        ...measuredRuntimeMinutes(movie.runtimeMinutes),
       })
 
       if (wasAdded) {
@@ -121,6 +126,7 @@ export async function applyWatchedMovieListAutomation(params: {
         vote_average: movie.voteAverage,
         release_date: movie.releaseDate || undefined,
         genre_ids: movie.genreIds,
+        ...measuredRuntimeMinutes(movie.runtimeMinutes),
       })
     } catch (listError) {
       const movieLabel = movie.title.trim() || `movie #${movie.movieId}`

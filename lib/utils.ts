@@ -73,6 +73,21 @@ export function formatRelativeTime(timestamp: Date | number): string {
 }
 
 /**
+ * Build a `{ runtimeMinutes }` spread for Firestore writes from a measured
+ * TMDB runtime. Only measured values (> 0) are ever persisted — estimates
+ * and fallbacks are computed in-memory at display time and never stamped.
+ * Returns `{}` when the runtime is unknown so callers can spread
+ * unconditionally. Convention: omit the field (never write null).
+ */
+export function measuredRuntimeMinutes(
+  value: number | null | undefined,
+): { runtimeMinutes: number } | Record<string, never> {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? { runtimeMinutes: value }
+    : {}
+}
+
+/**
  * Capture an exception and send it to the error tracking service
  * (Placeholder for Sentry/LogRocket/etc.)
  */

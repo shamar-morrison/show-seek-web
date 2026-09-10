@@ -59,9 +59,30 @@ export async function fetchTVShowDetails(
   }
 }
 
+/**
+ * Measured per-episode runtime for a TV show (episode_run_time[0]).
+ * Unlike fetchTVShowDetails (which bakes in a 45-minute fallback), this
+ * returns null when TMDB reports no runtime, so callers can persist only
+ * measured values. Hits the same cached getTVDetails fetch as detail pages,
+ * so it adds no new KV cache entries.
+ */
+export async function fetchMeasuredShowRuntime(
+  tvShowId: number,
+): Promise<number | null> {
+  try {
+    const details = await getTVDetails(tvShowId)
+    const runtimes = details?.episode_run_time
+    if (!runtimes || runtimes.length === 0) return null
+    const runtime = runtimes[0]
+    return typeof runtime === "number" && runtime > 0 ? runtime : null
+  } catch (error) {
+    console.error("Server Action: Failed to fetch measured show runtime", error)
+    return null
+  }
+}
+
 /** Episode data for progress tracking */
-export interface SeasonEpisodeData {
-  id: number
+export interface SeasonEpisodeData {  id: number
   episode_number: number
   name: string
   air_date: string | null

@@ -232,6 +232,7 @@ export function MediaDetailHero({
             releaseDate: movieMedia.release_date,
             genreIds: movieMedia.genres?.map((g) => g.id),
             collectionId,
+            runtimeMinutes: movieMedia.runtime ?? undefined,
           },
           preferences.autoAddToAlreadyWatched,
           preferences.autoRemoveFromShouldWatch,

@@ -200,6 +200,7 @@ export function useMediaActions({
             releaseDate: movieMedia.release_date,
             genreIds: movieMedia.genres?.map((g) => g.id),
             collectionId: resolvedCollectionId,
+            runtimeMinutes: movieMedia.runtime ?? undefined,
           },
           preferences.autoAddToAlreadyWatched,
           preferences.autoRemoveFromShouldWatch,
