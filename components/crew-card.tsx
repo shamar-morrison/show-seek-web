@@ -25,7 +25,8 @@ interface CrewCardProps {
  * Displays a crew member using PersonCard with favorite action
  */
 export function CrewCard({ crew, priority = false }: CrewCardProps) {
-  const { requireAuth, modalVisible, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { isFavorited, loading: favLoading } = useIsPersonFavorited(crew.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
     useFavoritePersonActions()
@@ -101,7 +102,11 @@ export function CrewCard({ crew, priority = false }: CrewCardProps) {
       />
 
       {/* Auth modal for unauthenticated users */}
-      <AuthModal isOpen={modalVisible} onClose={closeModal} />
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        onAuthSuccess={onAuthSuccess}
+      />
     </>
   )
 }

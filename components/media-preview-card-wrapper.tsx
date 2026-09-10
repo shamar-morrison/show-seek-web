@@ -78,7 +78,8 @@ export function MediaPreviewCardWrapper({
   const [isQuickMarkLoading, setIsQuickMarkLoading] = useState(false)
 
   // Auth guard for protected actions
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
 
   // Preferences for quick mark
   const { preferences } = usePreferences()
@@ -316,6 +317,7 @@ export function MediaPreviewCardWrapper({
         isOpen={modalVisible}
         onClose={closeModal}
         message={modalMessage}
+        onAuthSuccess={onAuthSuccess}
       />
     </>
   )

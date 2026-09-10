@@ -31,7 +31,8 @@ export function CastCard({
   priority = false,
   fullWidth = false,
 }: CastCardProps) {
-  const { requireAuth, modalVisible, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { isFavorited, loading: favLoading } = useIsPersonFavorited(cast.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
     useFavoritePersonActions()
@@ -107,7 +108,11 @@ export function CastCard({
       />
 
       {/* Auth modal for unauthenticated users */}
-      <AuthModal isOpen={modalVisible} onClose={closeModal} />
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        onAuthSuccess={onAuthSuccess}
+      />
     </>
   )
 }

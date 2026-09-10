@@ -66,7 +66,8 @@ export function MarkEntireShowWatchedButton({
   firstAirDate,
 }: MarkEntireShowWatchedButtonProps) {
   const { user } = useAuth()
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { preferences } = usePreferences()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markEntireShowWatched, isMutating } = useEpisodeTrackingMutations()
@@ -353,6 +354,7 @@ export function MarkEntireShowWatchedButton({
         isOpen={modalVisible}
         onClose={closeModal}
         message={modalMessage}
+        onAuthSuccess={onAuthSuccess}
       />
     </>
   )

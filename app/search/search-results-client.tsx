@@ -236,6 +236,14 @@ export function SearchResultsClient({
     }
   }, [debouncedSearch, performSearch, query])
 
+  // Keep document title in sync when query changes via client-side URL updates
+  useEffect(() => {
+    const trimmed = query.trim()
+    document.title = trimmed
+      ? `Search results for "${trimmed}" | ShowSeek`
+      : "Search | ShowSeek"
+  }, [query])
+
   // Filter results based on active tab
   const filteredResults = useMemo(
     () =>

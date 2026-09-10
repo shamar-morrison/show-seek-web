@@ -182,7 +182,8 @@ export function MediaDetailHero({
   const { getNote, loading: notesLoading } = useNotes()
   const { preferences } = usePreferences()
   const { resolvePosterPath } = usePosterOverrides()
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
 
   // Watch history for movies only
   const {
@@ -736,6 +737,7 @@ export function MediaDetailHero({
         isOpen={modalVisible}
         onClose={closeModal}
         message={modalMessage}
+        onAuthSuccess={onAuthSuccess}
       />
     </>
   )

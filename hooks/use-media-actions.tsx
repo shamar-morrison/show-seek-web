@@ -116,7 +116,8 @@ export function useMediaActions({
   const { preferences } = usePreferences()
   const { getRating } = useRatings()
   const { getNote } = useNotes()
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
 
   // Card and dropdown flows only need the mutation helpers, not full history.
   const { addWatchInstance } = useWatchedMovies(
@@ -395,6 +396,7 @@ export function useMediaActions({
               isOpen={modalVisible}
               onClose={closeModal}
               message={modalMessage}
+              onAuthSuccess={onAuthSuccess}
             />
           )}
         </>
@@ -408,6 +410,7 @@ export function useMediaActions({
       modalVisible,
       modalMessage,
       closeModal,
+      onAuthSuccess,
       mediaForModal,
       mediaType,
       handleModalMarkAsWatched,

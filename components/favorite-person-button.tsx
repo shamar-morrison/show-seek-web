@@ -27,7 +27,8 @@ interface FavoritePersonButtonProps {
  * Shows different states based on authentication and favorite status
  */
 export function FavoritePersonButton({ person }: FavoritePersonButtonProps) {
-  const { requireAuth, modalVisible, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { isFavorited, loading: favLoading } = useIsPersonFavorited(person.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
     useFavoritePersonActions()
@@ -88,7 +89,11 @@ export function FavoritePersonButton({ person }: FavoritePersonButtonProps) {
       </Button>
 
       {/* Auth modal for unauthenticated users */}
-      <AuthModal isOpen={modalVisible} onClose={closeModal} />
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        onAuthSuccess={onAuthSuccess}
+      />
     </>
   )
 }

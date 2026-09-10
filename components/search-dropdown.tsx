@@ -169,8 +169,12 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
   // Navigate to full search results page
   const navigateToSearchPage = () => {
     if (!query.trim()) return
+    const searchQuery = query
     setIsOpen(false)
-    router.push(`/search?q=${encodeURIComponent(query)}`)
+    setQuery("")
+    setResults([])
+    inputRef.current?.blur()
+    router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
   }
 
   // Handle keyboard navigation

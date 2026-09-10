@@ -143,7 +143,8 @@ export function CollectionPageClient({
   collection,
 }: CollectionPageClientProps) {
   const { loading: authLoading, premiumLoading, premiumStatus } = useAuth()
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { tracking, isTracked, watchedCount, totalMovies, isLoading } =
     useCollectionTracking(collection.id)
   const {
@@ -460,6 +461,7 @@ export function CollectionPageClient({
           isOpen={modalVisible}
           onClose={closeModal}
           message={modalMessage}
+          onAuthSuccess={onAuthSuccess}
         />
       )}
     </>

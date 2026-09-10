@@ -56,7 +56,7 @@ export function SeasonDetailClient({
   tvShowId,
 }: SeasonDetailClientProps) {
   const { user } = useAuth()
-  const { requireAuth, modalVisible, modalMessage, closeModal } =
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
     useAuthGuard()
   const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
@@ -502,6 +502,7 @@ export function SeasonDetailClient({
         isOpen={modalVisible}
         onClose={closeModal}
         message={modalMessage}
+        onAuthSuccess={onAuthSuccess}
       />
     </div>
   )

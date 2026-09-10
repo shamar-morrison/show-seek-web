@@ -83,7 +83,8 @@ export function EpisodeCard({
   )
   const { toggleEpisode, isToggling: favoriteMutationPending } =
     useToggleFavoriteEpisode()
-  const { requireAuth, modalVisible, modalMessage, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const [isToggling, setIsToggling] = useState(false)
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
@@ -486,6 +487,7 @@ export function EpisodeCard({
         isOpen={modalVisible}
         onClose={closeModal}
         message={modalMessage}
+        onAuthSuccess={onAuthSuccess}
       />
     </>
   )

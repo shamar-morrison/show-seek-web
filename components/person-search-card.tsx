@@ -38,7 +38,8 @@ export function PersonSearchCard({
   priority = false,
 }: PersonSearchCardProps) {
   const profileUrl = buildImageUrl(person.profile_path ?? null, "w500")
-  const { requireAuth, modalVisible, closeModal } = useAuthGuard()
+  const { requireAuth, modalVisible, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const { isFavorited, loading: favLoading } = useIsPersonFavorited(person.id)
   const { addPerson, removePerson, isAdding, isRemoving } =
     useFavoritePersonActions()
@@ -133,7 +134,11 @@ export function PersonSearchCard({
       </Link>
 
       {/* Auth modal for unauthenticated users */}
-      <AuthModal isOpen={modalVisible} onClose={closeModal} />
+      <AuthModal
+        isOpen={modalVisible}
+        onClose={closeModal}
+        onAuthSuccess={onAuthSuccess}
+      />
     </>
   )
 }
