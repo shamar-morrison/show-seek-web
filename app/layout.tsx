@@ -20,9 +20,10 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "ShowSeek",
-  description: "Discover, Track, and Share your favorite movies and TV shows",
-  metadataBase: new URL("https://showseek.com"),
+  title: "ShowSeek | Track Your Movies and Shows",
+  description:
+    "Discover, track, and never lose your place across every streaming service.",
+  metadataBase: new URL("https://show-seek.app"),
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -30,16 +31,17 @@ export const metadata: Metadata = {
     title: "ShowSeek",
   },
   openGraph: {
-    title: "ShowSeek",
-    description: "Discover, Track, and Share your favorite movies and TV shows",
-    url: "https://showseek.com",
+    title: "ShowSeek | Track Your Movies and Shows",
+    description:
+      "Discover, track, and never lose your place across every streaming service.",
+    url: "https://show-seek.app/",
     siteName: "ShowSeek",
     images: [
       {
-        url: "/showseek_og.png",
+        url: "https://show-seek.app/og-image.png",
         width: 1200,
         height: 630,
-        alt: "ShowSeek - Discover, Track, Share Movies & TV Shows",
+        alt: "ShowSeek | Track Your Movies and Shows",
       },
     ],
     locale: "en_US",
@@ -47,9 +49,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ShowSeek",
-    description: "Discover, Track, and Share your favorite movies and TV shows",
-    images: ["/showseek_og.png"],
+    title: "ShowSeek | Track Your Movies and Shows",
+    description:
+      "Discover, track, and never lose your place across every streaming service.",
+    images: ["https://show-seek.app/og-image.png"],
   },
 }
 
