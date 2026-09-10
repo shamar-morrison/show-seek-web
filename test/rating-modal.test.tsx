@@ -106,7 +106,6 @@ describe("RatingModal", () => {
         posterPath: null,
         releaseDate: "2001-07-20",
         voteAverage: 8.5,
-        runtimeMinutes: 125,
       })
     })
   })

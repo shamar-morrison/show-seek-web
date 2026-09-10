@@ -132,7 +132,6 @@ export function SeasonDetailClient({
         episode_number: ep.episode_number,
         name: ep.name,
         air_date: ep.air_date,
-        runtime: ep.runtime ?? null,
       }))
 
       // Compute next episode: find the next season and get its first episode

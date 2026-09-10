@@ -48,8 +48,6 @@ export type SaveRatingOptions = {
   posterPath: string | null
   releaseDate: string | null
   voteAverage?: number
-  /** Measured movie runtime in minutes, for already-watched auto-add stamping */
-  runtimeMinutes?: number | null
 }
 
 export type SaveSeasonRatingOptions = {
@@ -201,7 +199,6 @@ export function useRatings() {
             posterPath: variables.posterPath,
             voteAverage: variables.voteAverage,
             releaseDate: variables.releaseDate,
-            runtimeMinutes: variables.runtimeMinutes,
           },
           autoAddToAlreadyWatched: preferences.autoAddToAlreadyWatched,
           autoRemoveFromShouldWatch: preferences.autoRemoveFromShouldWatch,

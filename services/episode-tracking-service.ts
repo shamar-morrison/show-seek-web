@@ -2,7 +2,6 @@
 
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/config"
 import { normalizeEpisodeTrackingDoc } from "@/lib/episode-tracking-normalization"
-import { measuredRuntimeMinutes } from "@/lib/utils"
 import type {
   EpisodeTrackingMetadata,
   SeasonProgress,
@@ -132,7 +131,6 @@ class EpisodeTrackingService {
       episodeId: number
       episodeName: string
       episodeAirDate: string | null
-      runtimeMinutes?: number | null
     },
     showMetadata: {
       tvShowName: string
@@ -171,7 +169,6 @@ class EpisodeTrackingService {
         watchedAt: now,
         episodeName: episodeData.episodeName,
         episodeAirDate: episodeData.episodeAirDate,
-        ...measuredRuntimeMinutes(episodeData.runtimeMinutes),
       }
 
       const episodesMap: Record<string, WatchedEpisode> = {
@@ -213,7 +210,6 @@ class EpisodeTrackingService {
             watchedAt: now,
             episodeName: seasonEpisode.name,
             episodeAirDate: seasonEpisode.air_date,
-            ...measuredRuntimeMinutes(seasonEpisode.runtime),
           }
         })
       }
@@ -376,7 +372,6 @@ class EpisodeTrackingService {
           watchedAt: now,
           episodeName: episode.name,
           episodeAirDate: episode.air_date,
-          ...measuredRuntimeMinutes(episode.runtime),
         }
       })
 
@@ -491,7 +486,6 @@ class EpisodeTrackingService {
           watchedAt: now,
           episodeName: episode.name,
           episodeAirDate: episode.air_date,
-          ...measuredRuntimeMinutes(episode.runtime),
         }
       })
 

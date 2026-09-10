@@ -55,13 +55,6 @@ function normalizeEpisode(
       ? rawEpisode.episodeNumber
       : Number(episodeString)
 
-  const runtimeMinutes =
-    typeof rawEpisode.runtimeMinutes === "number" &&
-    Number.isFinite(rawEpisode.runtimeMinutes) &&
-    rawEpisode.runtimeMinutes > 0
-      ? rawEpisode.runtimeMinutes
-      : undefined
-
   return {
     episodeId:
       typeof rawEpisode.episodeId === "number" &&
@@ -82,7 +75,6 @@ function normalizeEpisode(
       typeof rawEpisode.episodeAirDate === "string"
         ? rawEpisode.episodeAirDate
         : null,
-    ...(runtimeMinutes !== undefined ? { runtimeMinutes } : {}),
   }
 }
 

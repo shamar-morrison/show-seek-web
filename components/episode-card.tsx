@@ -153,7 +153,6 @@ export function EpisodeCard({
         episodeId: episode.id,
         episodeName: episode.name,
         episodeAirDate: episode.air_date,
-        runtimeMinutes: episode.runtime ?? undefined,
       },
       showMetadata: {
         tvShowName,

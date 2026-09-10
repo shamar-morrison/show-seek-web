@@ -6,7 +6,6 @@ export const queryKeys = {
 
   tmdb: {
     tvShowDetails: (tvShowId: number) => ["tv", tvShowId, "details"] as const,
-    genreMap: () => ["tmdb", "genre-map"] as const,
     seasonEpisodes: (tvShowId: number, seasonNumber: number) =>
       ["tv", tvShowId, "season", seasonNumber] as const,
     mediaImages: (mediaId: number, mediaType: "movie" | "tv") =>
