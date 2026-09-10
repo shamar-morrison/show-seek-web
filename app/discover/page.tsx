@@ -11,7 +11,7 @@ import {
   getTVGenres,
   getWatchProviderList,
 } from "@/lib/tmdb"
-import { safeParseInt } from "@/lib/utils"
+import { safeParseInt, parseGenreOperator, parseIntList } from "@/lib/utils"
 import { DiscoverClient } from "./discover-client"
 
 /**
@@ -32,6 +32,15 @@ export default async function DiscoverPage({
   const moodId = typeof params.mood === "string" ? params.mood : null
   const mood = moodId ? getMoodById(moodId) : null
 
+  // Multi-select filters (comma-separated in URL, mobile parity).
+  // Backwards compatible: single "?genre=28" parses to [28].
+  const genreIds = mood ? [] : parseIntList(params.genre)
+  const genreOperator = parseGenreOperator(params.genreOp)
+  const providerIds =
+    mood || parseIntList(params.provider).length === 0
+      ? undefined
+      : parseIntList(params.provider)
+
   // Fetch static data in parallel - these are cached indefinitely
   const [movieGenres, tvGenres, languages, providers, initialResults] =
     await Promise.all([
@@ -49,16 +58,14 @@ export default async function DiscoverPage({
             undefined),
         rating: mood ? undefined : safeParseInt(params.rating as string),
         language: mood ? undefined : ((params.language as string) || undefined),
-        genre: mood ? undefined : safeParseInt(params.genre as string),
+        genres: mood ? undefined : genreIds.length > 0 ? genreIds : undefined,
+        genreOperator,
         withGenres: mood ? formatMoodGenres(mood, mediaType) : undefined,
         withKeywords: mood ? formatMoodKeywords(mood) : undefined,
         withoutGenres: mood
           ? formatExcludedGenres(mood, mediaType)
           : undefined,
-        providers:
-          mood || !safeParseInt(params.provider as string)
-            ? undefined
-            : [safeParseInt(params.provider as string)!],
+        providers: providerIds,
       }),
     ])
 
@@ -79,8 +86,9 @@ export default async function DiscoverPage({
           "popularity",
         rating: safeParseInt(params.rating as string) ?? null,
         language: (params.language as string) || null,
-        genre: safeParseInt(params.genre as string) ?? null,
-        provider: safeParseInt(params.provider as string) ?? null,
+        genres: genreIds,
+        genreOperator,
+        providers: providerIds ?? [],
       }}
     />
   )

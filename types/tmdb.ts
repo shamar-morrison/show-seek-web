@@ -588,7 +588,9 @@ export interface DiscoverParams {
   sortBy?: "popularity" | "top_rated" | "newest"
   rating?: number // vote_average.gte
   language?: string // with_original_language
-  genre?: number // with_genres
+  genre?: number // with_genres (legacy single-select, prefer genres)
+  genres?: number[] // multi-select genre ids
+  genreOperator?: "and" | "or" // how multiple genres combine ("," = AND, "|" = OR)
   withGenres?: string // raw with_genres override
   withKeywords?: string // raw with_keywords
   withoutGenres?: string // raw without_genres

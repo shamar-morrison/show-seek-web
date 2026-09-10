@@ -13,6 +13,32 @@ export function safeParseInt(
   return isNaN(parsed) ? undefined : parsed
 }
 
+/** AND/OR combination operator for multi-select genre filters (mobile parity). */
+export type GenreOperator = "and" | "or"
+
+export function parseGenreOperator(
+  value: string | string[] | undefined | null,
+): GenreOperator {
+  const raw = Array.isArray(value) ? value[0] : value
+  return raw === "and" ? "and" : "or"
+}
+
+/**
+ * Parse a comma-separated (or repeated-param) list of ints into a number array.
+ * Backwards compatible with single values: "28" -> [28].
+ */
+export function parseIntList(
+  value: string | string[] | undefined | null,
+): number[] {
+  if (value === undefined || value === null) return []
+  const raw = Array.isArray(value) ? value.join(",") : String(value)
+  if (!raw.trim()) return []
+  return raw
+    .split(",")
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((n) => !isNaN(n))
+}
+
 /**
  * Format a timestamp to a relative time string
  * e.g., "just now", "yesterday", "2 days ago", "1 week ago"

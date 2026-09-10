@@ -1639,6 +1639,8 @@ export async function discoverMedia(
     rating,
     language,
     genre,
+    genres,
+    genreOperator = "or",
     withGenres,
     withKeywords,
     withoutGenres,
@@ -1694,9 +1696,14 @@ export async function discoverMedia(
     queryParams["with_original_language"] = language
   }
 
-  // Genre filter
+  // Genre filter (multi-select with AND/OR, mobile parity:
+  // "," = AND, "|" = OR for TMDB with_genres)
   if (withGenres) {
     queryParams["with_genres"] = withGenres
+  } else if (genres && genres.length > 0) {
+    queryParams["with_genres"] = genres.join(
+      genreOperator === "and" ? "," : "|",
+    )
   } else if (genre) {
     queryParams["with_genres"] = genre.toString()
   }

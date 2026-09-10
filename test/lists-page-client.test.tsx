@@ -64,11 +64,18 @@ vi.mock("@/hooks/use-bulk-list-operations", () => ({
 vi.mock("@/components/ui/filter-sort", () => ({
   FilterSort: ({
     onFilterChange,
+    onMultiFilterChange,
+    onMultiFilterOperatorChange,
     ratingFilter,
     onSortChange,
     yearRange,
   }: {
     onFilterChange?: (key: string, value: string) => void
+    onMultiFilterChange?: (key: string, values: string[]) => void
+    onMultiFilterOperatorChange?: (
+      key: string,
+      operator: "and" | "or",
+    ) => void
     ratingFilter?: { onChange: (value: number) => void }
     onSortChange: (state: { field: string; direction: string }) => void
     yearRange?: { onChange: (range: [number, number]) => void }
@@ -76,6 +83,18 @@ vi.mock("@/components/ui/filter-sort", () => ({
     <>
       <button type="button" onClick={() => onFilterChange?.("mediaType", "tv")}>
         Filter TV
+      </button>
+      <button
+        type="button"
+        onClick={() => onMultiFilterChange?.("genre", ["28", "12"])}
+      >
+        Filter genres 28+12
+      </button>
+      <button
+        type="button"
+        onClick={() => onMultiFilterOperatorChange?.("genre", "and")}
+      >
+        Genre AND
       </button>
       <button type="button" onClick={() => ratingFilter?.onChange(9)}>
         Min rating 9
@@ -258,6 +277,51 @@ function createLists(): UserList[] {
           release_date: "2016-08-26",
           addedAt: 1,
           genre_ids: [],
+        },
+      },
+    },
+  ]
+}
+
+function createGenreLists(): UserList[] {
+  return [
+    {
+      id: "watchlist",
+      name: "Should Watch",
+      createdAt: 0,
+      items: {
+        1: {
+          id: 1,
+          title: "Action Only",
+          original_title: "Action Only",
+          poster_path: null,
+          media_type: "movie",
+          vote_average: 8.5,
+          release_date: "2024-01-01",
+          addedAt: 3,
+          genre_ids: [28],
+        },
+        2: {
+          id: 2,
+          title: "Adventure Only",
+          original_title: "Adventure Only",
+          poster_path: null,
+          media_type: "movie",
+          vote_average: 8.2,
+          release_date: "2024-01-01",
+          addedAt: 2,
+          genre_ids: [12],
+        },
+        3: {
+          id: 3,
+          title: "Action Adventure",
+          original_title: "Action Adventure",
+          poster_path: null,
+          media_type: "movie",
+          vote_average: 8.8,
+          release_date: "2024-01-01",
+          addedAt: 1,
+          genre_ids: [28, 12],
         },
       },
     },
@@ -541,6 +605,71 @@ describe("ListsPageClient", () => {
       expect(params.get("dir")).toBe("asc")
       expect(params.get("page")).toBeNull()
     })
+  })
+
+  it("filters by multiple genres with OR semantics by default", async () => {
+    setLocation("?genre=28%2C12")
+
+    render(
+      <ListsPageClient
+        lists={createGenreLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText("Action Only")).toBeInTheDocument()
+    expect(screen.getByText("Adventure Only")).toBeInTheDocument()
+    expect(screen.getByText("Action Adventure")).toBeInTheDocument()
+  })
+
+  it("filters by multiple genres with AND semantics when genreOp=and", async () => {
+    setLocation("?genre=28%2C12&genreOp=and")
+
+    render(
+      <ListsPageClient
+        lists={createGenreLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText("Action Adventure")).toBeInTheDocument()
+    expect(screen.queryByText("Action Only")).not.toBeInTheDocument()
+    expect(screen.queryByText("Adventure Only")).not.toBeInTheDocument()
+  })
+
+  it("serializes multi-select genres and the AND operator to the URL", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createGenreLists()}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole("button", { name: "Filter genres 28+12" }),
+    )
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("genre")).toBe(
+        "28,12",
+      )
+    })
+
+    await user.click(screen.getByRole("button", { name: "Genre AND" }))
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get("genre")).toBe("28,12")
+      expect(params.get("genreOp")).toBe("and")
+    })
+
+    expect(screen.getByText("Action Adventure")).toBeInTheDocument()
+    expect(screen.queryByText("Action Only")).not.toBeInTheDocument()
   })
 
   it("keeps January 1 list items in the correct release year filter", async () => {
