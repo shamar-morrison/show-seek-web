@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process"
 import { pruneFetchCache } from "./cloudflare-prune-fetch-cache.mjs"
 
-const FREE_PLAN_MAX_GZIP_BYTES = 3 * 1024 * 1024
+// Cloudflare limit (Sept 2026+): single 64 MiB uncompressed bundle size limit
+// across both Free and Paid plans. No separate gzip-based free-tier check.
+const MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024 // 67108864 bytes
 
 function parseArgs(argv) {
   const args = {
@@ -67,32 +69,30 @@ if ((result.status ?? 1) !== 0) {
   process.exit(result.status ?? 1)
 }
 
-const gzipMatch =
-  combinedOutput.match(/gzip:\s*([\d.]+)\s*(B|KiB|MiB|GiB|KB|MB|GB)/i) ??
-  combinedOutput.match(
-    /compressed(?: upload)? size[:\s]+([\d.]+)\s*(B|KiB|MiB|GiB|KB|MB|GB)/i,
-  )
+const uncompressedMatch = combinedOutput.match(
+  /Total Upload:\s*([\d.]+)\s*(B|KiB|MiB|GiB|KB|MB|GB)/i,
+)
 
-if (!gzipMatch) {
+if (!uncompressedMatch) {
   console.error(
-    "Unable to determine the compressed worker size from Wrangler dry-run output.",
+    "Unable to determine the uncompressed worker size from Wrangler dry-run output.",
   )
   process.exit(1)
 }
 
-const gzipSize = Number.parseFloat(gzipMatch[1] ?? "0")
-const gzipUnit = gzipMatch[2] ?? "B"
-const gzipBytes = toBytes(gzipSize, gzipUnit)
+const uncompressedSize = Number.parseFloat(uncompressedMatch[1] ?? "0")
+const uncompressedUnit = uncompressedMatch[2] ?? "B"
+const uncompressedBytes = toBytes(uncompressedSize, uncompressedUnit)
 
 console.log(
-  `Detected compressed worker size: ${gzipSize} ${gzipUnit} (${Math.round(
-    gzipBytes,
+  `Detected uncompressed worker size: ${uncompressedSize} ${uncompressedUnit} (${Math.round(
+    uncompressedBytes,
   )} bytes)`,
 )
 
-if (gzipBytes > FREE_PLAN_MAX_GZIP_BYTES) {
+if (uncompressedBytes > MAX_UNCOMPRESSED_BYTES) {
   console.error(
-    `Compressed worker size exceeds the Cloudflare free-plan limit of ${FREE_PLAN_MAX_GZIP_BYTES} bytes.`,
+    `Uncompressed worker size exceeds the Cloudflare limit of ${MAX_UNCOMPRESSED_BYTES} bytes (64 MiB).`,
   )
   process.exit(1)
 }

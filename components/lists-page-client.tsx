@@ -30,7 +30,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { FilterSort, FilterState, SortState } from "@/components/ui/filter-sort"
+import {
+  FilterSort,
+  FilterState,
+  MultiFilterOperator,
+  MultiFilterState,
+  SortState,
+} from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Pagination } from "@/components/ui/pagination"
 import { SearchInput } from "@/components/ui/search-input"
@@ -41,7 +47,7 @@ import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { listItemToMedia } from "@/lib/list-media"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
-import { safeParseInt } from "@/lib/utils"
+import { safeParseInt, type GenreOperator } from "@/lib/utils"
 import type { ListMediaItem, UserList } from "@/types/list"
 import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
@@ -76,8 +82,11 @@ const MIN_YEAR = 1950
 const LISTS_RESULTS_PER_PAGE = 20
 const DEFAULT_FILTER_STATE: FilterState = {
   mediaType: "all",
-  genre: "all",
 }
+const DEFAULT_MULTI_FILTER_STATE: MultiFilterState = {
+  genre: [],
+}
+const DEFAULT_GENRE_OPERATOR: GenreOperator = "or"
 const DEFAULT_SORT_STATE: SortState = {
   field: "added",
   direction: "desc",
@@ -86,6 +95,8 @@ const LIST_SORT_FIELDS = ["added", "release_date", "rating", "title"] as const
 
 interface ListsPageUrlState {
   filterState: FilterState
+  multiFilterState: MultiFilterState
+  genreOperator: GenreOperator
   minRating: number
   page: number
   searchQuery: string
@@ -124,8 +135,24 @@ function parseListsYearRange(params: URLSearchParams): [number, number] {
   return [yearMin, yearMax]
 }
 
-function parseListsMinRating(params: URLSearchParams) {
-  const minRating = safeParseInt(params.get("minRating"))
+/**
+ * Parse multi-select genres from URL (?genre=28,12).
+ * Backwards compatible: legacy "?genre=all" or single "?genre=28".
+ */
+function parseListsGenres(params: URLSearchParams): string[] {
+  const raw = params.get("genre")
+  if (!raw || raw === "all") return []
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && safeParseInt(part) !== undefined)
+}
+
+function parseListsGenreOperator(params: URLSearchParams): GenreOperator {
+  return params.get("genreOp") === "and" ? "and" : "or"
+}
+
+function parseListsMinRating(params: URLSearchParams) {  const minRating = safeParseInt(params.get("minRating"))
 
   if (minRating === undefined || minRating < 0 || minRating > 10) {
     return 0
@@ -242,6 +269,7 @@ export function ListsPageClient({
       "q",
       "mediaType",
       "genre",
+      "genreOp",
       "yearMin",
       "yearMax",
       "minRating",
@@ -251,7 +279,6 @@ export function ListsPageClient({
     ],
     parse: (params) => {
       const mediaType = params.get("mediaType")
-      const genre = params.get("genre")
       const sort = params.get("sort")
       const direction = params.get("dir")
 
@@ -262,11 +289,11 @@ export function ListsPageClient({
           mediaType: isListMediaTypeFilter(mediaType)
             ? mediaType
             : DEFAULT_FILTER_STATE.mediaType,
-          genre:
-            genre && safeParseInt(genre) !== undefined
-              ? genre
-              : DEFAULT_FILTER_STATE.genre,
         },
+        multiFilterState: {
+          genre: parseListsGenres(params),
+        },
+        genreOperator: parseListsGenreOperator(params),
         yearRange: parseListsYearRange(params),
         minRating: parseListsMinRating(params),
         sortState: {
@@ -288,8 +315,12 @@ export function ListsPageClient({
         params.set("mediaType", state.filterState.mediaType)
       }
 
-      if (state.filterState.genre !== DEFAULT_FILTER_STATE.genre) {
-        params.set("genre", state.filterState.genre)
+      const selectedGenres = state.multiFilterState.genre ?? []
+      if (selectedGenres.length > 0) {
+        params.set("genre", selectedGenres.join(","))
+        if (state.genreOperator === "and") {
+          params.set("genreOp", "and")
+        }
       }
 
       if (state.yearRange[0] !== MIN_YEAR) {
@@ -337,6 +368,8 @@ export function ListsPageClient({
     [onListSelect, setUrlState],
   )
   const filterState = urlState.filterState
+  const multiFilterState = urlState.multiFilterState
+  const genreOperator = urlState.genreOperator
   const yearRange = urlState.yearRange
   const minRating = urlState.minRating
   const sortState = urlState.sortState
@@ -416,10 +449,20 @@ export function ListsPageClient({
       items = items.filter((item) => item.media_type === filterState.mediaType)
     }
 
-    // Genre filter
-    if (filterState.genre !== "all") {
-      const genreId = parseInt(filterState.genre)
-      items = items.filter((item) => item.genre_ids?.includes(genreId))
+    // Genre filter (multi-select with AND/OR, mobile parity)
+    const selectedGenreIds = (multiFilterState.genre ?? [])
+      .map((value) => parseInt(value, 10))
+      .filter((id) => !isNaN(id))
+    if (selectedGenreIds.length > 0) {
+      if (genreOperator === "and") {
+        items = items.filter((item) =>
+          selectedGenreIds.every((id) => item.genre_ids?.includes(id)),
+        )
+      } else {
+        items = items.filter((item) =>
+          selectedGenreIds.some((id) => item.genre_ids?.includes(id)),
+        )
+      }
     }
 
     // Year range filter
@@ -438,6 +481,8 @@ export function ListsPageClient({
     return items
   }, [
     filterState,
+    multiFilterState,
+    genreOperator,
     getItemDisplayTitle,
     listItems,
     minRating,
@@ -529,12 +574,44 @@ export function ListsPageClient({
     [setUrlState],
   )
 
+  // Handle multi-select filter change (genres)
+  const handleMultiFilterChange = useCallback(
+    (key: string, values: string[]) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        page: 1,
+        multiFilterState: {
+          ...currentState.multiFilterState,
+          [key]: values,
+        },
+        // Reset operator when selection is cleared
+        genreOperator:
+          values.length === 0 ? DEFAULT_GENRE_OPERATOR : currentState.genreOperator,
+      }))
+    },
+    [setUrlState],
+  )
+
+  // Handle genre AND/OR operator change
+  const handleGenreOperatorChange = useCallback(
+    (operator: MultiFilterOperator) => {
+      setUrlState((currentState) => ({
+        ...currentState,
+        page: 1,
+        genreOperator: operator,
+      }))
+    },
+    [setUrlState],
+  )
+
   // Handle clear all filters
   const handleClearAll = useCallback(() => {
     setUrlState((currentState) => ({
       ...currentState,
       page: 1,
       filterState: DEFAULT_FILTER_STATE,
+      multiFilterState: DEFAULT_MULTI_FILTER_STATE,
+      genreOperator: DEFAULT_GENRE_OPERATOR,
       yearRange: [MIN_YEAR, CURRENT_YEAR],
       minRating: 0,
       sortState: DEFAULT_SORT_STATE,
@@ -581,6 +658,8 @@ export function ListsPageClient({
       page: 1,
       searchQuery: "",
       filterState: DEFAULT_FILTER_STATE,
+      multiFilterState: DEFAULT_MULTI_FILTER_STATE,
+      genreOperator: DEFAULT_GENRE_OPERATOR,
       yearRange: [MIN_YEAR, CURRENT_YEAR],
       minRating: 0,
     }))
@@ -739,10 +818,8 @@ export function ListsPageClient({
       key: "genre",
       label: "Genres",
       icon: Tv01Icon,
-      options: [
-        { value: "all", label: "All Genres" },
-        ...mergedGenres.map((g) => ({ value: String(g.id), label: g.name })),
-      ],
+      selectionMode: "multiple" as const,
+      options: mergedGenres.map((g) => ({ value: String(g.id), label: g.name })),
     },
   ]
 
@@ -813,6 +890,13 @@ export function ListsPageClient({
               filters={filterCategories}
               filterState={filterState}
               onFilterChange={handleFilterChange}
+              multiFilterState={multiFilterState}
+              onMultiFilterChange={handleMultiFilterChange}
+              multiFilterOperators={{ genre: genreOperator }}
+              onMultiFilterOperatorChange={(_key, operator) =>
+                handleGenreOperatorChange(operator)
+              }
+              multiFilterOperatorTabs={["genre"]}
               sortFields={sortFields}
               sortState={sortState}
               onSortChange={(nextSortState) =>
@@ -894,7 +978,7 @@ export function ListsPageClient({
       ) : listItems.length > 0 &&
         (searchQuery.trim() ||
           filterState.mediaType !== "all" ||
-          filterState.genre !== "all" ||
+          (multiFilterState.genre ?? []).length > 0 ||
           minRating > 0 ||
           yearRange[0] !== MIN_YEAR ||
           yearRange[1] !== CURRENT_YEAR) ? (

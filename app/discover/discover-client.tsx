@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/empty"
 import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
+import { MultiSelectFilterCombobox } from "@/components/ui/multi-select-filter-combobox"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
 import { useContentFilter } from "@/hooks/use-content-filter"
@@ -22,7 +23,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { getMoodById, getRandomMood } from "@/lib/moods"
 import { getDisplayMediaTitle } from "@/lib/media-title"
-import { cn } from "@/lib/utils"
+import { cn, type GenreOperator } from "@/lib/utils"
 import { isActionableMedia } from "@/lib/tmdb-media"
 import type {
   Genre,
@@ -44,8 +45,9 @@ interface DiscoverFilters {
   sortBy: "popularity" | "top_rated" | "newest"
   rating: number | null
   language: string | null
-  genre: number | null
-  provider: number | null
+  genres: number[]
+  genreOperator: GenreOperator
+  providers: number[]
 }
 
 const DEFAULT_FILTERS: DiscoverFilters = {
@@ -56,8 +58,9 @@ const DEFAULT_FILTERS: DiscoverFilters = {
   sortBy: "popularity",
   rating: null,
   language: null,
-  genre: null,
-  provider: null,
+  genres: [],
+  genreOperator: "or",
+  providers: [],
 }
 
 const SORT_OPTIONS: FilterOption[] = [
@@ -110,8 +113,13 @@ function buildDiscoverUrl(filters: DiscoverFilters) {
   if (filters.sortBy !== "popularity") params.set("sort", filters.sortBy)
   if (filters.rating) params.set("rating", filters.rating.toString())
   if (filters.language) params.set("language", filters.language)
-  if (filters.genre) params.set("genre", filters.genre.toString())
-  if (filters.provider) params.set("provider", filters.provider.toString())
+  if (filters.genres.length > 0) {
+    params.set("genre", filters.genres.join(","))
+    if (filters.genreOperator === "and") params.set("genreOp", "and")
+  }
+  if (filters.providers.length > 0) {
+    params.set("provider", filters.providers.join(","))
+  }
 
   return params.toString() ? `/discover?${params}` : "/discover"
 }
@@ -190,7 +198,10 @@ export function DiscoverClient({
           newFilters.mediaType !== currentFilters.mediaType &&
           !currentFilters.moodId
         ) {
-          updated.genre = null
+          // Mobile parity: switching media type clears genres (ids differ
+          // per type) but keeps streaming providers.
+          updated.genres = []
+          updated.genreOperator = "or"
         }
       }
 
@@ -223,13 +234,10 @@ export function DiscoverClient({
 
   const genreOptions: ComboboxOption[] = useMemo(() => {
     const genres = filters.mediaType === "movie" ? movieGenres : tvGenres
-    return [
-      { label: "All Genres", value: "" },
-      ...genres.map((genre) => ({
-        label: genre.name,
-        value: genre.id.toString(),
-      })),
-    ]
+    return genres.map((genre) => ({
+      label: genre.name,
+      value: genre.id.toString(),
+    }))
   }, [filters.mediaType, movieGenres, tvGenres])
 
   const languageOptions: ComboboxOption[] = useMemo(
@@ -245,19 +253,16 @@ export function DiscoverClient({
 
   const providerOptions: ComboboxOption[] = useMemo(() => {
     const seen = new Set<string>()
-    return [
-      { label: "All Providers", value: "" },
-      ...providers
-        .filter((provider) => {
-          if (seen.has(provider.provider_name)) return false
-          seen.add(provider.provider_name)
-          return true
-        })
-        .map((provider) => ({
-          label: provider.provider_name,
-          value: provider.provider_id.toString(),
-        })),
-    ]
+    return providers
+      .filter((provider) => {
+        if (seen.has(provider.provider_name)) return false
+        seen.add(provider.provider_name)
+        return true
+      })
+      .map((provider) => ({
+        label: provider.provider_name,
+        value: provider.provider_id.toString(),
+      }))
   }, [providers])
 
   const hasActiveFilters = useMemo(() => {
@@ -266,8 +271,8 @@ export function DiscoverClient({
       filters.sortBy !== "popularity" ||
       filters.rating !== null ||
       filters.language !== null ||
-      filters.genre !== null ||
-      filters.provider !== null
+      filters.genres.length > 0 ||
+      filters.providers.length > 0
     )
   }, [filters])
 
@@ -453,27 +458,38 @@ export function DiscoverClient({
                 placeholder="All Languages"
               />
 
-              <VirtualizedFilterCombobox
+              <MultiSelectFilterCombobox
                 label="Genre"
-                value={filters.genre?.toString() || null}
                 options={genreOptions}
-                onChange={(value) =>
-                  updateFilters({ genre: value ? parseInt(value, 10) : null })
+                selectedValues={filters.genres.map(String)}
+                onApply={(values, genreOperator) =>
+                  updateFilters({
+                    genres: values
+                      .map((v) => parseInt(v, 10))
+                      .filter((n) => !isNaN(n)),
+                    genreOperator,
+                  })
                 }
+                operator={filters.genreOperator}
+                showOperatorTabs
                 placeholder="All Genres"
+                searchPlaceholder="Search genres..."
               />
 
               <div className="relative">
-                <VirtualizedFilterCombobox
+                <MultiSelectFilterCombobox
                   label="Streaming"
-                  value={filters.provider?.toString() || null}
                   options={providerOptions}
-                  onChange={(value) =>
+                  selectedValues={filters.providers.map(String)}
+                  onApply={(values) =>
                     updateFilters({
-                      provider: value ? parseInt(value, 10) : null,
+                      providers: values
+                        .map((v) => parseInt(v, 10))
+                        .filter((n) => !isNaN(n)),
                     })
                   }
                   placeholder="All Providers"
+                  searchPlaceholder="Search providers..."
                   popoverClassName="w-[380px]"
                 />
               </div>

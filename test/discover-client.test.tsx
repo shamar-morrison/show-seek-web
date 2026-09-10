@@ -125,6 +125,98 @@ vi.mock("@/components/ui/virtualized-filter-combobox", () => ({
   },
 }))
 
+const filterDrafts = vi.hoisted(() => ({
+  values: {} as Record<string, string[]>,
+  operators: {} as Record<string, "and" | "or">,
+}))
+
+vi.mock("@/components/ui/multi-select-filter-combobox", () => ({
+  MultiSelectFilterCombobox: ({
+    label,
+    onApply,
+    operator,
+    options,
+    selectedValues,
+    showOperatorTabs,
+  }: {
+    label?: ReactNode
+    onApply?: (values: string[], operator: "and" | "or") => void
+    operator?: "and" | "or"
+    options: Array<{ label: string; value: string }>
+    selectedValues: string[]
+    showOperatorTabs?: boolean
+  }) => {
+    const ariaLabel = typeof label === "string" ? label : "multi-select-filter"
+
+    // Mirror the real component's staged behavior: checkbox/operator clicks
+    // only stage into a draft; nothing commits until Apply is clicked.
+    const stageToggle = (value: string) => {
+      const base = filterDrafts.values[ariaLabel] ?? [...selectedValues]
+      filterDrafts.values[ariaLabel] = base.includes(value)
+        ? base.filter((v) => v !== value)
+        : [...base, value]
+    }
+
+    return (
+      <div>
+        <span>{label}</span>
+        {options.map((option) => {
+          const isSelected = selectedValues.includes(option.value)
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="checkbox"
+              aria-checked={isSelected}
+              aria-label={`${ariaLabel} ${option.label}`}
+              onClick={() => stageToggle(option.value)}
+            >
+              {option.label}
+            </button>
+          )
+        })}
+        {showOperatorTabs && (
+          <>
+            <button
+              type="button"
+              aria-label={`${ariaLabel} AND`}
+              onClick={() => {
+                filterDrafts.operators[ariaLabel] = "and"
+              }}
+            >
+              AND
+            </button>
+            <button
+              type="button"
+              aria-label={`${ariaLabel} OR`}
+              onClick={() => {
+                filterDrafts.operators[ariaLabel] = "or"
+              }}
+            >
+              OR
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          aria-label={`${ariaLabel} Apply`}
+          onClick={() => {
+            const values = filterDrafts.values[ariaLabel] ?? [...selectedValues]
+            const stagedOperator =
+              filterDrafts.operators[ariaLabel] ?? operator ?? "or"
+            delete filterDrafts.values[ariaLabel]
+            delete filterDrafts.operators[ariaLabel]
+            onApply?.(values, stagedOperator)
+          }}
+        >
+          Apply
+        </button>
+      </div>
+    )
+  },
+}))
+
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
     open ? <div role="dialog">{children}</div> : null,
@@ -236,22 +328,27 @@ const initialResults: TMDBDiscoverResponse = {
 
 async function renderDiscoverClient({
   moodId = null,
-  provider = null,
+  providers: initialProviders = [],
+  genres = [],
+  genreOperator = "or",
 }: {
   moodId?: string | null
-  provider?: number | null
+  providers?: number[]
+  genres?: number[]
+  genreOperator?: "and" | "or"
 } = {}) {
   const { DiscoverClient } = await import("@/app/discover/discover-client")
 
   render(
     <DiscoverClient
       initialFilters={{
-        genre: null,
+        genres,
+        genreOperator,
         language: null,
         mediaType: "movie",
         moodId,
         page: 1,
-        provider,
+        providers: initialProviders,
         rating: null,
         sortBy: "popularity",
         year: null,
@@ -268,6 +365,8 @@ async function renderDiscoverClient({
 describe("DiscoverClient streaming filter", () => {
   beforeEach(() => {
     pushMock.mockReset()
+    filterDrafts.values = {}
+    filterDrafts.operators = {}
     mockSearchParams = new URLSearchParams()
     mockAuthState = {
       loading: false,
@@ -276,16 +375,13 @@ describe("DiscoverClient streaming filter", () => {
     }
   })
 
-  it(
-    "renders the streaming filter without premium labeling",
-    async () => {
-      await renderDiscoverClient()
+  it("renders the streaming filter without premium labeling", async () => {
+    await renderDiscoverClient()
 
-      expect(screen.getByLabelText("Streaming")).toBeInTheDocument()
-      expect(screen.queryByText("Premium")).not.toBeInTheDocument()
-    },
-    15000,
-  )
+    expect(screen.getByText("Streaming")).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "Streaming Netflix" })).toBeInTheDocument()
+    expect(screen.queryByText("Premium")).not.toBeInTheDocument()
+  })
 
   it("lets users enter mood mode from the picker", async () => {
     await renderDiscoverClient()
@@ -321,11 +417,28 @@ describe("DiscoverClient streaming filter", () => {
     })
   })
 
+  it("stages provider selection without navigating until Apply", async () => {
+    await renderDiscoverClient()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("checkbox", { name: "Streaming Netflix" }))
+
+    // Ticking a checkbox must not fire a discover request on its own.
+    expect(pushMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Streaming Apply" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?provider=8")
+    })
+  })
+
   it("lets guests select a streaming provider", async () => {
     await renderDiscoverClient()
     const user = userEvent.setup()
 
-    await user.selectOptions(screen.getByLabelText("Streaming"), "8")
+    await user.click(screen.getByRole("checkbox", { name: "Streaming Netflix" }))
+    await user.click(screen.getByRole("button", { name: "Streaming Apply" }))
 
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/discover?provider=8")
@@ -342,7 +455,8 @@ describe("DiscoverClient streaming filter", () => {
     await renderDiscoverClient()
     const user = userEvent.setup()
 
-    await user.selectOptions(screen.getByLabelText("Streaming"), "15")
+    await user.click(screen.getByRole("checkbox", { name: "Streaming Hulu" }))
+    await user.click(screen.getByRole("button", { name: "Streaming Apply" }))
 
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/discover?provider=15")
@@ -352,9 +466,42 @@ describe("DiscoverClient streaming filter", () => {
   it("preserves an initial provider filter instead of clearing it on mount", async () => {
     mockSearchParams = new URLSearchParams("provider=8")
 
-    await renderDiscoverClient({ provider: 8 })
+    await renderDiscoverClient({ providers: [8] })
 
-    expect(screen.getByLabelText("Streaming")).toHaveValue("8")
+    expect(
+      screen.getByRole("checkbox", { name: "Streaming Netflix" }),
+    ).toHaveAttribute("aria-checked", "true")
     expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it("selects multiple genres with OR semantics by default", async () => {
+    await renderDiscoverClient()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("checkbox", { name: "Genre Action" }))
+
+    expect(pushMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Genre Apply" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?genre=28")
+    })
+  })
+
+  it("supports switching the genre operator to AND", async () => {
+    await renderDiscoverClient({ genres: [28] })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: "Genre AND" }))
+
+    // Operator switch is staged too — no request until Apply.
+    expect(pushMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Genre Apply" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?genre=28&genreOp=and")
+    })
   })
 })

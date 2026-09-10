@@ -74,6 +74,9 @@ export type FilterState = Record<string, string>
 /** Current multi-select filter state - maps category key to selected values */
 export type MultiFilterState = Record<string, string[]>
 
+/** AND/OR combination operator for multi-select filters */
+export type MultiFilterOperator = "and" | "or"
+
 /** Current sort state */
 export interface SortState {
   /** Selected sort field */
@@ -114,10 +117,16 @@ export interface FilterSortProps {
   multiFilterState?: MultiFilterState
   /** Callback when a multi-select filter value changes */
   onMultiFilterChange?: (key: string, values: string[]) => void
+  /** AND/OR operator per multi-select category key (e.g. genre) */
+  multiFilterOperators?: Record<string, MultiFilterOperator>
+  /** Callback when a multi-select category operator changes */
+  onMultiFilterOperatorChange?: (key: string, operator: MultiFilterOperator) => void
+  /** Category keys that show the AND/OR toggle once selection is non-empty */
+  multiFilterOperatorTabs?: string[]
 
   /** Sort field options */
   sortFields: SortField[]
-  /** Current sort state */
+/** Current sort state */
   sortState: SortState
   /** Callback when sort changes */
   onSortChange: (state: SortState) => void
@@ -163,7 +172,7 @@ function countActiveFilters(
     if (category.selectionMode === "multiple") {
       const selectedValues = multiFilterState?.[category.key] ?? []
 
-      if (selectedValues.length !== category.options.length) {
+      if (selectedValues.length > 0) {
         return acc + 1
       }
 
@@ -238,14 +247,18 @@ function MultiFilterSubmenu({
   category,
   values,
   onValuesChange,
+  operator = "or",
+  onOperatorChange,
+  showOperatorTabs = false,
 }: {
   category: FilterCategory
   values: string[]
   onValuesChange: (values: string[]) => void
+  operator?: MultiFilterOperator
+  onOperatorChange?: (operator: MultiFilterOperator) => void
+  showOperatorTabs?: boolean
 }) {
   const selectedValues = new Set(values)
-  const allValues = category.options.map((option) => option.value)
-  const allSelected = values.length === allValues.length
 
   function toggleValue(value: string, checked: boolean) {
     const nextValues = checked
@@ -263,23 +276,35 @@ function MultiFilterSubmenu({
         )}
         <span>{category.label}</span>
         <span className="ml-auto text-xs text-muted-foreground">
-          {allSelected
-            ? "All"
-            : values.length > 0
-              ? `${values.length} selected`
-              : "None"}
+          {values.length > 0
+            ? `${values.length} selected`
+            : "All"}
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
-        <DropdownMenuCheckboxItem
-          checked={allSelected}
-          onCheckedChange={(checked) =>
-            onValuesChange(checked === true ? allValues : [])
-          }
-        >
-          All {category.label}
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
+        {showOperatorTabs && values.length > 0 && (
+          <>
+            <div className="flex gap-1 p-2">
+              {(["and", "or"] as const).map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  onClick={() => onOperatorChange?.(op)}
+                  aria-pressed={operator === op}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors",
+                    operator === op
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  {op === "and" ? "AND" : "OR"}
+                </button>
+              ))}
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {category.options.map((option) => (
           <DropdownMenuCheckboxItem
             key={option.value}
@@ -291,6 +316,18 @@ function MultiFilterSubmenu({
             {option.label}
           </DropdownMenuCheckboxItem>
         ))}
+        {values.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onValuesChange([])}
+              variant="destructive"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              <span>Clear</span>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
@@ -452,6 +489,9 @@ export function FilterSort({
   onFilterChange,
   multiFilterState,
   onMultiFilterChange,
+  multiFilterOperators,
+  onMultiFilterOperatorChange,
+  multiFilterOperatorTabs,
   sortFields,
   sortState,
   onSortChange,
@@ -518,6 +558,13 @@ export function FilterSort({
                   onValuesChange={(values) =>
                     onMultiFilterChange?.(category.key, values)
                   }
+                  operator={multiFilterOperators?.[category.key] ?? "or"}
+                  onOperatorChange={(operator) =>
+                    onMultiFilterOperatorChange?.(category.key, operator)
+                  }
+                  showOperatorTabs={multiFilterOperatorTabs?.includes(
+                    category.key,
+                  )}
                 />
               ) : (
                 <FilterSubmenu

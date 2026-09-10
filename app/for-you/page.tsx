@@ -168,14 +168,21 @@ export default function ForYouPage() {
           >
             {/* Custom header with highlighted title */}
             <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
-                Because you loved{" "}
-                <Link
-                  href={`/${section.seed.mediaType}/${section.seed.id}`}
-                  className="text-primary transition-colors hover:text-primary/80 hover:underline"
-                >
-                  {section.seed.title}
-                </Link>
+              <h2 className="flex items-center gap-2 text-xl font-bold text-white sm:text-2xl">
+                <HugeiconsIcon
+                  icon={StarIcon}
+                  aria-hidden
+                  className="size-5 shrink-0 text-[#F57C00]"
+                />
+                <span>
+                  Because you loved{" "}
+                  <Link
+                    href={`/${section.seed.mediaType}/${section.seed.id}`}
+                    className="text-primary transition-colors hover:text-primary/80 hover:underline"
+                  >
+                    {section.seed.title}
+                  </Link>
+                </span>
               </h2>
             </div>
             {/* Content */}
