@@ -17,7 +17,7 @@ vi.mock("@/lib/firebase/config", () => ({
   getFirebaseDb: () => ({}),
 }))
 
-vi.mock("@/app/server-actions/tmdb", () => ({
+vi.mock("@/app/actions", () => ({
   fetchMeasuredShowRuntime: () => Promise.resolve(mocks.showRuntime),
   fetchMovieDetails: () =>
     Promise.resolve(

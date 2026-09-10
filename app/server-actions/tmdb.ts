@@ -2,6 +2,8 @@
 
 import {
   getBestTrailer,
+  getMovieGenres,
+  getTVGenres,
   getWatchProviderList,
   getWatchProviders,
   getMediaImages,
@@ -237,6 +239,28 @@ export async function fetchWatchProviderCatalog(
       error,
     )
     return []
+  }
+}
+
+/**
+ * Merged movie + TV genre id-to-name map for stats top-genre labels.
+ * Backs the same force-cached genre-list fetches as discover/lists pages,
+ * so it adds no new KV cache entries (2 PUTs max lifetime, shared keys).
+ */
+export async function fetchGenreMap(): Promise<Record<number, string>> {
+  try {
+    const [movieGenres, tvGenres] = await Promise.all([
+      getMovieGenres(),
+      getTVGenres(),
+    ])
+    const map: Record<number, string> = {}
+    for (const genre of [...movieGenres, ...tvGenres]) {
+      map[genre.id] = genre.name
+    }
+    return map
+  } catch (error) {
+    console.error("Server Action: Failed to fetch genre map", error)
+    return {}
   }
 }
 

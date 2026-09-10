@@ -121,6 +121,16 @@ export async function fetchMovieDetails(movieId: number) {
   return (await import("./server-actions/tmdb")).fetchMovieDetails(movieId)
 }
 
+export async function fetchMeasuredShowRuntime(tvShowId: number) {
+  return (await import("./server-actions/tmdb")).fetchMeasuredShowRuntime(
+    tvShowId,
+  )
+}
+
+export async function fetchGenreMap() {
+  return (await import("./server-actions/tmdb")).fetchGenreMap()
+}
+
 export async function fetchFullTVDetails(tvId: number) {
   return (await import("./server-actions/tmdb")).fetchFullTVDetails(tvId)
 }

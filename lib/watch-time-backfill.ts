@@ -1,4 +1,4 @@
-import { fetchMeasuredShowRuntime, fetchMovieDetails } from "@/app/server-actions/tmdb"
+import { fetchMeasuredShowRuntime, fetchMovieDetails } from "@/app/actions"
 import { getFirebaseDb } from "@/lib/firebase/config"
 import { enqueueRateLimitedRequest } from "@/lib/react-query/rate-limited-query"
 import type {
