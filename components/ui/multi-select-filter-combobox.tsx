@@ -262,11 +262,11 @@ export function MultiSelectFilterCombobox({
             )}
 
             {(draftValues.length > 0 || selectedValues.length > 0) && (
-              <div className="flex items-center justify-between gap-2 border-t p-2">
+              <div className="flex items-center gap-2 border-t p-2">
                 <button
                   type="button"
                   onClick={clearDraft}
-                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
                   Clear
@@ -274,7 +274,7 @@ export function MultiSelectFilterCombobox({
                 <button
                   type="button"
                   onClick={applyDraft}
-                  className="rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="flex-1 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   Apply
                 </button>
