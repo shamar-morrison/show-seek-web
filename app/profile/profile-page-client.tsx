@@ -148,23 +148,6 @@ export function ProfilePageClient() {
   }
 
   function handleExportData() {
-    if (isPremiumCheckPending) {
-      trackPremiumEvent(
-        "premium_gate_blocked_while_loading",
-        createPremiumTelemetryPayload({
-          uid: user?.uid,
-          premiumStatusBefore: premiumStatus,
-          premiumStatusAfter: premiumStatus,
-        }),
-      )
-      toast.info(`${PREMIUM_LOADING_MESSAGE} Please try again in a moment.`)
-      return
-    }
-
-    if (shouldLockPremiumFeatures) {
-      setShowPremiumModal(true)
-      return
-    }
     setShowExportModal(true)
   }
 
@@ -535,8 +518,6 @@ export function ProfilePageClient() {
           icon={FileExportIcon}
           label="Export Data"
           onClick={handleExportData}
-          premiumRequired
-          isPremium={canAccessPremiumFeatures}
         />
         <div className="mx-4 border-t border-white/10" />
         <ActionButton
