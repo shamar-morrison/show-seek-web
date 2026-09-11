@@ -124,7 +124,7 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
   },
 }))
 
-vi.mock("next/navigation", () => ({
+vi.mock("nextjs-toploader/app", () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),

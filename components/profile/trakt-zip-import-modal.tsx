@@ -32,7 +32,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { formatDistanceToNow } from "date-fns"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { useRef, useState } from "react"
 import { toast } from "sonner"
 

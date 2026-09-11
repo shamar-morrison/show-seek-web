@@ -9,7 +9,7 @@ import { getMediaUrl } from "@/lib/utils"
 import type { ListMediaItem } from "@/types/list"
 import { ShuffleIcon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 interface ShuffleDialogProps {

@@ -13,7 +13,7 @@ import type { TMDBMedia } from "@/types/tmdb"
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { useState } from "react"
 import { toast } from "sonner"
 

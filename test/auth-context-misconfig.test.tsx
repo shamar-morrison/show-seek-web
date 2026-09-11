@@ -67,6 +67,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
+vi.mock("nextjs-toploader/app", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 import { AuthProvider, useAuth } from "../context/auth-context"
 
 function AuthContextProbe() {

@@ -16,7 +16,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { default as Link, default as NextLink } from "next/link"
 import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { useEffect, useState } from "react"
 
 const DesktopSearchDropdown = dynamic(

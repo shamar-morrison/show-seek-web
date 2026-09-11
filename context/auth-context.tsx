@@ -26,7 +26,7 @@ import {
 } from "firebase/auth"
 import { doc, onSnapshot } from "firebase/firestore"
 import { httpsCallable } from "firebase/functions"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import {
   ReactNode,
   createContext,

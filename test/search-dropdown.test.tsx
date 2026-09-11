@@ -14,7 +14,7 @@ vi.mock("@/app/server-actions/search", () => ({
   searchMedia: (...args: unknown[]) => mocks.searchMedia(...args),
 }))
 
-vi.mock("next/navigation", () => ({
+vi.mock("nextjs-toploader/app", () => ({
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -125,6 +125,17 @@ describe("SearchDropdown", () => {
     render(<SearchDropdown />)
 
     expect(screen.getByText("⌘K")).toBeInTheDocument()
+  })
+
+  it("navigates to the search page on Enter", () => {
+    render(<SearchDropdown />)
+
+    const input = screen.getByPlaceholderText("Search...")
+
+    fireEvent.change(input, { target: { value: "alien" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(mocks.push).toHaveBeenCalledWith("/search?q=alien")
   })
 
   it("hides the shortcut hint once the user types", () => {
