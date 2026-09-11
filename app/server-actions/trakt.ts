@@ -13,7 +13,9 @@ export async function fetchTraktReviews(
   try {
     return await getTraktMediaComments(mediaId, mediaType)
   } catch (error) {
+    // Rethrow so the failure surfaces in server logs and the query error
+    // state instead of silently rendering as "no reviews".
     console.error("Server Action: Failed to fetch Trakt reviews", error)
-    return []
+    throw error
   }
 }

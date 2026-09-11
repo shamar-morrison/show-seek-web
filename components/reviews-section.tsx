@@ -77,8 +77,15 @@ export function ReviewsSection({ mediaId, mediaType }: ReviewsSectionProps) {
         </section>
       ) : (
         <section className="py-8">
-          {/* Section Header */}
-          <div className="mx-auto mb-4 max-w-[1800px] px-4 sm:px-8 lg:px-12">
+          {/* Section Header with TMDB Logo */}
+          <div className="mx-auto mb-4 flex max-w-[1800px] items-center gap-2 px-4 sm:px-8 lg:px-12">
+            <img
+              src="/tmdb-logo.png"
+              alt="TMDB"
+              width={24}
+              height={24}
+              className="h-6 w-6 rounded-[5px] bg-black object-contain"
+            />
             <h2 className="text-xl font-bold text-white sm:text-2xl">
               TMDB Reviews
             </h2>

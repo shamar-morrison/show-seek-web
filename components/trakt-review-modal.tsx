@@ -72,7 +72,7 @@ export function TraktReviewModal({
 
   if (!review) return null
 
-  const avatarUrl = review.user.avatar?.full
+  const avatarUrl = review.user.images?.avatar?.full
   const hasRating = review.user_rating !== null
 
   return (

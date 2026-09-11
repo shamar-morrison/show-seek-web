@@ -13,9 +13,11 @@ export interface TraktUser {
   ids: {
     slug: string
   }
-  /** Avatar URL from Trakt */
-  avatar?: {
-    full: string
+  /** Avatar URLs from Trakt (standard `images` object, mirrors mobile app) */
+  images?: {
+    avatar?: {
+      full?: string
+    }
   } | null
 }
 

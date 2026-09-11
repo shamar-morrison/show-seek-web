@@ -17,7 +17,7 @@ interface TraktReviewCardProps {
  */
 export function TraktReviewCard({ review, onClick }: TraktReviewCardProps) {
   const hasRating = review.user_rating !== null
-  const avatarUrl = review.user.avatar?.full
+  const avatarUrl = review.user.images?.avatar?.full
 
   return (
     <button
