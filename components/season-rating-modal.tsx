@@ -20,8 +20,11 @@ interface SeasonRatingModalProps {
   isOpen: boolean
   /** Callback when modal should close */
   onClose: () => void
-  /** The season to rate */
-  season: TMDBSeasonDetails
+  /** The season to rate (summary or full details) */
+  season: Pick<
+    TMDBSeasonDetails,
+    "season_number" | "name" | "poster_path" | "air_date"
+  >
   /** TV show id for the season */
   tvShowId: number
   /** TV show name for display and storage */

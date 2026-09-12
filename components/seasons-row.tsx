@@ -3,9 +3,9 @@
 import { MarkEntireShowWatchedButton } from "@/components/mark-entire-show-watched-button"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
+import { SeasonCard } from "@/components/season-card"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import type { TMDBSeason } from "@/types/tmdb"
-import Link from "next/link"
 import { useMemo } from "react"
 
 interface SeasonsRowProps {
@@ -81,6 +81,11 @@ export function SeasonsRow({
   // Early return after hooks are called
   if (!seasons || seasons.length === 0) return null
 
+  const showStats =
+    totalEpisodes !== undefined && avgRuntime !== undefined
+      ? { totalEpisodes, avgRuntime }
+      : undefined
+
   return (
     <Section
       title={title}
@@ -92,11 +97,7 @@ export function SeasonsRow({
               tvShowName={tvShowName}
               posterPath={posterPath ?? null}
               seasons={seasons}
-              showStats={
-                totalEpisodes !== undefined && avgRuntime !== undefined
-                  ? { totalEpisodes, avgRuntime }
-                  : undefined
-              }
+              showStats={showStats}
               voteAverage={voteAverage}
               firstAirDate={firstAirDate}
             />
@@ -105,67 +106,20 @@ export function SeasonsRow({
       }
     >
       <ScrollableRow className="pb-4">
-        {displaySeasons.map((season) => {
-          const watchedCount = seasonProgress[season.season_number] || 0
-          const totalCount = season.episode_count || 0
-          const progressPercentage =
-            totalCount > 0 ? Math.round((watchedCount / totalCount) * 100) : 0
-          const hasProgress = watchedCount > 0
-
-          return (
-            <Link
-              key={season.id}
-              href={`/tv/${tvShowId}/season/${season.season_number}`}
-              className="w-[140px] shrink-0 sm:w-[160px]"
-            >
-              <div className="group relative h-full w-full overflow-hidden rounded-xl bg-card transition-all duration-300">
-                {/* Poster Image */}
-                <div className="relative aspect-2/3 w-full overflow-hidden bg-gray-900">
-                  {season.poster_path ? (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w500${season.poster_path}`}
-                      alt={season.name}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-                      No Image
-                    </div>
-                  )}
-                </div>
-
-                {/* Info Content */}
-                <div className="flex flex-col gap-1 p-3">
-                  <h3 className="line-clamp-1 text-sm font-bold text-white">
-                    {season.name}
-                  </h3>
-                  <p className="text-xs font-medium text-gray-400">
-                    {season.episode_count}{" "}
-                    {season.episode_count === 1 ? "Episode" : "Episodes"}
-                  </p>
-
-                  {/* Progress Bar - only show if user has watched any episodes */}
-                  {hasProgress && !loading && (
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-primary/10">
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
-                          style={{
-                            width: `${Math.min(progressPercentage, 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="shrink-0 text-xs text-gray-400">
-                        {watchedCount}/{totalCount}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Link>
-          )
-        })}
+        {displaySeasons.map((season) => (
+          <SeasonCard
+            key={season.id}
+            tvShowId={tvShowId}
+            tvShowName={tvShowName}
+            posterPath={posterPath}
+            season={season}
+            watchedCount={seasonProgress[season.season_number] || 0}
+            totalCount={season.episode_count || 0}
+            trackingLoading={loading}
+            tracking={tracking}
+            showStats={showStats}
+          />
+        ))}
       </ScrollableRow>
     </Section>
   )
