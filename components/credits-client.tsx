@@ -184,12 +184,11 @@ export function CreditsClient({
         className="w-full"
       />
 
-      {/* Count Display */}
-      {totalCount > 0 && (
+      {/* Count Display (only when a search narrows the list; the
+          tab badges already show the totals) */}
+      {totalCount > 0 && filteredCount !== totalCount && (
         <p className="text-sm text-gray-400">
-          {filteredCount === totalCount
-            ? `${totalCount} ${activeTab === "cast" ? (totalCount === 1 ? "cast member" : "cast members") : totalCount === 1 ? "crew member" : "crew members"}`
-            : `Showing ${filteredCount} of ${totalCount}`}
+          Showing {filteredCount} of {totalCount}
         </p>
       )}
 

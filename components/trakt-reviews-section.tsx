@@ -88,27 +88,17 @@ export function TraktReviewsSection({
       ) : (
         <section className="py-8">
           {/* Section Header with Trakt Logo */}
-          <div className="mx-auto mb-4 flex max-w-[1800px] items-end justify-between px-4 sm:px-8 lg:px-12">
-            <div className="flex items-center gap-2">
-              <img
-                src="/trakt-logo.svg"
-                alt="Trakt"
-                width={24}
-                height={24}
-                className="h-6 w-6"
-              />
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
-                Trakt Reviews
-              </h2>
-            </div>
-            {reviews.length > 0 && (
-              <span className="text-sm text-gray-400">
-                {showAll
-                  ? reviews.length
-                  : `${Math.min(reviews.length, INITIAL_LIMIT)} of ${reviews.length}`}{" "}
-                reviews
-              </span>
-            )}
+          <div className="mx-auto mb-4 flex max-w-[1800px] items-center gap-2 px-4 sm:px-8 lg:px-12">
+            <img
+              src="/trakt-logo.svg"
+              alt="Trakt"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
+            <h2 className="text-xl font-bold text-white sm:text-2xl">
+              Trakt Reviews
+            </h2>
           </div>
 
           {/* Horizontally Scrollable Row */}
