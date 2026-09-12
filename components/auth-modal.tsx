@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/context/auth-context"
-import { SHOWSEEK_ICON } from "@/lib/constants"
 import {
   getCreateAccountErrorMessage,
   getEmailAuthErrorMessage,
@@ -39,6 +38,7 @@ import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { signInWithCustomToken, type User } from "firebase/auth"
 import { useState } from "react"
+import Image from "next/image"
 
 type SignInFormData = {
   email: string
@@ -598,8 +598,18 @@ export function AuthModal({
       <DialogContent className="sm:max-w-[400px]" showCloseButton>
         <DialogHeader className="items-center text-center">
           {/* Logo */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <HugeiconsIcon icon={SHOWSEEK_ICON} className="size-8 text-white" />
+          <div className="relative h-14 w-14 rounded-lg bg-[conic-gradient(from_0deg_at_50%_50%,rgb(255_255_255/0.3),transparent_15%,transparent_35%,rgb(255_255_255/0.08)_50%,transparent_65%,transparent_85%,rgb(255_255_255/0.3))] p-px">
+            <Image
+              src="/show-seek-logo-v2.png"
+              alt="ShowSeek logo"
+              width={56}
+              height={56}
+              className="h-full w-full rounded-[7px] object-cover"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-px rounded-[7px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05)_40%,transparent_65%)]"
+            />
           </div>
 
           {/* App Name */}

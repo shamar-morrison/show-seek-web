@@ -1,7 +1,8 @@
-import { DISCORD_INVITE_URL, SHOWSEEK_ICON } from "@/lib/constants"
+import { DISCORD_INVITE_URL } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { DiscordIcon } from "@hugeicons/core-free-icons"
 import Link from "next/link"
+import Image from "next/image"
 
 export function Footer() {
   return (
@@ -10,10 +11,17 @@ export function Footer() {
         {/* Brand Column */}
         <div className="flex flex-col gap-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <HugeiconsIcon
-                icon={SHOWSEEK_ICON}
-                className="size-5 text-white"
+            <div className="relative h-9 w-9 rounded-md bg-[conic-gradient(from_0deg_at_50%_50%,rgb(255_255_255/0.3),transparent_15%,transparent_35%,rgb(255_255_255/0.08)_50%,transparent_65%,transparent_85%,rgb(255_255_255/0.3))] p-px">
+              <Image
+                src="/show-seek-logo-v2.png"
+                alt="ShowSeek logo"
+                width={36}
+                height={36}
+                className="h-full w-full rounded-[5px] object-cover"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-px rounded-[5px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05)_40%,transparent_65%)]"
               />
             </div>
             <span className="text-xl font-bold text-white">ShowSeek</span>

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
-import { SHOWSEEK_ICON } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { Collapsible } from "@base-ui/react/collapsible"
 import { NavigationMenu } from "@base-ui/react/navigation-menu"
@@ -15,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { default as Link, default as NextLink } from "next/link"
+import Image from "next/image"
 import dynamic from "next/dynamic"
 import { useRouter } from "nextjs-toploader/app"
 import { useEffect, useState } from "react"
@@ -333,10 +333,18 @@ export function Navbar() {
               className="flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               {/* Logo Icon */}
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <HugeiconsIcon
-                  icon={SHOWSEEK_ICON}
-                  className="size-5 text-white"
+              <div className="relative h-9 w-9 rounded-md bg-[conic-gradient(from_0deg_at_50%_50%,rgb(255_255_255/0.3),transparent_15%,transparent_35%,rgb(255_255_255/0.08)_50%,transparent_65%,transparent_85%,rgb(255_255_255/0.3))] p-px">
+                <Image
+                  src="/show-seek-logo-v2.png"
+                  alt="ShowSeek logo"
+                  width={36}
+                  height={36}
+                  priority
+                  className="h-full w-full rounded-[5px] object-cover"
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-px rounded-[5px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05)_40%,transparent_65%)]"
                 />
               </div>
               <span className="text-xl font-bold text-white">ShowSeek</span>
