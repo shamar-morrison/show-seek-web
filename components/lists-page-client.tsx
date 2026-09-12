@@ -118,21 +118,27 @@ function isSortDirection(value: string | null): value is "asc" | "desc" {
   return value === "asc" || value === "desc"
 }
 
-function parseListsYearRange(params: URLSearchParams): [number, number] {
+export function parseListsYearRange(params: URLSearchParams): [number, number] {
+  // Each bound defaults independently so single-param URLs (e.g. only
+  // ?yearMin=2000 after dragging one slider thumb) remain valid instead of
+  // resetting to the full range.
   const yearMin = safeParseInt(params.get("yearMin"))
   const yearMax = safeParseInt(params.get("yearMax"))
 
-  if (
-    yearMin === undefined ||
-    yearMax === undefined ||
-    yearMin < MIN_YEAR ||
-    yearMax > CURRENT_YEAR ||
-    yearMin > yearMax
-  ) {
+  const min =
+    yearMin === undefined
+      ? MIN_YEAR
+      : Math.min(Math.max(yearMin, MIN_YEAR), CURRENT_YEAR)
+  const max =
+    yearMax === undefined
+      ? CURRENT_YEAR
+      : Math.min(Math.max(yearMax, MIN_YEAR), CURRENT_YEAR)
+
+  if (min > max) {
     return [MIN_YEAR, CURRENT_YEAR]
   }
 
-  return [yearMin, yearMax]
+  return [min, max]
 }
 
 /**
