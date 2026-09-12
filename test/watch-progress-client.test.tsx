@@ -93,6 +93,7 @@ const buildShow = (
   watchedCount: overrides.watchedCount ?? 1,
   totalEpisodes: overrides.totalEpisodes ?? 10,
   avgRuntime: overrides.avgRuntime ?? 45,
+  isHidden: overrides.isHidden ?? false,
 })
 
 describe("WatchProgressClient", () => {
@@ -269,5 +270,79 @@ describe("WatchProgressClient", () => {
 
     expect(screen.queryByText("Complete Show")).not.toBeInTheDocument()
     expect(screen.getByText("Still Watching")).toBeInTheDocument()
+  })
+
+  it("excludes hidden shows from default Watching view and displays them in the Hidden tab", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 10,
+        tvShowName: "Visible Show",
+        lastUpdated: 200,
+        percentage: 30,
+        isHidden: false,
+      }),
+      buildShow({
+        tvShowId: 20,
+        tvShowName: "Archived Show",
+        lastUpdated: 300,
+        percentage: 50,
+        isHidden: true,
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    // In default Watching tab: only Visible Show is present
+    expect(screen.getByText("Visible Show")).toBeInTheDocument()
+    expect(screen.queryByText("Archived Show")).not.toBeInTheDocument()
+
+    // Switch to Hidden tab
+    const hiddenTab = screen.getByTestId("watch-progress-hidden-tab")
+    fireEvent.click(hiddenTab)
+
+    // In Hidden tab: only Archived Show is present
+    expect(screen.getByText("Archived Show")).toBeInTheDocument()
+    expect(screen.queryByText("Visible Show")).not.toBeInTheDocument()
+
+    // Switch back to Watching tab
+    const activeTab = screen.getByTestId("watch-progress-active-tab")
+    fireEvent.click(activeTab)
+
+    expect(screen.getByText("Visible Show")).toBeInTheDocument()
+    expect(screen.queryByText("Archived Show")).not.toBeInTheDocument()
+  })
+
+  it("filters independently within the Hidden tab using search", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 1,
+        tvShowName: "Hidden Alpha",
+        lastUpdated: 100,
+        percentage: 20,
+        isHidden: true,
+      }),
+      buildShow({
+        tvShowId: 2,
+        tvShowName: "Hidden Beta",
+        lastUpdated: 200,
+        percentage: 40,
+        isHidden: true,
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    // Switch to Hidden tab
+    fireEvent.click(screen.getByTestId("watch-progress-hidden-tab"))
+    expect(screen.getByText("Hidden Alpha")).toBeInTheDocument()
+    expect(screen.getByText("Hidden Beta")).toBeInTheDocument()
+
+    // Search for "alpha"
+    fireEvent.change(screen.getByPlaceholderText("Search TV shows..."), {
+      target: { value: "alpha" },
+    })
+
+    expect(screen.getByText("Hidden Alpha")).toBeInTheDocument()
+    expect(screen.queryByText("Hidden Beta")).not.toBeInTheDocument()
   })
 })

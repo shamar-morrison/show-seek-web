@@ -18,25 +18,39 @@ import {
 } from "@/hooks/use-episode-tracking"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
 import { buildImageUrl } from "@/lib/tmdb"
-import { Delete02Icon } from "@hugeicons/core-free-icons"
+import {
+  Delete02Icon,
+  ViewIcon,
+  ViewOffSlashIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useState } from "react"
+import { toast } from "sonner"
 
 interface WatchProgressCardProps {
   /** Watch progress data */
   progress: WatchProgressItem
+  /** Whether the card is rendered inside the Hidden tab */
+  isHiddenView?: boolean
 }
 
 /**
  * WatchProgressCard Component
  * Displays TV show watch progress with poster, title, progress bar, and next episode
  */
-export function WatchProgressCard({ progress }: WatchProgressCardProps) {
-  const { clearAllEpisodes } = useEpisodeTrackingMutations()
+export function WatchProgressCard({
+  progress,
+  isHiddenView,
+}: WatchProgressCardProps) {
+  const { clearAllEpisodes, setHiddenFromProgress } =
+    useEpisodeTrackingMutations()
   const { resolvePosterPath } = usePosterOverrides()
   const [isRemoving, setIsRemoving] = useState(false)
+  const [isTogglingHidden, setIsTogglingHidden] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  const isHidden = isHiddenView ?? progress.isHidden
 
   const posterUrl = buildImageUrl(
     resolvePosterPath("tv", progress.tvShowId, progress.posterPath),
@@ -76,6 +90,34 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
     }
   }
 
+  const handleToggleHidden = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isTogglingHidden || isRemoving) return
+
+    setIsTogglingHidden(true)
+    try {
+      await setHiddenFromProgress({
+        tvShowId: progress.tvShowId,
+        hidden: !isHidden,
+      })
+      toast.success(
+        !isHidden
+          ? `Hidden ${progress.tvShowName} from Watch Progress`
+          : `Restored ${progress.tvShowName} to Watch Progress`,
+      )
+    } catch (error) {
+      console.error("Failed to update show visibility:", error)
+      toast.error(
+        !isHidden
+          ? "Failed to hide show from Watch Progress"
+          : "Failed to restore show to Watch Progress",
+      )
+    } finally {
+      setIsTogglingHidden(false)
+    }
+  }
+
   const handleTriggerClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -83,42 +125,69 @@ export function WatchProgressCard({ progress }: WatchProgressCardProps) {
 
   return (
     <div className="group relative flex gap-4 rounded-xl bg-card p-4 transition-colors hover:bg-card/80">
-      {/* Remove Button - Shows on Hover */}
-      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <AlertDialogTrigger
-          onClick={handleTriggerClick}
-          disabled={isRemoving}
-          className="absolute top-2 right-2 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label={`Remove ${progress.tvShowName} from watch progress`}
+      {/* Action Buttons - Shows on Hover */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+        {/* Hide / Restore Button */}
+        <button
+          type="button"
+          onClick={handleToggleHidden}
+          disabled={isTogglingHidden || isRemoving}
+          className="flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white transition-all duration-200 hover:bg-primary hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label={
+            isHidden
+              ? `Restore ${progress.tvShowName} to watch progress`
+              : `Hide ${progress.tvShowName} from watch progress`
+          }
+          title={
+            isHidden
+              ? "Restore to Watch Progress"
+              : "Hide from Watch Progress"
+          }
         >
           <HugeiconsIcon
-            icon={Delete02Icon}
-            className={`size-4 ${isRemoving ? "animate-pulse" : ""}`}
+            icon={isHidden ? ViewIcon : ViewOffSlashIcon}
+            className={`size-4 ${isTogglingHidden ? "animate-pulse" : ""}`}
           />
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove from Watch Progress?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will unmark all {progress.watchedCount} watched episodes for{" "}
-              <span className="font-semibold text-white">
-                {progress.tvShowName}
-              </span>
-              . You can always re-add them later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRemove}
-              disabled={isRemoving}
-              variant="destructive"
-            >
-              {isRemoving ? "Removing..." : "Remove"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </button>
+
+        {/* Remove Button */}
+        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <AlertDialogTrigger
+            onClick={handleTriggerClick}
+            disabled={isRemoving || isTogglingHidden}
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white transition-all duration-200 hover:bg-red-600 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={`Remove ${progress.tvShowName} from watch progress`}
+            title="Remove from Watch Progress"
+          >
+            <HugeiconsIcon
+              icon={Delete02Icon}
+              className={`size-4 ${isRemoving ? "animate-pulse" : ""}`}
+            />
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove from Watch Progress?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will unmark all {progress.watchedCount} watched episodes for{" "}
+                <span className="font-semibold text-white">
+                  {progress.tvShowName}
+                </span>
+                . You can always re-add them later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleRemove}
+                disabled={isRemoving}
+                variant="destructive"
+              >
+                {isRemoving ? "Removing..." : "Remove"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       {/* TV Show Poster */}
       <Link href={tvUrl} className="shrink-0">

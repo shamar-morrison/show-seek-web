@@ -121,6 +121,10 @@ function normalizeMetadata(rawMetadata: unknown): NormalizedMetadata {
   const totalEpisodes = metadata.totalEpisodes
   const avgRuntime = metadata.avgRuntime
   const nextEpisode = normalizeNextEpisode(metadata.nextEpisode)
+  const hiddenFromProgress =
+    typeof metadata.hiddenFromProgress === "boolean"
+      ? metadata.hiddenFromProgress
+      : undefined
 
   return {
     tvShowName:
@@ -135,6 +139,7 @@ function normalizeMetadata(rawMetadata: unknown): NormalizedMetadata {
       ? { avgRuntime }
       : {}),
     ...(nextEpisode !== undefined ? { nextEpisode } : {}),
+    ...(hiddenFromProgress !== undefined ? { hiddenFromProgress } : {}),
   }
 }
 

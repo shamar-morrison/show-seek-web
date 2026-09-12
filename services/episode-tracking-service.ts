@@ -653,6 +653,31 @@ class EpisodeTrackingService {
       throw new Error(getFirestoreErrorMessage(error), { cause: error })
     }
   }
+
+  /**
+   * Set whether a show is hidden from Watching Progress without modifying watched episodes.
+   */
+  async setHiddenFromProgress(
+    tvShowId: number,
+    hidden: boolean,
+  ): Promise<void> {
+    try {
+      const user = this.getCurrentUser()
+      if (!user) throw new Error("Please sign in to continue")
+
+      const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+      await this.withTimeout(
+        updateDoc(trackingRef, {
+          "metadata.hiddenFromProgress": hidden,
+        }),
+      )
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(getFirestoreErrorMessage(error), { cause: error })
+    }
+  }
 }
 
 // Export singleton instance

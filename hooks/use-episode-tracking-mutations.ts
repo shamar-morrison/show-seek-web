@@ -425,6 +425,34 @@ export function useEpisodeTrackingMutations() {
       applyOptimistic: ({ previousShow }) => previousShow ?? null,
     })
 
+  const setHiddenFromProgressMutation = useTrackingMutation<{
+    tvShowId: number
+    hidden: boolean
+  }>({
+    getTvShowId: (variables) => variables.tvShowId,
+    mutationFn: async (variables) => {
+      await episodeTrackingService.setHiddenFromProgress(
+        variables.tvShowId,
+        variables.hidden,
+      )
+    },
+    applyOptimistic: ({ previousShow, variables }) => {
+      const source =
+        previousShow ??
+        (allTrackingQueryKey
+          ? queryClient
+              .getQueryData<Map<string, TVShowEpisodeTracking>>(
+                allTrackingQueryKey,
+              )
+              ?.get(variables.tvShowId.toString())
+          : null)
+      if (!source) return null
+      const nextShow = cloneTracking(source)
+      nextShow.metadata.hiddenFromProgress = variables.hidden
+      return nextShow
+    },
+  })
+
   const wrapWithTraktWarning =
     <TVariables, TResult>(mutation: {
       mutateAsync: (variables: TVariables) => Promise<TResult>
@@ -445,12 +473,14 @@ export function useEpisodeTrackingMutations() {
     ),
     clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
     markEntireShowWatched: wrapWithTraktWarning(markEntireShowWatchedMutation),
+    setHiddenFromProgress: setHiddenFromProgressMutation.mutateAsync,
     isMutating:
       markEpisodeWatchedMutation.isPending ||
       markEpisodeUnwatchedMutation.isPending ||
       markAllEpisodesWatchedMutation.isPending ||
       markAllEpisodesUnwatchedMutation.isPending ||
       clearAllEpisodesMutation.isPending ||
-      markEntireShowWatchedMutation.isPending,
+      markEntireShowWatchedMutation.isPending ||
+      setHiddenFromProgressMutation.isPending,
   }
 }

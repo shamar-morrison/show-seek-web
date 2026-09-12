@@ -26,6 +26,7 @@ export interface WatchProgressItem extends InProgressShow {
   watchedCount: number
   totalEpisodes: number
   avgRuntime: number
+  isHidden: boolean
 }
 
 /**
@@ -103,6 +104,7 @@ function computeProgressFromCache(
     watchedCount,
     totalEpisodes,
     avgRuntime,
+    isHidden: Boolean(metadata.hiddenFromProgress),
   }
 }
 

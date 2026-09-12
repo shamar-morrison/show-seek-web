@@ -183,6 +183,28 @@ export function useWatchProgressEnrichment(
       }
       setEnrichedProgress(initialProgress)
       prevIncomingIdsRef.current = incomingIds
+    } else {
+      setEnrichedProgress((current) => {
+        const freshMap = new Map(initialProgress.map((p) => [p.tvShowId, p]))
+        return current.map((p) => {
+          const fresh = freshMap.get(p.tvShowId)
+          if (!fresh) return p
+          if (
+            p.isHidden === fresh.isHidden &&
+            p.lastUpdated === fresh.lastUpdated &&
+            p.watchedCount === fresh.watchedCount
+          ) {
+            return p
+          }
+          return {
+            ...p,
+            isHidden: fresh.isHidden,
+            lastUpdated: fresh.lastUpdated,
+            watchedCount: fresh.watchedCount,
+            lastWatchedEpisode: fresh.lastWatchedEpisode,
+          }
+        })
+      })
     }
   }, [initialProgress])
 

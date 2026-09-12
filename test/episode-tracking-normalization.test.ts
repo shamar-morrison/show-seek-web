@@ -164,4 +164,49 @@ describe("normalizeEpisodeTrackingDoc", () => {
     })
     expect(normalized.episodes["1_1"]).not.toHaveProperty("extra")
   })
+
+  it("round-trips hiddenFromProgress correctly for true, false, and undefined cases", () => {
+    // True case
+    const docWithHiddenTrue = normalizeEpisodeTrackingDoc({
+      episodes: {},
+      metadata: {
+        lastUpdated: 100,
+        tvShowName: "Show A",
+        hiddenFromProgress: true,
+      },
+    })
+    expect(docWithHiddenTrue.metadata.hiddenFromProgress).toBe(true)
+
+    // False case
+    const docWithHiddenFalse = normalizeEpisodeTrackingDoc({
+      episodes: {},
+      metadata: {
+        lastUpdated: 100,
+        tvShowName: "Show B",
+        hiddenFromProgress: false,
+      },
+    })
+    expect(docWithHiddenFalse.metadata.hiddenFromProgress).toBe(false)
+
+    // Absent / undefined case
+    const docWithHiddenAbsent = normalizeEpisodeTrackingDoc({
+      episodes: {},
+      metadata: {
+        lastUpdated: 100,
+        tvShowName: "Show C",
+      },
+    })
+    expect(docWithHiddenAbsent.metadata.hiddenFromProgress).toBeUndefined()
+
+    // Non-boolean should be treated as undefined
+    const docWithInvalidHidden = normalizeEpisodeTrackingDoc({
+      episodes: {},
+      metadata: {
+        lastUpdated: 100,
+        tvShowName: "Show D",
+        hiddenFromProgress: "true",
+      },
+    })
+    expect(docWithInvalidHidden.metadata.hiddenFromProgress).toBeUndefined()
+  })
 })

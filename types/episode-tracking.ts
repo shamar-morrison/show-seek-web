@@ -46,6 +46,8 @@ export interface EpisodeTrackingMetadata {
     title: string
     airDate: string | null
   } | null
+  /** Whether the show is hidden from the Watching Progress page */
+  hiddenFromProgress?: boolean
 }
 
 /**

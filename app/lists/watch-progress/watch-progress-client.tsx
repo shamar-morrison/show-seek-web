@@ -8,6 +8,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { FilterSort, type SortState } from "@/components/ui/filter-sort"
+import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { WatchProgressCard } from "@/components/watch-progress-card"
 import { useAuth } from "@/context/auth-context"
@@ -17,6 +18,7 @@ import {
   Loading03Icon,
   PlayCircle02Icon,
   Search01Icon,
+  ViewOffSlashIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useMemo, useState } from "react"
@@ -32,9 +34,11 @@ const DEFAULT_SORT_STATE: SortState = {
   direction: "desc",
 }
 
+type WatchProgressTab = "active" | "hidden"
+
 /**
  * WatchProgressClient Component
- * Client component for the watch progress page with search and grid layout
+ * Client component for the watch progress page with search, tabs, and grid layout
  */
 export function WatchProgressClient() {
   const { user, loading: authLoading } = useAuth()
@@ -47,18 +51,31 @@ export function WatchProgressClient() {
     watchProgress,
     watchedEpisodesByShow,
   )
+  const [activeTab, setActiveTab] = useState<WatchProgressTab>("active")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT_STATE)
 
-  // Filter progress: exclude 100% complete shows and apply search
-  const filteredProgress = useMemo(() => {
-    // First, filter out fully caught up shows (100% progress)
-    const inProgress = enrichedProgress.filter((p) => p.percentage < 100)
+  // Split into active (not hidden and not completed) and hidden shows
+  const activeShows = useMemo(
+    () => enrichedProgress.filter((p) => !p.isHidden && p.percentage < 100),
+    [enrichedProgress],
+  )
 
-    if (!searchQuery.trim()) return inProgress
+  const hiddenShows = useMemo(
+    () => enrichedProgress.filter((p) => p.isHidden),
+    [enrichedProgress],
+  )
+
+  const currentTabShows = activeTab === "active" ? activeShows : hiddenShows
+
+  // Filter shows by search query
+  const filteredProgress = useMemo(() => {
+    if (!searchQuery.trim()) return currentTabShows
     const query = searchQuery.toLowerCase()
-    return inProgress.filter((p) => p.tvShowName.toLowerCase().includes(query))
-  }, [enrichedProgress, searchQuery])
+    return currentTabShows.filter((p) =>
+      p.tvShowName.toLowerCase().includes(query),
+    )
+  }, [currentTabShows, searchQuery])
 
   const sortedProgress = useMemo(() => {
     const sorted = [...filteredProgress]
@@ -99,7 +116,7 @@ export function WatchProgressClient() {
     )
   }
 
-  // No progress state
+  // No progress state at all
   if (enrichedProgress.length === 0) {
     return (
       <Empty className="py-20">
@@ -117,7 +134,27 @@ export function WatchProgressClient() {
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-6 pb-12">
+      {/* Tabs */}
+      <div className="flex items-center gap-2">
+        <FilterTabButton
+          label="Watching"
+          count={activeShows.length}
+          isActive={activeTab === "active"}
+          icon={PlayCircle02Icon}
+          onClick={() => setActiveTab("active")}
+          testId="watch-progress-active-tab"
+        />
+        <FilterTabButton
+          label="Hidden"
+          count={hiddenShows.length}
+          isActive={activeTab === "hidden"}
+          icon={ViewOffSlashIcon}
+          onClick={() => setActiveTab("hidden")}
+          testId="watch-progress-hidden-tab"
+        />
+      </div>
+
       {/* Search Input with Enrichment Indicator */}
       <div className="flex items-center gap-3">
         <SearchInput
@@ -150,9 +187,32 @@ export function WatchProgressClient() {
       {sortedProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedProgress.map((progress) => (
-            <WatchProgressCard key={progress.tvShowId} progress={progress} />
+            <WatchProgressCard
+              key={progress.tvShowId}
+              progress={progress}
+              isHiddenView={activeTab === "hidden"}
+            />
           ))}
         </div>
+      ) : currentTabShows.length === 0 ? (
+        <Empty className="py-20">
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon
+              icon={activeTab === "active" ? PlayCircle02Icon : ViewOffSlashIcon}
+              className="size-6"
+            />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>
+              {activeTab === "active" ? "No shows in progress" : "No hidden shows"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {activeTab === "active"
+                ? "All your tracked TV shows are either completed or hidden."
+                : "Shows you hide from watch progress will appear here."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <Empty className="py-20">
           <EmptyMedia variant="icon">
