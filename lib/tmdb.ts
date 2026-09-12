@@ -1619,187 +1619,6 @@ export async function getWatchProviderList(
 export const DEFAULT_WATCH_REGION = "US"
 
 /**
- * TMDB's with_runtime discover params are unreliable on their own: they
- * return titles whose primary runtime falls outside the requested bounds
- * (verified live: 129-202min titles match with_runtime.gte=215), and lte
- * alone is ignored entirely. The params below are still sent as a coarse
- * pre-filter to shrink the candidate set, but runtime filtering is
- * enforced here against authoritative detail runtimes.
- */
-
-/** Items per discover page (TMDB default). */
-const DISCOVER_PAGE_SIZE = 20
-/** Extra discover pages scanned to backfill a runtime-filtered page. */
-const RUNTIME_BACKFILL_MAX_EXTRA_PAGES = 4
-/** Detail lookups per batch (TMDB allows ~40 requests per 10s). */
-const RUNTIME_LOOKUP_BATCH_SIZE = 10
-
-async function mapInBatches<T, R>(
-  items: T[],
-  batchSize: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = []
-  for (let i = 0; i < items.length; i += batchSize) {
-    results.push(...(await Promise.all(items.slice(i, i + batchSize).map(fn))))
-  }
-  return results
-}
-
-async function fetchDiscoverPage(
-  queryParams: Record<string, string>,
-  mediaType: "movie" | "tv",
-): Promise<TMDBDiscoverResponse> {
-  const response = await tmdbFetch(
-    `/discover/${mediaType}`,
-    { next: { revalidate: 300 } },
-    queryParams,
-  ) // Cache for 5 minutes
-
-  if (!response.ok) {
-    throw new Error(`TMDB API error: ${response.status}`)
-  }
-
-  const data: TMDBDiscoverResponse = await response.json()
-  // Inject media_type into results
-  data.results = data.results.map((item) => ({
-    ...item,
-    media_type: mediaType,
-  }))
-  return data
-}
-
-/**
- * Lightweight authoritative runtime in minutes, or null when unknown.
- * Movies use the detail runtime; TV uses the first episode runtime
- * (same convention as the TV detail page, matching TMDB's own
- * with_runtime semantics for shows).
- *
- * Intentionally omits append_to_response (credits etc.): the payload is a
- * fraction of a full detail fetch, and runtimes essentially never change,
- * so entries are cached for 7 days to minimize KV reads/writes.
- */
-export async function getMediaRuntime(
-  id: number,
-  mediaType: "movie" | "tv",
-): Promise<number | null> {
-  if (!TMDB_BEARER_TOKEN) {
-    console.error("TMDB API credentials not set")
-    return null
-  }
-
-  try {
-    const response = await tmdbFetch(
-      `/${mediaType === "movie" ? "movie" : "tv"}/${id}`,
-      { next: { revalidate: 604800 } }, // Cache for 7 days
-    )
-
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`)
-    }
-
-    if (mediaType === "movie") {
-      const data = (await response.json()) as TMDBMovieDetails
-      return typeof data.runtime === "number" && data.runtime > 0
-        ? data.runtime
-        : null
-    }
-    const data = (await response.json()) as TMDBTVDetails
-    const episodeRuntime = data.episode_run_time?.[0]
-    return typeof episodeRuntime === "number" && episodeRuntime > 0
-      ? episodeRuntime
-      : null
-  } catch (error) {
-    // 404 is expected for deleted/invalid media - don't log
-    if (error instanceof Error && error.message.includes("404")) {
-      return null
-    }
-    console.error("Failed to fetch media runtime:", error)
-    return null
-  }
-}
-
-/**
- * Authoritative runtime in minutes, or null when unknown.
- * Thin wrapper over the lightweight cached lookup.
- */
-async function resolveAuthoritativeRuntime(
-  id: number,
-  mediaType: "movie" | "tv",
-): Promise<number | null> {
-  return getMediaRuntime(id, mediaType)
-}
-
-function runtimeInRange(
-  runtime: number | null,
-  runtimeGte: number | undefined,
-  runtimeLte: number | undefined,
-): boolean {
-  if (runtime == null) return false
-  if (runtimeGte != null && runtime < runtimeGte) return false
-  if (runtimeLte != null && runtime > runtimeLte) return false
-  return true
-}
-
-/**
- * Discover with exact runtime enforcement. Walks discover pages (bounded)
- * and keeps only items whose authoritative runtime falls in range,
- * backfilling so a filtered page stays full. Totals are TMDB's raw
- * totals and stay approximate while the filter is active.
- */
-async function discoverWithRuntimeEnforcement(
-  baseQueryParams: Record<string, string>,
-  mediaType: "movie" | "tv",
-  page: number,
-  runtimeGte: number | undefined,
-  runtimeLte: number | undefined,
-): Promise<TMDBDiscoverResponse> {
-  const firstPage = await fetchDiscoverPage(
-    { ...baseQueryParams, page: page.toString() },
-    mediaType,
-  )
-  const matches: TMDBMedia[] = []
-  let currentPage = page
-  let pagesScanned = 0
-
-  while (
-    matches.length < DISCOVER_PAGE_SIZE &&
-    pagesScanned <= RUNTIME_BACKFILL_MAX_EXTRA_PAGES
-  ) {
-    const data =
-      pagesScanned === 0
-        ? firstPage
-        : await fetchDiscoverPage(
-            { ...baseQueryParams, page: currentPage.toString() },
-            mediaType,
-          )
-    if (currentPage > data.total_pages) break
-    const runtimes = await mapInBatches(
-      data.results,
-      RUNTIME_LOOKUP_BATCH_SIZE,
-      (item) => resolveAuthoritativeRuntime(item.id, mediaType),
-    )
-    data.results.forEach((item, index) => {
-      if (
-        matches.length < DISCOVER_PAGE_SIZE &&
-        runtimeInRange(runtimes[index], runtimeGte, runtimeLte)
-      ) {
-        matches.push(item)
-      }
-    })
-    currentPage += 1
-    pagesScanned += 1
-  }
-
-  return {
-    page,
-    results: matches,
-    total_pages: firstPage.total_pages,
-    total_results: firstPage.total_results,
-  }
-}
-
-/**
  * Discover movies or TV shows with filters
  * @param params - Filter parameters
  * @returns Discover response with results
@@ -1914,16 +1733,23 @@ export async function discoverMedia(
   }
 
   try {
-    if (runtimeGte == null && runtimeLte == null) {
-      return await fetchDiscoverPage(queryParams, mediaType)
-    }
-    return await discoverWithRuntimeEnforcement(
+    const response = await tmdbFetch(
+      `/discover/${mediaType}`,
+      { next: { revalidate: 300 } },
       queryParams,
-      mediaType,
-      page,
-      runtimeGte,
-      runtimeLte,
-    )
+    ) // Cache for 5 minutes
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`)
+    }
+
+    const data: TMDBDiscoverResponse = await response.json()
+    // Inject media_type into results
+    data.results = data.results.map((item) => ({
+      ...item,
+      media_type: mediaType,
+    }))
+    return data
   } catch (error) {
     console.error("Failed to discover media:", error)
     return { page: 1, results: [], total_pages: 0, total_results: 0 }
