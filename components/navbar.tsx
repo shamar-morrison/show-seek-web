@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Collapsible } from "@base-ui/react/collapsible"
 import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import {
+  ArrowDown01Icon,
   Cancel01Icon,
   Menu01Icon,
   Search01Icon,
@@ -146,15 +147,6 @@ const whereToWatchLink: SimpleNavItem = {
   href: "/where-to-watch",
 }
 
-/** Chevron icon for dropdown indicators */
-function ChevronDownIcon(props: React.ComponentProps<"svg">) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" {...props}>
-      <path d="M1 3.5L5 7.5L9 3.5" stroke="currentcolor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
 /** Arrow SVG for the navigation menu popup */
 function ArrowSvg(props: React.ComponentProps<"svg">) {
   return (
@@ -192,7 +184,7 @@ function DropdownMenuItem({ item }: { item: NavItemWithSections }) {
       <NavigationMenu.Trigger className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white data-popup-open:text-white">
         {item.label}
         <NavigationMenu.Icon className="flex transition-transform duration-200 data-popup-open:rotate-180">
-          <ChevronDownIcon />
+          <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5" />
         </NavigationMenu.Icon>
       </NavigationMenu.Trigger>
       <NavigationMenu.Content className="p-3">
@@ -243,9 +235,10 @@ function MobileAccordionItem({
   return (
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
       <Collapsible.Trigger className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-300 bg-transparent border-none rounded-lg cursor-pointer transition-[background-color,color] duration-150 text-left hover:bg-white/5 hover:text-white">
-        <ChevronDownIcon
+        <HugeiconsIcon
+          icon={ArrowDown01Icon}
           className={cn(
-            "transition-transform duration-200 ease-out",
+            "size-3.5 transition-transform duration-200 ease-out",
             isOpen && "rotate-180",
           )}
         />
