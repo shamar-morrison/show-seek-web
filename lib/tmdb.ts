@@ -1638,6 +1638,8 @@ export async function discoverMedia(
     sortBy,
     rating,
     language,
+    runtimeGte,
+    runtimeLte,
     genre,
     genres,
     genreOperator = "or",
@@ -1689,6 +1691,14 @@ export async function discoverMedia(
   // Rating filter
   if (rating) {
     queryParams["vote_average.gte"] = rating.toString()
+  }
+
+  // Runtime filter (minutes; on TV this matches episode runtimes)
+  if (runtimeGte != null) {
+    queryParams["with_runtime.gte"] = runtimeGte.toString()
+  }
+  if (runtimeLte != null) {
+    queryParams["with_runtime.lte"] = runtimeLte.toString()
   }
 
   // Language filter

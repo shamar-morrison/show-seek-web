@@ -217,6 +217,31 @@ vi.mock("@/components/ui/multi-select-filter-combobox", () => ({
   },
 }))
 
+vi.mock("@/components/discover/runtime-slider-filter", () => ({
+  RuntimeSliderFilter: ({
+    onCommit,
+    value,
+  }: {
+    onCommit?: (value: [number, number] | null) => void
+    value?: [number, number] | null
+  }) => (
+    <div>
+      <span>Runtime</span>
+      <span>{value ? `${value[0]}-${value[1]}` : "off"}</span>
+      <button
+        type="button"
+        aria-label="Runtime commit"
+        onClick={() => onCommit?.([90, 150])}
+      >
+        Commit
+      </button>
+      <button type="button" aria-label="Runtime clear" onClick={() => onCommit?.(null)}>
+        Clear
+      </button>
+    </div>
+  ),
+}))
+
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
     open ? <div role="dialog">{children}</div> : null,
@@ -331,11 +356,13 @@ async function renderDiscoverClient({
   providers: initialProviders = [],
   genres = [],
   genreOperator = "or",
+  runtime = null,
 }: {
   moodId?: string | null
   providers?: number[]
   genres?: number[]
   genreOperator?: "and" | "or"
+  runtime?: [number, number] | null
 } = {}) {
   const { DiscoverClient } = await import("@/app/discover/discover-client")
 
@@ -350,6 +377,7 @@ async function renderDiscoverClient({
         page: 1,
         providers: initialProviders,
         rating: null,
+        runtime,
         sortBy: "popularity",
         year: null,
       }}
@@ -502,6 +530,32 @@ describe("DiscoverClient streaming filter", () => {
 
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/discover?genre=28&genreOp=and")
+    })
+  })
+
+  it("commits a runtime range to min/max URL params", async () => {
+    await renderDiscoverClient()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: "Runtime commit" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith(
+        "/discover?minRuntime=90&maxRuntime=150",
+      )
+    })
+  })
+
+  it("clears the runtime filter back to an unfiltered URL", async () => {
+    await renderDiscoverClient({ runtime: [90, 150] })
+    const user = userEvent.setup()
+
+    expect(screen.getByText("90-150")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Runtime clear" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover")
     })
   })
 })

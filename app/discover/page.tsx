@@ -11,6 +11,7 @@ import {
   getTVGenres,
   getWatchProviderList,
 } from "@/lib/tmdb"
+import { parseRuntimeRange } from "@/lib/discover-runtime"
 import { safeParseInt, parseGenreOperator, parseIntList } from "@/lib/utils"
 import { DiscoverClient } from "./discover-client"
 
@@ -40,6 +41,9 @@ export default async function DiscoverPage({
     mood || parseIntList(params.provider).length === 0
       ? undefined
       : parseIntList(params.provider)
+  const runtimeRange = mood
+    ? null
+    : parseRuntimeRange(params.minRuntime, params.maxRuntime)
 
   // Fetch static data in parallel - these are cached indefinitely
   const [movieGenres, tvGenres, languages, providers, initialResults] =
@@ -58,6 +62,8 @@ export default async function DiscoverPage({
             undefined),
         rating: mood ? undefined : safeParseInt(params.rating as string),
         language: mood ? undefined : ((params.language as string) || undefined),
+        runtimeGte: runtimeRange?.[0],
+        runtimeLte: runtimeRange?.[1],
         genres: mood ? undefined : genreIds.length > 0 ? genreIds : undefined,
         genreOperator,
         withGenres: mood ? formatMoodGenres(mood, mediaType) : undefined,
@@ -86,6 +92,7 @@ export default async function DiscoverPage({
           "popularity",
         rating: safeParseInt(params.rating as string) ?? null,
         language: (params.language as string) || null,
+        runtime: runtimeRange,
         genres: genreIds,
         genreOperator,
         providers: providerIds ?? [],

@@ -4,6 +4,7 @@ import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { MoodPickerDialog } from "@/components/discover/mood-picker-dialog"
+import { RuntimeSliderFilter } from "@/components/discover/runtime-slider-filter"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -45,6 +46,7 @@ interface DiscoverFilters {
   sortBy: "popularity" | "top_rated" | "newest"
   rating: number | null
   language: string | null
+  runtime: [number, number] | null
   genres: number[]
   genreOperator: GenreOperator
   providers: number[]
@@ -58,6 +60,7 @@ const DEFAULT_FILTERS: DiscoverFilters = {
   sortBy: "popularity",
   rating: null,
   language: null,
+  runtime: null,
   genres: [],
   genreOperator: "or",
   providers: [],
@@ -113,6 +116,10 @@ function buildDiscoverUrl(filters: DiscoverFilters) {
   if (filters.sortBy !== "popularity") params.set("sort", filters.sortBy)
   if (filters.rating) params.set("rating", filters.rating.toString())
   if (filters.language) params.set("language", filters.language)
+  if (filters.runtime) {
+    params.set("minRuntime", filters.runtime[0].toString())
+    params.set("maxRuntime", filters.runtime[1].toString())
+  }
   if (filters.genres.length > 0) {
     params.set("genre", filters.genres.join(","))
     if (filters.genreOperator === "and") params.set("genreOp", "and")
@@ -271,6 +278,7 @@ export function DiscoverClient({
       filters.sortBy !== "popularity" ||
       filters.rating !== null ||
       filters.language !== null ||
+      filters.runtime !== null ||
       filters.genres.length > 0 ||
       filters.providers.length > 0
     )
@@ -279,6 +287,13 @@ export function DiscoverClient({
   const handlePageChange = useCallback(
     (page: number) => {
       updateFilters({ page }, { preservePage: true })
+    },
+    [updateFilters],
+  )
+
+  const handleRuntimeCommit = useCallback(
+    (runtime: [number, number] | null) => {
+      updateFilters({ runtime })
     },
     [updateFilters],
   )
@@ -316,7 +331,7 @@ export function DiscoverClient({
 
   const subtitle = isMoodMode
     ? selectedMood.supportingText
-    : "Browse by year, language, genre, rating, or streaming provider."
+    : "Browse by year, language, genre, rating, runtime, or streaming provider."
 
   return (
     <>
@@ -448,6 +463,12 @@ export function DiscoverClient({
                 onChange={(value) =>
                   updateFilters({ rating: value ? parseInt(value, 10) : null })
                 }
+              />
+
+              <RuntimeSliderFilter
+                value={filters.runtime}
+                onCommit={handleRuntimeCommit}
+                hint={filters.mediaType === "tv" ? "per episode" : undefined}
               />
 
               <VirtualizedFilterCombobox

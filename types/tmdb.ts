@@ -588,6 +588,8 @@ export interface DiscoverParams {
   sortBy?: "popularity" | "top_rated" | "newest"
   rating?: number // vote_average.gte
   language?: string // with_original_language
+  runtimeGte?: number // with_runtime.gte (minutes)
+  runtimeLte?: number // with_runtime.lte (minutes)
   genre?: number // with_genres (legacy single-select, prefer genres)
   genres?: number[] // multi-select genre ids
   genreOperator?: "and" | "or" // how multiple genres combine ("," = AND, "|" = OR)
