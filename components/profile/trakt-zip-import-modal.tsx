@@ -32,6 +32,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { formatDistanceToNow } from "date-fns"
+import Image from "next/image"
 import { useRouter } from "nextjs-toploader/app"
 import { useRef, useState } from "react"
 import { toast } from "sonner"
@@ -228,19 +229,29 @@ export function TraktZipImportModal({
       <div className="flex flex-col items-center text-center">
         <div className="flex items-center gap-3">
           <div className="flex size-12 items-center justify-center rounded-xl bg-white shadow-md">
-            <img
-              src="/trakt-logo.svg"
-              alt=""
+            <span
               aria-hidden="true"
-              className="size-7"
-            />
+              className="text-sm font-black tracking-tighter text-black"
+            >
+              ZIP
+            </span>
           </div>
           <HugeiconsIcon
             icon={ArrowRight01Icon}
             className="size-5 text-white/40"
           />
-          <div className="flex size-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-            <HugeiconsIcon icon={FileZipIcon} className="size-6 text-[#ed1c24]" />
+          <div className="relative size-12 rounded-xl bg-[conic-gradient(from_0deg_at_50%_50%,rgb(255_255_255/0.3),transparent_15%,transparent_35%,rgb(255_255_255/0.08)_50%,transparent_65%,transparent_85%,rgb(255_255_255/0.3))] p-px">
+            <Image
+              src="/show-seek-logo-v2.png"
+              alt="ShowSeek logo"
+              width={48}
+              height={48}
+              className="h-full w-full rounded-[11px] object-cover"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-px rounded-[11px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05)_40%,transparent_65%)]"
+            />
           </div>
         </div>
         <h3 className="mt-3 text-base font-semibold text-white">
