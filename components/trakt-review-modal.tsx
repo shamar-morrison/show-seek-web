@@ -11,6 +11,7 @@ import {
   StarIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { TraktReviewAvatar } from "@/components/trakt-review-avatar"
 import { useCallback, useEffect, useRef } from "react"
 
 interface TraktReviewModalProps {
@@ -82,20 +83,12 @@ export function TraktReviewModal({
         <DialogHeader className="sticky top-0 z-10 bg-background px-6 py-4 border-b border-white/10 rounded-t-xl">
           <div className="flex items-center gap-3">
             {/* Profile Image */}
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-800">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={review.user.username}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  sizes="48px"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gray-700 text-gray-400 text-lg font-medium">
-                  {review.user.username.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
+            <TraktReviewAvatar
+              username={review.user.username}
+              avatarUrl={avatarUrl}
+              className="h-12 w-12"
+              iconClassName="size-6"
+            />
 
             {/* Username and rating */}
             <div className="flex flex-col gap-0.5 min-w-0 flex-1">
