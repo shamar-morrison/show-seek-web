@@ -66,10 +66,14 @@ export function Slider({
     >
       {/* Value display for range sliders */}
       {isRange && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{formatValue(normalizedValue[0])}</span>
-          <span>—</span>
-          <span>{formatValue(normalizedValue[1])}</span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center text-sm text-muted-foreground">
+          <span className="truncate text-left tabular-nums">
+            {formatValue(normalizedValue[0])}
+          </span>
+          <span className="px-2 text-center">—</span>
+          <span className="truncate text-right tabular-nums">
+            {formatValue(normalizedValue[1])}
+          </span>
         </div>
       )}
 
