@@ -126,12 +126,12 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
           {mediaUrl ? (
             <Link
               href={mediaUrl}
-              className="truncate font-medium text-gray-400 transition-colors hover:text-primary"
+              className="line-clamp-2 font-medium text-gray-400 transition-colors hover:text-primary"
             >
               {displayTitle}
             </Link>
           ) : (
-            <span className="truncate font-medium text-gray-400">
+            <span className="line-clamp-2 font-medium text-gray-400">
               {displayTitle}
             </span>
           )}
