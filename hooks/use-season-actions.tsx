@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
@@ -24,11 +25,19 @@ import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import type { TMDBSeason } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
+  Note01Icon,
+  NoteDoneIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import dynamic from "next/dynamic"
 import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
+
+const NotesModal = dynamic(
+  () => import("@/components/notes-modal").then((mod) => mod.NotesModal),
+  { ssr: false },
+)
 
 interface UseSeasonActionsOptions {
   /** TMDB TV show id */
@@ -79,6 +88,7 @@ export function useSeasonActions({
   const { user } = useAuth()
   const { preferences } = usePreferences()
   const { getSeasonRating } = useRatings()
+  const { getNote } = useNotes()
   const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
     useAuthGuard()
   const { markAllEpisodesWatched, markAllEpisodesUnwatched, isMutating } =
@@ -88,6 +98,7 @@ export function useSeasonActions({
   const [isMarking, setIsMarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [pendingMark, setPendingMark] = useState<SeasonEpisodeInput[] | null>(
     null,
   )
@@ -97,6 +108,7 @@ export function useSeasonActions({
   const allWatched = totalCount > 0 && watchedCount >= totalCount
   const isBusy = isLoadingEpisodes || isMarking || isMutating
   const seasonRating = getSeasonRating(tvShowId, seasonNumber)
+  const seasonNote = getNote("season", tvShowId, seasonNumber)
 
   const showMetadata = useMemo(
     () => ({
@@ -131,7 +143,8 @@ export function useSeasonActions({
 
       setIsLoadingEpisodes(true)
       try {
-        const episodes = (await fetchSeasonEpisodes(tvShowId, seasonNumber)) ?? []
+        const episodes =
+          (await fetchSeasonEpisodes(tvShowId, seasonNumber)) ?? []
 
         if (episodes.length === 0) {
           toast.info("No episodes available for this season yet.")
@@ -251,6 +264,13 @@ export function useSeasonActions({
     requireAuth(() => setIsRatingModalOpen(true), "Sign in to rate seasons")
   }, [requireAuth])
 
+  const openNotesModal = useCallback(() => {
+    requireAuth(
+      () => setIsNotesModalOpen(true),
+      "Sign in to add personal notes",
+    )
+  }, [requireAuth])
+
   const dropdownItems: DropdownMenuItem[] = useMemo(() => {
     const markLabel = isBusy
       ? pendingUnmark
@@ -283,14 +303,27 @@ export function useSeasonActions({
         ),
         onClick: openRatingModal,
       },
+      {
+        id: "season-notes",
+        label: seasonNote ? "View Note" : "Notes",
+        icon: ({ className }) => (
+          <HugeiconsIcon
+            icon={seasonNote ? NoteDoneIcon : Note01Icon}
+            className={`${className} ${seasonNote ? "text-primary" : ""}`}
+          />
+        ),
+        onClick: openNotesModal,
+      },
     ]
   }, [
     isBusy,
     pendingUnmark,
     allWatched,
     seasonRating,
+    seasonNote,
     openMarkFlow,
     openRatingModal,
+    openNotesModal,
   ])
 
   const pendingCount = pendingUnmark?.length ?? pendingMark?.length ?? 0
@@ -307,7 +340,9 @@ export function useSeasonActions({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {pendingUnmark ? "Unmark All Episodes?" : "Mark All Episodes Watched?"}
+                {pendingUnmark
+                  ? "Unmark All Episodes?"
+                  : "Mark All Episodes Watched?"}
               </DialogTitle>
               <DialogDescription>{confirmDescription}</DialogDescription>
             </DialogHeader>
@@ -336,6 +371,21 @@ export function useSeasonActions({
           />
         )}
 
+        {isNotesModalOpen && (
+          <NotesModal
+            isOpen={isNotesModalOpen}
+            onClose={() => setIsNotesModalOpen(false)}
+            media={{
+              id: tvShowId,
+              poster_path: season.poster_path ?? posterPath ?? null,
+              name: tvShowName ? `${tvShowName} - ${season.name}` : season.name,
+              show_id: tvShowId,
+              season_number: seasonNumber,
+            }}
+            mediaType="season"
+          />
+        )}
+
         {modalVisible && (
           <AuthModal
             isOpen={modalVisible}
@@ -352,9 +402,11 @@ export function useSeasonActions({
       confirmDescription,
       handleConfirm,
       isRatingModalOpen,
+      isNotesModalOpen,
       season,
       tvShowId,
       tvShowName,
+      seasonNumber,
       posterPath,
       modalVisible,
       modalMessage,

@@ -136,6 +136,43 @@ export async function countCustomLists(userId: string): Promise<number> {
   return parseAggregationCount(payload)
 }
 
+export async function countNotes(userId: string): Promise<number> {
+  const { accessToken, projectId } = await getFirestoreRequestContext()
+
+  const response = await fetchFirestoreWithTimeout(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}:runAggregationQuery`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        structuredAggregationQuery: {
+          structuredQuery: {
+            from: [{ collectionId: "notes" }],
+          },
+          aggregations: [
+            {
+              alias: "total",
+              count: {},
+            },
+          ],
+        },
+      }),
+    },
+    `Firestore notes count request timed out after ${FIRESTORE_REQUEST_TIMEOUT_MS}ms`,
+  )
+
+  if (!response.ok) {
+    const details = await response.text()
+    throw new Error(`Failed to count Firestore notes: ${details}`)
+  }
+
+  const payload = await response.text()
+  return parseAggregationCount(payload)
+}
+
 export function parseAggregationCount(payload: string): number {
   const records = payload
     .split(/\r?\n/)

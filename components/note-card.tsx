@@ -53,10 +53,12 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
 
+  // Season notes render their stored season poster directly so
+  // show-level poster overrides can't replace season artwork (mobile parity).
   const resolvedPosterPath =
     note.mediaType === "movie" || note.mediaType === "tv"
       ? resolvePosterPath(note.mediaType, note.mediaId, note.posterPath)
-      : note.showId
+      : note.mediaType === "episode" && note.showId
         ? resolvePosterPath("tv", note.showId, note.posterPath)
         : note.posterPath
   const posterUrl = resolvedPosterPath

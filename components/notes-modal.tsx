@@ -2,10 +2,13 @@
 
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
+import { PremiumModal } from "@/components/premium-modal"
+import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { Textarea } from "@/components/ui/textarea"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { MAX_FREE_NOTES } from "@/lib/notes-limits"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
@@ -34,7 +37,7 @@ interface NotesModalProps {
   /** The media item to add notes for */
   media: NotesMediaInfo
   /** Media type */
-  mediaType: "movie" | "tv" | "episode"
+  mediaType: "movie" | "tv" | "episode" | "season"
 }
 
 /**
@@ -49,10 +52,16 @@ export function NotesModal({
 }: NotesModalProps) {
   const { getNote, saveNote, removeNote } = useNotes()
   const { preferences } = usePreferences()
+  const { premiumStatus } = useAuth()
   const [noteContent, setNoteContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [hasExistingNote, setHasExistingNote] = useState(false)
   const [originalContent, setOriginalContent] = useState("")
+  const [limitCheck, setLimitCheck] = useState<
+    "idle" | "checking" | "allowed" | "blocked"
+  >("idle")
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [noteLimit, setNoteLimit] = useState(MAX_FREE_NOTES)
 
   const displayTitle =
     getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
@@ -80,13 +89,63 @@ export function NotesModal({
     }
   }, [isOpen, getNote, mediaType, mediaId, seasonNumber, episodeNumber])
 
+  // Freemium gate (mobile parity): editing an existing note never counts
+  // against the limit and premium users skip the check entirely. New notes
+  // are verified server-side so the count can't go stale.
+  const existingNote = getNote(mediaType, mediaId, seasonNumber, episodeNumber)
+  useEffect(() => {
+    if (!isOpen) {
+      setLimitCheck("idle")
+      return
+    }
+    if (existingNote || premiumStatus === "premium") {
+      setLimitCheck("allowed")
+      return
+    }
+
+    let cancelled = false
+    setLimitCheck("checking")
+    fetch("/api/notes/can-create")
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Failed to check note limit")
+        }
+        return (await response.json()) as {
+          canCreate?: boolean
+          limit?: number | null
+        }
+      })
+      .then(({ canCreate, limit }) => {
+        if (cancelled) return
+        if (typeof limit === "number") {
+          setNoteLimit(limit)
+        }
+        if (canCreate) {
+          setLimitCheck("allowed")
+        } else {
+          setLimitCheck("blocked")
+          onClose()
+          setShowPremiumModal(true)
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error("Error checking note limit:", error)
+        toast.error("Failed to check note limit")
+        onClose()
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, existingNote, premiumStatus, onClose])
+
   const handleSave = useCallback(async () => {
     if (noteContent.trim().length === 0) return
 
     setIsSaving(true)
     try {
       const nextContent = noteContent.trim()
-      if (mediaType === "episode") {
+      if (mediaType === "episode" || mediaType === "season") {
         await saveNote(
           mediaType,
           mediaId,
@@ -113,7 +172,7 @@ export function NotesModal({
           label: "Undo",
           onClick: async () => {
             if (hasExistingNote && originalContent.trim().length > 0) {
-              if (mediaType === "episode") {
+              if (mediaType === "episode" || mediaType === "season") {
                 await saveNote(
                   mediaType,
                   mediaId,
@@ -139,7 +198,7 @@ export function NotesModal({
               return
             }
 
-            if (mediaType === "episode") {
+            if (mediaType === "episode" || mediaType === "season") {
               await removeNote(mediaType, mediaId, seasonNumber, episodeNumber)
               return
             }
@@ -184,7 +243,7 @@ export function NotesModal({
     setIsSaving(true)
     try {
       const clearedContent = originalContent.trim()
-      if (mediaType === "episode") {
+      if (mediaType === "episode" || mediaType === "season") {
         await removeNote(mediaType, mediaId, seasonNumber, episodeNumber)
       } else {
         await removeNote(mediaType, mediaId)
@@ -193,7 +252,7 @@ export function NotesModal({
         action: {
           label: "Undo",
           onClick: async () => {
-            if (mediaType === "episode") {
+            if (mediaType === "episode" || mediaType === "season") {
               await saveNote(
                 mediaType,
                 mediaId,
@@ -257,57 +316,67 @@ export function NotesModal({
   const canSave = noteContent.trim().length > 0 && hasChanges
 
   return (
-    <BaseMediaModal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title={hasExistingNote ? "Edit Note" : "Add Note"}
-      description={`Personal note for "${displayTitle}"`}
-    >
-      {/* Note Input */}
-      <div className="py-4">
-        <Textarea
-          value={noteContent}
-          onChange={handleContentChange}
-          placeholder="Write your thoughts, opinions, or reminders about this title..."
-          className="min-h-[120px] resize-none"
-          maxLength={NOTE_MAX_LENGTH}
-        />
-        <div className="mt-2 text-right text-xs text-gray-500">
-          {noteContent.length}/{NOTE_MAX_LENGTH}
+    <>
+      <BaseMediaModal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title={hasExistingNote ? "Edit Note" : "Add Note"}
+        description={`Personal note for "${displayTitle}"`}
+      >
+        {/* Note Input */}
+        <div className="py-4">
+          <Textarea
+            value={noteContent}
+            onChange={handleContentChange}
+            placeholder="Write your thoughts, opinions, or reminders about this title..."
+            className="min-h-[120px] resize-none"
+            maxLength={NOTE_MAX_LENGTH}
+          />
+          <div className="mt-2 text-right text-xs text-gray-500">
+            {noteContent.length}/{NOTE_MAX_LENGTH}
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-3">
-        {hasExistingNote && (
+        <div className="flex gap-3">
+          {hasExistingNote && (
+            <Button
+              size={"lg"}
+              variant="secondary"
+              onClick={handleClearNote}
+              disabled={isSaving}
+              className="flex-1"
+            >
+              Clear
+            </Button>
+          )}
           <Button
             size={"lg"}
-            variant="secondary"
-            onClick={handleClearNote}
-            disabled={isSaving}
+            onClick={handleSave}
+            disabled={isSaving || !canSave || limitCheck === "checking"}
             className="flex-1"
           >
-            Clear
+            {isSaving ? (
+              <>
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="mr-2 size-4 animate-spin"
+                />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
           </Button>
-        )}
-        <Button
-          size={"lg"}
-          onClick={handleSave}
-          disabled={isSaving || !canSave}
-          className="flex-1"
-        >
-          {isSaving ? (
-            <>
-              <HugeiconsIcon
-                icon={Loading03Icon}
-                className="mr-2 size-4 animate-spin"
-              />
-              Saving...
-            </>
-          ) : (
-            "Save"
-          )}
-        </Button>
-      </div>
-    </BaseMediaModal>
+        </div>
+      </BaseMediaModal>
+      {showPremiumModal && (
+        <PremiumModal
+          open={showPremiumModal}
+          onOpenChange={setShowPremiumModal}
+          title="Note Limit Reached"
+          description={`You've reached the limit of ${noteLimit} notes. Upgrade to Premium for unlimited notes!`}
+        />
+      )}
+    </>
   )
 }

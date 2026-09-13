@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
+  getNote: vi.fn(),
   getSeasonRating: vi.fn(),
   loading: false,
   markAllEpisodesUnwatched: vi.fn(),
@@ -41,6 +42,25 @@ vi.mock("@/components/season-rating-modal", () => ({
   }: {
     isOpen: boolean
   }) => (isOpen ? <div>season-rating-modal</div> : null),
+}))
+
+vi.mock("@/components/notes-modal", () => ({
+  NotesModal: ({
+    isOpen,
+    media,
+    mediaType,
+  }: {
+    isOpen: boolean
+    media: Record<string, unknown>
+    mediaType: string
+  }) =>
+    isOpen ? (
+      <div
+        data-testid="season-notes-modal"
+        data-media={JSON.stringify(media)}
+        data-media-type={mediaType}
+      />
+    ) : null,
 }))
 
 vi.mock("@/components/ui/dialog", () => ({
@@ -101,6 +121,13 @@ vi.mock("@/hooks/use-ratings", () => ({
   useRatings: () => ({
     getSeasonRating: mocks.getSeasonRating,
     loading: mocks.loading,
+  }),
+}))
+
+vi.mock("@/hooks/use-notes", () => ({
+  useNotes: () => ({
+    getNote: mocks.getNote,
+    loading: false,
   }),
 }))
 
@@ -191,6 +218,7 @@ describe("SeasonDetailClient", () => {
       uid: "user-1",
       isAnonymous: false,
     }
+    mocks.getNote.mockReturnValue(null)
     mocks.getSeasonRating.mockReturnValue(null)
   })
 
@@ -310,5 +338,48 @@ describe("SeasonDetailClient", () => {
         episodeNumbers: [1, 2],
       })
     })
+  })
+
+  it("opens the season notes modal from the details actions", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <SeasonDetailClient
+        tvShow={createTvShow()}
+        season={createSeason()}
+        tvShowId={777}
+      />,
+    )
+
+    expect(mocks.getNote).toHaveBeenCalledWith("season", 777, 2)
+    await user.click(screen.getByRole("button", { name: "Notes" }))
+
+    const modal = screen.getByTestId("season-notes-modal")
+    expect(modal).toHaveAttribute("data-media-type", "season")
+    expect(JSON.parse(modal.getAttribute("data-media") ?? "{}")).toEqual(
+      expect.objectContaining({
+        id: 777,
+        show_id: 777,
+        season_number: 2,
+        name: "Signal Run - Season 2",
+      }),
+    )
+  })
+
+  it("shows View Note on the details screen when a season note exists", async () => {
+    const user = userEvent.setup()
+    mocks.getNote.mockReturnValue({ content: "Great season" })
+
+    render(
+      <SeasonDetailClient
+        tvShow={createTvShow()}
+        season={createSeason()}
+        tvShowId={777}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "View Note" }))
+
+    expect(screen.getByTestId("season-notes-modal")).toBeInTheDocument()
   })
 })

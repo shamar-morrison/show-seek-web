@@ -22,6 +22,7 @@ import { getEpisodeNoteMetadata } from "@/lib/note-utils"
 import type { Note } from "@/types/note"
 import {
   Film01Icon,
+  Layers01Icon,
   Loading03Icon,
   Note01Icon,
   PlayCircle02Icon,
@@ -46,10 +47,18 @@ const DEFAULT_NOTES_SORT_STATE: SortState = {
 type NoteTab = "all" | Note["mediaType"]
 
 function isNoteTab(value: string | null): value is NoteTab {
-  return value === "all" || value === "movie" || value === "tv" || value === "episode"
+  return (
+    value === "all" ||
+    value === "movie" ||
+    value === "tv" ||
+    value === "episode" ||
+    value === "season"
+  )
 }
 
-function isNotesSortField(value: string | null): value is "updatedAt" | "createdAt" | "title" {
+function isNotesSortField(
+  value: string | null,
+): value is "updatedAt" | "createdAt" | "title" {
   return value === "updatedAt" || value === "createdAt" || value === "title"
 }
 
@@ -128,7 +137,7 @@ export function NotesClient() {
           counts.all += 1
           return counts
         },
-        { all: 0, movie: 0, tv: 0, episode: 0 },
+        { all: 0, movie: 0, tv: 0, episode: 0, season: 0 },
       ),
     [notesArray],
   )
@@ -228,6 +237,8 @@ export function NotesClient() {
             episode?.seasonNumber,
             episode?.episodeNumber,
           )
+        } else if (note.mediaType === "season") {
+          await removeNote(note.mediaType, note.mediaId, note.seasonNumber)
         } else {
           await removeNote(note.mediaType, note.mediaId)
         }
@@ -256,6 +267,21 @@ export function NotesClient() {
                     note.posterPath,
                     episode?.seasonNumber,
                     episode?.episodeNumber,
+                    note.showId,
+                  )
+                  return
+                }
+
+                if (note.mediaType === "season") {
+                  await saveNote(
+                    note.mediaType,
+                    note.mediaId,
+                    note.content,
+                    note.mediaTitle,
+                    note.originalTitle,
+                    note.posterPath,
+                    note.seasonNumber,
+                    undefined,
                     note.showId,
                   )
                   return
@@ -313,8 +339,8 @@ export function NotesClient() {
         <EmptyHeader>
           <EmptyTitle>Sign in to see your notes</EmptyTitle>
           <EmptyDescription>
-            Create personal notes for movies, TV shows, and episodes to track
-            your thoughts.
+            Create personal notes for movies, TV shows, seasons, and episodes to
+            track your thoughts.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -331,8 +357,8 @@ export function NotesClient() {
         <EmptyHeader>
           <EmptyTitle>No notes yet</EmptyTitle>
           <EmptyDescription>
-            Add notes to movies, TV shows, and episodes from their detail
-            pages.
+            Add notes to movies, TV shows, seasons, and episodes from their
+            detail pages.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -420,6 +446,18 @@ export function NotesClient() {
             }))
           }
         />
+        <FilterTabButton
+          label="Seasons"
+          count={noteCounts.season}
+          isActive={activeTab === "season"}
+          icon={Layers01Icon}
+          onClick={() =>
+            setUrlState((currentState) => ({
+              ...currentState,
+              activeTab: "season",
+            }))
+          }
+        />
       </div>
 
       {/* Results */}
@@ -457,7 +495,9 @@ export function NotesClient() {
                     ? Tv01Icon
                     : activeTab === "episode"
                       ? PlayCircle02Icon
-                      : Note01Icon
+                      : activeTab === "season"
+                        ? Layers01Icon
+                        : Note01Icon
               }
               className="size-6"
             />
@@ -468,14 +508,18 @@ export function NotesClient() {
                 ? "No movie notes yet"
                 : activeTab === "tv"
                   ? "No TV show notes yet"
-                  : "No episode notes yet"}
+                  : activeTab === "season"
+                    ? "No season notes yet"
+                    : "No episode notes yet"}
             </EmptyTitle>
             <EmptyDescription>
               {activeTab === "movie"
                 ? "Add notes to movie detail pages to see them here."
                 : activeTab === "tv"
                   ? "Add notes to TV show detail pages to see them here."
-                  : "Add notes to episode detail pages to see them here."}
+                  : activeTab === "season"
+                    ? "Add notes from a season card or season detail page to see them here."
+                    : "Add notes to episode detail pages to see them here."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -493,8 +537,10 @@ export function NotesClient() {
               media={{
                 id:
                   editingNote.mediaType === "episode"
-                    ? episode?.tvShowId ?? editingNote.mediaId
-                    : editingNote.mediaId,
+                    ? (episode?.tvShowId ?? editingNote.mediaId)
+                    : editingNote.mediaType === "season"
+                      ? (editingNote.showId ?? editingNote.mediaId)
+                      : editingNote.mediaId,
                 poster_path: editingNote.posterPath,
                 title:
                   editingNote.mediaType === "movie" ||
@@ -507,7 +553,8 @@ export function NotesClient() {
                     ? editingNote.originalTitle
                     : undefined,
                 name:
-                  editingNote.mediaType === "tv"
+                  editingNote.mediaType === "tv" ||
+                  editingNote.mediaType === "season"
                     ? editingNote.mediaTitle
                     : undefined,
                 original_name:
@@ -516,12 +563,18 @@ export function NotesClient() {
                     : undefined,
                 show_id:
                   editingNote.mediaType === "episode"
-                    ? episode?.tvShowId ?? editingNote.showId ?? editingNote.mediaId
-                    : undefined,
+                    ? (episode?.tvShowId ??
+                      editingNote.showId ??
+                      editingNote.mediaId)
+                    : editingNote.mediaType === "season"
+                      ? (editingNote.showId ?? editingNote.mediaId)
+                      : undefined,
                 season_number:
                   editingNote.mediaType === "episode"
                     ? episode?.seasonNumber
-                    : undefined,
+                    : editingNote.mediaType === "season"
+                      ? editingNote.seasonNumber
+                      : undefined,
                 episode_number:
                   editingNote.mediaType === "episode"
                     ? episode?.episodeNumber

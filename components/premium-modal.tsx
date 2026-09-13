@@ -14,9 +14,18 @@ import Link from "next/link"
 interface PremiumModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Optional title override (defaults to the generic premium copy) */
+  title?: string
+  /** Optional description override (defaults to the generic premium copy) */
+  description?: string
 }
 
-export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
+export function PremiumModal({
+  open,
+  onOpenChange,
+  title = "Unlock Premium",
+  description = "This exclusive feature is available for Premium members. You can upgrade on our mobile app.",
+}: PremiumModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0 sm:max-w-md border-amber-500/20 bg-black">
@@ -29,11 +38,10 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
 
           <DialogHeader className="mb-6 space-y-2">
             <DialogTitle className="text-2xl font-bold text-white">
-              Unlock Premium
+              {title}
             </DialogTitle>
             <DialogDescription className="text-base text-white/70">
-              This exclusive feature is available for Premium members. You can
-              upgrade on our mobile app.
+              {description}
             </DialogDescription>
           </DialogHeader>
 

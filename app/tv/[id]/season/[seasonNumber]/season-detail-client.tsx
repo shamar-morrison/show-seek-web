@@ -2,6 +2,7 @@
 
 import { AuthModal } from "@/components/auth-modal"
 import { EpisodeCard } from "@/components/episode-card"
+import { NotesModal } from "@/components/notes-modal"
 import { PageContainer } from "@/components/page-container"
 import { RateButton } from "@/components/rate-button"
 import { SeasonOverview } from "@/components/season-overview"
@@ -18,6 +19,7 @@ import {
 import { useAuth } from "@/context/auth-context"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutations"
+import { useNotes } from "@/hooks/use-notes"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -32,6 +34,8 @@ import {
   Calendar03Icon,
   CheckmarkCircle02Icon,
   Loading03Icon,
+  Note01Icon,
+  NoteDoneIcon,
   PlayCircle02Icon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
@@ -61,6 +65,7 @@ export function SeasonDetailClient({
   const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
   const { getSeasonRating, loading: ratingsLoading } = useRatings()
+  const { getNote, loading: notesLoading } = useNotes()
   const { tracking } = useEpisodeTrackingShow(tvShowId, !!user)
   const { markAllEpisodesWatched, markAllEpisodesUnwatched } =
     useEpisodeTrackingMutations()
@@ -68,6 +73,7 @@ export function SeasonDetailClient({
   const [isUnmarking, setIsUnmarking] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showSeasonRatingModal, setShowSeasonRatingModal] = useState(false)
+  const [showNotesModal, setShowNotesModal] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
 
   // Get markable episodes: aired only, unless the user allows unreleased watches
@@ -89,6 +95,7 @@ export function SeasonDetailClient({
   )
   const showSeasons = tvShow.seasons
   const seasonRating = getSeasonRating(tvShowId, season.season_number)
+  const seasonNote = getNote("season", tvShowId, season.season_number)
 
   const watchedEpisodes = useMemo(
     () => new Set(Object.keys(tracking?.episodes ?? {})),
@@ -364,6 +371,35 @@ export function SeasonDetailClient({
                   )
                 }
               />
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() =>
+                  requireAuth(
+                    () => setShowNotesModal(true),
+                    "Sign in to add personal notes",
+                  )
+                }
+                disabled={notesLoading}
+                className="border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10"
+              >
+                {notesLoading ? (
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="size-5 animate-spin"
+                  />
+                ) : (
+                  <HugeiconsIcon
+                    icon={seasonNote ? NoteDoneIcon : Note01Icon}
+                    className={`size-5 ${seasonNote ? "text-primary" : ""}`}
+                  />
+                )}
+                {notesLoading
+                  ? "Loading..."
+                  : seasonNote
+                    ? "View Note"
+                    : "Notes"}
+              </Button>
             </div>
           </div>
         </div>
@@ -496,6 +532,19 @@ export function SeasonDetailClient({
         tvShowName={showName}
         displayTvShowName={displayShowTitle}
         fallbackPosterPath={showPosterPath}
+      />
+
+      <NotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        media={{
+          id: tvShowId,
+          poster_path: season.poster_path ?? showPosterPath,
+          name: `${displayShowTitle} - ${season.name}`,
+          show_id: tvShowId,
+          season_number: season.season_number,
+        }}
+        mediaType="season"
       />
 
       <AuthModal

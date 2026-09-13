@@ -4,7 +4,7 @@
 
 import type { Timestamp } from "firebase/firestore"
 
-export type NoteMediaType = "movie" | "tv" | "episode"
+export type NoteMediaType = "movie" | "tv" | "episode" | "season"
 
 export interface Note {
   /** Stable note identifier derived from the Firestore document ID */

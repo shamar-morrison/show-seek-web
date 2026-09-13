@@ -4,13 +4,39 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
+  fetch: vi.fn(),
   getNote: vi.fn(),
+  premiumStatus: "free",
   removeNote: vi.fn(),
   saveNote: vi.fn(),
   preferences: {
     showOriginalTitles: false,
   },
   toastSuccess: vi.fn(),
+}))
+
+vi.mock("@/context/auth-context", () => ({
+  useAuth: () => ({
+    premiumStatus: mocks.premiumStatus,
+  }),
+}))
+
+vi.mock("@/components/premium-modal", () => ({
+  PremiumModal: ({
+    open,
+    title,
+    description,
+  }: {
+    open: boolean
+    title?: string
+    description?: string
+  }) =>
+    open ? (
+      <div data-testid="premium-modal">
+        <span>{title}</span>
+        <span>{description}</span>
+      </div>
+    ) : null,
 }))
 
 vi.mock("@/hooks/use-notes", () => ({
@@ -55,9 +81,15 @@ vi.mock("sonner", () => ({
 describe("NotesModal", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.premiumStatus = "free"
     mocks.getNote.mockReturnValue(null)
     mocks.saveNote.mockResolvedValue(undefined)
     mocks.removeNote.mockResolvedValue(undefined)
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ canCreate: true, currentCount: 3, limit: 15 }),
+    })
+    vi.stubGlobal("fetch", mocks.fetch)
   })
 
   it("saves canonical and original titles together", async () => {
@@ -147,6 +179,76 @@ describe("NotesModal", () => {
         2,
         456,
       )
+    })
+  })
+
+  it("loads and saves season notes with season and show metadata", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 456,
+          show_id: 456,
+          season_number: 2,
+          poster_path: "/s2.jpg",
+          name: "Show - Season 2",
+        }}
+        mediaType="season"
+      />,
+    )
+
+    expect(mocks.getNote).toHaveBeenCalledWith("season", 456, 2, undefined)
+
+    await user.type(
+      screen.getByPlaceholderText(
+        "Write your thoughts, opinions, or reminders about this title...",
+      ),
+      "Great season",
+    )
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(mocks.saveNote).toHaveBeenCalledWith(
+        "season",
+        456,
+        "Great season",
+        "Show - Season 2",
+        undefined,
+        "/s2.jpg",
+        2,
+        undefined,
+        456,
+      )
+    })
+  })
+
+  it("clears season notes using season metadata", async () => {
+    const user = userEvent.setup()
+
+    mocks.getNote.mockReturnValue({ content: "Existing note" })
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{
+          id: 456,
+          show_id: 456,
+          season_number: 2,
+          poster_path: "/s2.jpg",
+          name: "Show - Season 2",
+        }}
+        mediaType="season"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Clear" }))
+
+    await waitFor(() => {
+      expect(mocks.removeNote).toHaveBeenCalledWith("season", 456, 2, undefined)
     })
   })
 
@@ -256,5 +358,77 @@ describe("NotesModal", () => {
       2,
       456,
     )
+  })
+
+  it("blocks new notes at the limit with the premium upsell", async () => {
+    const onClose = vi.fn()
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ canCreate: false, currentCount: 15, limit: 15 }),
+    })
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={onClose}
+        media={{ id: 123, poster_path: null, title: "Spirited Away" }}
+        mediaType="movie"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(mocks.fetch).toHaveBeenCalledWith("/api/notes/can-create")
+    })
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled()
+    })
+
+    const premiumModal = screen.getByTestId("premium-modal")
+    expect(premiumModal).toHaveTextContent("Note Limit Reached")
+    expect(premiumModal).toHaveTextContent(
+      "You've reached the limit of 15 notes. Upgrade to Premium for unlimited notes!",
+    )
+  })
+
+  it("skips the limit check when editing an existing note", async () => {
+    mocks.getNote.mockReturnValue({ content: "Existing note" })
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{ id: 123, poster_path: null, title: "Spirited Away" }}
+        mediaType="movie"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Clear" })).toBeInTheDocument()
+    })
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    expect(screen.queryByTestId("premium-modal")).not.toBeInTheDocument()
+  })
+
+  it("skips the limit check for premium users", async () => {
+    mocks.premiumStatus = "premium"
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{ id: 123, poster_path: null, title: "Spirited Away" }}
+        mediaType="movie"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText(
+          "Write your thoughts, opinions, or reminders about this title...",
+        ),
+      ).toBeInTheDocument()
+    })
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    expect(screen.queryByTestId("premium-modal")).not.toBeInTheDocument()
   })
 })

@@ -358,4 +358,128 @@ describe("NotesClient", () => {
       null,
     )
   })
+
+  it("filters season notes under the Seasons tab", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      ["movie-123", createNote({})],
+      [
+        "season-456-2",
+        createNote({
+          id: "season-456-2",
+          mediaId: 456,
+          mediaType: "season",
+          mediaTitle: "Severance - Season 2",
+          originalTitle: undefined,
+          content: "Great season",
+          posterPath: "/s2.jpg",
+          seasonNumber: 2,
+          showId: 456,
+        }),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    expect(screen.getAllByTestId("note-card")).toHaveLength(2)
+
+    await user.click(screen.getByRole("button", { name: /Seasons/i }))
+    expect(screen.getAllByTestId("note-card")).toHaveLength(1)
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-media-type",
+      "season",
+    )
+  })
+
+  it("shows a season empty state when the tab has no notes", async () => {
+    const user = userEvent.setup()
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: /Seasons/i }))
+
+    expect(screen.getByText("No season notes yet")).toBeInTheDocument()
+  })
+
+  it("deletes and restores season notes with season metadata", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "season-456-2",
+        createNote({
+          id: "season-456-2",
+          mediaId: 456,
+          mediaType: "season",
+          mediaTitle: "Severance - Season 2",
+          originalTitle: undefined,
+          content: "Great season",
+          posterPath: "/s2.jpg",
+          seasonNumber: 2,
+          showId: 456,
+        }),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: "Delete note" }))
+
+    expect(mocks.removeNote).toHaveBeenCalledWith("season", 456, 2)
+
+    const toastOptions = mocks.toastSuccess.mock.calls[0]?.[1] as
+      | { action?: { onClick: () => void | Promise<void> } }
+      | undefined
+
+    await toastOptions?.action?.onClick()
+
+    expect(mocks.saveNote).toHaveBeenCalledWith(
+      "season",
+      456,
+      "Great season",
+      "Severance - Season 2",
+      undefined,
+      "/s2.jpg",
+      2,
+      undefined,
+      456,
+    )
+  })
+
+  it("rehydrates season edit modal media from the note", async () => {
+    const user = userEvent.setup()
+
+    mocks.notes = new Map([
+      [
+        "season-456-2",
+        createNote({
+          id: "season-456-2",
+          mediaId: 456,
+          mediaType: "season",
+          mediaTitle: "Severance - Season 2",
+          originalTitle: undefined,
+          content: "Great season",
+          posterPath: "/s2.jpg",
+          seasonNumber: 2,
+          showId: 456,
+        }),
+      ],
+    ])
+
+    render(<NotesClient />)
+
+    await user.click(screen.getByRole("button", { name: "Edit note" }))
+
+    const media = mocks.lastModalProps?.media as unknown as Record<
+      string,
+      unknown
+    >
+    expect(media).toMatchObject({
+      id: 456,
+      name: "Severance - Season 2",
+      show_id: 456,
+      season_number: 2,
+    })
+  })
 })

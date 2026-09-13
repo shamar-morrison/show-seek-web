@@ -25,6 +25,14 @@ export function getNoteId(
     return `episode-${mediaId}-${seasonNumber}-${episodeNumber}`
   }
 
+  if (mediaType === "season") {
+    if (!isPositiveInteger(seasonNumber)) {
+      throw new Error("Season notes require seasonNumber")
+    }
+
+    return `season-${mediaId}-${seasonNumber}`
+  }
+
   return `${mediaType}-${mediaId}`
 }
 
@@ -93,6 +101,14 @@ export function getNoteHref(
 
   if (note.mediaType === "tv") {
     return `/tv/${note.mediaId}`
+  }
+
+  if (note.mediaType === "season") {
+    if (!isPositiveInteger(note.seasonNumber)) {
+      return null
+    }
+
+    return `/tv/${note.showId ?? note.mediaId}/season/${note.seasonNumber}`
   }
 
   const episode = getEpisodeNoteMetadata(note)

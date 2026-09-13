@@ -29,6 +29,17 @@ describe("note utils", () => {
     expect(getNoteId("episode", 100, 2, 3)).toBe("episode-100-2-3")
   })
 
+  it("builds season note ids from the show id and season number", () => {
+    expect(getNoteId("season", 100, 2)).toBe("season-100-2")
+    expect(getNoteId("season", 100, 0)).toBe("season-100-0")
+  })
+
+  it("throws when a season note id is requested without a season number", () => {
+    expect(() => getNoteId("season", 100)).toThrow(
+      "Season notes require seasonNumber",
+    )
+  })
+
   it("throws when an episode note id is requested without season or episode metadata", () => {
     expect(() => getNoteId("episode", 100)).toThrow(
       "Episode notes require seasonNumber and episodeNumber",
@@ -76,6 +87,41 @@ describe("note utils", () => {
     })
 
     expect(getEpisodeNoteMetadata(note)).toBeNull()
+    expect(getNoteHref(note)).toBeNull()
+  })
+
+  it("navigates season notes to the season details page", () => {
+    const note = createNote({
+      id: "season-100-2",
+      mediaType: "season",
+      mediaId: 100,
+      showId: 100,
+      seasonNumber: 2,
+    })
+
+    expect(getNoteHref(note)).toBe("/tv/100/season/2")
+  })
+
+  it("falls back to the media id when a season note has no show id", () => {
+    const note = createNote({
+      id: "season-100-2",
+      mediaType: "season",
+      mediaId: 100,
+      showId: undefined,
+      seasonNumber: 2,
+    })
+
+    expect(getNoteHref(note)).toBe("/tv/100/season/2")
+  })
+
+  it("returns null for season notes without a season number", () => {
+    const note = createNote({
+      id: "season-100-x",
+      mediaType: "season",
+      mediaId: 100,
+      seasonNumber: undefined,
+    })
+
     expect(getNoteHref(note)).toBeNull()
   })
 })
