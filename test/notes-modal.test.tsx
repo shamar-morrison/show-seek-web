@@ -431,4 +431,57 @@ describe("NotesModal", () => {
     expect(mocks.fetch).not.toHaveBeenCalled()
     expect(screen.queryByTestId("premium-modal")).not.toBeInTheDocument()
   })
+
+  it("inserts the selected emoji at the cursor position", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{ id: 123, poster_path: null, title: "Spirited Away" }}
+        mediaType="movie"
+      />,
+    )
+
+    const textarea = screen.getByPlaceholderText(
+      "Write your thoughts, opinions, or reminders about this title...",
+    )
+    await user.type(textarea, "Great movi")
+    // Place the caret between "movi" — jsdom textareas support setSelectionRange
+    ;(textarea as HTMLTextAreaElement).setSelectionRange(5, 5)
+
+    await user.click(screen.getByRole("button", { name: "Add emoji" }))
+    await user.click(
+      await screen.findByRole("button", { name: "Insert 🔥" }),
+    )
+
+    expect(textarea).toHaveValue("Great🔥 movi")
+  })
+
+  it("blocks emoji inserts that would exceed the character limit", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <NotesModal
+        isOpen
+        onClose={vi.fn()}
+        media={{ id: 123, poster_path: null, title: "Spirited Away" }}
+        mediaType="movie"
+      />,
+    )
+
+    const textarea = screen.getByPlaceholderText(
+      "Write your thoughts, opinions, or reminders about this title...",
+    ) as HTMLTextAreaElement
+    await user.type(textarea, "a".repeat(199))
+
+    await user.click(screen.getByRole("button", { name: "Add emoji" }))
+    await user.click(
+      await screen.findByRole("button", { name: "Insert 🔥" }),
+    )
+
+    // 🔥 counts as 2 UTF-16 units, so 199 + 2 > 200 and the insert is capped
+    expect(textarea).toHaveValue("a".repeat(199))
+  })
 })

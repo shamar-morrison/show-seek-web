@@ -2,6 +2,8 @@
 
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
+import { NotesEmojiPicker } from "@/components/notes-emoji-picker"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PremiumModal } from "@/components/premium-modal"
 import { useAuth } from "@/context/auth-context"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -11,9 +13,9 @@ import { getDisplayMediaTitle } from "@/lib/media-title"
 import { MAX_FREE_NOTES } from "@/lib/notes-limits"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
-import { Loading03Icon } from "@hugeicons/core-free-icons"
+import { Loading03Icon, SmileIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 /** Minimal media info needed for the notes modal */
@@ -62,6 +64,8 @@ export function NotesModal({
   >("idle")
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [noteLimit, setNoteLimit] = useState(MAX_FREE_NOTES)
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const displayTitle =
     getDisplayMediaTitle(media, preferences.showOriginalTitles) || "Unknown"
@@ -236,6 +240,7 @@ export function NotesModal({
   const handleClose = useCallback(() => {
     setNoteContent("")
     setOriginalContent("")
+    setIsEmojiPickerOpen(false)
     onClose()
   }, [onClose])
 
@@ -312,6 +317,30 @@ export function NotesModal({
     [],
   )
 
+  const handleEmojiSelect = useCallback(
+    (emoji: string) => {
+      const textarea = textareaRef.current
+      const start = textarea?.selectionStart ?? noteContent.length
+      const end = textarea?.selectionEnd ?? start
+      const nextContent =
+        noteContent.slice(0, start) + emoji + noteContent.slice(end)
+      // Silently cap at the limit, consistent with handleContentChange.
+      // Note: most emoji count as 2 UTF-16 units toward NOTE_MAX_LENGTH.
+      if (nextContent.length > NOTE_MAX_LENGTH) {
+        return
+      }
+      setNoteContent(nextContent)
+      // Restore focus and caret after the inserted emoji (popover stays open
+      // for multi-insert).
+      requestAnimationFrame(() => {
+        textarea?.focus()
+        const caret = start + emoji.length
+        textarea?.setSelectionRange(caret, caret)
+      })
+    },
+    [noteContent],
+  )
+
   const hasChanges = noteContent.trim() !== originalContent.trim()
   const canSave = noteContent.trim().length > 0 && hasChanges
 
@@ -326,14 +355,46 @@ export function NotesModal({
         {/* Note Input */}
         <div className="py-4">
           <Textarea
+            ref={textareaRef}
             value={noteContent}
             onChange={handleContentChange}
             placeholder="Write your thoughts, opinions, or reminders about this title..."
             className="min-h-[120px] resize-none"
             maxLength={NOTE_MAX_LENGTH}
           />
-          <div className="mt-2 text-right text-xs text-gray-500">
-            {noteContent.length}/{NOTE_MAX_LENGTH}
+          <div className="mt-2 flex items-center justify-between">
+            <Popover
+              open={isEmojiPickerOpen}
+              onOpenChange={setIsEmojiPickerOpen}
+            >
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={isSaving}
+                    aria-label="Add emoji"
+                    title="Add emoji (Win + . / Cmd + Ctrl + Space)"
+                  />
+                }
+              >
+                <HugeiconsIcon icon={SmileIcon} className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="start"
+                className="z-[60] w-[300px] p-3"
+              >
+                <NotesEmojiPicker
+                  onSelect={handleEmojiSelect}
+                  disabled={isSaving}
+                />
+              </PopoverContent>
+            </Popover>
+            <div className="text-xs text-gray-500">
+              {noteContent.length}/{NOTE_MAX_LENGTH}
+            </div>
           </div>
         </div>
 
