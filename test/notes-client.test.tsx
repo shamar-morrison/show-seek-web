@@ -1,8 +1,9 @@
 import { NotesClient } from "@/app/lists/notes/notes-client"
 import { render, screen } from "@/test/utils"
+import { act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Timestamp } from "firebase/firestore"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { Note } from "@/types/note"
 
 const mocks = vi.hoisted(() => ({
@@ -37,6 +38,59 @@ function createNote(overrides: Partial<Note>): Note {
     updatedAt: Timestamp.now(),
     ...overrides,
   }
+}
+
+type ObserverCallback = (entries: { isIntersecting: boolean }[]) => void
+
+/**
+ * Triggerable IntersectionObserver test double. The global mock in
+ * test/setup.ts never fires callbacks, and its property is
+ * non-configurable, so this swaps it via plain assignment (writable) and
+ * restores it after each test.
+ */
+const RealIntersectionObserver = window.IntersectionObserver
+
+class TriggerableObserver {
+  static callbacks: ObserverCallback[] = []
+  readonly root = null
+  readonly rootMargin = ""
+  readonly thresholds: number[] = []
+  observe = vi.fn()
+  disconnect = vi.fn()
+  unobserve = vi.fn()
+  takeRecords = (): IntersectionObserverEntry[] => []
+
+  constructor(callback: ObserverCallback) {
+    TriggerableObserver.callbacks.push(callback)
+  }
+}
+
+function intersectSentinel() {
+  const callback = TriggerableObserver.callbacks.at(-1)
+  if (!callback) {
+    throw new Error("Expected an IntersectionObserver to be observing")
+  }
+  act(() => {
+    callback([{ isIntersecting: true }])
+  })
+}
+
+function createManyNotes(
+  count: number,
+  mediaType: Note["mediaType"],
+  prefix: string,
+): [string, Note][] {
+  return Array.from({ length: count }, (_, i) => {
+    const note = createNote({
+      id: `${prefix}-${i}`,
+      mediaId: 1000 + i,
+      mediaType,
+      mediaTitle: `${prefix} Title ${i}`,
+      originalTitle: undefined,
+      content: `Note ${i}`,
+    })
+    return [note.id, note] as [string, Note]
+  })
 }
 
 vi.mock("@/context/auth-context", () => ({
@@ -149,6 +203,9 @@ vi.mock("sonner", () => ({
 describe("NotesClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    TriggerableObserver.callbacks.length = 0
+    window.IntersectionObserver =
+      TriggerableObserver as unknown as typeof IntersectionObserver
     mocks.lastModalProps = null
     mocks.saveNote.mockResolvedValue(undefined)
     mocks.notes = new Map([
@@ -157,6 +214,10 @@ describe("NotesClient", () => {
         createNote({}),
       ],
     ])
+  })
+
+  afterEach(() => {
+    window.IntersectionObserver = RealIntersectionObserver
   })
 
   it("renders the preferred title, searches original titles, and rehydrates modal media", async () => {
@@ -481,5 +542,46 @@ describe("NotesClient", () => {
       show_id: 456,
       season_number: 2,
     })
+  })
+
+  it("renders only the first page when a tab holds more notes than the page size", () => {
+    mocks.notes = new Map(createManyNotes(150, "movie", "movie"))
+
+    render(<NotesClient />)
+
+    expect(screen.getAllByTestId("note-card")).toHaveLength(60)
+    expect(screen.getByText("Showing 60 of 150 notes…")).toBeInTheDocument()
+  })
+
+  it("loads more notes as the sentinel scrolls into view", () => {
+    mocks.notes = new Map(createManyNotes(150, "movie", "movie"))
+
+    render(<NotesClient />)
+
+    intersectSentinel()
+    expect(screen.getAllByTestId("note-card")).toHaveLength(120)
+    expect(screen.getByText("Showing 120 of 150 notes…")).toBeInTheDocument()
+
+    intersectSentinel()
+    expect(screen.getAllByTestId("note-card")).toHaveLength(150)
+    expect(
+      screen.queryByText(/Showing \d+ of 150 notes/),
+    ).not.toBeInTheDocument()
+  })
+
+  it("resets to the first page when switching tabs", async () => {
+    const user = userEvent.setup()
+    mocks.notes = new Map(createManyNotes(65, "movie", "movie"))
+
+    render(<NotesClient />)
+
+    // Grow the All tab window past the first page, then switch tabs.
+    intersectSentinel()
+    expect(screen.getAllByTestId("note-card")).toHaveLength(65)
+
+    await user.click(screen.getByRole("button", { name: /Movies/i }))
+
+    expect(screen.getAllByTestId("note-card")).toHaveLength(60)
+    expect(screen.getByText("Showing 60 of 65 notes…")).toBeInTheDocument()
   })
 })

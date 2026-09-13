@@ -30,7 +30,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 // Sort field options for notes
@@ -39,6 +39,10 @@ const SORT_FIELDS = [
   { value: "createdAt", label: "Date Added" },
   { value: "title", label: "Alphabetically" },
 ]
+// Number of note cards rendered per infinite-scroll page. Tabs can hold
+// hundreds of notes, so the grid mounts one page at a time instead of all
+// cards at once (which blocks tab switches for a second or two).
+const NOTES_PAGE_SIZE = 60
 const DEFAULT_NOTES_SORT_STATE: SortState = {
   field: "updatedAt",
   direction: "desc",
@@ -129,6 +133,25 @@ export function NotesClient() {
   const notesArray = useMemo(() => Array.from(notes.values()), [notes])
   const hasActiveSearch = searchQuery.trim().length > 0
 
+  // Precompute normalized titles once per dataset so the title sort doesn't
+  // redo string work on every comparison of every tab switch.
+  const normalizedTitles = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const note of notesArray) {
+      map.set(
+        note.id,
+        getDisplayNormalizedTitle(
+          {
+            title: note.mediaTitle,
+            originalTitle: note.originalTitle,
+          },
+          preferences.showOriginalTitles,
+        ).toLowerCase(),
+      )
+    }
+    return map
+  }, [notesArray, preferences.showOriginalTitles])
+
   const noteCounts = useMemo(
     () =>
       notesArray.reduce(
@@ -193,20 +216,8 @@ export function NotesClient() {
           break
         }
         case "title": {
-          const titleA = getDisplayNormalizedTitle(
-            {
-              title: a.mediaTitle,
-              originalTitle: a.originalTitle,
-            },
-            preferences.showOriginalTitles,
-          ).toLowerCase()
-          const titleB = getDisplayNormalizedTitle(
-            {
-              title: b.mediaTitle,
-              originalTitle: b.originalTitle,
-            },
-            preferences.showOriginalTitles,
-          ).toLowerCase()
+          const titleA = normalizedTitles.get(a.id) ?? ""
+          const titleB = normalizedTitles.get(b.id) ?? ""
           comparison = titleA.localeCompare(titleB)
           break
         }
@@ -216,7 +227,47 @@ export function NotesClient() {
     })
 
     return sorted
-  }, [filteredNotes, preferences.showOriginalTitles, sortState])
+  }, [filteredNotes, normalizedTitles, sortState])
+
+  // Infinite-scroll window into the sorted notes. Reset to the first page
+  // during render whenever the result set identity changes, so tab/search/
+  // sort switches always mount one fast first page instead of keeping a
+  // huge window open.
+  const resultKey = `${activeTab}|${searchQuery}|${sortState.field}|${sortState.direction}`
+  const [visibleCount, setVisibleCount] = useState(NOTES_PAGE_SIZE)
+  const [lastResultKey, setLastResultKey] = useState(resultKey)
+  if (lastResultKey !== resultKey) {
+    setLastResultKey(resultKey)
+    setVisibleCount(NOTES_PAGE_SIZE)
+  }
+
+  // Without IntersectionObserver support (SSR, old browsers), render all.
+  const canObserve = typeof IntersectionObserver !== "undefined"
+  const visibleNotes = useMemo(
+    () => (canObserve ? sortedNotes.slice(0, visibleCount) : sortedNotes),
+    [canObserve, sortedNotes, visibleCount],
+  )
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!canObserve || !sentinel || visibleCount >= sortedNotes.length) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) =>
+            Math.min(count + NOTES_PAGE_SIZE, sortedNotes.length),
+          )
+        }
+      },
+      // Start loading the next page before the user reaches the bottom.
+      { rootMargin: "600px" },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [canObserve, sortedNotes.length, visibleCount])
 
   // Handle edit - open modal with the note's media
   const handleEdit = useCallback((note: Note) => {
@@ -462,16 +513,26 @@ export function NotesClient() {
 
       {/* Results */}
       {sortedNotes.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {visibleNotes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+          {visibleCount < sortedNotes.length && (
+            <div
+              ref={sentinelRef}
+              className="flex items-center justify-center py-2 text-xs text-gray-500"
+            >
+              Showing {visibleNotes.length} of {sortedNotes.length} notes…
+            </div>
+          )}
+        </>
       ) : hasActiveSearch ? (
         <Empty className="py-20">
           <EmptyMedia variant="icon">

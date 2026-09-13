@@ -22,7 +22,7 @@ import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { Timestamp } from "firebase/firestore"
 import Link from "next/link"
-import { useCallback, useState } from "react"
+import { memo, useCallback, useState } from "react"
 
 interface NoteCardProps {
   /** The note to display */
@@ -46,9 +46,15 @@ function timestampToDate(timestamp: Timestamp | Date | number): Date {
 
 /**
  * NoteCard Component
- * Displays a single note with media info, content snippet, and actions
+ * Displays a single note with media info, content snippet, and actions.
+ * Memoized so tab/search switches only mount newly visible cards instead of
+ * re-rendering the whole grid.
  */
-export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
+export const NoteCard = memo(function NoteCard({
+  note,
+  onEdit,
+  onDelete,
+}: NoteCardProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const { resolvePosterPath } = usePosterOverrides()
   const { preferences } = usePreferences()
@@ -82,7 +88,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
 
   return (
     <>
-      <div className="group relative flex gap-4 rounded-xl bg-card p-4 transition-colors hover:bg-card/80">
+      <div className="group relative flex gap-4 rounded-xl bg-card p-4 transition-colors [contain-intrinsic-size:auto_160px] [content-visibility:auto] hover:bg-card/80">
         {/* Media Poster */}
         {mediaUrl ? (
           <Link href={mediaUrl} className="shrink-0">
@@ -91,6 +97,8 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
                 <img
                   src={posterUrl}
                   alt={displayTitle}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute inset-0 h-full w-full object-cover"
                   sizes="80px"
                 />
@@ -108,6 +116,8 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
                 <img
                   src={posterUrl}
                   alt={displayTitle}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute inset-0 h-full w-full object-cover"
                   sizes="80px"
                 />
@@ -178,12 +188,12 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <AlertDialogAction variant="destructive" onClick={handleDelete}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   )
-}
+})
