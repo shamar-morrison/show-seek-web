@@ -2,7 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useMemo, useState } from "react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { SmileIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { useCallback, useMemo, useState } from "react"
 
 interface EmojiEntry {
   emoji: string
@@ -63,6 +70,89 @@ const CURATED_EMOJIS: EmojiEntry[] = [
   { emoji: "🤝", keywords: "handshake agree deal" },
 ]
 
+/**
+ * Restore focus and caret position after an emoji insert.
+ * The popover stays open for multi-insert.
+ */
+export function restoreCaretAfterInsert(
+  element: HTMLInputElement | HTMLTextAreaElement | null,
+  caret: number,
+): void {
+  requestAnimationFrame(() => {
+    element?.focus()
+    element?.setSelectionRange(caret, caret)
+  })
+}
+
+/** Which of a name/description field pair the picker inserts into */
+export type EmojiTargetField = "name" | "description"
+
+/**
+ * State for a single shared emoji picker serving a name/description pair.
+ * Track the last-focused field via each input's onFocus, then insert there —
+ * clicking the picker trigger blurs the input, so the target can't be read
+ * from document.activeElement at select time. Defaults to the name field
+ * (which is autofocused in all list dialogs).
+ */
+export function useSingleEmojiPicker() {
+  const [open, setOpen] = useState(false)
+  const [activeField, setActiveField] = useState<EmojiTargetField>("name")
+
+  const focusField = useCallback(
+    (field: EmojiTargetField) => () => setActiveField(field),
+    [],
+  )
+
+  return { open, setOpen, activeField, focusField }
+}
+
+interface EmojiPickerPopoverProps {
+  /** Accessible label for the trigger button */
+  label: string
+  /** Whether the dialog is busy (disables the trigger and grid) */
+  disabled?: boolean
+  /** Called with the selected emoji character(s) */
+  onSelect: (emoji: string) => void
+  /** Controlled open state for the popover */
+  open: boolean
+  /** Callback when the popover open state changes */
+  onOpenChange: (open: boolean) => void
+}
+
+/**
+ * EmojiPickerPopover Component
+ * Smile-icon trigger that opens the shared emoji grid in a popover.
+ */
+export function EmojiPickerPopover({
+  label,
+  disabled,
+  onSelect,
+  open,
+  onOpenChange,
+}: EmojiPickerPopoverProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={disabled}
+            aria-label={label}
+            title="Add emoji (Win + . / Cmd + Ctrl + Space)"
+          />
+        }
+      >
+        <HugeiconsIcon icon={SmileIcon} className="size-4" />
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="z-[60] w-[300px] p-3">
+        <EmojiPicker onSelect={onSelect} disabled={disabled} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+ 
 /**
  * Insert an emoji at the given caret/selection range.
  * Returns the next value, or null when it would exceed maxLength.

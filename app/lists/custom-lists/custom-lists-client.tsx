@@ -16,6 +16,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  EmojiPickerPopover,
+  insertEmojiAtCaret,
+  restoreCaretAfterInsert,
+  useSingleEmojiPicker,
+} from "@/components/emoji-picker"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -42,7 +48,7 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useId, useMemo, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 interface CustomListsClientProps {
@@ -54,11 +60,13 @@ interface CustomListsClientProps {
   genreFetchError?: string
 }
 
+/** Maximum character limit for list descriptions */
+const LIST_DESCRIPTION_MAX_LENGTH = 120
+
 /**
  * Custom Lists Client Component
  * Displays user's custom lists with tab navigation and search filtering
- */
-export function CustomListsClient({
+ */export function CustomListsClient({
   movieGenres = [],
   tvGenres = [],
   genreFetchError,
@@ -85,6 +93,14 @@ export function CustomListsClient({
   const [selectedBulkDeleteIds, setSelectedBulkDeleteIds] = useState<
     Set<string>
   >(new Set())
+  const editNameRef = useRef<HTMLInputElement>(null)
+  const editDescriptionRef = useRef<HTMLTextAreaElement>(null)
+  const {
+    open: isEditPickerOpen,
+    setOpen: setEditPickerOpen,
+    activeField: editActiveField,
+    focusField: focusEditField,
+  } = useSingleEmojiPicker()
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{
     processed: number
@@ -172,13 +188,14 @@ export function CustomListsClient({
       setIsEditDialogOpen(false)
       setEditName("")
       setEditDescription("")
+      setEditPickerOpen(false)
     } catch (error) {
       console.error("Failed to update list:", error)
       toast.error("Failed to update list")
     } finally {
       setIsProcessing(false)
     }
-  }, [activeList, editDescription, editName, updateList, user])
+  }, [activeList, editDescription, editName, setEditPickerOpen, updateList, user])
 
   const handleDelete = useCallback(async () => {
     if (!activeList || !user) return
@@ -212,7 +229,36 @@ export function CustomListsClient({
     setIsEditDialogOpen(false)
     setEditName("")
     setEditDescription("")
-  }, [isProcessing])
+    setEditPickerOpen(false)
+  }, [isProcessing, setEditPickerOpen])
+
+  // Single shared picker: inserts into whichever field was last focused.
+  const handleEditEmojiSelect = useCallback(
+    (emoji: string) => {
+      const isName = editActiveField === "name"
+      const element = isName ? editNameRef.current : editDescriptionRef.current
+      const next = insertEmojiAtCaret(
+        isName ? editName : editDescription,
+        emoji,
+        element?.selectionStart ?? null,
+        element?.selectionEnd ?? null,
+        isName ? undefined : LIST_DESCRIPTION_MAX_LENGTH,
+      )
+      if (next === null) {
+        return
+      }
+      if (isName) {
+        setEditName(next)
+      } else {
+        setEditDescription(next)
+      }
+      restoreCaretAfterInsert(
+        element,
+        (element?.selectionStart ?? 0) + emoji.length,
+      )
+    },
+    [editActiveField, editDescription, editName],
+  )
 
   const toggleBulkDeleteSelection = useCallback((listId: string) => {
     setSelectedBulkDeleteIds((prev) => {
@@ -403,9 +449,11 @@ export function CustomListsClient({
             <div className="grid gap-2">
               <Label htmlFor={editListNameId}>List name</Label>
               <Input
+                ref={editNameRef}
                 id={editListNameId}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onFocus={focusEditField("name")}
                 placeholder="List name"
                 disabled={isProcessing}
               />
@@ -415,15 +463,29 @@ export function CustomListsClient({
                 Description (optional)
               </Label>
               <Textarea
+                ref={editDescriptionRef}
                 id={editListDescriptionId}
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
+                onFocus={focusEditField("description")}
                 placeholder="What is this list for?"
-                maxLength={120}
+                maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 className="min-h-24 resize-none"
                 disabled={isProcessing}
               />
+              <div className="flex items-center justify-between">
+                <EmojiPickerPopover
+                  label="Add emoji"
+                  disabled={isProcessing}
+                  onSelect={handleEditEmojiSelect}
+                  open={isEditPickerOpen}
+                  onOpenChange={setEditPickerOpen}
+                />
+                <div className="text-xs text-gray-500">
+                  {editDescription.length}/{LIST_DESCRIPTION_MAX_LENGTH}
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

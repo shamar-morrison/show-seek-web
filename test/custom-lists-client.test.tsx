@@ -455,4 +455,21 @@ describe("CustomListsClient", () => {
     expect(updatedCheckboxes[1]).toBeChecked()
     expect(updatedCheckboxes[0]).not.toBeChecked()
   })
+
+  it("inserts the selected emoji into the edit dialog list name", async () => {
+    const user = userEvent.setup()
+
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    await user.click(screen.getByRole("button", { name: "Edit List Details" }))
+
+    const nameInput = screen.getByLabelText("List name")
+    await user.clear(nameInput)
+    await user.type(nameInput, "Desert")
+
+    await user.click(screen.getByRole("button", { name: "Add emoji" }))
+    await user.click(await screen.findByRole("button", { name: "Insert 🏆" }))
+
+    expect(nameInput).toHaveValue("Desert🏆")
+  })
 })

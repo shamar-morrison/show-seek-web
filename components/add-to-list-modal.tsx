@@ -3,6 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  EmojiPickerPopover,
+  insertEmojiAtCaret,
+  restoreCaretAfterInsert,
+  useSingleEmojiPicker,
+} from "@/components/emoji-picker"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -64,6 +70,9 @@ const LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
 
 type TabType = "default" | "custom"
 type ModalMode = "add" | "manage"
+
+/** Maximum character limit for list descriptions */
+const LIST_DESCRIPTION_MAX_LENGTH = 120
 type PreparedListOperation =
   | {
       type: "add"
@@ -160,6 +169,14 @@ export function AddToListModal({
   const [isCreating, setIsCreating] = useState(false)
   const createListNameId = useId()
   const createListDescriptionId = useId()
+  const createNameRef = useRef<HTMLInputElement>(null)
+  const createDescriptionRef = useRef<HTMLTextAreaElement>(null)
+  const {
+    open: isCreatePickerOpen,
+    setOpen: setCreatePickerOpen,
+    activeField: createActiveField,
+    focusField: focusCreateField,
+  } = useSingleEmojiPicker()
 
   // Edit list modal state
   const [listToEdit, setListToEdit] = useState<UserList | null>(null)
@@ -168,6 +185,14 @@ export function AddToListModal({
   const [isEditing, setIsEditing] = useState(false)
   const editListNameId = useId()
   const editListDescriptionId = useId()
+  const editNameRef = useRef<HTMLInputElement>(null)
+  const editDescriptionRef = useRef<HTMLTextAreaElement>(null)
+  const {
+    open: isEditPickerOpen,
+    setOpen: setEditPickerOpen,
+    activeField: editActiveField,
+    focusField: focusEditField,
+  } = useSingleEmojiPicker()
 
   // Delete confirmation state
   const [listToDelete, setListToDelete] = useState<UserList | null>(null)
@@ -302,20 +327,78 @@ export function AddToListModal({
     setListToEdit(null)
     setEditName("")
     setEditDescription("")
+    setCreatePickerOpen(false)
+    setEditPickerOpen(false)
     setListToDelete(null)
     onClose()
-  }, [onClose])
+  }, [onClose, setCreatePickerOpen, setEditPickerOpen])
 
   const resetCreateModalState = useCallback(() => {
     setNewListName("")
     setNewListDescription("")
-  }, [])
+    setCreatePickerOpen(false)
+  }, [setCreatePickerOpen])
 
   const handleCloseCreateModal = useCallback(() => {
     if (isCreating) return
     resetCreateModalState()
     setShowCreateModal(false)
   }, [isCreating, resetCreateModalState])
+
+  // Single shared picker per modal: inserts into the last-focused field.
+  const handleCreateEmojiSelect = useCallback(
+    (emoji: string) => {
+      const isName = createActiveField === "name"
+      const element = isName ? createNameRef.current : createDescriptionRef.current
+      const next = insertEmojiAtCaret(
+        isName ? newListName : newListDescription,
+        emoji,
+        element?.selectionStart ?? null,
+        element?.selectionEnd ?? null,
+        isName ? undefined : LIST_DESCRIPTION_MAX_LENGTH,
+      )
+      if (next === null) {
+        return
+      }
+      if (isName) {
+        setNewListName(next)
+      } else {
+        setNewListDescription(next)
+      }
+      restoreCaretAfterInsert(
+        element,
+        (element?.selectionStart ?? 0) + emoji.length,
+      )
+    },
+    [createActiveField, newListDescription, newListName],
+  )
+
+  const handleEditEmojiSelect = useCallback(
+    (emoji: string) => {
+      const isName = editActiveField === "name"
+      const element = isName ? editNameRef.current : editDescriptionRef.current
+      const next = insertEmojiAtCaret(
+        isName ? editName : editDescription,
+        emoji,
+        element?.selectionStart ?? null,
+        element?.selectionEnd ?? null,
+        isName ? undefined : LIST_DESCRIPTION_MAX_LENGTH,
+      )
+      if (next === null) {
+        return
+      }
+      if (isName) {
+        setEditName(next)
+      } else {
+        setEditDescription(next)
+      }
+      restoreCaretAfterInsert(
+        element,
+        (element?.selectionStart ?? 0) + emoji.length,
+      )
+    },
+    [editActiveField, editDescription, editName],
+  )
 
   // Toggle list selection
   const toggleList = useCallback((listId: string) => {
@@ -801,13 +884,14 @@ export function AddToListModal({
       setListToEdit(null)
       setEditName("")
       setEditDescription("")
+      setEditPickerOpen(false)
     } catch (error) {
       console.error("Error updating list:", error)
       toast.error("Failed to update list. Please try again.")
     } finally {
       setIsEditing(false)
     }
-  }, [editDescription, editName, listToEdit, updateList, user])
+  }, [editDescription, editName, listToEdit, setEditPickerOpen, updateList, user])
 
   // Handle delete list
   const handleDeleteList = useCallback(async () => {
@@ -853,7 +937,8 @@ export function AddToListModal({
     setListToEdit(null)
     setEditName("")
     setEditDescription("")
-  }, [isEditing])
+    setEditPickerOpen(false)
+  }, [isEditing, setEditPickerOpen])
 
   const currentLists = activeTab === "default" ? defaultLists : customLists
   const modalTitle =
@@ -1088,10 +1173,12 @@ export function AddToListModal({
             <div className="grid gap-2">
               <Label htmlFor={createListNameId}>List name</Label>
               <Input
+                ref={createNameRef}
                 id={createListNameId}
                 placeholder="List name"
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
+                onFocus={focusCreateField("name")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newListName.trim()) {
                     handleCreateList()
@@ -1105,14 +1192,28 @@ export function AddToListModal({
                 Description (optional)
               </Label>
               <Textarea
+                ref={createDescriptionRef}
                 id={createListDescriptionId}
                 placeholder="What is this list for?"
                 value={newListDescription}
                 onChange={(e) => setNewListDescription(e.target.value)}
-                maxLength={120}
+                onFocus={focusCreateField("description")}
+                maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 className="min-h-24 resize-none"
               />
+              <div className="flex items-center justify-between">
+                <EmojiPickerPopover
+                  label="Add emoji"
+                  disabled={isCreating}
+                  onSelect={handleCreateEmojiSelect}
+                  open={isCreatePickerOpen}
+                  onOpenChange={setCreatePickerOpen}
+                />
+                <div className="text-xs text-gray-500">
+                  {newListDescription.length}/{LIST_DESCRIPTION_MAX_LENGTH}
+                </div>
+              </div>
             </div>
           </div>
           {isPremiumCheckPending && (
@@ -1167,10 +1268,12 @@ export function AddToListModal({
             <div className="grid gap-2">
               <Label htmlFor={editListNameId}>List name</Label>
               <Input
+                ref={editNameRef}
                 id={editListNameId}
                 placeholder="List name"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onFocus={focusEditField("name")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && editName.trim()) {
                     handleEditList()
@@ -1182,14 +1285,28 @@ export function AddToListModal({
             <div className="grid gap-2">
               <Label htmlFor={editListDescriptionId}>Description (optional)</Label>
               <Textarea
+                ref={editDescriptionRef}
                 id={editListDescriptionId}
                 placeholder="What is this list for?"
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
-                maxLength={120}
+                onFocus={focusEditField("description")}
+                maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 className="min-h-24 resize-none"
               />
+              <div className="flex items-center justify-between">
+                <EmojiPickerPopover
+                  label="Add emoji"
+                  disabled={isEditing}
+                  onSelect={handleEditEmojiSelect}
+                  open={isEditPickerOpen}
+                  onOpenChange={setEditPickerOpen}
+                />
+                <div className="text-xs text-gray-500">
+                  {editDescription.length}/{LIST_DESCRIPTION_MAX_LENGTH}
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

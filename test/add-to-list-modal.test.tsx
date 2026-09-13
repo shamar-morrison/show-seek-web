@@ -995,4 +995,65 @@ describe("AddToListModal", () => {
       }),
     )
   })
+
+  it("inserts the selected emoji into the create-list name at the cursor", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Create List" }))
+    const nameInput = screen.getByLabelText("List name")
+    await user.type(nameInput, "Favorites")
+    ;(nameInput as HTMLInputElement).setSelectionRange(0, 0)
+
+    await user.click(screen.getByRole("button", { name: "Add emoji" }))
+    await user.click(await screen.findByRole("button", { name: "Insert 🎬" }))
+
+    expect(nameInput).toHaveValue("🎬Favorites")
+  })
+
+  it("inserts the selected emoji into the edit-list description", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        description: "Weekend plans",
+        items: {
+          "123": createListItem(),
+        },
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Manage" }))
+    const row = screen.getByTestId("custom-list-row-road-trip")
+    await user.click(within(row).getAllByRole("button")[0])
+
+    const description = screen.getByLabelText("Description (optional)")
+    await user.click(description)
+    await user.type(description, " ")
+
+    await user.click(screen.getByRole("button", { name: "Add emoji" }))
+    await user.click(await screen.findByRole("button", { name: "Insert 🍿" }))
+
+    expect(description).toHaveValue("Weekend plans 🍿")
+  })
 })
