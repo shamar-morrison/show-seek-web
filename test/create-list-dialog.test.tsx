@@ -85,4 +85,59 @@ describe("CreateListDialog", () => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
   })
+
+  it("inserts the selected emoji at the cursor position in the list name", async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+
+    render(<CreateListDialog open={true} onOpenChange={onOpenChange} />)
+
+    const nameInput = screen.getByLabelText("List name")
+    await user.type(nameInput, "Spooky watchlist")
+    ;(nameInput as HTMLInputElement).setSelectionRange(6, 6)
+
+    await user.click(
+      screen.getByRole("button", { name: "Add emoji to list name" }),
+    )
+    await user.click(await screen.findByRole("button", { name: "Insert 👻" }))
+
+    expect(nameInput).toHaveValue("Spooky👻 watchlist")
+  })
+
+  it("inserts the selected emoji into the description", async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+
+    render(<CreateListDialog open={true} onOpenChange={onOpenChange} />)
+
+    const description = screen.getByLabelText("Description (optional)")
+    await user.type(description, "Weekend plans")
+
+    await user.click(
+      screen.getByRole("button", { name: "Add emoji to description" }),
+    )
+    await user.click(await screen.findByRole("button", { name: "Insert 🍿" }))
+
+    expect(description).toHaveValue("Weekend plans🍿")
+  })
+
+  it("blocks description emoji inserts that would exceed the character limit", async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+
+    render(<CreateListDialog open={true} onOpenChange={onOpenChange} />)
+
+    const description = screen.getByLabelText(
+      "Description (optional)",
+    ) as HTMLTextAreaElement
+    await user.type(description, "a".repeat(119))
+
+    await user.click(
+      screen.getByRole("button", { name: "Add emoji to description" }),
+    )
+    await user.click(await screen.findByRole("button", { name: "Insert 🔥" }))
+
+    // 🔥 counts as 2 UTF-16 units, so 119 + 2 > 120 and the insert is capped
+    expect(description).toHaveValue("a".repeat(119))
+  })
 })

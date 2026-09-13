@@ -1,6 +1,12 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { EmojiPicker, insertEmojiAtCaret } from "@/components/emoji-picker"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Dialog,
   DialogContent,
@@ -24,10 +30,60 @@ import {
   createPremiumTelemetryPayload,
   trackPremiumEvent,
 } from "@/lib/premium-telemetry"
-import { Loading03Icon } from "@hugeicons/core-free-icons"
+import { Loading03Icon, SmileIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useId, useState } from "react"
+import { useCallback, useId, useRef, useState } from "react"
 import { toast } from "sonner"
+
+/** Maximum character limit for the list description */
+const LIST_DESCRIPTION_MAX_LENGTH = 120
+
+interface EmojiInsertButtonProps {
+  /** Accessible label for the trigger button */
+  label: string
+  /** Whether the dialog is busy (disables the trigger and grid) */
+  disabled?: boolean
+  /** Called with the selected emoji character(s) */
+  onSelect: (emoji: string) => void
+  /** Controlled open state for the popover */
+  open: boolean
+  /** Callback when the popover open state changes */
+  onOpenChange: (open: boolean) => void
+}
+
+/**
+ * EmojiInsertButton Component
+ * Smile-icon trigger that opens the shared emoji grid in a popover.
+ */
+function EmojiInsertButton({
+  label,
+  disabled,
+  onSelect,
+  open,
+  onOpenChange,
+}: EmojiInsertButtonProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={disabled}
+            aria-label={label}
+            title="Add emoji (Win + . / Cmd + Ctrl + Space)"
+          />
+        }
+      >
+        <HugeiconsIcon icon={SmileIcon} className="size-3.5" />
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="z-[60] w-[300px] p-3">
+        <EmojiPicker onSelect={onSelect} disabled={disabled} />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 interface CreateListDialogProps {
   /** Whether the dialog is open */
@@ -49,6 +105,10 @@ export function CreateListDialog({
   const [listName, setListName] = useState("")
   const [listDescription, setListDescription] = useState("")
   const [isCreating, setIsCreating] = useState(false)
+  const [isNamePickerOpen, setIsNamePickerOpen] = useState(false)
+  const [isDescriptionPickerOpen, setIsDescriptionPickerOpen] = useState(false)
+  const listNameRef = useRef<HTMLInputElement>(null)
+  const listDescriptionRef = useRef<HTMLTextAreaElement>(null)
   const listNameId = useId()
   const listDescriptionId = useId()
   const isPremiumCheckPending = isPremiumStatusPending({
@@ -149,9 +209,63 @@ export function CreateListDialog({
     if (!isCreating) {
       setListName("")
       setListDescription("")
+      setIsNamePickerOpen(false)
+      setIsDescriptionPickerOpen(false)
       onOpenChange(false)
     }
   }, [isCreating, onOpenChange])
+
+  const focusAfterInsert = useCallback(
+    (
+      element: HTMLInputElement | HTMLTextAreaElement | null,
+      caret: number,
+    ) => {
+      requestAnimationFrame(() => {
+        element?.focus()
+        element?.setSelectionRange(caret, caret)
+      })
+    },
+    [],
+  )
+
+  const handleNameEmojiSelect = useCallback(
+    (emoji: string) => {
+      const element = listNameRef.current
+      const next = insertEmojiAtCaret(
+        listName,
+        emoji,
+        element?.selectionStart ?? null,
+        element?.selectionEnd ?? null,
+      )
+      if (next === null) {
+        return
+      }
+      setListName(next)
+      // Popover stays open for multi-insert; restore caret after the emoji.
+      focusAfterInsert(element, (element?.selectionStart ?? 0) + emoji.length)
+    },
+    [focusAfterInsert, listName],
+  )
+
+  const handleDescriptionEmojiSelect = useCallback(
+    (emoji: string) => {
+      const element = listDescriptionRef.current
+      const next = insertEmojiAtCaret(
+        listDescription,
+        emoji,
+        element?.selectionStart ?? null,
+        element?.selectionEnd ?? null,
+        LIST_DESCRIPTION_MAX_LENGTH,
+      )
+      // Silently cap at the limit, consistent with maxLength on the textarea.
+      if (next === null) {
+        return
+      }
+      setListDescription(next)
+      focusAfterInsert(element, (element?.selectionStart ?? 0) + emoji.length)
+    },
+    [focusAfterInsert, listDescription],
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -164,8 +278,18 @@ export function CreateListDialog({
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor={listNameId}>List name</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor={listNameId}>List name</Label>
+              <EmojiInsertButton
+                label="Add emoji to list name"
+                disabled={isCreating}
+                onSelect={handleNameEmojiSelect}
+                open={isNamePickerOpen}
+                onOpenChange={setIsNamePickerOpen}
+              />
+            </div>
             <Input
+              ref={listNameRef}
               id={listNameId}
               placeholder="List name"
               value={listName}
@@ -179,13 +303,23 @@ export function CreateListDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={listDescriptionId}>Description (optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor={listDescriptionId}>Description (optional)</Label>
+              <EmojiInsertButton
+                label="Add emoji to description"
+                disabled={isCreating}
+                onSelect={handleDescriptionEmojiSelect}
+                open={isDescriptionPickerOpen}
+                onOpenChange={setIsDescriptionPickerOpen}
+              />
+            </div>
             <Textarea
+              ref={listDescriptionRef}
               id={listDescriptionId}
               placeholder="What is this list for?"
               value={listDescription}
               onChange={(e) => setListDescription(e.target.value)}
-              maxLength={120}
+              maxLength={LIST_DESCRIPTION_MAX_LENGTH}
               rows={4}
               className="min-h-24 resize-none"
             />

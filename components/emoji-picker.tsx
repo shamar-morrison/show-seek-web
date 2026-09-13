@@ -10,7 +10,7 @@ interface EmojiEntry {
 }
 
 /**
- * Curated emoji set for notes — TV/movie-friendly, no external dependency.
+ * Curated emoji set — no external dependency.
  * Rendered as native glyphs so they match the user's OS emoji font.
  */
 const CURATED_EMOJIS: EmojiEntry[] = [
@@ -63,7 +63,28 @@ const CURATED_EMOJIS: EmojiEntry[] = [
   { emoji: "🤝", keywords: "handshake agree deal" },
 ]
 
-interface NotesEmojiPickerProps {
+/**
+ * Insert an emoji at the given caret/selection range.
+ * Returns the next value, or null when it would exceed maxLength.
+ * Note: most emoji count as 2 UTF-16 units toward the limit.
+ */
+export function insertEmojiAtCaret(
+  current: string,
+  emoji: string,
+  selectionStart: number | null,
+  selectionEnd: number | null,
+  maxLength?: number,
+): string | null {
+  const start = selectionStart ?? current.length
+  const end = selectionEnd ?? start
+  const next = current.slice(0, start) + emoji + current.slice(end)
+  if (maxLength !== undefined && next.length > maxLength) {
+    return null
+  }
+  return next
+}
+
+interface EmojiPickerProps {
   /** Called with the selected emoji character(s) */
   onSelect: (emoji: string) => void
   /** Disable all emoji buttons (e.g. while saving) */
@@ -71,10 +92,10 @@ interface NotesEmojiPickerProps {
 }
 
 /**
- * NotesEmojiPicker Component
- * Lightweight searchable emoji grid for the notes modal.
+ * EmojiPicker Component
+ * Lightweight searchable emoji grid for text inputs.
  */
-export function NotesEmojiPicker({ onSelect, disabled }: NotesEmojiPickerProps) {
+export function EmojiPicker({ onSelect, disabled }: EmojiPickerProps) {
   const [query, setQuery] = useState("")
 
   const filtered = useMemo(() => {

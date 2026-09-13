@@ -2,7 +2,7 @@
 
 import { BaseMediaModal } from "@/components/ui/base-media-modal"
 import { Button } from "@/components/ui/button"
-import { NotesEmojiPicker } from "@/components/notes-emoji-picker"
+import { EmojiPicker } from "@/components/emoji-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PremiumModal } from "@/components/premium-modal"
 import { useAuth } from "@/context/auth-context"
@@ -386,7 +386,7 @@ export function NotesModal({
                 align="start"
                 className="z-[60] w-[300px] p-3"
               >
-                <NotesEmojiPicker
+                <EmojiPicker
                   onSelect={handleEmojiSelect}
                   disabled={isSaving}
                 />
