@@ -354,7 +354,7 @@ export function useWatchProgressEnrichment(
   const [enrichedProgress, setEnrichedProgress] =
     useState<WatchProgressItem[]>(initialProgress)
   const [isEnriching, setIsEnriching] = useState(false)
-  const enrichedShowsRef = useRef<Set<number>>(new Set())
+  const enrichedShowsRef = useRef<Map<number, string>>(new Map())
   const prevIncomingIdsRef = useRef<Set<number>>(new Set())
 
   // Reset when initial data changes significantly (track with ref to avoid dependency cycle)
@@ -368,7 +368,7 @@ export function useWatchProgressEnrichment(
 
     if (!idsMatch) {
       // Clean up enriched cache for removed shows
-      for (const id of enrichedShowsRef.current) {
+      for (const id of Array.from(enrichedShowsRef.current.keys())) {
         if (!incomingIds.has(id)) {
           enrichedShowsRef.current.delete(id)
         }
@@ -403,10 +403,12 @@ export function useWatchProgressEnrichment(
   const enrichItems = useCallback(async () => {
     if (initialProgress.length === 0) return
 
-    // Find items that need enrichment
-    const itemsToEnrich = initialProgress.filter(
-      (p) => !enrichedShowsRef.current.has(p.tvShowId),
-    )
+    // Find items that need enrichment (new shows or shows whose watched keys hash changed)
+    const itemsToEnrich = initialProgress.filter((p) => {
+      const watchedKeys = watchedEpisodesByShow.get(p.tvShowId) || new Set()
+      const watchedKeysHash = hashWatchedKeys(watchedKeys)
+      return enrichedShowsRef.current.get(p.tvShowId) !== watchedKeysHash
+    })
 
     if (itemsToEnrich.length === 0) return
 
@@ -430,7 +432,7 @@ export function useWatchProgressEnrichment(
               const cached = getCachedEnrichment(item.tvShowId, watchedKeysHash)
               if (cached) {
                 enrichedUpdates.set(item.tvShowId, cached)
-                enrichedShowsRef.current.add(item.tvShowId)
+                enrichedShowsRef.current.set(item.tvShowId, watchedKeysHash)
                 return
               }
 
@@ -683,7 +685,7 @@ export function useWatchProgressEnrichment(
               )
 
               enrichedUpdates.set(item.tvShowId, enrichmentData)
-              enrichedShowsRef.current.add(item.tvShowId)
+              enrichedShowsRef.current.set(item.tvShowId, watchedKeysHash)
             } catch (error) {
               console.error(`Failed to enrich show ${item.tvShowId}:`, error)
             }

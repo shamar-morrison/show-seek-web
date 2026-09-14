@@ -89,82 +89,9 @@ export function computeNextEpisode(
     }
   }
 
-  // If current season is complete, check subsequent seasons
-  if (tvShowSeasons && tvShowSeasons.length > 0) {
-    // Filter to regular seasons after current and sort by season number
-    const nextSeasons = tvShowSeasons
-      .filter(
-        (s) =>
-          s.season_number > currentEpisode.season_number && s.season_number > 0,
-      )
-      .sort((a, b) => a.season_number - b.season_number)
-
-    for (const nextSeason of nextSeasons) {
-      const candidateEpisodes = (
-        nextSeason as { episodes?: TMDBSeasonEpisode[] }
-      ).episodes
-
-      if (candidateEpisodes && candidateEpisodes.length > 0) {
-        const nextAiredEpisodes = candidateEpisodes
-          .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
-          .sort((a, b) => a.episode_number - b.episode_number)
-
-        const firstUnwatchedInSeason = watchedKeys
-          ? nextAiredEpisodes.find(
-              (ep) =>
-                !isWatched(
-                  ep.season_number ?? nextSeason.season_number,
-                  ep.episode_number,
-                ),
-            )
-          : nextAiredEpisodes[0]
-
-        if (firstUnwatchedInSeason) {
-          return {
-            season:
-              firstUnwatchedInSeason.season_number ?? nextSeason.season_number,
-            episode: firstUnwatchedInSeason.episode_number,
-            title: firstUnwatchedInSeason.name,
-            airDate: firstUnwatchedInSeason.air_date,
-          }
-        }
-        // All aired episodes in this season are watched, continue to next season
-        continue
-      }
-
-      if (watchedKeys) {
-        const episodeCount = nextSeason.episode_count ?? 1
-        let foundUnwatchedEpisode: number | null = null
-
-        for (let epNum = 1; epNum <= episodeCount; epNum += 1) {
-          if (!isWatched(nextSeason.season_number, epNum)) {
-            foundUnwatchedEpisode = epNum
-            break
-          }
-        }
-
-        if (foundUnwatchedEpisode !== null) {
-          return {
-            season: nextSeason.season_number,
-            episode: foundUnwatchedEpisode,
-            title: `${nextSeason.name || `Season ${nextSeason.season_number}`} Episode ${foundUnwatchedEpisode}`,
-            airDate: nextSeason.air_date || null,
-          }
-        }
-        // All episodes in this season are watched, continue to next season
-        continue
-      }
-
-      // Fallback when watchedKeys is not provided
-      return {
-        season: nextSeason.season_number,
-        episode: 1,
-        title: `${nextSeason.name} Episode 1`,
-        airDate: nextSeason.air_date || null,
-      }
-    }
-  }
-
-  // No more episodes - user is caught up!
+  // All aired episodes in the current season are watched.
+  // Return null rather than guessing into subsequent seasons from season-level summaries,
+  // since season summaries lack per-episode air dates and include announced unaired episodes.
+  // Authoritative cross-season up-next state is resolved by useWatchProgressEnrichment.
   return null
 }

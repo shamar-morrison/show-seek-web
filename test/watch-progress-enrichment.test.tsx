@@ -152,4 +152,124 @@ describe("useWatchProgressEnrichment", () => {
       expect(result.current.enrichedProgress[0].percentage).toBe(40)
     })
   })
+
+  it("re-enriches a show when its watched keys change while mounted (not requiring remount)", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 101,
+      status: "Returning Series",
+      number_of_episodes: 2,
+      totalEpisodes: 2,
+      avgRuntime: 45,
+      seasons: [
+        {
+          id: 1,
+          season_number: 1,
+          episode_count: 2,
+          air_date: "2020-01-01",
+          name: "Season 1",
+          overview: "",
+          poster_path: null,
+          vote_average: 8,
+        },
+      ],
+      next_episode_to_air: null,
+      last_episode_to_air: {
+        id: 102,
+        season_number: 1,
+        episode_number: 2,
+        name: "Episode 2",
+        air_date: "2020-01-08",
+      },
+      genres: [],
+      overview: "",
+      poster_path: null,
+      backdrop_path: null,
+      name: "Test Show",
+      first_air_date: "2020-01-01",
+      last_air_date: "2020-01-08",
+      number_of_seasons: 1,
+      vote_average: 8,
+      vote_count: 100,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([
+      {
+        id: 101,
+        episode_number: 1,
+        name: "Episode 1",
+        air_date: "2020-01-01",
+        runtime: 45,
+      },
+      {
+        id: 102,
+        episode_number: 2,
+        name: "Episode 2",
+        air_date: "2020-01-08",
+        runtime: 45,
+      },
+    ])
+
+    // Initial mount: only episode 1 watched
+    const initial1 = [
+      createBaseProgressItem({
+        tvShowId: 101,
+        watchedCount: 1,
+        totalEpisodes: 2,
+        lastUpdated: 1000,
+      }),
+    ]
+    const watchedMap1 = new Map<number, Set<string>>([
+      [101, new Set(["1_1"])],
+    ])
+
+    const { result, rerender } = renderHook(
+      ({ initial, watched }) => useWatchProgressEnrichment(initial, watched),
+      {
+        initialProps: {
+          initial: initial1,
+          watched: watchedMap1,
+        },
+      },
+    )
+
+    // Wait for first enrichment
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].percentage).toBe(50)
+      expect(result.current.enrichedProgress[0].nextEpisode).toEqual({
+        kind: "unwatched",
+        season: 1,
+        episode: 2,
+        title: "Episode 2",
+      })
+    })
+
+    // User marks episode 2 watched while component is still mounted!
+    const initial2 = [
+      createBaseProgressItem({
+        tvShowId: 101,
+        watchedCount: 2,
+        totalEpisodes: 2,
+        lastUpdated: 2000,
+      }),
+    ]
+    const watchedMap2 = new Map<number, Set<string>>([
+      [101, new Set(["1_1", "1_2"])],
+    ])
+
+    rerender({
+      initial: initial2,
+      watched: watchedMap2,
+    })
+
+    // Must re-enrich and update percentage and nextEpisode without remount!
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].percentage).toBe(100)
+      expect(result.current.enrichedProgress[0].nextEpisode).toEqual({
+        kind: "upcoming",
+        season: 0,
+        episode: 0,
+        title: "Caught up!",
+      })
+    })
+  })
 })
