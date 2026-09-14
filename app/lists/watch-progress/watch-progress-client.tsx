@@ -10,6 +10,7 @@ import {
 import { FilterSort, type SortState } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { WatchProgressCard } from "@/components/watch-progress-card"
 import { useAuth } from "@/context/auth-context"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
@@ -33,6 +34,33 @@ const SORT_FIELDS = [
 const DEFAULT_SORT_STATE: SortState = {
   field: "lastWatched",
   direction: "desc",
+}
+
+/**
+ * Skeleton placeholder matching the WatchProgressCard layout.
+ * Shown while enrichment data is loading.
+ */
+function WatchProgressCardSkeleton() {
+  return (
+    <div className="flex gap-4 rounded-xl bg-card p-4">
+      {/* Poster */}
+      <Skeleton className="aspect-2/3 w-16 shrink-0 rounded-lg sm:w-20" />
+      {/* Content */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {/* Title */}
+        <Skeleton className="h-5 w-3/4 rounded" />
+        {/* Next episode */}
+        <Skeleton className="h-4 w-1/2 rounded" />
+        {/* Progress bar */}
+        <div className="mt-auto flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-1.5 flex-1 rounded-full" />
+            <Skeleton className="h-3 w-8 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export type WatchProgressTab = "watching" | "caughtUp" | "hidden"
@@ -183,7 +211,7 @@ export function WatchProgressClient() {
         />
       </div>
 
-      {/* Search Input with Enrichment Indicator */}
+      {/* Search & Sort */}
       <div className="flex items-center gap-3">
         <SearchInput
           id="watch-progress-search-input"
@@ -200,19 +228,16 @@ export function WatchProgressClient() {
           sortState={sortState}
           onSortChange={setSortState}
         />
-        {isEnriching && (
-          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-            <HugeiconsIcon
-              icon={Loading03Icon}
-              className="size-4 animate-spin"
-            />
-            <span className="hidden sm:inline">Refreshing...</span>
-          </div>
-        )}
       </div>
 
       {/* Results */}
-      {sortedProgress.length > 0 ? (
+      {isEnriching ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
+            <WatchProgressCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : sortedProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedProgress.map((progress) => (
             <WatchProgressCard
