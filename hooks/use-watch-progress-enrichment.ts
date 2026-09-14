@@ -356,6 +356,8 @@ export function useWatchProgressEnrichment(
   const [isEnriching, setIsEnriching] = useState(false)
   const enrichedShowsRef = useRef<Map<number, string>>(new Map())
   const prevIncomingIdsRef = useRef<Set<number>>(new Set())
+  const latestWatchedEpisodesRef = useRef(watchedEpisodesByShow)
+  latestWatchedEpisodesRef.current = watchedEpisodesByShow
 
   // Reset when initial data changes significantly (track with ref to avoid dependency cycle)
   useEffect(() => {
@@ -431,6 +433,14 @@ export function useWatchProgressEnrichment(
               // Check cache first
               const cached = getCachedEnrichment(item.tvShowId, watchedKeysHash)
               if (cached) {
+                const latestKeys =
+                  latestWatchedEpisodesRef.current.get(item.tvShowId) ||
+                  new Set()
+                const latestHash = hashWatchedKeys(latestKeys)
+                if (latestHash !== watchedKeysHash) {
+                  return
+                }
+
                 enrichedUpdates.set(item.tvShowId, cached)
                 enrichedShowsRef.current.set(item.tvShowId, watchedKeysHash)
                 return
@@ -675,6 +685,15 @@ export function useWatchProgressEnrichment(
                 timeRemaining,
                 showEnded,
                 nextEpisode,
+              }
+
+              // If watched keys changed while this async request was in flight, discard this older result
+              const latestKeys =
+                latestWatchedEpisodesRef.current.get(item.tvShowId) ||
+                new Set()
+              const latestHash = hashWatchedKeys(latestKeys)
+              if (latestHash !== watchedKeysHash) {
+                return
               }
 
               // Cache the result
