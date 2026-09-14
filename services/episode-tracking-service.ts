@@ -2,15 +2,13 @@
 
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/config"
 import { normalizeEpisodeTrackingDoc } from "@/lib/episode-tracking-normalization"
+import { computeNextEpisode } from "@/lib/episode-utils"
 import type {
   EpisodeTrackingMetadata,
-  SeasonProgress,
-  ShowProgress,
   TVShowEpisodeTracking,
   WatchedEpisode,
 } from "@/types/episode-tracking"
 import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
-import type { TMDBEpisode as Episode } from "@/types/tmdb"
 import {
   deleteDoc,
   deleteField,
@@ -19,11 +17,6 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore"
-
-// Season type for progress calculation
-interface Season {
-  season_number: number
-}
 
 // Inline helper to extract error message
 function getFirestoreErrorMessage(error: unknown): string {
@@ -175,11 +168,15 @@ class EpisodeTrackingService {
         [episodeKey]: watchedEpisode,
       }
 
+      let resolvedNextEpisode = nextEpisode
+
       if (markPreviousEpisodesWatched && seasonEpisodes?.length) {
         const snapshot = await this.withTimeout(getDoc(trackingRef))
         const existingEpisodes = snapshot.exists()
           ? normalizeEpisodeTrackingDoc(snapshot.data()).episodes
           : {}
+
+        let earlierEpisodesAdded = false
 
         seasonEpisodes.forEach((seasonEpisode) => {
           if (seasonEpisode.episode_number >= episodeNumber) return
@@ -211,7 +208,44 @@ class EpisodeTrackingService {
             episodeName: seasonEpisode.name,
             episodeAirDate: seasonEpisode.air_date,
           }
+          earlierEpisodesAdded = true
         })
+
+        if (earlierEpisodesAdded && resolvedNextEpisode !== undefined) {
+          const effectiveWatchedKeys = new Set([
+            ...Object.keys(existingEpisodes),
+            ...Object.keys(episodesMap),
+          ])
+
+          const nextEpKey = resolvedNextEpisode
+            ? this.getEpisodeKey(
+                resolvedNextEpisode.season,
+                resolvedNextEpisode.episode,
+              )
+            : null
+
+          if (nextEpKey && effectiveWatchedKeys.has(nextEpKey)) {
+            const tmdbSeasonEpisodes = seasonEpisodes.map((ep) => ({
+              id: ep.id,
+              episode_number: ep.episode_number,
+              name: ep.name,
+              overview: "",
+              air_date: ep.air_date,
+              runtime: null,
+              still_path: null,
+              vote_average: 0,
+              vote_count: 0,
+              season_number: seasonNumber,
+            }))
+
+            resolvedNextEpisode = computeNextEpisode(
+              { season_number: seasonNumber, episode_number: episodeNumber },
+              tmdbSeasonEpisodes,
+              undefined,
+              effectiveWatchedKeys,
+            )
+          }
+        }
       }
 
       const metadata: EpisodeTrackingMetadata = {
@@ -224,7 +258,9 @@ class EpisodeTrackingService {
           avgRuntime: showStats.avgRuntime,
         }),
         // nextEpisode can be null (caught up) or object - only include if explicitly provided
-        ...(nextEpisode !== undefined && { nextEpisode }),
+        ...(resolvedNextEpisode !== undefined && {
+          nextEpisode: resolvedNextEpisode,
+        }),
       }
 
       await this.withTimeout(
@@ -535,94 +571,6 @@ class EpisodeTrackingService {
     return { markedCount, wasCancelled }
   }
 
-  /**
-   * Calculate progress for a specific season
-   * Excludes unaired episodes from total count
-   */
-  calculateSeasonProgress(
-    seasonNumber: number,
-    episodes: Episode[],
-    watchedEpisodes: Record<string, WatchedEpisode>,
-  ): SeasonProgress {
-    const today = new Date()
-
-    // Filter to only include aired episodes
-    const airedEpisodes = episodes.filter(
-      (ep) => ep.air_date && new Date(ep.air_date) <= today,
-    )
-
-    // Count watched episodes
-    const watchedCount = airedEpisodes.filter((ep) =>
-      this.isEpisodeWatched(seasonNumber, ep.episode_number, watchedEpisodes),
-    ).length
-
-    const totalCount = episodes.length
-    const totalAiredCount = airedEpisodes.length
-    const percentage =
-      totalAiredCount > 0 ? (watchedCount / totalAiredCount) * 100 : 0
-
-    return {
-      seasonNumber,
-      watchedCount,
-      totalCount,
-      totalAiredCount,
-      percentage,
-    }
-  }
-
-  /**
-   * Calculate overall progress for a TV show
-   * Excludes unaired episodes and Season 0 (specials)
-   */
-  calculateShowProgress(
-    seasons: Season[],
-    allEpisodes: Episode[],
-    watchedEpisodes: Record<string, WatchedEpisode>,
-  ): ShowProgress {
-    const today = new Date()
-
-    // Filter out Season 0 (specials) and unaired episodes
-    const validEpisodes = allEpisodes.filter((ep) => ep.season_number > 0)
-    const airedEpisodes = validEpisodes.filter(
-      (ep) => ep.air_date && new Date(ep.air_date) <= today,
-    )
-
-    // Count watched episodes (only from aired episodes to match denominator)
-    const totalWatched = airedEpisodes.filter((ep) =>
-      this.isEpisodeWatched(
-        ep.season_number,
-        ep.episode_number,
-        watchedEpisodes,
-      ),
-    ).length
-
-    const totalEpisodes = validEpisodes.length
-    const totalAiredEpisodes = airedEpisodes.length
-    const percentage =
-      totalAiredEpisodes > 0 ? (totalWatched / totalAiredEpisodes) * 100 : 0
-
-    // Calculate progress per season
-    const seasonProgress = seasons
-      .filter((s) => s.season_number > 0)
-      .map((season) => {
-        const seasonEpisodes = allEpisodes.filter(
-          (ep) => ep.season_number === season.season_number,
-        )
-        return this.calculateSeasonProgress(
-          season.season_number,
-          seasonEpisodes,
-          watchedEpisodes,
-        )
-      })
-
-    return {
-      totalWatched,
-      totalEpisodes,
-      totalAiredEpisodes,
-      percentage,
-      seasonProgress,
-    }
-  }
 
   /**
    * Check if a specific episode is watched

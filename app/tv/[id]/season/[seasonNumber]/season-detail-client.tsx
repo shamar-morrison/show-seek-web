@@ -426,6 +426,7 @@ export function SeasonDetailClient({
               tvShowSeasons={tvShow.seasons}
               tvShowVoteAverage={tvShow.vote_average}
               tvShowFirstAirDate={tvShow.first_air_date}
+              watchedEpisodes={tracking?.episodes}
             />
           ))}
         </div>

@@ -64,10 +64,10 @@ function createProgress(overrides: Partial<WatchProgressItem> = {}): WatchProgre
       title: "The Grim Barbarity of Optics and Design",
     },
     nextEpisode: {
+      kind: "unwatched",
       season: 1,
       episode: 6,
       title: "Hide and Seek",
-      airDate: null,
     },
     isHidden: false,
     ...overrides,
@@ -92,6 +92,96 @@ describe("WatchProgressCard", () => {
       "src",
       "https://image.tmdb.org/t/p/w185/custom-show-poster.jpg",
     )
+  })
+
+  it("links to season detail and shows time remaining when next episode is unwatched", () => {
+    render(
+      <WatchProgressCard
+        progress={createProgress({
+          timeRemaining: 120,
+          nextEpisode: {
+            kind: "unwatched",
+            season: 1,
+            episode: 6,
+            title: "Hide and Seek",
+          },
+        })}
+      />,
+    )
+
+    const links = screen.getAllByRole("link", { name: "Severance" })
+    expect(links.length).toBeGreaterThanOrEqual(1)
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/tv/101/season/1"))
+    expect(screen.getByText("Next:")).toBeInTheDocument()
+    expect(screen.getByText("S1E6: Hide and Seek")).toBeInTheDocument()
+    expect(screen.getByText("2h left")).toBeInTheDocument()
+  })
+
+  it("links to season detail and hides time remaining when next episode is upcoming with season > 0", () => {
+    render(
+      <WatchProgressCard
+        progress={createProgress({
+          timeRemaining: 90,
+          nextEpisode: {
+            kind: "upcoming",
+            season: 2,
+            episode: 1,
+            title: "Episode 1",
+          },
+        })}
+      />,
+    )
+
+    const links = screen.getAllByRole("link", { name: "Severance" })
+    expect(links.length).toBeGreaterThanOrEqual(1)
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/tv/101/season/2"))
+    expect(screen.getByText("Next:")).toBeInTheDocument()
+    expect(screen.getByText("S2E1: Episode 1")).toBeInTheDocument()
+    expect(screen.queryByText(/left/)).not.toBeInTheDocument()
+  })
+
+  it("links to show detail and shows 'Caught up!' when next episode is upcoming with season 0", () => {
+    render(
+      <WatchProgressCard
+        progress={createProgress({
+          timeRemaining: 0,
+          nextEpisode: {
+            kind: "upcoming",
+            season: 0,
+            episode: 0,
+            title: "",
+          },
+        })}
+      />,
+    )
+
+    const links = screen.getAllByRole("link", { name: "Severance" })
+    expect(links.length).toBeGreaterThanOrEqual(1)
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/tv/101"))
+    expect(screen.getByText("Next:")).toBeInTheDocument()
+    expect(screen.getByText("Caught up!")).toBeInTheDocument()
+    expect(screen.queryByText(/left/)).not.toBeInTheDocument()
+  })
+
+  it("links to show detail and shows 'Series complete' without 'Next:' label when complete", () => {
+    render(
+      <WatchProgressCard
+        progress={createProgress({
+          percentage: 100,
+          timeRemaining: 0,
+          nextEpisode: {
+            kind: "complete",
+          },
+        })}
+      />,
+    )
+
+    const links = screen.getAllByRole("link", { name: "Severance" })
+    expect(links.length).toBeGreaterThanOrEqual(1)
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/tv/101"))
+    expect(screen.getByText("Series complete")).toBeInTheDocument()
+    expect(screen.queryByText("Next:")).not.toBeInTheDocument()
+    expect(screen.queryByText(/left/)).not.toBeInTheDocument()
   })
 
   it("calls setHiddenFromProgress with hidden: true when clicking the hide button", async () => {

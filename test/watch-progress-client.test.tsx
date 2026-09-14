@@ -84,12 +84,15 @@ const buildShow = (
     episode: 1,
     title: "Episode 1",
   },
-  nextEpisode: overrides.nextEpisode ?? {
-    season: 1,
-    episode: 2,
-    title: "Episode 2",
-    airDate: null,
-  },
+  nextEpisode:
+    overrides.nextEpisode !== undefined
+      ? overrides.nextEpisode
+      : {
+          kind: "unwatched",
+          season: 1,
+          episode: 2,
+          title: "Episode 2",
+        },
   watchedCount: overrides.watchedCount ?? 1,
   totalEpisodes: overrides.totalEpisodes ?? 10,
   avgRuntime: overrides.avgRuntime ?? 45,
@@ -250,26 +253,55 @@ describe("WatchProgressClient", () => {
     expect(screen.getByText('No shows match "missing"')).toBeInTheDocument()
   })
 
-  it("keeps fully completed shows out of the list", () => {
+  it("keeps completed and caught-up shows out of Watching and places them in Caught Up", () => {
     mocks.watchProgress = [
       buildShow({
         tvShowId: 1,
         tvShowName: "Complete Show",
         lastUpdated: 999,
         percentage: 100,
+        nextEpisode: { kind: "complete" },
       }),
       buildShow({
         tvShowId: 2,
+        tvShowName: "Caught Up Show",
+        lastUpdated: 800,
+        percentage: 100,
+        nextEpisode: {
+          kind: "upcoming",
+          season: 2,
+          episode: 1,
+          title: "Season 2 Premiere",
+        },
+      }),
+      buildShow({
+        tvShowId: 3,
         tvShowName: "Still Watching",
         lastUpdated: 100,
         percentage: 65,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 1,
+          episode: 2,
+          title: "Episode 2",
+        },
       }),
     ]
 
     render(<WatchProgressClient />)
 
+    // In default Watching tab: only Still Watching is present
     expect(screen.queryByText("Complete Show")).not.toBeInTheDocument()
+    expect(screen.queryByText("Caught Up Show")).not.toBeInTheDocument()
     expect(screen.getByText("Still Watching")).toBeInTheDocument()
+
+    // Switch to Caught Up tab:
+    const caughtUpTab = screen.getByTestId("watch-progress-caught-up-tab")
+    fireEvent.click(caughtUpTab)
+
+    expect(screen.getByText("Complete Show")).toBeInTheDocument()
+    expect(screen.getByText("Caught Up Show")).toBeInTheDocument()
+    expect(screen.queryByText("Still Watching")).not.toBeInTheDocument()
   })
 
   it("excludes hidden shows from default Watching view and displays them in the Hidden tab", () => {
@@ -305,8 +337,8 @@ describe("WatchProgressClient", () => {
     expect(screen.queryByText("Visible Show")).not.toBeInTheDocument()
 
     // Switch back to Watching tab
-    const activeTab = screen.getByTestId("watch-progress-active-tab")
-    fireEvent.click(activeTab)
+    const watchingTab = screen.getByTestId("watch-progress-watching-tab")
+    fireEvent.click(watchingTab)
 
     expect(screen.getByText("Visible Show")).toBeInTheDocument()
     expect(screen.queryByText("Archived Show")).not.toBeInTheDocument()

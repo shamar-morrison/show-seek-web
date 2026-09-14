@@ -51,6 +51,8 @@ interface EpisodeCardProps {
   tvShowVoteAverage?: number
   /** TV show first air date for list feature */
   tvShowFirstAirDate?: string
+  /** Watched episodes map for gap-aware next episode calculation */
+  watchedEpisodes?: Record<string, unknown> | Set<string>
 }
 
 /**
@@ -68,6 +70,7 @@ export function EpisodeCard({
   tvShowSeasons,
   tvShowVoteAverage,
   tvShowFirstAirDate,
+  watchedEpisodes,
 }: EpisodeCardProps) {
   const { user } = useAuth()
   const { getEpisodeRating } = useRatings()
@@ -139,8 +142,14 @@ export function EpisodeCard({
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
-    () => computeNextEpisode(episode, allSeasonEpisodes, tvShowSeasons),
-    [allSeasonEpisodes, episode, tvShowSeasons],
+    () =>
+      computeNextEpisode(
+        episode,
+        allSeasonEpisodes,
+        tvShowSeasons,
+        watchedEpisodes,
+      ),
+    [allSeasonEpisodes, episode, tvShowSeasons, watchedEpisodes],
   )
 
   const handleMarkWatched = useCallback(async () => {

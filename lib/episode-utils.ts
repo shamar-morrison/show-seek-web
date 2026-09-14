@@ -37,49 +37,61 @@ export function computeNextEpisode(
   currentEpisode: { season_number: number; episode_number: number },
   allSeasonEpisodes: TMDBSeasonEpisode[],
   tvShowSeasons?: TMDBSeason[],
+  watchedKeys?: Set<string> | Record<string, unknown>,
 ): NextEpisodeInfo | null {
   // Filter to only aired episodes and sort by episode number to ensure correct order
   const airedEpisodes = allSeasonEpisodes
     .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
     .sort((a, b) => a.episode_number - b.episode_number)
 
-  // Find the current episode index in aired episodes
-  const currentIndex = airedEpisodes.findIndex(
-    (ep) => ep.episode_number === currentEpisode.episode_number,
-  )
-
-  // Check if there's a next episode in this season
-  if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
-    const nextEp = airedEpisodes[currentIndex + 1]
-    return {
-      season: nextEp.season_number,
-      episode: nextEp.episode_number,
-      title: nextEp.name,
-      airDate: nextEp.air_date,
+  const isWatched = (s: number, e: number) => {
+    if (
+      s === currentEpisode.season_number &&
+      e === currentEpisode.episode_number
+    ) {
+      return true
     }
+    if (!watchedKeys) return false
+    const key = `${s}_${e}`
+    return watchedKeys instanceof Set
+      ? watchedKeys.has(key)
+      : Boolean((watchedKeys as Record<string, unknown>)[key])
   }
 
-  // If this is the last episode, check for next season
-  if (tvShowSeasons && tvShowSeasons.length > 0) {
-    // Filter to seasons after current and sort by season number
-    const nextSeasons = tvShowSeasons
-      .filter(
-        (s) =>
-          s.season_number > currentEpisode.season_number && s.season_number > 0,
-      )
-      .sort((a, b) => a.season_number - b.season_number)
+  if (watchedKeys) {
+    const firstUnwatched = airedEpisodes.find(
+      (ep) => !isWatched(ep.season_number, ep.episode_number),
+    )
 
-    if (nextSeasons.length > 0) {
-      const nextSeason = nextSeasons[0]
+    if (firstUnwatched) {
       return {
-        season: nextSeason.season_number,
-        episode: 1,
-        title: `${nextSeason.name} Episode 1`,
-        airDate: nextSeason.air_date || null,
+        season: firstUnwatched.season_number,
+        episode: firstUnwatched.episode_number,
+        title: firstUnwatched.name,
+        airDate: firstUnwatched.air_date,
+      }
+    }
+  } else {
+    // Find the current episode index in aired episodes
+    const currentIndex = airedEpisodes.findIndex(
+      (ep) => ep.episode_number === currentEpisode.episode_number,
+    )
+
+    // Check if there's a next episode in this season
+    if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
+      const nextEp = airedEpisodes[currentIndex + 1]
+      return {
+        season: nextEp.season_number,
+        episode: nextEp.episode_number,
+        title: nextEp.name,
+        airDate: nextEp.air_date,
       }
     }
   }
 
-  // No more episodes - user is caught up!
+  // All aired episodes in the current season are watched.
+  // Return null rather than guessing into subsequent seasons from season-level summaries,
+  // since season summaries lack per-episode air dates and include announced unaired episodes.
+  // Authoritative cross-season up-next state is resolved by useWatchProgressEnrichment.
   return null
 }
