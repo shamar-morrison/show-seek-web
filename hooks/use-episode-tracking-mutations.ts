@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/auth-context"
 import { useOptionalTrakt } from "@/context/trakt-context"
+import { computeNextEpisode } from "@/lib/episode-utils"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import { maybeWarnTraktManagedWatchedEdit } from "@/lib/trakt-managed-edits"
 import { episodeTrackingService } from "@/services/episode-tracking-service"
@@ -262,6 +263,9 @@ export function useEpisodeTrackingMutations() {
           episodeAirDate: variables.episodeData.episodeAirDate,
         }
 
+        let optimisticNextEpisode = variables.nextEpisode
+        let earlierEpisodesAdded = false
+
         if (
           variables.markPreviousEpisodesWatched &&
           variables.seasonEpisodes?.length
@@ -284,14 +288,49 @@ export function useEpisodeTrackingMutations() {
               episodeName: seasonEpisode.name,
               episodeAirDate: seasonEpisode.air_date,
             }
+            earlierEpisodesAdded = true
           })
+
+          if (earlierEpisodesAdded && optimisticNextEpisode !== undefined) {
+            const nextEpKey = optimisticNextEpisode
+              ? episodeKey(
+                  optimisticNextEpisode.season,
+                  optimisticNextEpisode.episode,
+                )
+              : null
+
+            if (nextEpKey && nextShow.episodes[nextEpKey]) {
+              const tmdbSeasonEpisodes = variables.seasonEpisodes.map((ep) => ({
+                id: ep.id,
+                episode_number: ep.episode_number,
+                name: ep.name,
+                overview: "",
+                air_date: ep.air_date,
+                runtime: null,
+                still_path: null,
+                vote_average: 0,
+                vote_count: 0,
+                season_number: variables.seasonNumber,
+              }))
+
+              optimisticNextEpisode = computeNextEpisode(
+                {
+                  season_number: variables.seasonNumber,
+                  episode_number: variables.episodeNumber,
+                },
+                tmdbSeasonEpisodes,
+                undefined,
+                new Set(Object.keys(nextShow.episodes)),
+              )
+            }
+          }
         }
 
         nextShow.metadata = patchMetadata(
           nextShow.metadata,
           variables.showMetadata,
           variables.showStats,
-          variables.nextEpisode,
+          optimisticNextEpisode,
         )
 
         return nextShow

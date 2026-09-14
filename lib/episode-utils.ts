@@ -44,20 +44,21 @@ export function computeNextEpisode(
     .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
     .sort((a, b) => a.episode_number - b.episode_number)
 
-  if (watchedKeys) {
-    const isWatched = (s: number, e: number) => {
-      if (
-        s === currentEpisode.season_number &&
-        e === currentEpisode.episode_number
-      ) {
-        return true
-      }
-      const key = `${s}_${e}`
-      return watchedKeys instanceof Set
-        ? watchedKeys.has(key)
-        : Boolean((watchedKeys as Record<string, unknown>)[key])
+  const isWatched = (s: number, e: number) => {
+    if (
+      s === currentEpisode.season_number &&
+      e === currentEpisode.episode_number
+    ) {
+      return true
     }
+    if (!watchedKeys) return false
+    const key = `${s}_${e}`
+    return watchedKeys instanceof Set
+      ? watchedKeys.has(key)
+      : Boolean((watchedKeys as Record<string, unknown>)[key])
+  }
 
+  if (watchedKeys) {
     const firstUnwatched = airedEpisodes.find(
       (ep) => !isWatched(ep.season_number, ep.episode_number),
     )
@@ -88,9 +89,9 @@ export function computeNextEpisode(
     }
   }
 
-  // If this is the last episode, check for next season
+  // If current season is complete, check subsequent seasons
   if (tvShowSeasons && tvShowSeasons.length > 0) {
-    // Filter to seasons after current and sort by season number
+    // Filter to regular seasons after current and sort by season number
     const nextSeasons = tvShowSeasons
       .filter(
         (s) =>
@@ -98,8 +99,63 @@ export function computeNextEpisode(
       )
       .sort((a, b) => a.season_number - b.season_number)
 
-    if (nextSeasons.length > 0) {
-      const nextSeason = nextSeasons[0]
+    for (const nextSeason of nextSeasons) {
+      const candidateEpisodes = (
+        nextSeason as { episodes?: TMDBSeasonEpisode[] }
+      ).episodes
+
+      if (candidateEpisodes && candidateEpisodes.length > 0) {
+        const nextAiredEpisodes = candidateEpisodes
+          .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
+          .sort((a, b) => a.episode_number - b.episode_number)
+
+        const firstUnwatchedInSeason = watchedKeys
+          ? nextAiredEpisodes.find(
+              (ep) =>
+                !isWatched(
+                  ep.season_number ?? nextSeason.season_number,
+                  ep.episode_number,
+                ),
+            )
+          : nextAiredEpisodes[0]
+
+        if (firstUnwatchedInSeason) {
+          return {
+            season:
+              firstUnwatchedInSeason.season_number ?? nextSeason.season_number,
+            episode: firstUnwatchedInSeason.episode_number,
+            title: firstUnwatchedInSeason.name,
+            airDate: firstUnwatchedInSeason.air_date,
+          }
+        }
+        // All aired episodes in this season are watched, continue to next season
+        continue
+      }
+
+      if (watchedKeys) {
+        const episodeCount = nextSeason.episode_count ?? 1
+        let foundUnwatchedEpisode: number | null = null
+
+        for (let epNum = 1; epNum <= episodeCount; epNum += 1) {
+          if (!isWatched(nextSeason.season_number, epNum)) {
+            foundUnwatchedEpisode = epNum
+            break
+          }
+        }
+
+        if (foundUnwatchedEpisode !== null) {
+          return {
+            season: nextSeason.season_number,
+            episode: foundUnwatchedEpisode,
+            title: `${nextSeason.name || `Season ${nextSeason.season_number}`} Episode ${foundUnwatchedEpisode}`,
+            airDate: nextSeason.air_date || null,
+          }
+        }
+        // All episodes in this season are watched, continue to next season
+        continue
+      }
+
+      // Fallback when watchedKeys is not provided
       return {
         season: nextSeason.season_number,
         episode: 1,

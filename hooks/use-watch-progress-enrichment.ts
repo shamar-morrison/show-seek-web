@@ -440,10 +440,14 @@ export function useWatchProgressEnrichment(
 
               const today = new Date()
               const seasonCounts = buildSeasonCounts(details.seasons)
-              const totalKnownEpisodes = seasonCounts.reduce(
+              const regularSeasonsTotal = seasonCounts.reduce(
                 (sum, [, count]) => sum + count,
                 0,
               )
+              const totalKnownEpisodes =
+                regularSeasonsTotal > 0
+                  ? regularSeasonsTotal
+                  : details.totalEpisodes || 0
               const furthestWatched = getFurthestWatched(watchedKeys)
               const nextEpisodeNumbers = getNextEpisodeAfter(
                 seasonCounts,
@@ -560,9 +564,26 @@ export function useWatchProgressEnrichment(
               )
               const hasWatchedAhead = furthestWatchedPosition > totalAiredEpisodes
 
+              const seasonCountMap = new Map(seasonCounts)
+              let watchedAheadCount = 0
+              if (hasWatchedAhead) {
+                for (const key of watchedKeys) {
+                  const parsed = parseEpisodeKey(key)
+                  if (!parsed || parsed.season <= 0) continue
+                  const maxEpisodes = seasonCountMap.get(parsed.season)
+                  if (
+                    maxEpisodes !== undefined &&
+                    parsed.episode > 0 &&
+                    parsed.episode <= maxEpisodes
+                  ) {
+                    watchedAheadCount += 1
+                  }
+                }
+              }
+
               // Numerator: count of watched episodes (all watched if watched ahead, otherwise actual watched aired episodes)
               const watchedCount = hasWatchedAhead
-                ? watchedKeys.size
+                ? watchedAheadCount
                 : Math.max(0, totalAiredEpisodes - remainingAiredEpisodes)
 
               // Denominator: always total known episodes (Option A+)

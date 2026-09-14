@@ -2,6 +2,7 @@
 
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/config"
 import { normalizeEpisodeTrackingDoc } from "@/lib/episode-tracking-normalization"
+import { computeNextEpisode } from "@/lib/episode-utils"
 import type {
   EpisodeTrackingMetadata,
   TVShowEpisodeTracking,
@@ -167,11 +168,15 @@ class EpisodeTrackingService {
         [episodeKey]: watchedEpisode,
       }
 
+      let resolvedNextEpisode = nextEpisode
+
       if (markPreviousEpisodesWatched && seasonEpisodes?.length) {
         const snapshot = await this.withTimeout(getDoc(trackingRef))
         const existingEpisodes = snapshot.exists()
           ? normalizeEpisodeTrackingDoc(snapshot.data()).episodes
           : {}
+
+        let earlierEpisodesAdded = false
 
         seasonEpisodes.forEach((seasonEpisode) => {
           if (seasonEpisode.episode_number >= episodeNumber) return
@@ -203,7 +208,44 @@ class EpisodeTrackingService {
             episodeName: seasonEpisode.name,
             episodeAirDate: seasonEpisode.air_date,
           }
+          earlierEpisodesAdded = true
         })
+
+        if (earlierEpisodesAdded && resolvedNextEpisode !== undefined) {
+          const effectiveWatchedKeys = new Set([
+            ...Object.keys(existingEpisodes),
+            ...Object.keys(episodesMap),
+          ])
+
+          const nextEpKey = resolvedNextEpisode
+            ? this.getEpisodeKey(
+                resolvedNextEpisode.season,
+                resolvedNextEpisode.episode,
+              )
+            : null
+
+          if (nextEpKey && effectiveWatchedKeys.has(nextEpKey)) {
+            const tmdbSeasonEpisodes = seasonEpisodes.map((ep) => ({
+              id: ep.id,
+              episode_number: ep.episode_number,
+              name: ep.name,
+              overview: "",
+              air_date: ep.air_date,
+              runtime: null,
+              still_path: null,
+              vote_average: 0,
+              vote_count: 0,
+              season_number: seasonNumber,
+            }))
+
+            resolvedNextEpisode = computeNextEpisode(
+              { season_number: seasonNumber, episode_number: episodeNumber },
+              tmdbSeasonEpisodes,
+              undefined,
+              effectiveWatchedKeys,
+            )
+          }
+        }
       }
 
       const metadata: EpisodeTrackingMetadata = {
@@ -216,7 +258,9 @@ class EpisodeTrackingService {
           avgRuntime: showStats.avgRuntime,
         }),
         // nextEpisode can be null (caught up) or object - only include if explicitly provided
-        ...(nextEpisode !== undefined && { nextEpisode }),
+        ...(resolvedNextEpisode !== undefined && {
+          nextEpisode: resolvedNextEpisode,
+        }),
       }
 
       await this.withTimeout(
