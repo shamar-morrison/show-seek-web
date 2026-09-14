@@ -1,7 +1,5 @@
 "use client"
 
-import { Cancel01Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect } from "react"
 
 interface TrailerModalProps {
@@ -69,18 +67,9 @@ export function TrailerModal({
         aria-hidden="true"
       />
 
+
       {/* Modal Content */}
       <div className="relative z-10 w-full max-w-5xl px-4">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute -top-12 right-4 flex items-center gap-2 text-white/70 transition-colors hover:text-white"
-          aria-label="Close trailer"
-        >
-          <span className="text-sm font-medium">Close</span>
-          <HugeiconsIcon icon={Cancel01Icon} className="size-6" />
-        </button>
-
         {/* Video Container - 16:9 aspect ratio */}
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-2xl">
           <iframe
