@@ -94,6 +94,16 @@ export interface ShowProgress {
 }
 
 /**
+ * Discriminated union representing the "next episode" state on the Watch Progress dashboard.
+ * Matches mobile implementation.
+ */
+export type NextEpisodeState =
+  | { kind: "unwatched"; season: number; episode: number; title: string }
+  | { kind: "upcoming"; season: number; episode: number; title: string }
+  | { kind: "complete" }
+  | null
+
+/**
  * Data structure for the "Currently Watching" dashboard
  */
 export interface InProgressShow {
@@ -104,15 +114,12 @@ export interface InProgressShow {
   lastUpdated: number
   percentage: number
   timeRemaining: number // in minutes
+  showEnded?: boolean
   lastWatchedEpisode: {
     season: number
     episode: number
     title: string
   }
-  nextEpisode: {
-    season: number
-    episode: number
-    title: string
-    airDate: string | null
-  } | null // null if caught up
+  nextEpisode: NextEpisodeState
 }
+

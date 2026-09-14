@@ -15,6 +15,7 @@ import { useAuth } from "@/context/auth-context"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import { useWatchProgressEnrichment } from "@/hooks/use-watch-progress-enrichment"
 import {
+  CheckmarkCircle02Icon,
   Loading03Icon,
   PlayCircle02Icon,
   Search01Icon,
@@ -34,7 +35,7 @@ const DEFAULT_SORT_STATE: SortState = {
   direction: "desc",
 }
 
-type WatchProgressTab = "active" | "hidden"
+export type WatchProgressTab = "watching" | "caughtUp" | "hidden"
 
 /**
  * WatchProgressClient Component
@@ -51,13 +52,27 @@ export function WatchProgressClient() {
     watchProgress,
     watchedEpisodesByShow,
   )
-  const [activeTab, setActiveTab] = useState<WatchProgressTab>("active")
+  const [activeTab, setActiveTab] = useState<WatchProgressTab>("watching")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT_STATE)
 
-  // Split into active (not hidden and not completed) and hidden shows
-  const activeShows = useMemo(
-    () => enrichedProgress.filter((p) => !p.isHidden && p.percentage < 100),
+  // Split into watching vs caught up vs hidden shows matching mobile
+  const watchingShows = useMemo(
+    () =>
+      enrichedProgress.filter(
+        (p) => !p.isHidden && p.nextEpisode?.kind === "unwatched",
+      ),
+    [enrichedProgress],
+  )
+
+  const caughtUpShows = useMemo(
+    () =>
+      enrichedProgress.filter(
+        (p) =>
+          !p.isHidden &&
+          (p.nextEpisode?.kind === "upcoming" ||
+            p.nextEpisode?.kind === "complete"),
+      ),
     [enrichedProgress],
   )
 
@@ -66,7 +81,12 @@ export function WatchProgressClient() {
     [enrichedProgress],
   )
 
-  const currentTabShows = activeTab === "active" ? activeShows : hiddenShows
+  const currentTabShows =
+    activeTab === "watching"
+      ? watchingShows
+      : activeTab === "caughtUp"
+        ? caughtUpShows
+        : hiddenShows
 
   // Filter shows by search query
   const filteredProgress = useMemo(() => {
@@ -139,11 +159,19 @@ export function WatchProgressClient() {
       <div className="flex items-center gap-2">
         <FilterTabButton
           label="Watching"
-          count={activeShows.length}
-          isActive={activeTab === "active"}
+          count={watchingShows.length}
+          isActive={activeTab === "watching"}
           icon={PlayCircle02Icon}
-          onClick={() => setActiveTab("active")}
-          testId="watch-progress-active-tab"
+          onClick={() => setActiveTab("watching")}
+          testId="watch-progress-watching-tab"
+        />
+        <FilterTabButton
+          label="Caught Up"
+          count={caughtUpShows.length}
+          isActive={activeTab === "caughtUp"}
+          icon={CheckmarkCircle02Icon}
+          onClick={() => setActiveTab("caughtUp")}
+          testId="watch-progress-caught-up-tab"
         />
         <FilterTabButton
           label="Hidden"
@@ -198,18 +226,30 @@ export function WatchProgressClient() {
         <Empty className="py-20">
           <EmptyMedia variant="icon">
             <HugeiconsIcon
-              icon={activeTab === "active" ? PlayCircle02Icon : ViewOffSlashIcon}
+              icon={
+                activeTab === "watching"
+                  ? PlayCircle02Icon
+                  : activeTab === "caughtUp"
+                    ? CheckmarkCircle02Icon
+                    : ViewOffSlashIcon
+              }
               className="size-6"
             />
           </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>
-              {activeTab === "active" ? "No shows in progress" : "No hidden shows"}
+              {activeTab === "watching"
+                ? "No shows in progress"
+                : activeTab === "caughtUp"
+                  ? "No caught-up shows"
+                  : "No hidden shows"}
             </EmptyTitle>
             <EmptyDescription>
-              {activeTab === "active"
-                ? "All your tracked TV shows are either completed or hidden."
-                : "Shows you hide from watch progress will appear here."}
+              {activeTab === "watching"
+                ? "All your tracked TV shows are either caught up or hidden."
+                : activeTab === "caughtUp"
+                  ? "Shows you're caught up on will appear here."
+                  : "Shows you hide from watch progress will appear here."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

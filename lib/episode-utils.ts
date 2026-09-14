@@ -37,25 +37,54 @@ export function computeNextEpisode(
   currentEpisode: { season_number: number; episode_number: number },
   allSeasonEpisodes: TMDBSeasonEpisode[],
   tvShowSeasons?: TMDBSeason[],
+  watchedKeys?: Set<string> | Record<string, unknown>,
 ): NextEpisodeInfo | null {
   // Filter to only aired episodes and sort by episode number to ensure correct order
   const airedEpisodes = allSeasonEpisodes
     .filter((ep) => isTmdbDateOnOrBeforeToday(ep.air_date))
     .sort((a, b) => a.episode_number - b.episode_number)
 
-  // Find the current episode index in aired episodes
-  const currentIndex = airedEpisodes.findIndex(
-    (ep) => ep.episode_number === currentEpisode.episode_number,
-  )
+  if (watchedKeys) {
+    const isWatched = (s: number, e: number) => {
+      if (
+        s === currentEpisode.season_number &&
+        e === currentEpisode.episode_number
+      ) {
+        return true
+      }
+      const key = `${s}_${e}`
+      return watchedKeys instanceof Set
+        ? watchedKeys.has(key)
+        : Boolean((watchedKeys as Record<string, unknown>)[key])
+    }
 
-  // Check if there's a next episode in this season
-  if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
-    const nextEp = airedEpisodes[currentIndex + 1]
-    return {
-      season: nextEp.season_number,
-      episode: nextEp.episode_number,
-      title: nextEp.name,
-      airDate: nextEp.air_date,
+    const firstUnwatched = airedEpisodes.find(
+      (ep) => !isWatched(ep.season_number, ep.episode_number),
+    )
+
+    if (firstUnwatched) {
+      return {
+        season: firstUnwatched.season_number,
+        episode: firstUnwatched.episode_number,
+        title: firstUnwatched.name,
+        airDate: firstUnwatched.air_date,
+      }
+    }
+  } else {
+    // Find the current episode index in aired episodes
+    const currentIndex = airedEpisodes.findIndex(
+      (ep) => ep.episode_number === currentEpisode.episode_number,
+    )
+
+    // Check if there's a next episode in this season
+    if (currentIndex >= 0 && currentIndex < airedEpisodes.length - 1) {
+      const nextEp = airedEpisodes[currentIndex + 1]
+      return {
+        season: nextEp.season_number,
+        episode: nextEp.episode_number,
+        title: nextEp.name,
+        airDate: nextEp.air_date,
+      }
     }
   }
 

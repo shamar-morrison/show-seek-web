@@ -56,22 +56,20 @@ export function WatchProgressCard({
     resolvePosterPath("tv", progress.tvShowId, progress.posterPath),
     "w185",
   )
-  const tvUrl = `/tv/${progress.tvShowId}`
+  const targetUrl =
+    progress.nextEpisode?.kind === "unwatched"
+      ? `/tv/${progress.tvShowId}/season/${progress.nextEpisode.season}`
+      : progress.nextEpisode?.kind === "upcoming" &&
+          progress.nextEpisode.season > 0
+        ? `/tv/${progress.tvShowId}/season/${progress.nextEpisode.season}`
+        : `/tv/${progress.tvShowId}`
 
-  // Format time remaining or show watched count as fallback
-  const remainingTimeText =
-    progress.timeRemaining > 0
-      ? formatRemainingTime(progress.timeRemaining)
-      : progress.percentage >= 100
-        ? "Complete"
-        : ""
-
-  // Format next episode text - show "Caught up!" when no next episode
-  const nextEpisodeText = progress.nextEpisode
-    ? progress.nextEpisode.title
-      ? `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}: ${progress.nextEpisode.title}`
-      : `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}`
-    : "Caught up!"
+  // Format time remaining only when unwatched episodes exist
+  const showTimeRemaining =
+    progress.nextEpisode?.kind === "unwatched" && progress.timeRemaining > 0
+  const remainingTimeText = showTimeRemaining
+    ? formatRemainingTime(progress.timeRemaining)
+    : null
 
   // Determine progress width (use actual percentage or fallback)
   const progressWidth = progress.percentage > 0 ? progress.percentage : 0
@@ -190,7 +188,7 @@ export function WatchProgressCard({
       </div>
 
       {/* TV Show Poster */}
-      <Link href={tvUrl} className="shrink-0">
+      <Link href={targetUrl} className="shrink-0">
         <div className="relative aspect-2/3 w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
           {posterUrl ? (
             <img
@@ -212,7 +210,7 @@ export function WatchProgressCard({
         {/* Title Row */}
         <div className="flex items-start justify-between gap-2">
           <Link
-            href={tvUrl}
+            href={targetUrl}
             className="truncate font-semibold text-white hover:text-primary transition-colors"
           >
             {progress.tvShowName}
@@ -220,12 +218,25 @@ export function WatchProgressCard({
         </div>
 
         {/* Next Episode */}
-        {nextEpisodeText && (
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-primary font-medium">Next:</span>
-            <span className="truncate text-gray-300">{nextEpisodeText}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1 text-sm">
+          {progress.nextEpisode?.kind === "complete" ? (
+            <span className="truncate text-gray-300">Series complete</span>
+          ) : (
+            <>
+              <span className="text-primary font-medium">Next:</span>
+              <span className="truncate text-gray-300">
+                {progress.nextEpisode?.kind === "unwatched" ||
+                progress.nextEpisode?.kind === "upcoming"
+                  ? progress.nextEpisode.season > 0
+                    ? progress.nextEpisode.title
+                      ? `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}: ${progress.nextEpisode.title}`
+                      : `S${progress.nextEpisode.season}E${progress.nextEpisode.episode}`
+                    : progress.nextEpisode.title || "Caught up!"
+                  : "Caught up!"}
+              </span>
+            </>
+          )}
+        </div>
 
         {/* Time Remaining + Progress Bar */}
         <div className="mt-auto flex flex-col gap-1">
@@ -240,9 +251,7 @@ export function WatchProgressCard({
               />
             </div>
             <span className="shrink-0 text-xs text-gray-400">
-              {progress.percentage > 0
-                ? `${progress.percentage}%`
-                : `${progress.watchedCount} ep`}
+              {`${progress.percentage}%`}
             </span>
           </div>
         </div>

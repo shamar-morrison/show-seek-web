@@ -20,6 +20,19 @@ import type { WatchProvider } from "@/types/tmdb"
 export interface TVShowDetailsData {
   totalEpisodes: number
   avgRuntime: number
+  status: string | null
+  next_episode_to_air: {
+    season_number: number
+    episode_number: number
+    name: string
+    air_date: string | null
+  } | null
+  last_episode_to_air: {
+    season_number: number
+    episode_number: number
+    name: string
+    air_date: string | null
+  } | null
   seasons: Array<{
     season_number: number
     episode_count: number
@@ -43,9 +56,37 @@ export async function fetchTVShowDetails(
         ? details.episode_run_time[0]
         : 45
 
+    const regularSeasonsTotal = details.seasons
+      ? details.seasons
+          .filter((s) => s.season_number > 0)
+          .reduce((acc, s) => acc + (s.episode_count || 0), 0)
+      : 0
+
+    const totalEpisodes =
+      regularSeasonsTotal > 0
+        ? regularSeasonsTotal
+        : details.number_of_episodes || 0
+
     return {
-      totalEpisodes: details.number_of_episodes || 0,
+      totalEpisodes,
       avgRuntime,
+      status: details.status ?? null,
+      next_episode_to_air: details.next_episode_to_air
+        ? {
+            season_number: details.next_episode_to_air.season_number,
+            episode_number: details.next_episode_to_air.episode_number,
+            name: details.next_episode_to_air.name,
+            air_date: details.next_episode_to_air.air_date,
+          }
+        : null,
+      last_episode_to_air: details.last_episode_to_air
+        ? {
+            season_number: details.last_episode_to_air.season_number,
+            episode_number: details.last_episode_to_air.episode_number,
+            name: details.last_episode_to_air.name,
+            air_date: details.last_episode_to_air.air_date,
+          }
+        : null,
       seasons:
         details.seasons?.map((season) => ({
           season_number: season.season_number,

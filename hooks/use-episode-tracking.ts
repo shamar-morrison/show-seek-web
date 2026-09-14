@@ -87,6 +87,17 @@ function computeProgressFromCache(
   const remainingEpisodes = Math.max(0, totalEpisodes - watchedCount)
   const timeRemaining = remainingEpisodes * avgRuntime
 
+  const initialNextEpisode: InProgressShow["nextEpisode"] = metadata.nextEpisode
+    ? {
+        kind: "unwatched",
+        season: metadata.nextEpisode.season,
+        episode: metadata.nextEpisode.episode,
+        title: metadata.nextEpisode.title,
+      }
+    : percentage >= 100
+      ? { kind: "complete" }
+      : { kind: "upcoming", season: 0, episode: 0, title: "Caught up!" }
+
   return {
     tvShowId,
     tvShowName: metadata.tvShowName,
@@ -100,7 +111,7 @@ function computeProgressFromCache(
       episode: lastWatched.parsed.episode,
       title: lastWatched.data.episodeName,
     },
-    nextEpisode: metadata.nextEpisode ?? null,
+    nextEpisode: initialNextEpisode,
     watchedCount,
     totalEpisodes,
     avgRuntime,

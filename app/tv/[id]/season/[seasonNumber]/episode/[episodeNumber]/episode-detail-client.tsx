@@ -161,8 +161,14 @@ export function EpisodeDetailClient({
 
   // Compute next episode when marking this one as watched
   const getNextEpisode = useCallback(
-    () => computeNextEpisode(episode, season.episodes, tvShow.seasons),
-    [season.episodes, episode, tvShow.seasons],
+    () =>
+      computeNextEpisode(
+        episode,
+        season.episodes,
+        tvShow.seasons,
+        tracking?.episodes,
+      ),
+    [season.episodes, episode, tvShow.seasons, tracking?.episodes],
   )
 
   // Toggle watched status
