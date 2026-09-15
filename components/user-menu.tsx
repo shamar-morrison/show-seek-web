@@ -4,7 +4,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 import { Menu } from "@base-ui/react/menu"
-import { Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"
+import { CreditCardIcon, Logout03Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -25,7 +25,7 @@ function getFirstName(displayName: string | null): string {
  * Displays user avatar, first name, and dropdown with Profile/Logout options
  */
 export function UserMenu() {
-  const { user, isPremium, signOut } = useAuth()
+  const { user, isPremium, premiumProvider, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -98,6 +98,20 @@ export function UserMenu() {
               <HugeiconsIcon icon={UserIcon} className="size-4" />
               Profile
             </Menu.Item>
+
+            {isPremium && premiumProvider === "polar" && (
+              <Menu.Item
+                render={<a href="/api/billing/polar/portal" />}
+                className={cn(
+                  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-300 outline-none transition-colors",
+                  "hover:bg-white/8 hover:text-white",
+                  "focus-visible:bg-white/8 focus-visible:text-white",
+                )}
+              >
+                <HugeiconsIcon icon={CreditCardIcon} className="size-4 text-amber-400" />
+                Manage Subscription
+              </Menu.Item>
+            )}
 
             <Menu.Separator className="my-1.5 h-px bg-white/10" />
 

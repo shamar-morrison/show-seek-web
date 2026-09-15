@@ -26,6 +26,7 @@ export interface UserDocument {
     isPremium: boolean
     orderId?: string
     productId?: string
+    provider?: "polar" | "revenuecat"
     purchaseDate?: ReturnType<typeof serverTimestamp>
   }
   preferences?: StoredUserPreferences
