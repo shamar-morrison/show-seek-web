@@ -46,9 +46,9 @@ describe("Polar Customer Portal Route", () => {
       claims: { sub: "user-456" },
     })
 
-    let capturedBody: any
-    const fetchMock = vi.fn(async (url: string, init: any) => {
-      capturedBody = JSON.parse(init.body)
+    let capturedBody: Record<string, unknown> | undefined
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string)
       return {
         ok: true,
         status: 200,
@@ -57,7 +57,7 @@ describe("Polar Customer Portal Route", () => {
         }),
       }
     })
-    globalThis.fetch = fetchMock as any
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const request = new NextRequest("https://example.com/api/billing/polar/portal", {
       headers: { accept: "text/html" },
@@ -89,7 +89,7 @@ describe("Polar Customer Portal Route", () => {
         token: "session_token_xyz",
       }),
     }))
-    globalThis.fetch = fetchMock as any
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const request = new NextRequest("https://example.com/api/billing/polar/portal", {
       method: "POST",
@@ -98,7 +98,7 @@ describe("Polar Customer Portal Route", () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
-    const data = (await response.json()) as any
+    const data = (await response.json()) as { url?: string }
     expect(data.url).toBe(
       "https://polar.sh/purchases?customer_session_token=session_token_xyz",
     )

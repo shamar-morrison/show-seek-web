@@ -39,7 +39,7 @@ describe("GET /api/billing/polar/checkout", () => {
     const response = await GET(request)
 
     expect(response.status).toBe(401)
-    const data = (await response.json()) as any
+    const data = (await response.json()) as { error?: string }
     expect(data.error).toBe("Unauthorized")
   })
 
@@ -75,7 +75,7 @@ describe("GET /api/billing/polar/checkout", () => {
     const response = await GET(request)
 
     expect(response.status).toBe(400)
-    const data = (await response.json()) as any
+    const data = (await response.json()) as { error?: string }
     expect(data.error).toContain("Invalid plan parameter")
   })
 
@@ -88,11 +88,11 @@ describe("GET /api/billing/polar/checkout", () => {
       claims: { sub: "user-123", email: "user@example.com" },
     })
 
-    let capturedBody: any
-    let capturedHeaders: any
-    const fetchMock = vi.fn(async (url: string, init: any) => {
-      capturedBody = JSON.parse(init.body)
-      capturedHeaders = init.headers
+    let capturedBody: Record<string, unknown> | undefined
+    let capturedHeaders: Record<string, string> | undefined
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string)
+      capturedHeaders = init?.headers as Record<string, string>
       return {
         ok: true,
         status: 200,
@@ -101,7 +101,7 @@ describe("GET /api/billing/polar/checkout", () => {
         }),
       }
     })
-    globalThis.fetch = fetchMock as any
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const request = new NextRequest(
       "https://example.com/api/billing/polar/checkout?plan=yearly",

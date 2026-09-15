@@ -158,26 +158,9 @@ export async function verifySessionCookieValue(
   sessionCookie: string,
   mode: SessionVerificationMode = "strict",
 ): Promise<SessionVerificationResult> {
-  console.log("[AUTH DEBUG] Runtime env check:", {
-    FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID ?? "(unset)",
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "(unset)",
-    FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL
-      ? `${process.env.FIREBASE_ADMIN_CLIENT_EMAIL.slice(0, 15)}...`
-      : "(unset)",
-    FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY
-      ? `(set, length ${process.env.FIREBASE_ADMIN_PRIVATE_KEY.length})`
-      : "(unset)",
-    sessionCookieSnippet: sessionCookie ? `${sessionCookie.slice(0, 20)}...` : "(none)",
-    mode,
-  })
-
   const localResult = await verifySessionCookieLocally(sessionCookie)
 
   if (!isSessionVerificationValid(localResult)) {
-    console.warn("[AUTH DEBUG] Local verification failed:", {
-      status: localResult.status,
-      reason: localResult.reason,
-    })
     return localResult
   }
 
@@ -186,11 +169,9 @@ export async function verifySessionCookieValue(
   }
 
   try {
-    console.log("[AUTH DEBUG] Strict mode: looking up Firebase account for UID:", localResult.claims.sub)
     const account = await lookupFirebaseAccount(localResult.claims.sub)
 
     if (!account) {
-      console.warn("[AUTH DEBUG] lookupFirebaseAccount returned null (user not found in Firebase Auth)")
       return createSessionVerificationResult(
         "invalid",
         null,
@@ -199,7 +180,6 @@ export async function verifySessionCookieValue(
     }
 
     if (account.disabled) {
-      console.warn("[AUTH DEBUG] Account is disabled in Firebase Auth")
       return createSessionVerificationResult(
         "invalid",
         null,
@@ -208,10 +188,6 @@ export async function verifySessionCookieValue(
     }
 
     if (isSessionCookieRevoked(localResult.claims, account)) {
-      console.warn("[AUTH DEBUG] Session cookie revoked:", {
-        validSince: account.validSince,
-        auth_time: localResult.claims.auth_time,
-      })
       return createSessionVerificationResult(
         "invalid",
         null,
@@ -219,7 +195,6 @@ export async function verifySessionCookieValue(
       )
     }
 
-    console.log("[AUTH DEBUG] Strict verification passed for UID:", localResult.claims.sub)
     return createSessionVerificationResult(
       "valid",
       localResult.claims,
@@ -227,7 +202,6 @@ export async function verifySessionCookieValue(
       account,
     )
   } catch (error) {
-    console.warn("[AUTH DEBUG] lookupFirebaseAccount threw error:", error)
     return mapSessionVerificationError(error)
   }
 }
@@ -441,7 +415,6 @@ async function decodeAndVerifySessionCookie(
   const validationError = getInvalidSessionCookieReason(payload, projectId)
 
   if (header.alg !== "RS256" || !header.kid) {
-    console.warn("[AUTH DEBUG] Invalid JWT header:", header)
     throw new SessionVerificationError(
       "invalid",
       "Session cookie has an invalid header",
@@ -449,20 +422,6 @@ async function decodeAndVerifySessionCookie(
   }
 
   if (validationError) {
-    console.warn("[AUTH DEBUG] getInvalidSessionCookieReason failed:", {
-      validationError,
-      aud: payload.aud,
-      expectedAud: projectId,
-      iss: payload.iss,
-      expectedIss: `https://session.firebase.google.com/${projectId}`,
-      sub: payload.sub,
-      exp: payload.exp,
-      auth_time: payload.auth_time,
-      nowSeconds: Math.floor(Date.now() / 1000),
-      isExpired:
-        typeof payload.exp === "number" &&
-        payload.exp <= Math.floor(Date.now() / 1000),
-    })
     throw new SessionVerificationError("invalid", validationError)
   }
 
@@ -475,7 +434,6 @@ async function decodeAndVerifySessionCookie(
   )
 
   if (!isValid) {
-    console.warn("[AUTH DEBUG] SubtleCrypto signature verification failed for kid:", header.kid)
     throw new SessionVerificationError(
       "invalid",
       "Session cookie signature verification failed",

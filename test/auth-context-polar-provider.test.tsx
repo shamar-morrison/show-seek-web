@@ -4,7 +4,12 @@ import { AuthProvider, useAuth } from "@/context/auth-context"
 import { ReactNode } from "react"
 
 const authMock = { currentUser: { uid: "user-test" } }
-let snapshotListenerCallback: ((snapshot: any) => void) | null = null
+let snapshotListenerCallback:
+  | ((snapshot: {
+      exists: () => boolean
+      data: () => Record<string, unknown>
+    }) => void)
+  | null = null
 
 vi.mock("@/lib/firebase/config", () => ({
   getFirebaseAuth: vi.fn(() => authMock),
