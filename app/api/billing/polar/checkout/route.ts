@@ -7,6 +7,7 @@ import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 
 const POLAR_API_BASE = "https://api.polar.sh/v1"
+const POLAR_REQUEST_TIMEOUT_MS = 10_000
 
 function getPolarConfig() {
   const accessToken = process.env.POLAR_ACCESS_TOKEN?.trim()
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest) {
       },
       body: JSON.stringify(checkoutRequestBody),
       cache: "no-store",
+      signal: AbortSignal.timeout(POLAR_REQUEST_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -135,6 +137,17 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(checkoutUrl, 303)
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      console.error("Polar checkout session request timed out:", error)
+      return NextResponse.json(
+        { error: "Failed to create checkout session" },
+        { status: 502 },
+      )
+    }
+
     console.error("Error initiating Polar checkout:", error)
     return NextResponse.json(
       { error: "Failed to initiate checkout" },

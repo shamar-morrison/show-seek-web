@@ -103,4 +103,27 @@ describe("Polar Customer Portal Route", () => {
       "https://polar.sh/purchases?customer_session_token=session_token_xyz",
     )
   })
+
+  it("returns 502 when Polar request times out", async () => {
+    cookiesMock.mockResolvedValue({
+      get: vi.fn(() => ({ value: "valid-session" })),
+    })
+    verifySessionCookieValueMock.mockResolvedValue({
+      status: "valid",
+      claims: { sub: "user-456" },
+    })
+
+    const timeoutError = new Error("The operation was aborted due to timeout")
+    timeoutError.name = "TimeoutError"
+    globalThis.fetch = vi.fn(async () => {
+      throw timeoutError
+    }) as unknown as typeof fetch
+
+    const request = new NextRequest("https://example.com/api/billing/polar/portal")
+    const response = await GET(request)
+
+    expect(response.status).toBe(502)
+    const data = (await response.json()) as { error?: string }
+    expect(data.error).toBe("Failed to create portal session")
+  })
 })

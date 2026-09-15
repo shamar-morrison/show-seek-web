@@ -112,12 +112,38 @@ describe("GET /api/billing/polar/checkout", () => {
     expect(response.headers.get("location")).toBe(
       "https://polar.sh/checkout/chk_test123",
     )
-    expect(capturedHeaders.Authorization).toBe("Bearer polar_oat_test")
+    expect(capturedHeaders).toBeDefined()
+    expect(capturedHeaders?.Authorization).toBe("Bearer polar_oat_test")
     expect(capturedBody).toEqual({
       products: ["prod_polar_yearly_1"],
       success_url: "https://example.com/profile?checkout=success",
       external_customer_id: "user-123",
       customer_email: "user@example.com",
     })
+  })
+
+  it("returns 502 when Polar request times out", async () => {
+    cookiesMock.mockResolvedValue({
+      get: vi.fn(() => ({ value: "valid-session" })),
+    })
+    verifySessionCookieValueMock.mockResolvedValue({
+      status: "valid",
+      claims: { sub: "user-123", email: "user@example.com" },
+    })
+
+    const timeoutError = new Error("The operation was aborted due to timeout")
+    timeoutError.name = "TimeoutError"
+    globalThis.fetch = vi.fn(async () => {
+      throw timeoutError
+    }) as unknown as typeof fetch
+
+    const request = new NextRequest(
+      "https://example.com/api/billing/polar/checkout?plan=monthly",
+    )
+    const response = await GET(request)
+
+    expect(response.status).toBe(502)
+    const data = (await response.json()) as { error?: string }
+    expect(data.error).toBe("Failed to create checkout session")
   })
 })

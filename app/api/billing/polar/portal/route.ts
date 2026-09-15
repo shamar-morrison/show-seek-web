@@ -7,6 +7,7 @@ import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 
 const POLAR_API_BASE = "https://api.polar.sh/v1"
+const POLAR_REQUEST_TIMEOUT_MS = 10_000
 
 async function handlePortalRequest(request: NextRequest) {
   try {
@@ -51,6 +52,7 @@ async function handlePortalRequest(request: NextRequest) {
         external_customer_id: userId,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(POLAR_REQUEST_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -94,6 +96,17 @@ async function handlePortalRequest(request: NextRequest) {
 
     return NextResponse.json({ url: portalUrl })
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      console.error("Polar customer session request timed out:", error)
+      return NextResponse.json(
+        { error: "Failed to create portal session" },
+        { status: 502 },
+      )
+    }
+
     console.error("Error creating Polar customer portal session:", error)
     return NextResponse.json(
       { error: "Failed to open customer portal" },
