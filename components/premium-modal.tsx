@@ -7,7 +7,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { CheckmarkCircle02Icon, CrownIcon } from "@hugeicons/core-free-icons"
+import {
+  Add01Icon,
+  CheckmarkCircle02Icon,
+  CrownIcon,
+  Film02Icon,
+  PlayCircle02Icon,
+  Refresh01Icon,
+  Ticket01Icon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useState } from "react"
 
@@ -20,124 +28,188 @@ interface PremiumModalProps {
   description?: string
 }
 
+const MONTHLY_PRICE = "$3.99"
+const YEARLY_PRICE = "$29.99"
+const YEARLY_MONTHLY_EQUIVALENT = "$2.50"
+
+const PREMIUM_BENEFITS = [
+  {
+    icon: PlayCircle02Icon,
+    title: "Where to Watch for anything",
+    description: "See where any movie or show is streaming right now.",
+  },
+  {
+    icon: CheckmarkCircle02Icon,
+    title: "Hide watched in Discover",
+    description: "Automatically filter out what you've already seen.",
+  },
+  {
+    icon: Film02Icon,
+    title: "Latest trailers on Home",
+    description: "An exclusive home screen row with new trailers.",
+  },
+  {
+    icon: Refresh01Icon,
+    title: "Trakt sync and imports",
+    description: "Two-way Trakt syncing plus one-click IMDb imports.",
+  },
+]
+
 export function PremiumModal({
   open,
   onOpenChange,
   title = "Unlock ShowSeek Premium",
-  description = "Get unlimited custom lists, advanced release calendar filters, Trakt syncing, and more.",
+  description = "Everything you need to track more, miss less, and keep your watchlist under control.",
 }: PremiumModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly")
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   const handleSubscribe = () => {
+    setCheckoutError(null)
     setIsRedirecting(true)
-    window.location.href = `/api/billing/polar/checkout?plan=${selectedPlan}`
+    try {
+      window.location.href = `/api/billing/polar/checkout?plan=${selectedPlan}`
+    } catch {
+      setIsRedirecting(false)
+      setCheckoutError("Could not start checkout. Please try again.")
+    }
   }
+
+  const isMonthlySelected = selectedPlan === "monthly"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-lg border-amber-500/20 bg-[#121212] text-white">
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent pointer-events-none" />
-
-        <div className="relative flex flex-col items-center p-6 sm:p-8 text-center">
-          <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/40">
-            <HugeiconsIcon icon={CrownIcon} className="size-7 text-amber-400" />
-          </div>
-
-          <DialogHeader className="mb-6 space-y-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-white tracking-tight">
+      <DialogContent className="border-white/10 bg-[#121212] p-0 text-white sm:max-w-md">
+        <div className="flex flex-col p-6 sm:p-7">
+          <DialogHeader className="mb-5 text-left">
+            <DialogTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight text-white">
+              <HugeiconsIcon
+                icon={CrownIcon}
+                className="size-5 shrink-0 text-[#F2B33D]"
+              />
               {title}
             </DialogTitle>
-            <DialogDescription className="text-sm sm:text-base text-white/70 max-w-sm mx-auto">
+            <DialogDescription className="text-sm leading-relaxed text-[#A3A3A3]">
               {description}
             </DialogDescription>
           </DialogHeader>
 
-          {/* Plan Selector Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mb-6 text-left">
-            {/* Monthly Option */}
+          {/* What you get */}
+          <ul className="divide-y divide-white/5">
+            {PREMIUM_BENEFITS.map((benefit) => (
+              <li key={benefit.title} className="flex items-start gap-3 py-2.5">
+                <HugeiconsIcon
+                  icon={benefit.icon}
+                  className="mt-0.5 size-5 shrink-0 text-[#F2B33D]"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">
+                    {benefit.title}
+                  </p>
+                  <p className="text-[13px] leading-snug text-[#A3A3A3]">
+                    {benefit.description}
+                  </p>
+                </div>
+              </li>
+            ))}
+            <li className="flex items-start gap-3 py-2.5">
+              <HugeiconsIcon
+                icon={Add01Icon}
+                className="mt-0.5 size-5 shrink-0 text-[#F2B33D]"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">
+                  Plus much more to unlock
+                </p>
+                <p className="text-[13px] leading-snug text-[#A3A3A3]">
+                  New premium features are added regularly.
+                </p>
+              </div>
+            </li>
+          </ul>
+
+          {/* Ticket perforation: separates what you get from what you pay */}
+          <div className="relative my-4" aria-hidden="true">
+            <div className="border-t border-dashed border-white/15" />
+            <div className="absolute left-1/2 top-1/2 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#121212] ring-1 ring-white/15">
+              <HugeiconsIcon
+                icon={Ticket01Icon}
+                className="size-3.5 text-[#F2B33D]"
+              />
+            </div>
+          </div>
+
+          {/* Plans */}
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setSelectedPlan("monthly")}
-              className={`relative flex flex-col justify-between p-4 rounded-xl border transition-all cursor-pointer ${
-                selectedPlan === "monthly"
-                  ? "border-amber-500/60 bg-amber-500/10 ring-1 ring-amber-500/40"
-                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
+              aria-pressed={isMonthlySelected}
+              className={`cursor-pointer rounded-2xl border p-4 text-left transition-colors ${
+                isMonthlySelected
+                  ? "border-[#F2B33D]/70 bg-[#F2B33D]/10"
+                  : "border-white/10 bg-white/[0.03] hover:border-white/25"
               }`}
             >
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-white">Monthly</span>
-                  {selectedPlan === "monthly" && (
-                    <HugeiconsIcon
-                      icon={CheckmarkCircle02Icon}
-                      className="size-4 text-amber-400"
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-white/60 mb-3">
-                  Flexible month-to-month billing
-                </p>
-              </div>
-              <div className="text-lg font-bold text-white">
-                Monthly Plan
-              </div>
+              <p className="text-sm font-medium text-white">Monthly</p>
+              <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight text-white">
+                {MONTHLY_PRICE}
+                <span className="text-sm font-normal text-[#A3A3A3]">/mo</span>
+              </p>
+              <p className="mt-0.5 text-xs text-[#A3A3A3]">
+                Billed month to month
+              </p>
             </button>
 
-            {/* Yearly Option */}
             <button
               type="button"
               onClick={() => setSelectedPlan("yearly")}
-              className={`relative flex flex-col justify-between p-4 rounded-xl border transition-all cursor-pointer ${
-                selectedPlan === "yearly"
-                  ? "border-amber-500/60 bg-amber-500/10 ring-1 ring-amber-500/40"
-                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
+              aria-pressed={!isMonthlySelected}
+              className={`relative cursor-pointer rounded-2xl border p-4 text-left transition-colors ${
+                !isMonthlySelected
+                  ? "border-[#F2B33D]/70 bg-[#F2B33D]/10"
+                  : "border-white/10 bg-white/[0.03] hover:border-white/25"
               }`}
             >
-              <div className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                Best Value
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-white">Annual</span>
-                  {selectedPlan === "yearly" && (
-                    <HugeiconsIcon
-                      icon={CheckmarkCircle02Icon}
-                      className="size-4 text-amber-400"
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-white/60 mb-3">
-                  12 months of full premium access
-                </p>
-              </div>
-              <div className="text-lg font-bold text-white">
-                Yearly Plan
-              </div>
+              <span className="absolute -top-2.5 right-3 rounded-full bg-[#F2B33D] px-2 py-0.5 text-[10px] font-semibold text-black">
+                Best value
+              </span>
+              <p className="text-sm font-medium text-white">Annual</p>
+              <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight text-white">
+                {YEARLY_PRICE}
+                <span className="text-sm font-normal text-[#A3A3A3]">/yr</span>
+              </p>
+              <p className="mt-0.5 text-xs text-[#A3A3A3]">
+                Just {YEARLY_MONTHLY_EQUIVALENT}/mo
+              </p>
             </button>
           </div>
 
-          {/* Subscribe CTA Button */}
+          {checkoutError ? (
+            <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {checkoutError}
+            </div>
+          ) : null}
+
           <button
             type="button"
             disabled={isRedirecting}
             onClick={handleSubscribe}
-            className="w-full py-3 px-4 rounded-xl font-semibold text-sm bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-black shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+            className="mt-4 h-11 w-full cursor-pointer rounded-full bg-[#F2B33D] text-sm font-semibold text-black transition-colors hover:bg-[#f7c45c] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isRedirecting ? (
-              <>
-                <div className="size-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+              <span className="flex items-center justify-center gap-2">
+                <span className="size-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
                 <span>Redirecting to Polar...</span>
-              </>
+              </span>
             ) : (
-              <>
-                <span>Continue to Checkout</span>
-              </>
+              <span>Upgrade to Premium</span>
             )}
           </button>
 
-          <p className="text-[11px] text-white/40 mt-4">
-            Secure checkout powered by Polar. Cancel anytime from your account settings.
+          <p className="mt-3 text-center text-xs text-[#A3A3A3]">
+            Secure checkout powered by Polar. Cancel anytime.
           </p>
         </div>
       </DialogContent>

@@ -40,7 +40,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { startTransition, useState } from "react"
+import { startTransition, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 type ProfileTab = "preferences" | "content" | "integrations" | "settings"
@@ -92,6 +92,25 @@ export function ProfilePageClient() {
   const [showTraktModal, setShowTraktModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+
+  // Polar checkout lands back here with ?checkout=success — confirm once,
+  // then strip the param so refreshes don't re-toast.
+  useEffect(() => {
+    if (searchParams.get("checkout") !== "success") {
+      return
+    }
+
+    toast.success("Welcome to Premium! Your access will activate shortly.")
+    const nextSearchParams = new URLSearchParams(searchParams.toString())
+    nextSearchParams.delete("checkout")
+    const query = nextSearchParams.toString()
+
+    startTransition(() => {
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      })
+    })
+  }, [pathname, router, searchParams])
   const isPremiumCheckPending = isPremiumStatusPending({
     premiumLoading,
     premiumStatus,
@@ -572,7 +591,7 @@ export function ProfilePageClient() {
           ) : (
             <button
               onClick={() => setShowPremiumModal(true)}
-              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="rounded-full bg-[#F2B33D] px-4 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-[#f7c45c]"
             >
               Upgrade to Premium
             </button>
