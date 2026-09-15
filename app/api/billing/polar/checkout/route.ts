@@ -26,12 +26,14 @@ export async function GET(request: NextRequest) {
     const sessionCookie = cookieStore.get("session")?.value
 
     if (!sessionCookie) {
+      console.warn("[AUTH DEBUG] Checkout route: no session cookie present in cookieStore")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const verification = await verifySessionCookieValue(sessionCookie, "strict")
 
     if (isSessionVerificationUnavailable(verification)) {
+      console.warn("[AUTH DEBUG] Checkout route: verification unavailable:", verification.reason)
       return NextResponse.json(
         { error: "Authentication temporarily unavailable" },
         { status: 503 },
@@ -39,6 +41,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (!isSessionVerificationValid(verification)) {
+      console.warn("[AUTH DEBUG] Checkout route: verification invalid:", {
+        status: verification.status,
+        reason: verification.reason,
+      })
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

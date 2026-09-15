@@ -39,7 +39,7 @@ describe("GET /api/billing/polar/checkout", () => {
     const response = await GET(request)
 
     expect(response.status).toBe(401)
-    const data = await response.json()
+    const data = (await response.json()) as any
     expect(data.error).toBe("Unauthorized")
   })
 
@@ -75,7 +75,7 @@ describe("GET /api/billing/polar/checkout", () => {
     const response = await GET(request)
 
     expect(response.status).toBe(400)
-    const data = await response.json()
+    const data = (await response.json()) as any
     expect(data.error).toContain("Invalid plan parameter")
   })
 

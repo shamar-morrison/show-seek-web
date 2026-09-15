@@ -22,6 +22,16 @@ function encodeRawBase64Url(value: string): string {
   return Buffer.from(value).toString("base64url")
 }
 
+const TEST_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm6Bu2b4QBvnwCtemqGO6
+VxIXcB/XOSIVGQ2MRgEawe3jmJeT4lnfM7J+yv9/h28/aV5XOpRdzZglbvMl8BFN
+37RQeUm0FlTK93kUm+LROO4VIKeHH8IKdLodoqELh//FZAvy5x+c/eLI9pg+zKnx
+9aLDaLmMNCfxdmwCG7MJTyI5yD1yjBVr+KL2863U+WgXqFDAbs8jw5Dg2TVO/KkA
++qOpmP1/isnM2V7b1Gx6m9pJLeCGxPq6xB61mj3Pv1IZy6y9fMkpFbBcVs9HbVSH
+uierBh4Ob8XGSYW0u+ToZYXWu6MD/8vGJqteNzHjbREKK5Zt586Q8HqY8p0xWioZ
+swIDAQAB
+-----END PUBLIC KEY-----`
+
 function createSessionCookieToken(
   overrides: Partial<Record<string, unknown>> = {},
 ): string {
@@ -134,18 +144,10 @@ describe("firebase session verification status", () => {
 
   it("includes the looked-up account on successful strict verification", async () => {
     const fetchMock = vi.fn(async (input: string) => {
-      if (input.includes("service_accounts")) {
+      if (input.includes("publicKeys")) {
         return new Response(
           JSON.stringify({
-            keys: [
-              {
-                alg: "RS256",
-                e: "AQAB",
-                kid: "kid-1",
-                kty: "RSA",
-                n: "abc",
-              },
-            ],
+            "kid-1": TEST_PUBLIC_KEY_PEM,
           }),
           {
             headers: {
@@ -199,12 +201,12 @@ describe("firebase session verification status", () => {
     const fetchCalls = fetchMock.mock.calls as unknown as Array<
       [string, RequestInit | undefined]
     >
-    const jwksCall = fetchCalls.find(([input]) => input.includes("service_accounts"))
+    const publicKeysCall = fetchCalls.find(([input]) => input.includes("publicKeys"))
     const lookupCall = fetchCalls.find(([input]) =>
       input.includes("accounts:lookup"),
     )
 
-    expect(jwksCall?.[1]).toEqual(
+    expect(publicKeysCall?.[1]).toEqual(
       expect.objectContaining({
         signal: expect.any(AbortSignal),
       }),
@@ -218,18 +220,10 @@ describe("firebase session verification status", () => {
 
   it("marks strict verification as unavailable when account lookup fails", async () => {
     const fetchMock = vi.fn(async (input: string) => {
-      if (input.includes("service_accounts")) {
+      if (input.includes("publicKeys")) {
         return new Response(
           JSON.stringify({
-            keys: [
-              {
-                alg: "RS256",
-                e: "AQAB",
-                kid: "kid-1",
-                kty: "RSA",
-                n: "abc",
-              },
-            ],
+            "kid-1": TEST_PUBLIC_KEY_PEM,
           }),
           {
             headers: {

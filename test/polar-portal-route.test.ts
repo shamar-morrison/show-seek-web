@@ -98,7 +98,7 @@ describe("Polar Customer Portal Route", () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
-    const data = await response.json()
+    const data = (await response.json()) as any
     expect(data.url).toBe(
       "https://polar.sh/purchases?customer_session_token=session_token_xyz",
     )
