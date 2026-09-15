@@ -1056,4 +1056,151 @@ describe("AddToListModal", () => {
 
     expect(description).toHaveValue("Weekend plans 🍿")
   })
+
+  it("filters lists by search query within the active tab and clears", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {},
+        createdAt: 0,
+        isCustom: false,
+      },
+      {
+        id: "favorites",
+        name: "Favorites",
+        items: {},
+        createdAt: 1,
+        isCustom: false,
+      },
+      {
+        id: "classics",
+        name: "Classics",
+        items: {},
+        createdAt: 2,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    const searchInput = screen.getByLabelText("Search lists")
+    await user.type(searchInput, "fav")
+
+    expect(screen.queryByText("Should Watch")).not.toBeInTheDocument()
+    expect(screen.getByText("Favorites")).toBeInTheDocument()
+
+    // "Classics" lives on the Custom tab, so it stays hidden while on Default
+    await user.click(screen.getByRole("button", { name: "Custom Lists" }))
+    expect(screen.queryByText("Classics")).not.toBeInTheDocument()
+    expect(
+      screen.getByText('No lists match "fav"'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Default Lists" }))
+    await user.click(screen.getByRole("button", { name: "Clear search" }))
+    expect(screen.getByText("Should Watch")).toBeInTheDocument()
+    expect(screen.getByText("Favorites")).toBeInTheDocument()
+  })
+
+  it("filters custom lists in manage mode", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {},
+        createdAt: 1,
+        isCustom: true,
+      },
+      {
+        id: "classics",
+        name: "Classics",
+        items: {},
+        createdAt: 2,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Manage" }))
+    expect(screen.getByTestId("custom-list-row-road-trip")).toBeInTheDocument()
+    expect(screen.getByTestId("custom-list-row-classics")).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText("Search lists"), "road")
+
+    expect(screen.getByTestId("custom-list-row-road-trip")).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("custom-list-row-classics"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("resets the search query when the modal is reopened", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [
+      {
+        id: "watchlist",
+        name: "Should Watch",
+        items: {},
+        createdAt: 0,
+        isCustom: false,
+      },
+      {
+        id: "favorites",
+        name: "Favorites",
+        items: {},
+        createdAt: 1,
+        isCustom: false,
+      },
+    ]
+
+    const { rerender } = render(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    await user.type(screen.getByLabelText("Search lists"), "fav")
+    expect(screen.queryByText("Should Watch")).not.toBeInTheDocument()
+
+    rerender(
+      <AddToListModal
+        isOpen={false}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    rerender(
+      <AddToListModal
+        isOpen={true}
+        onClose={vi.fn()}
+        media={createMedia()}
+        mediaType="movie"
+      />,
+    )
+
+    expect(screen.getByText("Should Watch")).toBeInTheDocument()
+    expect(screen.getByText("Favorites")).toBeInTheDocument()
+  })
 })

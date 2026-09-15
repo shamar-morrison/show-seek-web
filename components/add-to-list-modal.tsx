@@ -52,6 +52,7 @@ import {
   Loading03Icon,
   PencilEdit01Icon,
   PlayCircle02Icon,
+  Search01Icon,
   Settings02Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
@@ -158,6 +159,7 @@ export function AddToListModal({
     useListMutations()
   const [activeTab, setActiveTab] = useState<TabType>("default")
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [mode, setMode] = useState<ModalMode>("add")
   const [operationError, setOperationError] = useState<string | null>(null)
@@ -261,6 +263,26 @@ export function AddToListModal({
     () => selectableLists.filter((l) => l.isCustom),
     [selectableLists],
   )
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase()
+  const filteredDefaultLists = useMemo(
+    () =>
+      normalizedSearchQuery
+        ? defaultLists.filter((l) =>
+            l.name.toLowerCase().includes(normalizedSearchQuery),
+          )
+        : defaultLists,
+    [defaultLists, normalizedSearchQuery],
+  )
+  const filteredCustomLists = useMemo(
+    () =>
+      normalizedSearchQuery
+        ? customLists.filter((l) =>
+            l.name.toLowerCase().includes(normalizedSearchQuery),
+          )
+        : customLists,
+    [customLists, normalizedSearchQuery],
+  )
+  const hasSearchQuery = normalizedSearchQuery.length > 0
   const wasOpenRef = useRef(false)
 
   // Initialize selected lists when modal opens or lists change
@@ -273,6 +295,11 @@ export function AddToListModal({
     if (listsLoading) return
 
     const wasOpen = wasOpenRef.current
+
+    // Fresh open (mirrors mobile present()): clear any stale search query
+    if (!wasOpen) {
+      setSearchQuery("")
+    }
 
     if (isBulkMode) {
       if (!wasOpen) {
@@ -319,6 +346,7 @@ export function AddToListModal({
   const handleClose = useCallback(() => {
     setActiveTab("default")
     setSelectedLists(new Set())
+    setSearchQuery("")
     setMode("add")
     setOperationError(null)
     setShowCreateModal(false)
@@ -940,7 +968,8 @@ export function AddToListModal({
     setEditPickerOpen(false)
   }, [isEditing, setEditPickerOpen])
 
-  const currentLists = activeTab === "default" ? defaultLists : customLists
+  const currentLists =
+    activeTab === "default" ? filteredDefaultLists : filteredCustomLists
   const modalTitle =
     mode === "manage"
       ? "Manage Lists"
@@ -1008,6 +1037,41 @@ export function AddToListModal({
             </div>
           )}
 
+          {/* Search - filter lists in the current view */}
+          {!listsLoading &&
+            ((mode === "add"
+              ? (activeTab === "default" ? defaultLists : customLists)
+                  .length > 0
+              : customLists.length > 0) ||
+              hasSearchQuery) && (
+              <div className="relative">
+                <HugeiconsIcon
+                  icon={Search01Icon}
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-500"
+                />
+                <Input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search lists..."
+                  aria-label="Search lists"
+                  disabled={isSaving}
+                  className="h-9 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-gray-500"
+                />
+                {searchQuery.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    disabled={isSaving}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-500 transition-colors hover:text-white disabled:opacity-50"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+                  </button>
+                )}
+              </div>
+            )}
+
           {/* List Items */}
           <div className="max-h-64 space-y-1 overflow-y-auto">
             {listsLoading ? (
@@ -1021,9 +1085,15 @@ export function AddToListModal({
               // Add mode - show checkboxes
               currentLists.length === 0 ? (
                 <div className="py-8 text-center text-sm text-gray-400">
-                  {activeTab === "custom"
-                    ? "No custom lists yet"
-                    : "No lists available"}
+                  {hasSearchQuery ? (
+                    <>
+                      No lists match &quot;{searchQuery.trim()}&quot;
+                    </>
+                  ) : activeTab === "custom" ? (
+                    "No custom lists yet"
+                  ) : (
+                    "No lists available"
+                  )}
                 </div>
               ) : (
                 currentLists.map((list) => (
@@ -1049,12 +1119,18 @@ export function AddToListModal({
                 ))
               )
             ) : // Manage mode - show custom lists with edit/delete actions
-            customLists.length === 0 ? (
+            filteredCustomLists.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-400">
-                No custom lists to manage
+                {hasSearchQuery ? (
+                  <>
+                    No lists match &quot;{searchQuery.trim()}&quot;
+                  </>
+                ) : (
+                  "No custom lists to manage"
+                )}
               </div>
             ) : (
-              customLists.map((list) => (
+              filteredCustomLists.map((list) => (
                 <div
                   key={list.id}
                   data-testid={`custom-list-row-${list.id}`}
