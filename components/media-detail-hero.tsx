@@ -44,7 +44,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 interface MediaDetailHeroProps {
   /** Movie or TV show details */
@@ -173,6 +173,10 @@ export function MediaDetailHero({
   const [isTrailerOpen, setIsTrailerOpen] = useState(false)
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
+  const [rateCelebrationSignal, setRateCelebrationSignal] = useState(0)
+  const ratingAtModalOpenRef = useRef<number | null>(null)
+  const latestRatingRef = useRef<number | null>(null)
+  const wasRatingModalOpenRef = useRef(false)
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [isMarkAsWatchedOpen, setIsMarkAsWatchedOpen] = useState(false)
   const [isPosterPickerOpen, setIsPosterPickerOpen] = useState(false)
@@ -200,6 +204,32 @@ export function MediaDetailHero({
   const userRating = useMemo(() => {
     return getRating(mediaType, media.id)
   }, [getRating, mediaType, media.id])
+
+  // Always-fresh rating for the post-close celebration check below, so the
+  // comparison never reads a stale onClose closure.
+  latestRatingRef.current = userRating?.rating ?? null
+
+  // Fire the star celebration only after the rating modal has fully closed:
+  // the async save resolves at an unknowable time (optimistic update lands
+  // while the modal still covers the button), so nothing may animate sooner.
+  useEffect(() => {
+    const wasOpen = wasRatingModalOpenRef.current
+    wasRatingModalOpenRef.current = isRatingModalOpen
+    if (!wasOpen || isRatingModalOpen) {
+      return undefined
+    }
+    const previous = ratingAtModalOpenRef.current
+    const current = latestRatingRef.current
+    ratingAtModalOpenRef.current = current
+    if (current === null || current === previous) {
+      return undefined
+    }
+    // Let the dialog exit animation finish before popping the star.
+    const timer = setTimeout(() => {
+      setRateCelebrationSignal((signal) => signal + 1)
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [isRatingModalOpen])
 
   // Get user's note for this media
   const userNote = useMemo(() => {
@@ -624,9 +654,14 @@ export function MediaDetailHero({
                     hasRating={!!userRating}
                     rating={userRating?.rating}
                     isLoading={ratingsLoading}
+                    celebrationSignal={rateCelebrationSignal}
                     onClick={() =>
                       requireAuth(
-                        () => setIsRatingModalOpen(true),
+                        () => {
+                          ratingAtModalOpenRef.current =
+                            userRating?.rating ?? null
+                          setIsRatingModalOpen(true)
+                        },
                         "Sign in to rate movies and TV shows",
                       )
                     }
