@@ -45,7 +45,7 @@ export function AppClientShell() {
       <ServiceWorkerRegistration />
       <PWAInstallPrompt />
       <OfflineIndicator />
-      <Toaster position="top-center" richColors theme="dark" />
+      <Toaster position="bottom-right" richColors theme="dark" />
     </>
   )
 }

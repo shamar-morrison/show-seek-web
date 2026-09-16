@@ -42,6 +42,7 @@ import type { UserList } from "@/types/list"
 import type { Genre } from "@/types/tmdb"
 import {
   Add01Icon,
+  CheckmarkSquare02Icon,
   Delete02Icon,
   Edit02Icon,
   FolderLibraryIcon,
@@ -297,6 +298,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
         type: "submenu",
         key: "select",
         label: "Select",
+        icon: CheckmarkSquare02Icon,
         items: [
           {
             type: "action",
