@@ -235,6 +235,9 @@ export function DiscoverClient({
   // the `hideTalk=0` URL param (default ON). Guests keep the URL truth.
   // The equality guard + server echo of the param guarantee convergence
   // after a single push (no loops, no extra fetches in steady state).
+  // `filters.hideTalkShowsAndAwards` is a dep so filter resets (clear all /
+  // clear mood) that change the mirrored value re-sync instead of going
+  // stale; the guard makes the corrective push strictly convergent.
   const loggedInUserId = user && !user.isAnonymous ? user.uid : null
   const hideTalkPreference = preferences.hideTalkShowsAndAwards
   useEffect(() => {
@@ -247,7 +250,13 @@ export function DiscoverClient({
       hideTalkShowsAndAwards: hideTalkPreference,
       page: 1,
     })
-  }, [authLoading, loggedInUserId, hideTalkPreference, pushFilters])
+  }, [
+    authLoading,
+    loggedInUserId,
+    hideTalkPreference,
+    filters.hideTalkShowsAndAwards,
+    pushFilters,
+  ])
 
   const results = initialResults
   const filteredResults = useContentFilter(results.results, {
@@ -331,13 +340,20 @@ export function DiscoverClient({
   )
 
   const clearFilters = useCallback(() => {
-    pushFilters({ ...DEFAULT_FILTERS })
+    // Preserve the talk-show mirror: clearing discovery filters must not
+    // clobber the preference-synced `hideTalk` URL value (the sync effect
+    // owns reconciling it with the Firestore preference).
+    pushFilters({
+      ...DEFAULT_FILTERS,
+      hideTalkShowsAndAwards: filtersRef.current.hideTalkShowsAndAwards,
+    })
   }, [pushFilters])
 
   const clearMoodMode = useCallback(() => {
     pushFilters({
       ...DEFAULT_FILTERS,
       mediaType: filtersRef.current.mediaType,
+      hideTalkShowsAndAwards: filtersRef.current.hideTalkShowsAndAwards,
     })
   }, [pushFilters])
 

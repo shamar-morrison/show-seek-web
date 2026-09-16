@@ -115,6 +115,48 @@ describe("isTalkOrAwardsShow", () => {
     ).toBe(true)
   })
 
+  it("keeps ceremony coverage after tightening name-colliding patterns", () => {
+    // Bare plurals are ceremony-specific and still match alone.
+    for (const name of [
+      "Oscars 2024",
+      "The Oscars 2026",
+      "Emmys 2024",
+      "The Tonys",
+      "Tonys 2024",
+    ]) {
+      expect(
+        isTalkOrAwardsShow({ id: 210, media_type: "tv", name, genre_ids: [] }),
+      ).toBe(true)
+    }
+    // Singular forms still match with ceremony context.
+    for (const name of [
+      "Oscar Night",
+      "Oscar Nominations 2024",
+      "68th Academy Awards",
+      "Emmy Awards",
+      "Tony Ceremony",
+    ]) {
+      expect(
+        isTalkOrAwardsShow({ id: 211, media_type: "tv", name, genre_ids: [] }),
+      ).toBe(true)
+    }
+  })
+
+  it("does not misclassify scripted titles with award-adjacent names", () => {
+    // Oscar, Emmy and Tony are also personal names — without ceremony
+    // context (or the bare plural) they must not match.
+    for (const name of [
+      "Oscar's Oasis",
+      "Emmy",
+      "Tony",
+      "Tony's Diner",
+    ]) {
+      expect(
+        isTalkOrAwardsShow({ id: 220, media_type: "tv", name, genre_ids: [18] }),
+      ).toBe(false)
+    }
+  })
+
   it("never matches movies — Oscar winners stay visible", () => {
     expect(
       isTalkOrAwardsShow({

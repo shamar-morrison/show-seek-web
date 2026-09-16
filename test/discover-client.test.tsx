@@ -130,6 +130,8 @@ const filterDrafts = vi.hoisted(() => ({
   operators: {} as Record<string, "and" | "or">,
 }))
 
+const mockHideTalkPreference = vi.hoisted(() => ({ value: true }))
+
 vi.mock("@/components/ui/multi-select-filter-combobox", () => ({
   MultiSelectFilterCombobox: ({
     label,
@@ -283,7 +285,10 @@ vi.mock("@/hooks/use-lists", () => ({
 vi.mock("@/hooks/use-preferences", () => ({
   usePreferences: () => ({
     isLoading: false,
-    preferences: DEFAULT_PREFERENCES,
+    preferences: {
+      ...DEFAULT_PREFERENCES,
+      hideTalkShowsAndAwards: mockHideTalkPreference.value,
+    },
     updatePreference: vi.fn(),
   }),
 }))
@@ -357,12 +362,14 @@ async function renderDiscoverClient({
   genres = [],
   genreOperator = "or",
   runtime = null,
+  hideTalkShowsAndAwards = true,
 }: {
   moodId?: string | null
   providers?: number[]
   genres?: number[]
   genreOperator?: "and" | "or"
   runtime?: [number, number] | null
+  hideTalkShowsAndAwards?: boolean
 } = {}) {
   const { DiscoverClient } = await import("@/app/discover/discover-client")
 
@@ -371,7 +378,7 @@ async function renderDiscoverClient({
       initialFilters={{
         genres,
         genreOperator,
-        hideTalkShowsAndAwards: true,
+        hideTalkShowsAndAwards,
         language: null,
         mediaType: "movie",
         moodId,
@@ -396,6 +403,7 @@ describe("DiscoverClient streaming filter", () => {
     pushMock.mockReset()
     filterDrafts.values = {}
     filterDrafts.operators = {}
+    mockHideTalkPreference.value = true
     mockSearchParams = new URLSearchParams()
     mockAuthState = {
       loading: false,
@@ -558,5 +566,60 @@ describe("DiscoverClient streaming filter", () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/discover")
     })
+  })
+
+  it("keeps the hideTalk opt-out in the URL when clearing filters", async () => {
+    mockAuthState = {
+      loading: false,
+      premiumStatus: "free",
+      user: { isAnonymous: false, uid: "user-1" },
+    }
+    mockHideTalkPreference.value = false
+    await renderDiscoverClient({
+      providers: [8],
+      hideTalkShowsAndAwards: false,
+    })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: "Clear all" }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?hideTalk=0")
+    })
+    // Single navigation: the sync effect must not fire a corrective re-push.
+    expect(pushMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps the hideTalk opt-out when leaving mood mode", async () => {
+    mockAuthState = {
+      loading: false,
+      premiumStatus: "free",
+      user: { isAnonymous: false, uid: "user-1" },
+    }
+    mockHideTalkPreference.value = false
+    await renderDiscoverClient({ moodId: "cozy", hideTalkShowsAndAwards: false })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: /clear mood/i }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?hideTalk=0")
+    })
+    expect(pushMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("re-syncs a stale hideTalk URL value once without looping", async () => {
+    mockAuthState = {
+      loading: false,
+      premiumStatus: "free",
+      user: { isAnonymous: false, uid: "user-1" },
+    }
+    mockHideTalkPreference.value = false
+    await renderDiscoverClient({ hideTalkShowsAndAwards: true })
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/discover?hideTalk=0")
+    })
+    expect(pushMock).toHaveBeenCalledTimes(1)
   })
 })
