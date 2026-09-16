@@ -32,6 +32,7 @@ import {
 } from "@/lib/premium-telemetry"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { isModEnter } from "@/lib/keyboard"
 import { useCallback, useId, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -171,6 +172,37 @@ export function CreateListDialog({
     }
   }, [isCreating, onOpenChange, setPickerOpen])
 
+  const canCreate =
+    !!listName.trim() && !isCreating && !isPremiumCheckPending
+
+  const handleNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canCreate) {
+          void handleCreate()
+        }
+        return
+      }
+      if (e.key === "Enter" && listName.trim()) {
+        handleCreate()
+      }
+    },
+    [canCreate, handleCreate, listName],
+  )
+
+  const handleDescriptionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canCreate) {
+          void handleCreate()
+        }
+      }
+    },
+    [canCreate, handleCreate],
+  )
+
   // Single shared picker: inserts into whichever field was last focused.
   const handleEmojiSelect = useCallback(
     (emoji: string) => {
@@ -220,11 +252,7 @@ export function CreateListDialog({
               value={listName}
               onChange={(e) => setListName(e.target.value)}
               onFocus={focusField("name")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && listName.trim()) {
-                  handleCreate()
-                }
-              }}
+              onKeyDown={handleNameKeyDown}
               autoFocus
             />
           </div>
@@ -237,6 +265,7 @@ export function CreateListDialog({
               value={listDescription}
               onChange={(e) => setListDescription(e.target.value)}
               onFocus={focusField("description")}
+              onKeyDown={handleDescriptionKeyDown}
               maxLength={LIST_DESCRIPTION_MAX_LENGTH}
               rows={4}
               className="min-h-24 resize-none"

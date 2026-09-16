@@ -51,6 +51,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { isModEnter } from "@/lib/keyboard"
 
 interface CustomListsClientProps {
   /** Movie genres for filter options */
@@ -232,6 +233,33 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
     setEditDescription("")
     setEditPickerOpen(false)
   }, [isProcessing, setEditPickerOpen])
+
+  const canSaveEdit =
+    !isProcessing && !!activeList && !!user && !!editName.trim()
+
+  const handleEditNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canSaveEdit) {
+          void handleEdit()
+        }
+      }
+    },
+    [canSaveEdit, handleEdit],
+  )
+
+  const handleEditDescriptionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canSaveEdit) {
+          void handleEdit()
+        }
+      }
+    },
+    [canSaveEdit, handleEdit],
+  )
 
   // Single shared picker: inserts into whichever field was last focused.
   const handleEditEmojiSelect = useCallback(
@@ -456,6 +484,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onFocus={focusEditField("name")}
+                onKeyDown={handleEditNameKeyDown}
                 placeholder="List name"
                 disabled={isProcessing}
               />
@@ -470,6 +499,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 onFocus={focusEditField("description")}
+                onKeyDown={handleEditDescriptionKeyDown}
                 placeholder="What is this list for?"
                 maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}

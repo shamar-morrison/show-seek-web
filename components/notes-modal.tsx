@@ -10,6 +10,7 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { Textarea } from "@/components/ui/textarea"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { getDisplayMediaTitle } from "@/lib/media-title"
+import { isModEnter } from "@/lib/keyboard"
 import { MAX_FREE_NOTES } from "@/lib/notes-limits"
 import { useNotes } from "@/hooks/use-notes"
 import { NOTE_MAX_LENGTH } from "@/types/note"
@@ -344,6 +345,21 @@ export function NotesModal({
   const hasChanges = noteContent.trim() !== originalContent.trim()
   const canSave = noteContent.trim().length > 0 && hasChanges
 
+  const handleTextareaKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (
+        isModEnter(e) &&
+        !isSaving &&
+        canSave &&
+        limitCheck !== "checking"
+      ) {
+        e.preventDefault()
+        void handleSave()
+      }
+    },
+    [canSave, handleSave, isSaving, limitCheck],
+  )
+
   return (
     <>
       <BaseMediaModal
@@ -358,6 +374,7 @@ export function NotesModal({
             ref={textareaRef}
             value={noteContent}
             onChange={handleContentChange}
+            onKeyDown={handleTextareaKeyDown}
             placeholder="Write your thoughts, opinions, or reminders about this title..."
             className="min-h-[120px] resize-none"
             maxLength={NOTE_MAX_LENGTH}

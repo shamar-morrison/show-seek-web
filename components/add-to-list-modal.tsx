@@ -59,6 +59,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { isModEnter } from "@/lib/keyboard"
 
 /** Map list IDs to icons for default lists */
 const LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
@@ -968,6 +969,66 @@ export function AddToListModal({
     setEditPickerOpen(false)
   }, [isEditing, setEditPickerOpen])
 
+  const canCreateList =
+    !!newListName.trim() && !isCreating && !isPremiumCheckPending
+  const canEditList = !!editName.trim() && !isEditing
+
+  const handleCreateNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canCreateList) {
+          void handleCreateList()
+        }
+        return
+      }
+      if (e.key === "Enter" && newListName.trim()) {
+        handleCreateList()
+      }
+    },
+    [canCreateList, handleCreateList, newListName],
+  )
+
+  const handleCreateDescriptionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canCreateList) {
+          void handleCreateList()
+        }
+      }
+    },
+    [canCreateList, handleCreateList],
+  )
+
+  const handleEditNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canEditList) {
+          void handleEditList()
+        }
+        return
+      }
+      if (e.key === "Enter" && editName.trim()) {
+        handleEditList()
+      }
+    },
+    [canEditList, editName, handleEditList],
+  )
+
+  const handleEditDescriptionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isModEnter(e)) {
+        e.preventDefault()
+        if (canEditList) {
+          void handleEditList()
+        }
+      }
+    },
+    [canEditList, handleEditList],
+  )
+
   const currentLists =
     activeTab === "default" ? filteredDefaultLists : filteredCustomLists
   const modalTitle =
@@ -1255,11 +1316,7 @@ export function AddToListModal({
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 onFocus={focusCreateField("name")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newListName.trim()) {
-                    handleCreateList()
-                  }
-                }}
+                onKeyDown={handleCreateNameKeyDown}
                 autoFocus
               />
             </div>
@@ -1274,6 +1331,7 @@ export function AddToListModal({
                 value={newListDescription}
                 onChange={(e) => setNewListDescription(e.target.value)}
                 onFocus={focusCreateField("description")}
+                onKeyDown={handleCreateDescriptionKeyDown}
                 maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 className="min-h-24 resize-none"
@@ -1350,11 +1408,7 @@ export function AddToListModal({
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onFocus={focusEditField("name")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && editName.trim()) {
-                    handleEditList()
-                  }
-                }}
+                onKeyDown={handleEditNameKeyDown}
                 autoFocus
               />
             </div>
@@ -1367,6 +1421,7 @@ export function AddToListModal({
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 onFocus={focusEditField("description")}
+                onKeyDown={handleEditDescriptionKeyDown}
                 maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 className="min-h-24 resize-none"
