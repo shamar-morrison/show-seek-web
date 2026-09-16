@@ -347,6 +347,16 @@ export function ProfilePageClient() {
           />
           <div className="mx-4 border-t border-white/10" />
           <PreferenceToggle
+            label="Hide talk shows & award shows"
+            description="Hide late-night, daytime talk, news talk and award ceremonies from browsing"
+            checked={preferences.hideTalkShowsAndAwards}
+            onChange={(value) =>
+              updatePreference("hideTalkShowsAndAwards", value)
+            }
+            isPremium={canAccessPremiumFeatures}
+          />
+          <div className="mx-4 border-t border-white/10" />
+          <PreferenceToggle
             label="Blur movie and TV plot"
             description="Hide plot summaries by default to avoid spoilers. Hover to reveal."
             checked={preferences.blurPlotSpoilers}

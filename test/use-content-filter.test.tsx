@@ -10,9 +10,10 @@ const mocks = vi.hoisted(() => ({
   preferences: {
     hideUnreleasedContent: false,
     hideWatchedContent: false,
+    hideTalkShowsAndAwards: false,
   },
   premiumStatus: "premium",
-  user: { uid: "user-1" },
+  user: { uid: "user-1" } as { uid: string } | null,
 }))
 
 vi.mock("@/context/auth-context", () => ({
@@ -47,6 +48,7 @@ describe("useContentFilter", () => {
     mocks.lists = []
     mocks.preferences.hideUnreleasedContent = false
     mocks.preferences.hideWatchedContent = false
+    mocks.preferences.hideTalkShowsAndAwards = false
     mocks.premiumStatus = "premium"
     mocks.user = { uid: "user-1" }
   })
@@ -72,4 +74,120 @@ describe("useContentFilter", () => {
       expect(result.current).toEqual([])
     },
   )
+
+  it("hides talk shows and award ceremonies when the preference is on", () => {
+    mocks.preferences.hideTalkShowsAndAwards = true
+    const items = [
+      {
+        id: 1408,
+        media_type: "tv" as const,
+        name: "Saturday Night Live",
+        genre_ids: [35],
+      },
+      {
+        id: 2316,
+        media_type: "tv" as const,
+        name: "The West Wing",
+        genre_ids: [18],
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(items))
+
+    expect(result.current).toEqual([items[1]])
+  })
+
+  it("keeps talk shows when the preference is off", () => {
+    mocks.preferences.hideTalkShowsAndAwards = false
+    const items = [
+      {
+        id: 1408,
+        media_type: "tv" as const,
+        name: "Saturday Night Live",
+        genre_ids: [35],
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(items))
+
+    expect(result.current).toBe(items)
+  })
+
+  it("never hides movies, even Oscar winners", () => {
+    mocks.preferences.hideTalkShowsAndAwards = true
+    const items = [
+      {
+        id: 872585,
+        media_type: "movie" as const,
+        title: "Oppenheimer",
+        genre_ids: [18],
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(items))
+
+    expect(result.current).toBe(items)
+  })
+
+  it("filters talk shows for guests using the default-ON preference", () => {
+    mocks.user = null
+    // The stored preference is irrelevant for guests — the shipped default
+    // (ON) applies, matching mobile.
+    mocks.preferences.hideTalkShowsAndAwards = false
+    const items = [
+      {
+        id: 1408,
+        media_type: "tv" as const,
+        name: "Saturday Night Live",
+        genre_ids: [35],
+      },
+      {
+        id: 2316,
+        media_type: "tv" as const,
+        name: "The West Wing",
+        genre_ids: [18],
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(items))
+
+    expect(result.current).toEqual([items[1]])
+  })
+
+  it("returns the same ref for guests when nothing matches", () => {
+    mocks.user = null
+    const items = [
+      {
+        id: 2316,
+        media_type: "tv" as const,
+        name: "The West Wing",
+        genre_ids: [18],
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(items))
+
+    expect(result.current).toBe(items)
+  })
+
+  it("still skips the watched filter for guests", () => {
+    mocks.user = null
+    mocks.preferences.hideWatchedContent = true
+    mocks.lists = [
+      {
+        id: "already-watched",
+        items: {
+          "movie-123": {
+            id: 123,
+            media_type: "movie",
+          },
+        },
+      },
+    ]
+
+    const { result } = renderHook(() => useContentFilter(movieItems))
+
+    // Guest behavior for hideWatchedContent is unchanged: no filtering.
+    expect(result.current).toBe(movieItems)
+  })
 })

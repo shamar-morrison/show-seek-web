@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   }>,
   listsLoading: false,
   ratings: new Map<string, Rating>(),
+  preferences: {
+    hideTalkShowsAndAwards: false,
+  },
   user: {
     uid: "user-1",
     isAnonymous: false,
@@ -52,6 +55,12 @@ vi.mock("@/hooks/use-ratings", () => ({
   useRatings: () => ({
     ratings: mocks.ratings,
     loading: false,
+  }),
+}))
+
+vi.mock("@/hooks/use-preferences", () => ({
+  usePreferences: () => ({
+    preferences: mocks.preferences,
   }),
 }))
 
@@ -110,6 +119,7 @@ describe("useForYouRecommendations", () => {
     mocks.lists = []
     mocks.listsLoading = false
     mocks.ratings = new Map<string, Rating>()
+    mocks.preferences.hideTalkShowsAndAwards = false
     mocks.fetchRecommendations.mockResolvedValue([createRecommendedMedia(900)])
     mocks.fetchMovieDetails.mockResolvedValue(null)
     mocks.fetchFullTVDetails.mockResolvedValue(null)
@@ -345,5 +355,65 @@ describe("useForYouRecommendations", () => {
     expect(tvSection?.recommendations.map((item) => item.id)).toEqual([900])
     expect(result.current.hiddenGems.map((item) => item.id)).toEqual([903])
     expect(result.current.trendingMovies.map((item) => item.id)).toEqual([904])
+  })
+
+  it("hides talk shows from TV sections and trending when the preference is on", async () => {
+    mocks.preferences.hideTalkShowsAndAwards = true
+    mocks.ratings = new Map<string, Rating>([
+      [
+        "tv-50",
+        createRating({
+          id: "tv-50",
+          mediaId: "50",
+          mediaType: "tv",
+          title: "Show Fifty",
+          ratedAt: 1,
+        }),
+      ],
+    ])
+    const { title: _talkTitle, ...talkBase } = createRecommendedMedia(1408)
+    void _talkTitle
+    const talkShow = {
+      ...talkBase,
+      media_type: "tv" as const,
+      name: "Saturday Night Live",
+      genre_ids: [35],
+    }
+    const { title: _scriptedTitle, ...scriptedBase } =
+      createRecommendedMedia(2316)
+    void _scriptedTitle
+    const scriptedShow = {
+      ...scriptedBase,
+      media_type: "tv" as const,
+      name: "The West Wing",
+      genre_ids: [18],
+    }
+    mocks.fetchRecommendations.mockResolvedValue([talkShow, scriptedShow])
+    mocks.fetchTrendingWeek.mockResolvedValue([talkShow, scriptedShow])
+
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(() => useForYouRecommendations(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.sections).toHaveLength(1)
+    })
+
+    await waitFor(() => {
+      expect(
+        result.current.sections.every((section) => !section.isLoading),
+      ).toBe(true)
+    })
+
+    expect(
+      result.current.sections[0]?.recommendations.map((item) => item.id),
+    ).toEqual([2316])
+
+    await waitFor(() => {
+      expect(result.current.trendingMovies.map((item) => item.id)).toEqual([
+        2316,
+      ])
+    })
   })
 })

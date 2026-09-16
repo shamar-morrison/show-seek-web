@@ -4,6 +4,7 @@ import { searchMedia } from "@/app/server-actions/search"
 import { SearchResultItem } from "@/components/search-result-item"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useContentFilter } from "@/hooks/use-content-filter"
 import { debounceWithCancel } from "@/lib/debounce"
 import { cn } from "@/lib/utils"
 import type { TMDBSearchResult } from "@/types/tmdb"
@@ -79,7 +80,9 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
     startTransition(async () => {
       try {
         const response = await searchMedia(searchQuery)
-        setResults(response.results.slice(0, MAX_RESULTS))
+        // Store the full page; the content filter below may remove items,
+        // so slicing to MAX_RESULTS happens after filtering at render time.
+        setResults(response.results)
         setIsOpen(true)
         setSelectedIndex(-1)
       } catch (error) {
@@ -177,6 +180,13 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
     router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
   }
 
+  // Same content filter as the full search results page (watched,
+  // unreleased, talk shows / award ceremonies). Slicing happens after
+  // filtering so hidden items don't leave the dropdown under-filled.
+  const visibleResults = useContentFilter(results, {
+    applyHideUnreleasedContent: true,
+  }).slice(0, MAX_RESULTS)
+
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen) {
@@ -190,18 +200,22 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
       case "ArrowDown":
         e.preventDefault()
         // +1 for the "View all results" button
-        setSelectedIndex((prev) => (prev < results.length ? prev + 1 : 0))
+        setSelectedIndex((prev) =>
+          prev < visibleResults.length ? prev + 1 : 0,
+        )
         break
       case "ArrowUp":
         e.preventDefault()
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.length))
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : visibleResults.length,
+        )
         break
       case "Enter":
         e.preventDefault()
-        if (selectedIndex === -1 || selectedIndex === results.length) {
+        if (selectedIndex === -1 || selectedIndex === visibleResults.length) {
           navigateToSearchPage()
-        } else if (selectedIndex >= 0 && selectedIndex < results.length) {
-          navigateToResult(results[selectedIndex])
+        } else if (selectedIndex >= 0 && selectedIndex < visibleResults.length) {
+          navigateToResult(visibleResults[selectedIndex])
         }
         break
       case "Escape":
@@ -230,12 +244,12 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
 
   // Handle focus
   const handleFocus = () => {
-    if (query.trim() && results.length > 0) {
+    if (query.trim() && visibleResults.length > 0) {
       setIsOpen(true)
     }
   }
 
-  const hasResults = results.length > 0
+  const hasResults = visibleResults.length > 0
   const showNoResults = isOpen && query.trim() && !isPending && !hasResults
   const showShortcutHint = query.trim().length === 0
 
@@ -280,7 +294,7 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
           {/* Results List */}
           {hasResults && (
             <div className="max-h-[400px] overflow-y-auto p-2">
-              {results.map((result, index) => (
+              {visibleResults.map((result, index) => (
                 <div
                   key={`${result.media_type}-${result.id}`}
                   className={cn(
@@ -313,7 +327,8 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
                 variant="ghost"
                 className={cn(
                   "w-full justify-center rounded-lg text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white",
-                  selectedIndex === results.length && "bg-white/10 text-white",
+                  selectedIndex === visibleResults.length &&
+                  "bg-white/10 text-white",
                 )}
                 onClick={navigateToSearchPage}
               >

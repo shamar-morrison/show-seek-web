@@ -24,6 +24,7 @@ export interface UserPreferences {
   quickMarkAsWatched: boolean
   hideWatchedContent: boolean
   hideUnreleasedContent: boolean
+  hideTalkShowsAndAwards: boolean
   homeScreenLists?: HomeScreenListItem[]
   posterOverrides?: Record<string, string>
 }
@@ -47,6 +48,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   quickMarkAsWatched: false,
   hideWatchedContent: false,
   hideUnreleasedContent: false,
+  hideTalkShowsAndAwards: true,
   posterOverrides: {},
 }
 

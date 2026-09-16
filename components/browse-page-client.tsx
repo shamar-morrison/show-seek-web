@@ -6,6 +6,7 @@ import { MediaCardWithActions } from "@/components/media-card-with-actions"
 import { PageContainer } from "@/components/page-container"
 import { TrailerModal } from "@/components/trailer-modal"
 import { Pagination } from "@/components/ui/pagination"
+import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { isActionableMedia } from "@/lib/tmdb-media"
@@ -93,7 +94,8 @@ export function BrowsePageClient({
     }
   }
 
-  const actionableItems = items.filter(isActionableMedia)
+  const filteredItems = useContentFilter(items)
+  const actionableItems = filteredItems.filter(isActionableMedia)
 
   return (
     <main className="min-h-screen bg-black pb-16 pt-32">
@@ -113,7 +115,7 @@ export function BrowsePageClient({
 
       {/* Media Grid */}
       <div className="mx-auto max-w-[1800px] px-4 sm:px-8 lg:px-12">
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 text-gray-400">
             <p>No items found</p>
           </div>
@@ -129,7 +131,7 @@ export function BrowsePageClient({
                     preferOriginalTitles={preferences.showOriginalTitles}
                   />
                 ))
-              : items.map((item) => (
+              : filteredItems.map((item) => (
                   <MediaCard
                     key={`${item.media_type}-${item.id}`}
                     media={item}
