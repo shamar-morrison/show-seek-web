@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { isPremiumStatusPending } from "@/lib/premium-gating"
 import { render, screen, waitFor } from "./utils"
 
 const signOutMock = vi.fn()
@@ -128,7 +129,7 @@ vi.mock("@/hooks/use-preferences", async () => {
 
 vi.mock("@/lib/premium-gating", () => ({
   PREMIUM_LOADING_MESSAGE: "Checking premium status",
-  isPremiumStatusPending: () => false,
+  isPremiumStatusPending: vi.fn(() => false),
   shouldEnforcePremiumLock: () => false,
 }))
 
@@ -173,6 +174,7 @@ describe("ProfilePageClient delete account", () => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     mockPremiumStatus = "free"
+    vi.mocked(isPremiumStatusPending).mockReturnValue(false)
     deleteAccountMock.mockResolvedValue({ success: true })
     signOutMock.mockResolvedValue(undefined)
     window.localStorage.clear()
@@ -260,7 +262,8 @@ describe("ProfilePageClient delete account", () => {
     expect(window.localStorage.getItem("unrelated_key")).toBe("keep")
   })
 
-  it("shows an error and stays signed in when deletion fails", async () => {
+    it("shows an error and stays signed in when deletion fails", async () => {
+
     deleteAccountMock.mockRejectedValue(new Error("boom"))
     const user = await renderSettingsTab()
 
@@ -295,5 +298,53 @@ describe("ProfilePageClient delete account", () => {
       screen.getByRole("button", { name: "Delete my account" }),
     ).toBeDisabled()
     expect(deleteAccountMock).not.toHaveBeenCalled()
+  })
+
+  it("disables deletion while premium status is unresolved", async () => {
+    vi.mocked(isPremiumStatusPending).mockReturnValue(true)
+    const user = await renderSettingsTab()
+
+    await user.click(screen.getByRole("button", { name: "Delete Account" }))
+    await user.type(
+      screen.getByLabelText("Type your account email to confirm"),
+      "test@example.com",
+    )
+
+    expect(
+      screen.getByRole("button", { name: "Delete my account" }),
+    ).toBeDisabled()
+    expect(deleteAccountMock).not.toHaveBeenCalled()
+  })
+
+  it("reports deletion success but failed sign-out without re-enabling", async () => {
+    signOutMock.mockRejectedValue(new Error("logout failed"))
+    const user = await renderSettingsTab()
+
+    await user.click(screen.getByRole("button", { name: "Delete Account" }))
+    await user.type(
+      screen.getByLabelText("Type your account email to confirm"),
+      "test@example.com",
+    )
+    await user.click(screen.getByRole("button", { name: "Delete my account" }))
+
+    await waitFor(() => {
+      expect(deleteAccountMock).toHaveBeenCalledTimes(1)
+    })
+    expect(signOutMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Your account was deleted, but signing out failed. Please reload the page.",
+      )
+    })
+    expect(toastErrorMock).not.toHaveBeenCalledWith(
+      "Failed to delete your account. Please try again.",
+    )
+    const deletingButtons = screen.getAllByRole("button", {
+      name: "Deleting...",
+    })
+    expect(deletingButtons.length).toBeGreaterThan(0)
+    for (const button of deletingButtons) {
+      expect(button).toBeDisabled()
+    }
   })
 })

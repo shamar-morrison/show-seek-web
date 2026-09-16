@@ -151,7 +151,10 @@ export function ProfilePageClient() {
     accountEmail.length > 0 &&
     deleteEmail.trim().toLowerCase() === accountEmail.toLowerCase()
   const canConfirmDelete =
-    deleteEmailMatches && !isPremiumMember && !isDeletingAccount
+    deleteEmailMatches &&
+    !isPremiumMember &&
+    !isPremiumCheckPending &&
+    !isDeletingAccount
 
   if (loading || prefsLoading || !user) {
     return (
@@ -203,21 +206,29 @@ export function ProfilePageClient() {
     setIsDeletingAccount(true)
     try {
       await deleteAccount()
-
-      try {
-        clearLocalAccountData(user.uid)
-      } catch (cleanupError) {
-        console.warn(
-          "[profile] Failed to clear local account data after remote deletion:",
-          cleanupError,
-        )
-      }
-
-      await signOut()
     } catch (error) {
       captureException(error)
       toast.error("Failed to delete your account. Please try again.")
       setIsDeletingAccount(false)
+      return
+    }
+
+    try {
+      clearLocalAccountData(user.uid)
+    } catch (cleanupError) {
+      console.warn(
+        "[profile] Failed to clear local account data after remote deletion:",
+        cleanupError,
+      )
+    }
+
+    try {
+      await signOut()
+    } catch (signOutError) {
+      captureException(signOutError)
+      toast.error(
+        "Your account was deleted, but signing out failed. Please reload the page.",
+      )
     }
   }
 
