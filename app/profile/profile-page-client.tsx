@@ -10,12 +10,28 @@ import { PreferenceToggle } from "@/components/profile/preference-toggle"
 import { RegionSelectorModal } from "@/components/profile/region-selector-modal"
 import { TraktSettingsModal } from "@/components/profile/trakt-settings-modal"
 import { TraktZipImportModal } from "@/components/profile/trakt-zip-import-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useAuth } from "@/context/auth-context"
 import { useTrakt } from "@/context/trakt-context"
 import { usePreferences } from "@/hooks/use-preferences"
 import { getAccentColorName } from "@/lib/accent-colors"
+import {
+  clearLocalAccountData,
+  deleteAccount,
+} from "@/lib/firebase/account-deletion"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
 import {
   PREMIUM_LOADING_MESSAGE,
@@ -29,6 +45,7 @@ import {
 import { captureException, cn } from "@/lib/utils"
 import {
   ArrowRight01Icon,
+  Delete02Icon,
   FileExportIcon,
   FileZipIcon,
   Home01Icon,
@@ -40,7 +57,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { startTransition, useEffect, useState } from "react"
+import { startTransition, useEffect, useId, useState } from "react"
 import { toast } from "sonner"
 
 type ProfileTab = "preferences" | "content" | "integrations" | "settings"
@@ -92,6 +109,10 @@ export function ProfilePageClient() {
   const [showTraktModal, setShowTraktModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteEmail, setDeleteEmail] = useState("")
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const deleteEmailInputId = useId()
 
   // Polar checkout lands back here with ?checkout=success — confirm once,
   // then strip the param so refreshes don't re-toast.
@@ -125,6 +146,12 @@ export function ProfilePageClient() {
   const selectedRegion = SUPPORTED_REGIONS.find(
     (supportedRegion) => supportedRegion.code === region,
   )
+  const accountEmail = user?.email ?? ""
+  const deleteEmailMatches =
+    accountEmail.length > 0 &&
+    deleteEmail.trim().toLowerCase() === accountEmail.toLowerCase()
+  const canConfirmDelete =
+    deleteEmailMatches && !isPremiumMember && !isDeletingAccount
 
   if (loading || prefsLoading || !user) {
     return (
@@ -149,6 +176,48 @@ export function ProfilePageClient() {
       captureException(error)
       toast.error("Failed to sign out. Please try again.")
       setIsSigningOut(false)
+    }
+  }
+
+  function handleOpenDeleteDialog() {
+    if (!user || isDeletingAccount) {
+      return
+    }
+    setDeleteEmail("")
+    setShowDeleteDialog(true)
+  }
+
+  function handleCloseDeleteDialog() {
+    if (isDeletingAccount) {
+      return
+    }
+    setShowDeleteDialog(false)
+    setDeleteEmail("")
+  }
+
+  async function executeDeleteAccount() {
+    if (!user || isDeletingAccount) {
+      return
+    }
+
+    setIsDeletingAccount(true)
+    try {
+      await deleteAccount()
+
+      try {
+        clearLocalAccountData(user.uid)
+      } catch (cleanupError) {
+        console.warn(
+          "[profile] Failed to clear local account data after remote deletion:",
+          cleanupError,
+        )
+      }
+
+      await signOut()
+    } catch (error) {
+      captureException(error)
+      toast.error("Failed to delete your account. Please try again.")
+      setIsDeletingAccount(false)
     }
   }
 
@@ -556,6 +625,15 @@ export function ProfilePageClient() {
           disabled={isSigningOut}
           showChevron={false}
         />
+        <div className="mx-4 border-t border-white/10" />
+        <ActionButton
+          icon={Delete02Icon}
+          label={isDeletingAccount ? "Deleting..." : "Delete Account"}
+          onClick={handleOpenDeleteDialog}
+          disabled={isDeletingAccount || isSigningOut}
+          showChevron={false}
+          variant="danger"
+        />
       </div>
     )
   }
@@ -700,6 +778,71 @@ export function ProfilePageClient() {
         open={showTraktZipImportModal}
         onOpenChange={setShowTraktZipImportModal}
       />
+
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseDeleteDialog()
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes your account and all of your data.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {isPremiumMember ? (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+              Cancel your Premium subscription first, then return here to
+              delete your account.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <Label htmlFor={deleteEmailInputId}>
+                Type your account email to confirm
+              </Label>
+              <Input
+                id={deleteEmailInputId}
+                type="email"
+                autoComplete="email"
+                placeholder={accountEmail}
+                value={deleteEmail}
+                onChange={(e) => setDeleteEmail(e.target.value)}
+                disabled={isDeletingAccount}
+              />
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingAccount}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canConfirmDelete}
+              onClick={(e) => {
+                e.preventDefault()
+                void executeDeleteAccount()
+              }}
+            >
+              {isDeletingAccount ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="mr-2 size-4 animate-spin"
+                  />
+                  Deleting...
+                </>
+              ) : (
+                "Delete my account"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
