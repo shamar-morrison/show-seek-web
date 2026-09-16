@@ -294,9 +294,28 @@ export default function PrivacyPage() {
               >
                 {CONTACT_EMAIL}
               </a>{" "}
-              from the address associated with your account. Deletion removes
-              your authentication account and associated lists, ratings,
-              notes, tracking data, and reminders, and is irreversible.
+              from the address associated with your account. Deletion is
+              irreversible and removes:
+            </p>
+            <ul className="flex list-disc flex-col gap-1 pl-5">
+              <li>Your sign in account</li>
+              <li>
+                Your lists, ratings, notes, reminders, and episode watch
+                progress
+              </li>
+              <li>Your preferences and app settings</li>
+              <li>Your connected third-party service data and import records</li>
+              <li>Your subscription entitlement records held by us</li>
+            </ul>
+            <p>
+              This covers everything stored under your account, including
+              data from features we add in the future.
+            </p>
+            <p>
+              Payment providers (Polar on the web, the App Store or Google
+              Play on mobile) keep their own billing records as required by
+              law. You should cancel any active Premium subscription before
+              deleting your account.
             </p>
           </section>
 

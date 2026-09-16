@@ -73,6 +73,7 @@ vi.mock("@hugeicons/core-free-icons", () => ({
   ArrowRight01Icon: {},
   Cancel01Icon: {},
   CrownIcon: {},
+  Delete02Icon: {},
   FileExportIcon: {},
   FileImportIcon: {},
   FileZipIcon: {},

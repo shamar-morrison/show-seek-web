@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Loading03Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 
 interface RateButtonProps {
   /** Whether the user has rated this item */
@@ -46,28 +46,19 @@ export function RateButton({
 }: RateButtonProps) {
   const [celebrationKey, setCelebrationKey] = useState(0)
   const [isCelebrating, setIsCelebrating] = useState(false)
-  const prevSignalRef = useRef<number | undefined>(undefined)
-
-  const celebrate = useCallback(() => {
-    setCelebrationKey((key) => key + 1)
-    setIsCelebrating(true)
-  }, [])
+  const [prevSignal, setPrevSignal] = useState(celebrationSignal)
 
   // Sole trigger: the parent bumps celebrationSignal once the rating
-  // modal has closed and the button is visible again.
-  useEffect(() => {
-    if (prevSignalRef.current === undefined) {
-      prevSignalRef.current = celebrationSignal
-      return
+  // modal has closed and the button is visible again. State is adjusted
+  // during render (per the React docs pattern for adjusting state when
+  // props change) instead of in an effect to avoid cascading renders.
+  if (celebrationSignal !== prevSignal) {
+    setPrevSignal(celebrationSignal)
+    if (hasRating && !isLoading) {
+      setCelebrationKey((key) => key + 1)
+      setIsCelebrating(true)
     }
-
-    if (celebrationSignal !== prevSignalRef.current) {
-      prevSignalRef.current = celebrationSignal
-      if (hasRating && !isLoading) {
-        celebrate()
-      }
-    }
-  }, [celebrationSignal, hasRating, isLoading, celebrate])
+  }
 
   useEffect(() => {
     if (!isCelebrating) return
