@@ -14,6 +14,11 @@ export interface DeleteAccountResult {
  * OAuth states and RevenueCat webhook events, and finally the Firebase Auth
  * user. NOTE: this creates a cross-repo runtime dependency — if the function
  * is renamed or removed in the mobile repo, web account deletion breaks.
+ *
+ * NOTE FOR FUTURE CHANGES: if a new per-user data store is added anywhere
+ * (new Firestore collections, new localStorage keys, new third-party
+ * connections), make sure deletion covers it and update Privacy Policy
+ * section 5.2 (`app/privacy/page.tsx`) to match.
  */
 export async function deleteAccount(): Promise<DeleteAccountResult> {
   const deleteAccountCallable = httpsCallable<void, DeleteAccountResult>(

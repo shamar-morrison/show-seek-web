@@ -304,9 +304,13 @@ export default function PrivacyPage() {
                 progress
               </li>
               <li>Your preferences and app settings</li>
-              <li>Your Trakt connection data and import records</li>
+              <li>Your connected third-party service data and import records</li>
               <li>Your subscription entitlement records held by us</li>
             </ul>
+            <p>
+              This covers everything stored under your account, including
+              data from features we add in the future.
+            </p>
             <p>
               Payment providers (Polar on the web, the App Store or Google
               Play on mobile) keep their own billing records as required by
