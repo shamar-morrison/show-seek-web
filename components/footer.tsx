@@ -65,15 +65,13 @@ export function Footer() {
           <h3 className="font-semibold text-white">Support</h3>
           <div className="flex flex-col gap-2">
             <Link
-              target="_blank"
-              href="https://privacy-policies-psi.vercel.app/show-seek/terms"
+              href="/terms"
               className="text-gray-400 transition-colors hover:text-white"
             >
               Terms of Service
             </Link>
             <Link
-              target="_blank"
-              href="https://privacy-policies-psi.vercel.app/show-seek/privacy"
+              href="/privacy"
               className="text-gray-400 transition-colors hover:text-white"
             >
               Privacy Policy
