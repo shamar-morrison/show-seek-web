@@ -12,6 +12,8 @@ describe("legal pages", () => {
       screen.getByRole("heading", { name: "Terms of Service" }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Premium Subscriptions/)).toBeInTheDocument()
+    expect(screen.getAllByText(/mobile app/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/RevenueCat/).length).toBeGreaterThan(0)
     const privacyLinks = screen.getAllByRole("link", { name: "Privacy Policy" })
     expect(privacyLinks.length).toBeGreaterThan(0)
     for (const link of privacyLinks) {
@@ -26,6 +28,7 @@ describe("legal pages", () => {
       screen.getByRole("heading", { name: "Privacy Policy" }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Data Sharing/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Expo/).length).toBeGreaterThan(0)
     expect(
       screen.getByRole("link", { name: "Terms of Service" }),
     ).toHaveAttribute("href", "/terms")

@@ -12,7 +12,7 @@ const CONTACT_EMAIL = "shamar.morrison2000@gmail.com"
 
 /**
  * Terms of Service Page
- * Legal terms governing use of the ShowSeek web app.
+ * Legal terms governing use of ShowSeek on the web and mobile.
  */
 export default function TermsPage() {
   return (
@@ -28,11 +28,12 @@ export default function TermsPage() {
               Welcome to ShowSeek! These Terms of Service (&ldquo;Terms&rdquo;)
               are a legal agreement between you and ShowSeek
               (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) that
-              governs your use of the ShowSeek website and service at{" "}
-              <span className="text-white">show-seek.app</span>{" "}
-              (&ldquo;ShowSeek&rdquo;). By accessing or using ShowSeek, you
-              agree to these Terms. If you do not agree, please do not use
-              ShowSeek.
+              governs your use of the ShowSeek website at{" "}
+              <span className="text-white">show-seek.app</span> and the
+              ShowSeek mobile app (together, &ldquo;ShowSeek&rdquo; or the
+              &ldquo;Service&rdquo;). By accessing or using ShowSeek on any
+              platform, you agree to these Terms. If you do not agree,
+              please do not use ShowSeek.
             </p>
             <p>
               We may modify these Terms at any time. Changes take effect
@@ -84,7 +85,9 @@ export default function TermsPage() {
               Most ShowSeek features require an account. You can sign up with
               an email address and password or with a supported third-party
               sign-in provider such as Google. Authentication and account data
-              are managed through Firebase Authentication.
+              are managed through Firebase Authentication. On the mobile app,
+              you may also continue as a guest with an anonymous account and
+              limited functionality.
             </p>
             <h3 className="text-base font-semibold text-white">
               2.2 Account security
@@ -110,7 +113,9 @@ export default function TermsPage() {
             <p>
               Visitors without an account may browse public catalog content,
               but saving lists, ratings, notes, reminders, and personalized
-              settings requires signing in.
+              settings requires signing in. On the mobile app, guest users
+              may browse with limited access; full functionality requires
+              creating an account.
             </p>
           </section>
 
@@ -120,23 +125,32 @@ export default function TermsPage() {
             </h2>
             <p>
               ShowSeek offers an optional Premium subscription with higher
-              limits and additional features. Payments are processed by our
-              third-party payment provider, Polar. By purchasing Premium, you
-              also agree to Polar&apos;s applicable checkout and billing
-              terms.
+              limits and additional features. How you pay depends on where
+              you subscribe:
             </p>
             <ul className="flex list-disc flex-col gap-1 pl-5">
               <li>
-                You can manage or cancel your subscription through the Polar
-                customer portal linked from your Profile page.
+                <span className="text-white">On the website:</span> payments
+                are processed by Polar. By purchasing Premium on the web,
+                you also agree to Polar&apos;s applicable checkout and
+                billing terms. Manage or cancel through the Polar customer
+                portal linked from your Profile page.
+              </li>
+              <li>
+                <span className="text-white">On the mobile app:</span>{" "}
+                payments are processed through the App Store or Google Play
+                (via RevenueCat). By purchasing Premium in the app, you also
+                agree to the applicable app store billing terms. Manage or
+                cancel through your device&apos;s App Store or Google Play
+                subscription settings.
               </li>
               <li>
                 Cancellation stops future billing; access generally continues
                 until the end of the current billing period.
               </li>
               <li>
-                Refunds, where applicable, are handled according to
-                Polar&apos;s policies and applicable law.
+                Refunds, where applicable, are handled according to the
+                relevant store or provider policies and applicable law.
               </li>
             </ul>
           </section>
@@ -161,6 +175,10 @@ export default function TermsPage() {
                 that abuse or degrade it
               </li>
               <li>Use bots or automation to abuse the service</li>
+              <li>
+                Violate app store terms or policies when using the mobile
+                app
+              </li>
               <li>Violate any applicable laws or regulations</li>
               <li>Infringe the intellectual property rights of others</li>
             </ul>
@@ -183,9 +201,10 @@ export default function TermsPage() {
               5.2 ShowSeek content
             </h3>
             <p>
-              The ShowSeek website, including its design, code, features, and
-              branding, is our intellectual property and is protected by
-              copyright and other intellectual property laws.
+              The ShowSeek website and mobile app, including their design,
+              code, features, and branding, are our intellectual property
+              and are protected by copyright and other intellectual property
+              laws.
             </p>
             <h3 className="text-base font-semibold text-white">
               5.3 Your content
@@ -280,10 +299,10 @@ export default function TermsPage() {
             <p>
               We may suspend or terminate your access at any time, without
               notice, for any reason, including violation of these Terms. You
-              may delete your account at any time from your Profile page or
-              by contacting us. Upon termination, your right to use ShowSeek
-              immediately ceases, and stored data is handled as described in
-              our{" "}
+              may delete your account at any time from your Profile page on
+              the website, from the app settings on mobile, or by contacting
+              us. Upon termination, your right to use ShowSeek immediately
+              ceases, and stored data is handled as described in our{" "}
               <Link
                 href="/privacy"
                 className="text-white underline underline-offset-2 hover:text-gray-200"

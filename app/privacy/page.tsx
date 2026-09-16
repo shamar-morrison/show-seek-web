@@ -12,7 +12,8 @@ const CONTACT_EMAIL = "shamar.morrison2000@gmail.com"
 
 /**
  * Privacy Policy Page
- * Explains how ShowSeek collects, uses, stores, and protects user data.
+ * Explains how ShowSeek collects, uses, stores, and protects user data
+ * across the website and mobile app.
  */
 export default function PrivacyPage() {
   return (
@@ -28,10 +29,11 @@ export default function PrivacyPage() {
               ShowSeek (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or
               &ldquo;us&rdquo;) is committed to protecting your privacy. This
               Privacy Policy explains how we collect, use, store, and share
-              information when you use the ShowSeek website and service at{" "}
-              <span className="text-white">show-seek.app</span>. By using
-              ShowSeek, you agree to the collection and use of information as
-              described here.
+              information when you use the ShowSeek website at{" "}
+              <span className="text-white">show-seek.app</span> and the
+              ShowSeek mobile app (together, &ldquo;ShowSeek&rdquo;). By
+              using ShowSeek on any platform, you agree to the collection
+              and use of information as described here.
             </p>
             <p>
               ShowSeek is developed and operated by an independent developer.
@@ -69,7 +71,10 @@ export default function PrivacyPage() {
             </ul>
             <p>
               We never see or store your actual password; credentials are
-              handled by Firebase Authentication.
+              handled by Firebase Authentication. On the mobile app you may
+              also continue as a guest with an anonymous account, which
+              collects no email address but cannot sync personal data across
+              devices until you create a full account.
             </p>
             <h3 className="text-base font-semibold text-white">
               1.2 Content you create
@@ -93,7 +98,7 @@ export default function PrivacyPage() {
               1.3 Imported data
             </h3>
             <p>
-              If you connect Trakt or upload an IMDb export, we process that
+              If you connect Trakt or import an IMDb export, we process that
               data only to import your ratings, watch history, and lists into
               ShowSeek. Connecting these services is always optional and can
               be disconnected at any time.
@@ -113,13 +118,30 @@ export default function PrivacyPage() {
                 and fix issues
               </li>
               <li>
-                <span className="text-white">Cookies and local storage</span>{" "}
+                <span className="text-white">
+                  Cookies and local storage (website)
+                </span>{" "}
                 — used for authentication sessions and remembering your
                 on-device preferences
               </li>
+              <li>
+                <span className="text-white">
+                  Push tokens and device identifiers (mobile app)
+                </span>{" "}
+                — used only to deliver release reminders and notifications
+                you opt into, via Expo&apos;s push notification service
+              </li>
             </ul>
             <h3 className="text-base font-semibold text-white">
-              1.5 Third-party catalog data
+              1.5 Device permissions (mobile app)
+            </h3>
+            <p>
+              The mobile app may request notification permission to send
+              release reminders you opt into. Granting it is optional and you
+              can revoke it at any time in your device settings.
+            </p>
+            <h3 className="text-base font-semibold text-white">
+              1.6 Third-party catalog data
             </h3>
             <p>
               We retrieve movie and TV show information (titles, posters,
@@ -207,8 +229,14 @@ export default function PrivacyPage() {
                 — account management and data storage
               </li>
               <li>
-                <span className="text-white">Polar</span> — Premium
+                <span className="text-white">Polar (website)</span> — Premium
                 subscription payments and billing management
+              </li>
+              <li>
+                <span className="text-white">
+                  RevenueCat, Apple App Store, and Google Play (mobile app)
+                </span>{" "}
+                — Premium subscription purchases and entitlement status
               </li>
               <li>
                 <span className="text-white">TMDB API</span> — read-only
@@ -221,6 +249,13 @@ export default function PrivacyPage() {
               <li>
                 <span className="text-white">Cloudflare</span> — hosting and
                 delivery of the website
+              </li>
+              <li>
+                <span className="text-white">
+                  Expo push notification service (mobile app)
+                </span>{" "}
+                — delivery of reminders you opt into, using your device push
+                token
               </li>
             </ul>
             <p>We do NOT:</p>
@@ -251,7 +286,8 @@ export default function PrivacyPage() {
             </h3>
             <p>
               You can delete your account and all associated data at any time
-              from your Profile page, or by emailing{" "}
+              from your Profile page on the website, from the app settings on
+              mobile, or by emailing{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 className="text-white underline underline-offset-2 hover:text-gray-200"
@@ -318,8 +354,9 @@ export default function PrivacyPage() {
             <p>
               We may update this policy from time to time and will revise the
               &ldquo;Last updated&rdquo; date above when we do. For material
-              changes, we will provide notice in the app. Continued use of
-              ShowSeek after changes take effect constitutes acceptance.
+              changes, we will provide notice on the website or in the app.
+              Continued use of ShowSeek after changes take effect constitutes
+              acceptance.
             </p>
           </section>
 
