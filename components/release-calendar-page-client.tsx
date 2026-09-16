@@ -45,10 +45,10 @@ import type {
   ReleaseCalendarViewItem,
 } from "@/types/release-calendar"
 import {
-  ArrangeIcon,
   Calendar03Icon,
   CrownIcon,
   Film01Icon,
+  FilterVerticalIcon,
   Loading03Icon,
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
@@ -95,7 +95,7 @@ const SOURCE_FILTER_CATEGORIES: FilterCategory[] = [
   {
     key: SOURCE_FILTER_KEY,
     label: "Sources",
-    icon: ArrangeIcon,
+    icon: FilterVerticalIcon,
     selectionMode: "multiple",
     options: CALENDAR_SOURCE_FILTERS.map((source) => ({
       value: source,
@@ -601,7 +601,7 @@ export function ReleaseCalendarView({
 
         <Empty className="min-h-[320px] border border-white/10 bg-black/20">
           <EmptyMedia variant="icon" className="bg-primary/15 text-primary">
-            <HugeiconsIcon icon={ArrangeIcon} className="size-7" />
+            <HugeiconsIcon icon={FilterVerticalIcon} className="size-7" />
           </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle className="text-white">

@@ -1,11 +1,11 @@
 "use client"
 
 import {
-  ArrangeIcon,
   ArrowDown01Icon,
   ArrowUp01Icon,
   Calendar03Icon,
   Cancel01Icon,
+  FilterVerticalIcon,
   SortingIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
@@ -148,7 +148,7 @@ export interface FilterSortProps {
   triggerClassName?: string
   /** Accessible and optional visible label for the trigger */
   triggerLabel?: string
-  /** Optional icon override for the trigger (defaults to ArrangeIcon) */
+  /** Optional icon override for the trigger (defaults to FilterVerticalIcon) */
   triggerIcon?: IconSvgElement
   /** Test id for the trigger */
   triggerTestId?: string
@@ -533,7 +533,7 @@ export function FilterSort({
           triggerClassName,
         )}
       >
-        <HugeiconsIcon icon={triggerIcon ?? ArrangeIcon} className="size-4" />
+        <HugeiconsIcon icon={triggerIcon ?? FilterVerticalIcon} className="size-4" />
         {triggerLabel ? <span>{triggerLabel}</span> : null}
         {hasActiveFilters && (
           <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
