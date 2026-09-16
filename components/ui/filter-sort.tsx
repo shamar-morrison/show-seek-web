@@ -148,6 +148,8 @@ export interface FilterSortProps {
   triggerClassName?: string
   /** Accessible and optional visible label for the trigger */
   triggerLabel?: string
+  /** Optional icon override for the trigger (defaults to ArrangeIcon) */
+  triggerIcon?: IconSvgElement
   /** Test id for the trigger */
   triggerTestId?: string
   /** Whether to show the ascending/descending sort direction submenu */
@@ -502,6 +504,7 @@ export function FilterSort({
   className,
   triggerClassName,
   triggerLabel,
+  triggerIcon,
   triggerTestId,
   showSortDirection = true,
 }: FilterSortProps) {
@@ -530,7 +533,7 @@ export function FilterSort({
           triggerClassName,
         )}
       >
-        <HugeiconsIcon icon={ArrangeIcon} className="size-4" />
+        <HugeiconsIcon icon={triggerIcon ?? ArrangeIcon} className="size-4" />
         {triggerLabel ? <span>{triggerLabel}</span> : null}
         {hasActiveFilters && (
           <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">

@@ -55,6 +55,7 @@ import {
   Cancel01Icon,
   FavouriteIcon,
   Film01Icon,
+  FilterVerticalIcon,
   FolderLibraryIcon,
   Loading03Icon,
   PlayCircle02Icon,
@@ -893,6 +894,7 @@ export function ListsPageClient({
               </Button>
             ) : null}
             <FilterSort
+              triggerIcon={FilterVerticalIcon}
               filters={filterCategories}
               filterState={filterState}
               onFilterChange={handleFilterChange}
