@@ -417,6 +417,8 @@ export interface TMDBSearchResult {
   popularity?: number
   overview?: string
   adult?: boolean
+  // Present on movie/tv results (absent on person results).
+  genre_ids?: number[]
 }
 
 /** Response from multi-search endpoint */

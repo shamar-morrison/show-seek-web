@@ -19,6 +19,7 @@ import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
 import { MultiSelectFilterCombobox } from "@/components/ui/multi-select-filter-combobox"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
+import { useAuth } from "@/context/auth-context"
 import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
@@ -42,6 +43,7 @@ interface DiscoverFilters {
   moodId: string | null
   mediaType: "movie" | "tv"
   page: number
+  hideTalkShowsAndAwards: boolean
   year: number | null
   sortBy: "popularity" | "top_rated" | "newest"
   rating: number | null
@@ -56,6 +58,7 @@ const DEFAULT_FILTERS: DiscoverFilters = {
   moodId: null,
   mediaType: "movie",
   page: 1,
+  hideTalkShowsAndAwards: true,
   year: null,
   sortBy: "popularity",
   rating: null,
@@ -106,12 +109,16 @@ function buildDiscoverUrl(filters: DiscoverFilters) {
     if (filters.page > 1) {
       params.set("page", filters.page.toString())
     }
+    if (!filters.hideTalkShowsAndAwards) {
+      params.set("hideTalk", "0")
+    }
 
     return params.toString() ? `/discover?${params}` : "/discover"
   }
 
   if (filters.mediaType !== "movie") params.set("type", filters.mediaType)
   if (filters.page > 1) params.set("page", filters.page.toString())
+  if (!filters.hideTalkShowsAndAwards) params.set("hideTalk", "0")
   if (filters.year) params.set("year", filters.year.toString())
   if (filters.sortBy !== "popularity") params.set("sort", filters.sortBy)
   if (filters.rating) params.set("rating", filters.rating.toString())
@@ -151,6 +158,7 @@ export function DiscoverClient({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const { preferences } = usePreferences()
+  const { user, loading: authLoading } = useAuth()
   const { isOpen, activeTrailer, loadingMediaId, watchTrailer, closeTrailer } =
     useTrailer()
   const [filters, setFilters] = useState<DiscoverFilters>(initialFilters)
@@ -190,6 +198,11 @@ export function DiscoverClient({
           mediaType: newFilters.mediaType ?? currentFilters.mediaType,
           moodId: newFilters.moodId ?? null,
           page: 1,
+          // Preserve the talk-show exclusion across mood switches; the
+          // server default (ON) must not clobber an opted-out user.
+          hideTalkShowsAndAwards:
+            newFilters.hideTalkShowsAndAwards ??
+            currentFilters.hideTalkShowsAndAwards,
         }
       } else {
         updated = {
@@ -216,6 +229,25 @@ export function DiscoverClient({
     },
     [pushFilters],
   )
+
+  // Sync the server-side `without_genres` exclusion with the Firestore
+  // preference. The server can't read client prefs, so the preference rides
+  // the `hideTalk=0` URL param (default ON). Guests keep the URL truth.
+  // The equality guard + server echo of the param guarantee convergence
+  // after a single push (no loops, no extra fetches in steady state).
+  const loggedInUserId = user && !user.isAnonymous ? user.uid : null
+  const hideTalkPreference = preferences.hideTalkShowsAndAwards
+  useEffect(() => {
+    if (authLoading || !loggedInUserId) return
+    if (hideTalkPreference === filtersRef.current.hideTalkShowsAndAwards) {
+      return
+    }
+    pushFilters({
+      ...filtersRef.current,
+      hideTalkShowsAndAwards: hideTalkPreference,
+      page: 1,
+    })
+  }, [authLoading, loggedInUserId, hideTalkPreference, pushFilters])
 
   const results = initialResults
   const filteredResults = useContentFilter(results.results, {

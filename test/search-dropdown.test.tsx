@@ -1,10 +1,17 @@
 import { SearchDropdown } from "@/components/search-dropdown"
-import { fireEvent, render, screen } from "@/test/utils"
+import { fireEvent, render, screen, waitFor } from "@/test/utils"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   searchMedia: vi.fn(),
+  user: null as { uid: string; isAnonymous: boolean } | null,
+  preferences: {
+    hideUnreleasedContent: false,
+    hideWatchedContent: false,
+    hideTalkShowsAndAwards: false,
+    posterOverrides: {},
+  },
 }))
 
 const originalMatchMedia = window.matchMedia
@@ -17,6 +24,26 @@ vi.mock("@/app/server-actions/search", () => ({
 vi.mock("nextjs-toploader/app", () => ({
   useRouter: () => ({
     push: mocks.push,
+  }),
+}))
+
+vi.mock("@/context/auth-context", () => ({
+  useAuth: () => ({
+    user: mocks.user,
+    loading: false,
+    premiumStatus: "premium",
+  }),
+}))
+
+vi.mock("@/hooks/use-lists", () => ({
+  useLists: () => ({
+    lists: [],
+  }),
+}))
+
+vi.mock("@/hooks/use-preferences", () => ({
+  usePreferences: () => ({
+    preferences: mocks.preferences,
   }),
 }))
 
@@ -45,6 +72,10 @@ describe("SearchDropdown", () => {
     vi.clearAllMocks()
     mockDesktopMatchMedia(true)
     mockNavigatorPlatform("MacIntel")
+    mocks.user = null
+    mocks.preferences.hideUnreleasedContent = false
+    mocks.preferences.hideWatchedContent = false
+    mocks.preferences.hideTalkShowsAndAwards = false
     mocks.searchMedia.mockResolvedValue({
       page: 1,
       results: [],
@@ -146,5 +177,83 @@ describe("SearchDropdown", () => {
     fireEvent.change(input, { target: { value: "alien" } })
 
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument()
+  })
+
+  it("hides talk shows from dropdown results when the preference is on", async () => {
+    mocks.user = { uid: "user-1", isAnonymous: false }
+    mocks.preferences.hideTalkShowsAndAwards = true
+    mocks.searchMedia.mockResolvedValue({
+      page: 1,
+      results: [
+        {
+          id: 1408,
+          media_type: "tv",
+          name: "Saturday Night Live",
+          genre_ids: [35],
+          poster_path: null,
+          popularity: 10,
+          vote_average: 6,
+        },
+        {
+          id: 2316,
+          media_type: "tv",
+          name: "The West Wing",
+          genre_ids: [18],
+          poster_path: null,
+          popularity: 10,
+          vote_average: 8,
+        },
+      ],
+      total_pages: 1,
+      total_results: 2,
+    })
+
+    render(<SearchDropdown />)
+
+    fireEvent.change(screen.getByPlaceholderText("Search..."), {
+      target: { value: "live" },
+    })
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("The West Wing")).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
+    expect(screen.queryByText("Saturday Night Live")).not.toBeInTheDocument()
+  })
+
+  it("shows talk shows in dropdown results when the preference is off", async () => {
+    mocks.user = { uid: "user-1", isAnonymous: false }
+    mocks.preferences.hideTalkShowsAndAwards = false
+    mocks.searchMedia.mockResolvedValue({
+      page: 1,
+      results: [
+        {
+          id: 1408,
+          media_type: "tv",
+          name: "Saturday Night Live",
+          genre_ids: [35],
+          poster_path: null,
+          popularity: 10,
+          vote_average: 6,
+        },
+      ],
+      total_pages: 1,
+      total_results: 1,
+    })
+
+    render(<SearchDropdown />)
+
+    fireEvent.change(screen.getByPlaceholderText("Search..."), {
+      target: { value: "live" },
+    })
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("Saturday Night Live")).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
   })
 })

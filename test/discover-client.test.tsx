@@ -371,6 +371,7 @@ async function renderDiscoverClient({
       initialFilters={{
         genres,
         genreOperator,
+        hideTalkShowsAndAwards: true,
         language: null,
         mediaType: "movie",
         moodId,

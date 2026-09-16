@@ -2,6 +2,8 @@
 
 import { useAuth } from "@/context/auth-context"
 import { hasStoredListItem } from "@/lib/list-item-keys"
+import { filterNonScriptedTV } from "@/lib/non-scripted-filter"
+import { DEFAULT_PREFERENCES } from "@/lib/user-preferences"
 import { useMemo } from "react"
 import { useLists } from "./use-lists"
 import { usePreferences } from "./use-preferences"
@@ -9,6 +11,9 @@ import { usePreferences } from "./use-preferences"
 interface MediaItem {
   id: number
   media_type?: "movie" | "tv" | "person" | string
+  name?: string | null
+  title?: string | null
+  genre_ids?: number[] | null
   release_date?: string
   first_air_date?: string
 }
@@ -34,9 +39,21 @@ export const useContentFilter = <T extends MediaItem>(
   return useMemo(() => {
     // 1. Safety checks
     if (!items || !items.length) return []
-    if (!user) return items // Don't filter for guests
 
-    let filteredItems = items
+    // Talk shows / late-night / award ceremonies. Runs BEFORE the auth gate
+    // (mobile parity) so guests get it too. Guests have no stored
+    // preference, so the shipped default (ON) applies — no user/preferences
+    // fetch required for this preference alone.
+    // `filterNonScriptedTV` returns the input ref when disabled or nothing
+    // matches, preserving referential stability downstream.
+    const hideTalkShowsAndAwards = user
+      ? preferences.hideTalkShowsAndAwards
+      : DEFAULT_PREFERENCES.hideTalkShowsAndAwards
+    const talkFilteredItems = filterNonScriptedTV(items, hideTalkShowsAndAwards)
+
+    if (!user) return talkFilteredItems // Don't apply other filters for guests
+
+    let filteredItems = talkFilteredItems
 
     if (applyHideUnreleasedContent && preferences.hideUnreleasedContent) {
       const now = new Date()
@@ -87,6 +104,7 @@ export const useContentFilter = <T extends MediaItem>(
     applyHideUnreleasedContent,
     preferences.hideWatchedContent,
     preferences.hideUnreleasedContent,
+    preferences.hideTalkShowsAndAwards,
     lists,
     user,
     canUsePremiumFilters,

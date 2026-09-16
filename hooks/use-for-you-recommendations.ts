@@ -9,8 +9,10 @@ import {
 } from "@/app/actions"
 import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
+import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { hasStoredListItem } from "@/lib/list-item-keys"
+import { filterNonScriptedTV } from "@/lib/non-scripted-filter"
 import { queryCacheProfiles } from "@/lib/react-query/query-options"
 import { queryKeys } from "@/lib/react-query/query-keys"
 import type { Rating } from "@/types/rating"
@@ -83,6 +85,8 @@ export function useForYouRecommendations() {
   const { user, loading: isAuthLoading } = useAuth()
   const { ratings, loading: isLoadingRatings } = useRatings()
   const { lists, loading: isLoadingLists } = useLists()
+  const { preferences } = usePreferences()
+  const hideTalkShowsAndAwards = preferences.hideTalkShowsAndAwards
 
   const isGuest = !isAuthLoading && (!user || user.isAnonymous)
 
@@ -228,7 +232,9 @@ export function useForYouRecommendations() {
 
   // Build sections from seeds and their recommendations.
   // Already-watched movies are excluded from movie sections (TV untouched),
-  // matching the mobile app implementation.
+  // matching the mobile app implementation. Talk shows / award ceremonies
+  // are excluded from TV sections only (movies never match the predicate),
+  // also matching mobile.
   const sections = useMemo((): RecommendationSection[] => {
     return seeds
       .map((seed, i) => {
@@ -240,14 +246,20 @@ export function useForYouRecommendations() {
           seed,
           recommendations: isMovieSection
             ? excludeWatchedMovies(deduped)
-            : deduped,
+            : filterNonScriptedTV(deduped, hideTalkShowsAndAwards),
           isLoading:
             (recommendationQueries[i]?.isLoading ?? false) ||
             (isMovieSection && isLoadingLists),
         }
       })
       .filter((s) => s.recommendations.length > 0 || s.isLoading)
-  }, [seeds, recommendationQueries, excludeWatchedMovies, isLoadingLists])
+  }, [
+    seeds,
+    recommendationQueries,
+    excludeWatchedMovies,
+    hideTalkShowsAndAwards,
+    isLoadingLists,
+  ])
 
   // Fetch hidden gems (high-rated, low-popularity movies)
   const { data: hiddenGemsData, isLoading: isLoadingHiddenGems } = useQuery({
@@ -279,8 +291,11 @@ export function useForYouRecommendations() {
     sections,
     /** Hidden gems (high-quality, low-popularity content) */
     hiddenGems: excludeWatchedMovies(dedupeById(hiddenGemsData || [])),
-    /** Trending content for fallback */
-    trendingMovies: excludeWatchedMovies(dedupeById(trendingData || [])),
+    /** Trending content for fallback (talk shows / awards filtered; movies pass through) */
+    trendingMovies: filterNonScriptedTV(
+      excludeWatchedMovies(dedupeById(trendingData || [])),
+      hideTalkShowsAndAwards,
+    ),
     /** Overall loading state */
     isLoading,
     /** Whether auth is still loading */

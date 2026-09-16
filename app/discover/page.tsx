@@ -5,6 +5,10 @@ import {
   getMoodById,
 } from "@/lib/moods"
 import {
+  mergeWithoutGenres,
+  TALK_SHOWS_WITHOUT_GENRES,
+} from "@/lib/talk-shows-blocklist"
+import {
   discoverMedia,
   getLanguages,
   getMovieGenres,
@@ -45,6 +49,18 @@ export default async function DiscoverPage({
     ? null
     : parseRuntimeRange(params.minRuntime, params.maxRuntime)
 
+  // Talk-show exclusion defaults ON (mobile parity). The server can't read
+  // the client-side Firestore preference, so the client syncs it into the
+  // `hideTalk=0` opt-out param (see DiscoverClient); guests get the default.
+  const hideTalkShowsAndAwards = params.hideTalk !== "0"
+  const moodExclusions = mood
+    ? formatExcludedGenres(mood, mediaType)
+    : undefined
+  const talkShowExclusions =
+    mediaType === "tv" && hideTalkShowsAndAwards
+      ? TALK_SHOWS_WITHOUT_GENRES
+      : undefined
+
   // Fetch static data in parallel - these are cached indefinitely
   const [movieGenres, tvGenres, languages, providers, initialResults] =
     await Promise.all([
@@ -68,9 +84,7 @@ export default async function DiscoverPage({
         genreOperator,
         withGenres: mood ? formatMoodGenres(mood, mediaType) : undefined,
         withKeywords: mood ? formatMoodKeywords(mood) : undefined,
-        withoutGenres: mood
-          ? formatExcludedGenres(mood, mediaType)
-          : undefined,
+        withoutGenres: mergeWithoutGenres([moodExclusions, talkShowExclusions]),
         providers: providerIds,
       }),
     ])
@@ -86,6 +100,7 @@ export default async function DiscoverPage({
         moodId: mood?.id ?? null,
         mediaType,
         page,
+        hideTalkShowsAndAwards,
         year: safeParseInt(params.year as string) ?? null,
         sortBy:
           (params.sort as "popularity" | "top_rated" | "newest") ||

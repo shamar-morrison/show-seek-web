@@ -138,7 +138,7 @@ export function SearchResultsClient({
       title: result.title,
       name: result.name,
       overview: result.overview ?? "",
-      genre_ids: [],
+      genre_ids: result.genre_ids ?? [],
       popularity: result.popularity ?? 0,
       release_date: result.release_date,
       first_air_date: result.first_air_date,
