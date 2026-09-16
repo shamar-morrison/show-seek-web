@@ -27,7 +27,7 @@ export function CollectionProgressCard({
           src={backdropUrl}
           alt={collection.name}
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-          imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
+          imageClassName="object-[center_20%] transition-transform duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/35 to-transparent" />
       </div>
