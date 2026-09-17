@@ -19,7 +19,7 @@ import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutati
 import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
-import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
 import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import type { TMDBSeason } from "@/types/tmdb"
@@ -167,25 +167,19 @@ export function useSeasonActions({
         const trackedKeys = new Set(
           Object.keys(tracking.get(tvShowId.toString())?.episodes ?? {}),
         )
-        const episodesToMark = episodes
-          .filter((episode) => {
-            if (trackedKeys.has(`${seasonNumber}_${episode.episode_number}`)) {
-              return false
-            }
-            // Same mobile gating as season details: allowUnreleased bypasses
-            // the date check; episodes without an air date need the opt-in.
-            return (
-              allowUnreleased ||
-              (!!episode.air_date &&
-                isTmdbDateOnOrBeforeToday(episode.air_date))
-            )
-          })
-          .map((episode) => ({
-            id: episode.id,
-            episode_number: episode.episode_number,
-            name: episode.name,
-            air_date: episode.air_date,
-          }))
+        const untrackedEpisodes = episodes.filter(
+          (episode) =>
+            !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+        )
+        const episodesToMark = getMarkableEpisodes(
+          untrackedEpisodes,
+          allowUnreleased,
+        ).map((episode) => ({
+          id: episode.id,
+          episode_number: episode.episode_number,
+          name: episode.name,
+          air_date: episode.air_date,
+        }))
 
         if (episodesToMark.length === 0) {
           toast.info("You're all caught up — nothing left to mark.")

@@ -571,6 +571,98 @@ class EpisodeTrackingService {
     return { markedCount, wasCancelled }
   }
 
+  /**
+   * Unmark multiple episodes across seasons in chunks with delays and
+   * cancellation support.
+   * Ported from the mobile app (EpisodeTrackingService.markMultipleEpisodesUnwatched).
+   * Each chunk is a partial update using deleteField(), so show metadata
+   * (tvShowName, posterPath, cached stats, hiddenFromProgress, nextEpisode) is
+   * preserved. Chunking keeps Firestore writes small and the progress UI
+   * responsive.
+   */
+  async markEntireShowUnwatched(
+    tvShowId: number,
+    episodesToUnmark: Array<{ seasonNumber: number; episodeNumber: number }>,
+    options?: {
+      batchSize?: number
+      delayMs?: number
+      isCancelled?: () => boolean
+      onProgress?: (unmarkedCount: number, totalCount: number) => void
+    },
+  ): Promise<{ unmarkedCount: number; wasCancelled: boolean }> {
+    const user = this.getCurrentUser()
+    if (!user) throw new Error("Please sign in to continue")
+    if (episodesToUnmark.length === 0) {
+      return { unmarkedCount: 0, wasCancelled: false }
+    }
+
+    const batchSize =
+      typeof options?.batchSize === "number" &&
+      Number.isInteger(options.batchSize) &&
+      options.batchSize > 0
+        ? options.batchSize
+        : 10
+    const delayMs =
+      typeof options?.delayMs === "number" &&
+      Number.isFinite(options.delayMs) &&
+      options.delayMs >= 0
+        ? options.delayMs
+        : 300
+
+    const trackingRef = this.getShowTrackingRef(user.uid, tvShowId)
+
+    // Single existence check up front so updateDoc never throws not-found for
+    // a show with no tracking document (matches mobile).
+    const snapshot = await this.withTimeout(getDoc(trackingRef))
+    if (!snapshot.exists()) {
+      return { unmarkedCount: 0, wasCancelled: false }
+    }
+
+    let unmarkedCount = 0
+    let wasCancelled = false
+
+    for (let i = 0; i < episodesToUnmark.length; i += batchSize) {
+      if (options?.isCancelled?.()) {
+        wasCancelled = true
+        break
+      }
+
+      const chunk = episodesToUnmark.slice(i, i + batchSize)
+      const updates: Record<string, unknown> = {
+        "metadata.lastUpdated": Date.now(),
+      }
+
+      chunk.forEach(({ seasonNumber, episodeNumber }) => {
+        const episodeKey = this.getEpisodeKey(seasonNumber, episodeNumber)
+        updates[`episodes.${episodeKey}`] = deleteField()
+      })
+
+      try {
+        await this.withTimeout(updateDoc(trackingRef, updates))
+      } catch (error) {
+        if (isNotFoundUpdateError(error)) {
+          return { unmarkedCount, wasCancelled }
+        }
+        if (error instanceof Error) {
+          throw error
+        }
+        throw new Error(getFirestoreErrorMessage(error), { cause: error })
+      }
+
+      unmarkedCount += chunk.length
+      options?.onProgress?.(unmarkedCount, episodesToUnmark.length)
+
+      if (i + batchSize < episodesToUnmark.length) {
+        if (options?.isCancelled?.()) {
+          wasCancelled = true
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+
+    return { unmarkedCount, wasCancelled }
+  }
 
   /**
    * Check if a specific episode is watched

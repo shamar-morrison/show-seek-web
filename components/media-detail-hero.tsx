@@ -11,6 +11,7 @@ import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
 import { ShareMenuButton } from "@/components/share-menu-button"
 import { TrailerModal } from "@/components/trailer-modal"
+import { TVShowWatchButton } from "@/components/tv-show-watch-button"
 import { UpNextEpisodeCard, shouldShowUpNextEpisode } from "@/components/up-next-episode-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -646,6 +647,24 @@ export function MediaDetailHero({
                       onClearWatchHistory={clearAllWatches}
                       onDeleteWatch={deleteWatchInstance}
                       onUpdateWatch={updateWatchInstance}
+                    />
+                  )}
+
+                  {/* Mark as Watched / Unwatched - TV shows */}
+                  {mediaType === "tv" && (
+                    <TVShowWatchButton
+                      tvShowId={media.id}
+                      tvShowName={(media as TMDBTVDetails).name}
+                      posterPath={resolvedPosterPath ?? null}
+                      seasons={(media as TMDBTVDetails).seasons ?? []}
+                      showStats={{
+                        totalEpisodes: (media as TMDBTVDetails)
+                          .number_of_episodes,
+                        avgRuntime:
+                          (media as TMDBTVDetails).episode_run_time?.[0] ?? 45,
+                      }}
+                      voteAverage={media.vote_average}
+                      firstAirDate={(media as TMDBTVDetails).first_air_date}
                     />
                   )}
 

@@ -23,6 +23,7 @@ import { useNotes } from "@/hooks/use-notes"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateLong, formatRuntime } from "@/lib/format-helpers"
 import { getDisplayMediaTitle } from "@/lib/media-title"
@@ -114,10 +115,13 @@ export function EpisodeDetailClient({
     const key = `${episode.season_number}_${episode.episode_number}`
     return !!tracking?.episodes && key in tracking.episodes
   }, [tracking, episode.season_number, episode.episode_number])
-  // Users who allow unreleased watches can mark future episodes too
-  // (matches mobile EpisodeDetailScreen).
+  // Markable = has an air date AND (already aired OR unreleased watches
+  // allowed). Dateless episodes are never markable, matching mobile's
+  // getMarkableEpisodes.
   const canToggleWatched =
-    isWatched || hasAired || preferences.allowUnreleasedEpisodeWatches
+    isWatched ||
+    getMarkableEpisodes([episode], preferences.allowUnreleasedEpisodeWatches)
+      .length > 0
   const watchedEpisodes = useMemo(() => {
     if (!tracking?.episodes) return {}
 

@@ -1,5 +1,5 @@
 import { episodeTrackingService } from "@/services/episode-tracking-service"
-import { setDoc } from "firebase/firestore"
+import { getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/firebase/config", () => ({
@@ -132,5 +132,95 @@ describe("markEntireShowWatched", () => {
 
     expect(result).toEqual({ markedCount: 0, wasCancelled: false })
     expect(vi.mocked(setDoc)).not.toHaveBeenCalled()
+  })
+})
+
+function makeUnmarkEpisodes(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    seasonNumber: 1,
+    episodeNumber: index + 1,
+  }))
+}
+
+describe("markEntireShowUnwatched", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true } as never)
+    vi.mocked(updateDoc).mockResolvedValue(undefined as never)
+  })
+
+  it("deletes episode fields in chunks with progress and preserves metadata", async () => {
+    const onProgress: Array<[number, number]> = []
+
+    const result = await episodeTrackingService.markEntireShowUnwatched(
+      777,
+      makeUnmarkEpisodes(25),
+      {
+        batchSize: 10,
+        delayMs: 0,
+        onProgress: (unmarked, total) => {
+          onProgress.push([unmarked, total])
+        },
+      },
+    )
+
+    expect(result).toEqual({ unmarkedCount: 25, wasCancelled: false })
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(updateDoc)).toHaveBeenCalledTimes(3)
+    expect(onProgress).toEqual([
+      [10, 25],
+      [20, 25],
+      [25, 25],
+    ])
+
+    // First chunk payload: deleteField per episode + only metadata.lastUpdated.
+    const firstPayload = vi.mocked(updateDoc).mock.calls[0][1] as unknown as
+      Record<string, unknown>
+    expect(Object.keys(firstPayload)).toContain("episodes.1_1")
+    expect(Object.keys(firstPayload)).toContain("episodes.1_10")
+    expect(typeof firstPayload["metadata.lastUpdated"]).toBe("number")
+    expect(firstPayload).not.toHaveProperty("metadata.tvShowName")
+  })
+
+  it("returns zero without reading or writing when there is nothing to unmark", async () => {
+    const result = await episodeTrackingService.markEntireShowUnwatched(777, [])
+
+    expect(result).toEqual({ unmarkedCount: 0, wasCancelled: false })
+    expect(vi.mocked(getDoc)).not.toHaveBeenCalled()
+    expect(vi.mocked(updateDoc)).not.toHaveBeenCalled()
+  })
+
+  it("skips writing when the tracking document does not exist", async () => {
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => false } as never)
+
+    const result = await episodeTrackingService.markEntireShowUnwatched(
+      777,
+      makeUnmarkEpisodes(5),
+      { batchSize: 10, delayMs: 0 },
+    )
+
+    expect(result).toEqual({ unmarkedCount: 0, wasCancelled: false })
+    expect(vi.mocked(updateDoc)).not.toHaveBeenCalled()
+  })
+
+  it("stops early when cancelled", async () => {
+    let calls = 0
+    vi.mocked(updateDoc).mockImplementation(async () => {
+      calls += 1
+    })
+
+    const result = await episodeTrackingService.markEntireShowUnwatched(
+      777,
+      makeUnmarkEpisodes(25),
+      {
+        batchSize: 10,
+        delayMs: 0,
+        isCancelled: () => calls >= 1,
+      },
+    )
+
+    expect(result.wasCancelled).toBe(true)
+    expect(result.unmarkedCount).toBe(10)
+    expect(vi.mocked(updateDoc)).toHaveBeenCalledTimes(1)
   })
 })

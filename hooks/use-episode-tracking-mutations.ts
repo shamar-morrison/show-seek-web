@@ -64,6 +64,20 @@ interface EntireShowWatchedVariables {
   }
 }
 
+interface EntireShowUnwatchedVariables {
+  tvShowId: number
+  episodesToUnmark: Array<{
+    seasonNumber: number
+    episodeNumber: number
+  }>
+  bulkOptions?: {
+    batchSize?: number
+    delayMs?: number
+    isCancelled?: () => boolean
+    onProgress?: (unmarkedCount: number, totalCount: number) => void
+  }
+}
+
 function episodeKey(seasonNumber: number, episodeNumber: number) {
   return `${seasonNumber}_${episodeNumber}`
 }
@@ -464,6 +478,23 @@ export function useEpisodeTrackingMutations() {
       applyOptimistic: ({ previousShow }) => previousShow ?? null,
     })
 
+  const markEntireShowUnwatchedMutation =
+    useTrackingMutation<EntireShowUnwatchedVariables>({
+      getTvShowId: (variables) => variables.tvShowId,
+      mutationFn: async (variables) => {
+        await episodeTrackingService.markEntireShowUnwatched(
+          variables.tvShowId,
+          variables.episodesToUnmark,
+          variables.bulkOptions,
+        )
+      },
+      // Mobile parity: no optimistic episode writes for show-wide unmarks.
+      // Per-chunk Firestore writes become visible via invalidation/refetch on
+      // settle, so a partial (cancelled) run never removes episodes that were
+      // not actually deleted.
+      applyOptimistic: ({ previousShow }) => previousShow ?? null,
+    })
+
   const setHiddenFromProgressMutation = useTrackingMutation<{
     tvShowId: number
     hidden: boolean
@@ -512,6 +543,9 @@ export function useEpisodeTrackingMutations() {
     ),
     clearAllEpisodes: wrapWithTraktWarning(clearAllEpisodesMutation),
     markEntireShowWatched: wrapWithTraktWarning(markEntireShowWatchedMutation),
+    markEntireShowUnwatched: wrapWithTraktWarning(
+      markEntireShowUnwatchedMutation,
+    ),
     setHiddenFromProgress: setHiddenFromProgressMutation.mutateAsync,
     isMutating:
       markEpisodeWatchedMutation.isPending ||
@@ -520,6 +554,7 @@ export function useEpisodeTrackingMutations() {
       markAllEpisodesUnwatchedMutation.isPending ||
       clearAllEpisodesMutation.isPending ||
       markEntireShowWatchedMutation.isPending ||
+      markEntireShowUnwatchedMutation.isPending ||
       setHiddenFromProgressMutation.isPending,
   }
 }
