@@ -22,6 +22,7 @@ function loadServiceWorker(sandbox: Record<string, unknown>) {
 function createHarness(options?: {
   fetchImpl?: (request: unknown) => Promise<Response>
   cacheKeys?: string[]
+  cachesOverride?: Partial<FakeCacheStorage>
 }) {
   const listeners = new Map<string, Array<(event: FakeEvent) => void>>()
   const deletedKeys: string[] = []
@@ -46,6 +47,7 @@ function createHarness(options?: {
       deletedKeys.push(key)
       return remainingKeys.delete(key)
     },
+    ...options?.cachesOverride,
   }
   const sandbox: Record<string, unknown> = {
     self: fakeSelf,
@@ -96,6 +98,45 @@ describe("service worker caching policy", () => {
       "legacy-v1-assets",
       "legacy-v1-pages",
     ])
+    expect(harness.fakeSelf.clients.claim).toHaveBeenCalled()
+  })
+
+  it("still claims clients when caches.keys() rejects", async () => {
+    const keysError = new Error("keys boom")
+    const harness = createHarness({
+      cacheKeys: ["legacy-v1-pages"],
+      cachesOverride: {
+        keys: async () => {
+          throw keysError
+        },
+      },
+    })
+
+    harness.dispatch("activate", {
+      request: { mode: "navigate", url: "https://show-seek.app/" },
+    })
+
+    await Promise.all(harness.waited)
+    expect(harness.fakeSelf.clients.claim).toHaveBeenCalled()
+  })
+
+  it("still claims clients when caches.delete() rejects", async () => {
+    const harness = createHarness({
+      cacheKeys: ["legacy-v1-pages"],
+      cachesOverride: {
+        delete: async () => {
+          throw new Error("delete boom")
+        },
+      },
+    })
+
+    harness.dispatch("activate", {
+      request: { mode: "navigate", url: "https://show-seek.app/" },
+    })
+
+    await Promise.all(harness.waited)
+    // The failing key must not block the claim, and the error must not
+    // escape as an unhandled rejection (waited promises resolve).
     expect(harness.fakeSelf.clients.claim).toHaveBeenCalled()
   })
 

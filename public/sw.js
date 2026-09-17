@@ -24,13 +24,16 @@ self.addEventListener("install", (event) => {
 
 // Activate event - purge legacy caches, then claim all clients so the
 // no-cache policy takes effect immediately (no reload required).
+// Cleanup failures must never block the claim: a rejected purge resolves to
+// undefined (logged, swallowed) so clients.claim() always runs.
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
-  )
+  const purgeLegacyCaches = caches
+    .keys()
+    .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    .catch((error) => {
+      console.error("[sw] Legacy cache purge failed:", error)
+    })
+  event.waitUntil(purgeLegacyCaches.then(() => self.clients.claim()))
 })
 
 // Fetch event - network-first passthrough for navigations; offline fallback
