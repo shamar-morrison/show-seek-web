@@ -1,5 +1,7 @@
 import { BrowsePageClient } from "@/components/browse-page-client"
+import { JsonLd } from "@/components/json-ld"
 import { getTopRatedTVPaginated } from "@/lib/tmdb"
+import { itemListSchema } from "@/lib/jsonld"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -19,13 +21,23 @@ export default async function TopRatedTVPage({ searchParams }: PageProps) {
   const data = await getTopRatedTVPaginated(page)
 
   return (
-    <BrowsePageClient
-      title="Top Rated TV Shows"
-      items={data.results}
-      currentPage={data.page}
-      totalPages={data.totalPages}
-      totalResults={data.totalResults}
-      baseUrl="/top-rated-tv"
-    />
+    <>
+      <JsonLd
+        data={itemListSchema({
+          name: "Top Rated TV Shows",
+          description: "Discover top rated TV shows on ShowSeek",
+          url: "https://show-seek.app/top-rated-tv",
+          items: data.results,
+        })}
+      />
+      <BrowsePageClient
+        title="Top Rated TV Shows"
+        items={data.results}
+        currentPage={data.page}
+        totalPages={data.totalPages}
+        totalResults={data.totalResults}
+        baseUrl="/top-rated-tv"
+      />
+    </>
   )
 }

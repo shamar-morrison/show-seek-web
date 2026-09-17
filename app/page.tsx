@@ -1,4 +1,6 @@
 import { HomePageClient } from "@/components/home-page-client"
+import { JsonLd } from "@/components/json-ld"
+import { websiteSchema } from "@/lib/jsonld"
 import { enrichHeroMediaWithBrightness } from "@/lib/logo-brightness"
 import {
   getHeroMediaList,
@@ -41,15 +43,18 @@ export default async function Home() {
   const heroMediaList = await enrichHeroMediaWithBrightness(heroMediaListRaw)
 
   return (
-    <HomePageClient
-      heroMediaList={heroMediaList}
-      trendingMovies={trendingMoviesData.results}
-      trendingTV={trendingTVData.results}
-      popularMovies={popularMovies}
-      topRatedMovies={topRatedMovies}
-      topRatedTV={topRatedTV}
-      upcomingMovies={upcomingMovies}
-      upcomingTV={upcomingTV}
-    />
+    <>
+      <JsonLd data={websiteSchema()} />
+      <HomePageClient
+        heroMediaList={heroMediaList}
+        trendingMovies={trendingMoviesData.results}
+        trendingTV={trendingTVData.results}
+        popularMovies={popularMovies}
+        topRatedMovies={topRatedMovies}
+        topRatedTV={topRatedTV}
+        upcomingMovies={upcomingMovies}
+        upcomingTV={upcomingTV}
+      />
+    </>
   )
 }
