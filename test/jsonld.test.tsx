@@ -119,7 +119,7 @@ describe("websiteSchema", () => {
 
 describe("movieDetailSchema", () => {
   it("maps TMDB fields to Movie properties", () => {
-    const schema = movieDetailSchema(baseMovie, "trailer123") as Record<string, unknown>
+    const schema = movieDetailSchema(baseMovie) as Record<string, unknown>
     expect(schema["@type"]).toBe("Movie")
     expect(schema.name).toBe("Inception")
     expect(schema.description).toBe("A thief who steals corporate secrets.")
@@ -143,16 +143,17 @@ describe("movieDetailSchema", () => {
     expect(schema.director).toEqual([
       { "@type": "Person", name: "Christopher Nolan" },
     ])
-    const trailer = schema.trailer as Record<string, unknown>
-    expect(trailer["@type"]).toBe("VideoObject")
-    expect(trailer.embedUrl).toBe("https://www.youtube.com/embed/trailer123")
+    // No VideoObject is emitted (TMDB provides no video description).
+    expect(schema).not.toHaveProperty("trailer")
   })
 
-  it("omits aggregateRating when there are no votes and trailer when missing", () => {
-    const schema = movieDetailSchema(
-      { ...baseMovie, vote_average: 0, vote_count: 0, runtime: null },
-      null,
-    ) as Record<string, unknown>
+  it("omits aggregateRating when there are no votes", () => {
+    const schema = movieDetailSchema({
+      ...baseMovie,
+      vote_average: 0,
+      vote_count: 0,
+      runtime: null,
+    }) as Record<string, unknown>
     expect(schema).not.toHaveProperty("aggregateRating")
     expect(schema).not.toHaveProperty("trailer")
     expect(schema).not.toHaveProperty("duration")
@@ -172,7 +173,6 @@ describe("movieDetailSchema", () => {
         production_companies: [],
         credits: { id: 1, cast: [], crew: [] },
       },
-      null,
     )
     const json = JSON.parse(JSON.stringify(schema)) as Record<string, unknown>
     for (const value of Object.values(json)) {
@@ -185,7 +185,7 @@ describe("movieDetailSchema", () => {
 
 describe("tvSeriesDetailSchema", () => {
   it("maps TMDB fields to TVSeries properties", () => {
-    const schema = tvSeriesDetailSchema(baseTvShow, null) as Record<string, unknown>
+    const schema = tvSeriesDetailSchema(baseTvShow) as Record<string, unknown>
     expect(schema["@type"]).toBe("TVSeries")
     expect(schema.name).toBe("Breaking Bad")
     expect(schema.url).toBe("https://show-seek.app/tv/1396")

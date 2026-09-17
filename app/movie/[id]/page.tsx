@@ -60,7 +60,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <JsonLd data={movieDetailSchema(movie, trailerKey)} />
+      <JsonLd data={movieDetailSchema(movie)} />
       <MediaDetailHero
         media={movie}
         mediaType="movie"

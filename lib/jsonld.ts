@@ -49,16 +49,6 @@ function aggregateRatingSchema(voteAverage: number, voteCount: number) {
   }
 }
 
-function trailerSchema(title: string, trailerKey: string | null, thumbnailUrl: string | null) {
-  if (!trailerKey) return undefined
-  return {
-    "@type": "VideoObject",
-    name: `${title} Trailer`,
-    embedUrl: `https://www.youtube.com/embed/${trailerKey}`,
-    ...(thumbnailUrl && { thumbnailUrl }),
-  }
-}
-
 function topBilledCast(cast: CastMember[] | undefined) {
   if (!cast || cast.length === 0) return undefined
   const actors = [...cast]
@@ -100,11 +90,12 @@ export function websiteSchema() {
 /**
  * Movie schema for /movie/[id] pages, including credits-derived fields
  * (actor/director).
+ *
+ * No trailer VideoObject is emitted: TMDB provides no video description
+ * (required by Google for VideoObject rich results) and we do not fabricate
+ * one, so emitting it would always be invalid.
  */
-export function movieDetailSchema(
-  movie: TMDBMovieDetails,
-  trailerKey: string | null,
-) {
+export function movieDetailSchema(movie: TMDBMovieDetails) {
   const imageUrl =
     buildImageUrl(movie.poster_path, "original") ??
     buildImageUrl(movie.backdrop_path, "original")
@@ -138,22 +129,16 @@ export function movieDetailSchema(
       ),
       actor: topBilledCast(movie.credits?.cast),
       director: directors(movie.credits?.crew),
-      trailer: trailerSchema(
-        movie.title,
-        trailerKey,
-        buildImageUrl(movie.backdrop_path, "w1280"),
-      ),
     }),
   }
 }
 
 /**
  * TVSeries schema for /tv/[id] pages.
+ *
+ * No trailer VideoObject is emitted (see movieDetailSchema).
  */
-export function tvSeriesDetailSchema(
-  tvShow: TMDBTVDetails,
-  trailerKey: string | null,
-) {
+export function tvSeriesDetailSchema(tvShow: TMDBTVDetails) {
   const imageUrl =
     buildImageUrl(tvShow.poster_path, "original") ??
     buildImageUrl(tvShow.backdrop_path, "original")
@@ -190,11 +175,6 @@ export function tvSeriesDetailSchema(
         tvShow.vote_count,
       ),
       actor: topBilledCast(tvShow.credits?.cast),
-      trailer: trailerSchema(
-        tvShow.name,
-        trailerKey,
-        buildImageUrl(tvShow.backdrop_path, "w1280"),
-      ),
     }),
   }
 }

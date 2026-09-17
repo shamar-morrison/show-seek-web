@@ -60,7 +60,7 @@ export default async function TVPage({ params }: TVPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
-      <JsonLd data={tvSeriesDetailSchema(tvShow, trailerKey)} />
+      <JsonLd data={tvSeriesDetailSchema(tvShow)} />
       <MediaDetailHero
         media={tvShow}
         mediaType="tv"
