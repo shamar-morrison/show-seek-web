@@ -1,0 +1,26 @@
+diff --git a/package.json b/package.json
+index 554b3a15f3b82dd75c79339db3d5eaec07e04fcb..edcd89772fb8f57b5419bebb9a0d4410e79c081f 100644
+--- a/package.json
++++ b/package.json
+@@ -64,8 +64,8 @@
+     ".": {
+       "types": "./dist/index.d.ts",
+       "node": {
+-        "require": "./dist/index.node.cjs.js",
+-        "import": "./dist/index.node.mjs"
++        "require": "./dist/index.cjs.js",
++        "import": "./dist/index.esm.js"
+       },
+       "react-native": "./dist/index.rn.js",
+       "browser": {
+@@ -77,8 +77,8 @@
+     "./lite": {
+       "types": "./dist/lite/index.d.ts",
+       "node": {
+-        "require": "./dist/lite/index.node.cjs.js",
+-        "import": "./dist/lite/index.node.mjs"
++        "require": "./dist/lite/index.cjs.js",
++        "import": "./dist/lite/index.browser.esm.js"
+       },
+       "react-native": "./dist/lite/index.rn.esm.js",
+       "browser": {

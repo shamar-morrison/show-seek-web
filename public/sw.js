@@ -1,5 +1,18 @@
-// Minimal service worker for PWA installability
-// Does NOT cache any assets - only provides offline detection
+// ShowSeek service worker.
+// Caching policy: this worker intentionally caches NOTHING. Page/asset
+// caching is handled server-side (ISR + KV); a worker-side document cache
+// would serve stale content and mask server outages.
+// - Navigation requests: network passthrough. HTTP error statuses (4xx/5xx)
+//   are returned to the page untouched and are NEVER cached or replaced.
+//   Only a network-level failure (fetch throws = device offline) falls back
+//   to the offline page below.
+// - All other requests: untouched by this worker (no respondWith).
+// - On activate: delete every CacheStorage cache. This worker owns none, so
+//   anything present is left over from a previous worker generation and must
+//   not be served again (it once replayed stale error responses).
+
+// Bump to force browsers to install the new worker on next visit.
+const SW_VERSION = "v2-no-store-purge-legacy"
 
 const OFFLINE_MESSAGE =
   "No internet connection. Please check your network and try again."
@@ -9,12 +22,20 @@ self.addEventListener("install", (event) => {
   self.skipWaiting()
 })
 
-// Activate event - claim all clients
+// Activate event - purge legacy caches, then claim all clients so the
+// no-cache policy takes effect immediately (no reload required).
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  )
 })
 
-// Fetch event - pass through all requests, return offline message when network fails
+// Fetch event - network-first passthrough for navigations; offline fallback
+// ONLY when the network itself fails (fetch rejects). A resolved response —
+// including 4xx/5xx — is returned as-is and never written to any cache.
 self.addEventListener("fetch", (event) => {
   // Only handle navigation requests (HTML pages)
   if (event.request.mode === "navigate") {
