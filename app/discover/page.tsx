@@ -17,7 +17,14 @@ import {
 } from "@/lib/tmdb"
 import { parseRuntimeRange } from "@/lib/discover-runtime"
 import { safeParseInt, parseGenreOperator, parseIntList } from "@/lib/utils"
+import type { Metadata } from "next"
 import { DiscoverClient } from "./discover-client"
+
+export const metadata: Metadata = {
+  title: "Discover Movies & TV Shows to Watch | ShowSeek",
+  description:
+    "Browse movies and TV shows by genre, mood, and rating, then add them to your ShowSeek tracker to keep watching.",
+}
 
 /**
  * Discover page - browse movies and TV shows with filters.

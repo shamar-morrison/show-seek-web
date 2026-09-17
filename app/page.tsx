@@ -2,6 +2,13 @@ import { HomePageClient } from "@/components/home-page-client"
 import { JsonLd } from "@/components/json-ld"
 import { websiteSchema } from "@/lib/jsonld"
 import { enrichHeroMediaWithBrightness } from "@/lib/logo-brightness"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "ShowSeek – Movie & TV Show Tracker",
+  description:
+    "Track movies and TV shows across every streaming service with ShowSeek, the free movie and TV tracker that never loses your place.",
+}
 import {
   getHeroMediaList,
   getPopularMovies,
