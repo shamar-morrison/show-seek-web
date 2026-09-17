@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@firebase/firestore@4.9.3':
+    hash: svaooe4njfxjand4y4sfkposw4
+    path: patches/@firebase__firestore@4.9.3.patch
+
 importers:
 
   .:
@@ -6366,7 +6371,7 @@ snapshots:
     dependencies:
       '@firebase/app-compat': 0.5.6
       '@firebase/component': 0.7.0
-      '@firebase/firestore': 4.9.3(@firebase/app@0.14.6)
+      '@firebase/firestore': 4.9.3(patch_hash=svaooe4njfxjand4y4sfkposw4)(@firebase/app@0.14.6)
       '@firebase/firestore-types': 3.0.3(@firebase/app-types@0.9.3)(@firebase/util@1.13.0)
       '@firebase/util': 1.13.0
       tslib: 2.8.1
@@ -6379,7 +6384,7 @@ snapshots:
       '@firebase/app-types': 0.9.3
       '@firebase/util': 1.13.0
 
-  '@firebase/firestore@4.9.3(@firebase/app@0.14.6)':
+  '@firebase/firestore@4.9.3(patch_hash=svaooe4njfxjand4y4sfkposw4)(@firebase/app@0.14.6)':
     dependencies:
       '@firebase/app': 0.14.6
       '@firebase/component': 0.7.0
@@ -8750,7 +8755,7 @@ snapshots:
       '@firebase/data-connect': 0.3.12(@firebase/app@0.14.6)
       '@firebase/database': 1.1.0
       '@firebase/database-compat': 2.1.0
-      '@firebase/firestore': 4.9.3(@firebase/app@0.14.6)
+      '@firebase/firestore': 4.9.3(patch_hash=svaooe4njfxjand4y4sfkposw4)(@firebase/app@0.14.6)
       '@firebase/firestore-compat': 0.4.3(@firebase/app-compat@0.5.6)(@firebase/app-types@0.9.3)(@firebase/app@0.14.6)
       '@firebase/functions': 0.13.1(@firebase/app@0.14.6)
       '@firebase/functions-compat': 0.4.1(@firebase/app-compat@0.5.6)(@firebase/app@0.14.6)
