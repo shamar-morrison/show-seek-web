@@ -34,7 +34,7 @@ export default async function PopularMoviesPage({ searchParams }: PageProps) {
         title="Popular Movies"
         items={data.results}
         currentPage={data.page}
-        totalPages={data.totalResults}
+        totalPages={data.totalPages}
         totalResults={data.totalResults}
         baseUrl="/popular-movies"
       />
