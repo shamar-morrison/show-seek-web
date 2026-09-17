@@ -19,7 +19,7 @@ describe("PersonCard", () => {
     expect(character.className).not.toContain("line-clamp-1")
   })
 
-  it("keeps the actor name to a single line", () => {
+  it("wraps the actor name over two lines without reserving empty space", () => {
     render(
       <PersonCard
         id={1}
@@ -29,6 +29,9 @@ describe("PersonCard", () => {
       />,
     )
 
-    expect(screen.getByText("Brie Larson").className).toContain("line-clamp-1")
+    const heading = screen.getByText("Brie Larson")
+    expect(heading.className).toContain("line-clamp-2")
+    expect(heading.className).not.toContain("line-clamp-1")
+    expect(heading.className).not.toContain("min-h-10")
   })
 })

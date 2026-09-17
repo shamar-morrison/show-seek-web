@@ -9,6 +9,8 @@ import { SimilarMedia } from "@/components/similar-media"
 import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
+import { JsonLd } from "@/components/json-ld"
+import { tvSeriesDetailSchema } from "@/lib/jsonld"
 import { getMediaExternalRatings } from "@/lib/omdb"
 import {
   getBestTrailer,
@@ -58,6 +60,7 @@ export default async function TVPage({ params }: TVPageProps) {
 
   return (
     <main className="min-h-screen bg-black">
+      <JsonLd data={tvSeriesDetailSchema(tvShow, trailerKey)} />
       <MediaDetailHero
         media={tvShow}
         mediaType="tv"

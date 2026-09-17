@@ -65,7 +65,7 @@ export function PersonCard({
 
           {/* Info Content */}
           <div className="flex flex-col gap-1 p-3">
-            <h3 className="line-clamp-1 text-sm font-bold text-white">
+            <h3 className="line-clamp-2 text-sm font-bold text-white">
               {name}
             </h3>
             {subtext && (

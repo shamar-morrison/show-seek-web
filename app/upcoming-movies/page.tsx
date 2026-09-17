@@ -1,5 +1,7 @@
 import { BrowsePageClient } from "@/components/browse-page-client"
+import { JsonLd } from "@/components/json-ld"
 import { getUpcomingMoviesPaginated } from "@/lib/tmdb"
+import { itemListSchema } from "@/lib/jsonld"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -19,13 +21,24 @@ export default async function UpcomingMoviesPage({ searchParams }: PageProps) {
   const data = await getUpcomingMoviesPaginated(page)
 
   return (
-    <BrowsePageClient
-      title="Upcoming Movies"
-      items={data.results}
-      currentPage={data.page}
-      totalPages={data.totalPages}
-      totalResults={data.totalResults}
-      baseUrl="/upcoming-movies"
-    />
+    <>
+      <JsonLd
+        data={itemListSchema({
+          name: "Upcoming Movies",
+          description: "Discover upcoming movies on ShowSeek",
+          baseUrl: "/upcoming-movies",
+          page: data.page,
+          items: data.results,
+        })}
+      />
+      <BrowsePageClient
+        title="Upcoming Movies"
+        items={data.results}
+        currentPage={data.page}
+        totalPages={data.totalPages}
+        totalResults={data.totalResults}
+        baseUrl="/upcoming-movies"
+      />
+    </>
   )
 }

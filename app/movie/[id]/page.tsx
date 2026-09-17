@@ -9,6 +9,8 @@ import { SimilarMedia } from "@/components/similar-media"
 import { TraktReviewsSection } from "@/components/trakt-reviews-section"
 import { VideosSection } from "@/components/videos-section"
 import { WatchProviders } from "@/components/watch-providers"
+import { JsonLd } from "@/components/json-ld"
+import { movieDetailSchema } from "@/lib/jsonld"
 import { getMediaExternalRatings } from "@/lib/omdb"
 import {
   buildImageUrl,
@@ -58,6 +60,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
 
   return (
     <main className="min-h-screen bg-black">
+      <JsonLd data={movieDetailSchema(movie, trailerKey)} />
       <MediaDetailHero
         media={movie}
         mediaType="movie"
