@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: vi.fn(),
+}))
+
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
 
@@ -118,9 +122,139 @@ describe("logo brightness", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://image.example/logo.png",
       expect.objectContaining({
-        cache: "force-cache",
+        cache: "no-store",
         signal: expect.any(AbortSignal),
       }),
+    )
+  })
+
+  it("fetches the w92 variant with no-store for TMDB logos", async () => {
+    const fetchMock = vi.fn(async () => createImageResponse())
+
+    class FakeOffscreenCanvas {
+      constructor(readonly width: number, readonly height: number) {}
+
+      getContext() {
+        return {
+          drawImage: vi.fn(),
+          getImageData: vi.fn(() => ({
+            data: new Uint8ClampedArray([0, 0, 0, 255]),
+          })),
+        }
+      }
+    }
+
+    vi.stubGlobal(
+      "OffscreenCanvas",
+      FakeOffscreenCanvas as unknown as typeof OffscreenCanvas,
+    )
+    vi.stubGlobal("fetch", fetchMock)
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({
+        close: vi.fn(),
+        height: 64,
+        width: 64,
+      })),
+    )
+
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare")
+    vi.mocked(getCloudflareContext).mockRejectedValue(
+      new Error("test: no Cloudflare context"),
+    )
+
+    const { isLogoDark } = await import("../lib/logo-brightness")
+
+    await expect(
+      isLogoDark("https://image.tmdb.org/t/p/w500/logo.png"),
+    ).resolves.toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://image.tmdb.org/t/p/w92/logo.png",
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
+  it("serves cached booleans from KV without fetching the image", async () => {
+    const fetchMock = vi.fn(async () => createImageResponse())
+    vi.stubGlobal("fetch", fetchMock)
+    // Intentionally no OffscreenCanvas stub: a cache hit must be served
+    // before the image-analysis runtime gate.
+
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare")
+    vi.mocked(getCloudflareContext).mockResolvedValue({
+      env: {
+        NEXT_INC_CACHE_KV: {
+          get: async () => "1",
+          put: vi.fn(async () => {}),
+        },
+      },
+    } as unknown as Awaited<ReturnType<typeof getCloudflareContext>>)
+
+    const { isLogoDark } = await import("../lib/logo-brightness")
+
+    await expect(
+      isLogoDark("https://image.tmdb.org/t/p/w500/cached.png"),
+    ).resolves.toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("caches computed booleans in KV under the logo-dark prefix with a 30-day TTL", async () => {
+    const fetchMock = vi.fn(async () => createImageResponse())
+
+    class FakeOffscreenCanvas {
+      constructor(readonly width: number, readonly height: number) {}
+
+      getContext() {
+        return {
+          drawImage: vi.fn(),
+          getImageData: vi.fn(() => ({
+            data: new Uint8ClampedArray([0, 0, 0, 255]),
+          })),
+        }
+      }
+    }
+
+    vi.stubGlobal(
+      "OffscreenCanvas",
+      FakeOffscreenCanvas as unknown as typeof OffscreenCanvas,
+    )
+    vi.stubGlobal("fetch", fetchMock)
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({
+        close: vi.fn(),
+        height: 64,
+        width: 64,
+      })),
+    )
+
+    const putMock = vi.fn(async () => {})
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare")
+    vi.mocked(getCloudflareContext).mockResolvedValue({
+      env: {
+        NEXT_INC_CACHE_KV: {
+          get: async () => null,
+          put: putMock,
+        },
+      },
+    } as unknown as Awaited<ReturnType<typeof getCloudflareContext>>)
+
+    const { isLogoDark } = await import("../lib/logo-brightness")
+
+    await expect(
+      isLogoDark("https://image.tmdb.org/t/p/original/fresh.png"),
+    ).resolves.toBe(true)
+
+    await waitForAssertion(() => {
+      expect(putMock).toHaveBeenCalledTimes(1)
+    })
+    expect(putMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^logo-dark\/v1\/[0-9a-f]{64}$/),
+      "1",
+      { expirationTtl: 2592000 },
     )
   })
 

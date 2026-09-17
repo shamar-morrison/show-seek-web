@@ -18,6 +18,27 @@ const LOGO_ANALYSIS_MAX_DIMENSION = 64
 const LOGO_FETCH_TIMEOUT_MS = 5_000
 
 /**
+ * TMDB image size variant fetched for brightness analysis.
+ * w92 is sufficient: analysis downscales to LOGO_ANALYSIS_MAX_DIMENSION
+ * (64px) anyway, so sampling reliability is unchanged while transfer
+ * size drops ~5-10x vs w500. Display URLs elsewhere are untouched.
+ */
+const LOGO_ANALYSIS_IMAGE_SIZE = "w92"
+
+/**
+ * TTL for cached logo-darkness booleans (~30 days), matching the
+ * retention the image fetch-cache entries previously had.
+ */
+const LOGO_DARKNESS_CACHE_TTL_SECONDS = 2_592_000
+
+/**
+ * Distinct KV key prefix for cached booleans so they can be
+ * listed/monitored separately from incremental-cache fetch entries:
+ * `wrangler kv key list --prefix=logo-dark/v1/`
+ */
+const LOGO_DARKNESS_CACHE_KEY_PREFIX = "logo-dark/v1/"
+
+/**
  * Minimum opacity threshold to consider a pixel as "visible"
  * Logos often have transparent backgrounds, so we only analyze visible pixels
  */
@@ -47,6 +68,18 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
     return false
   }
 
+  // Analyze the smaller w92 variant; the caller's display URL is untouched.
+  const analysisUrl = getAnalysisImageUrl(logoUrl)
+  const cacheKey = await buildLogoDarknessCacheKey(analysisUrl)
+
+  // Serve cached booleans even where pixel analysis is unavailable, so
+  // runtimes without OffscreenCanvas still get correct glow styling once
+  // any capable runtime has analyzed the logo.
+  const cached = await readCachedLogoDarkness(cacheKey)
+  if (cached !== null) {
+    return cached
+  }
+
   const hasImageAnalyzerRuntime =
     typeof fetch === "function" &&
     typeof createImageBitmap === "function" &&
@@ -56,10 +89,123 @@ export async function isLogoDark(logoUrl: string | null): Promise<boolean> {
     return false
   }
 
+  const result = await analyzeLogoImage(analysisUrl)
+  writeCachedLogoDarkness(cacheKey, result)
+  return result
+}
+
+/**
+ * Rewrite a logo URL to the smaller variant used for analysis.
+ * Only TMDB image URLs carry a size segment that is safe to downscale;
+ * all other hosts pass through unchanged.
+ */
+function getAnalysisImageUrl(logoUrl: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(logoUrl)
+  } catch {
+    return logoUrl
+  }
+
+  if (parsed.hostname === "image.tmdb.org") {
+    parsed.pathname = parsed.pathname.replace(
+      /^\/t\/p\/[^/]+/,
+      `/t/p/${LOGO_ANALYSIS_IMAGE_SIZE}`,
+    )
+  }
+
+  return parsed.toString()
+}
+
+/** Minimal structural type for the KV binding (avoids worker-type imports). */
+interface LogoDarknessKv {
+  get(key: string, type: "text"): Promise<string | null>
+  put(
+    key: string,
+    value: string,
+    options?: { expirationTtl?: number },
+  ): Promise<void>
+}
+
+async function getLogoDarknessKv(): Promise<LogoDarknessKv | null> {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare")
+    const context = await getCloudflareContext()
+    const kv = (
+      context?.env as unknown as
+        | { NEXT_INC_CACHE_KV?: LogoDarknessKv }
+        | undefined
+    )?.NEXT_INC_CACHE_KV
+    return kv ?? null
+  } catch {
+    // Local dev without bindings, build-time prerender, or unit tests.
+    return null
+  }
+}
+
+async function buildLogoDarknessCacheKey(
+  analysisUrl: string,
+): Promise<string> {
+  try {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(analysisUrl),
+    )
+    const hex = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("")
+    return `${LOGO_DARKNESS_CACHE_KEY_PREFIX}${hex}`
+  } catch {
+    const slug = analysisUrl.replace(/[^a-zA-Z0-9]/g, "").slice(-96)
+    return `${LOGO_DARKNESS_CACHE_KEY_PREFIX}${slug}`
+  }
+}
+
+async function readCachedLogoDarkness(
+  cacheKey: string,
+): Promise<boolean | null> {
+  try {
+    const kv = await getLogoDarknessKv()
+    if (!kv) {
+      return null
+    }
+    const stored = await kv.get(cacheKey, "text")
+    if (stored === "1") {
+      return true
+    }
+    if (stored === "0") {
+      return false
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedLogoDarkness(cacheKey: string, value: boolean): void {
+  // Fire-and-forget: a cache write must never fail the render.
+  void (async () => {
+    try {
+      const kv = await getLogoDarknessKv()
+      await kv?.put(cacheKey, value ? "1" : "0", {
+        expirationTtl: LOGO_DARKNESS_CACHE_TTL_SECONDS,
+      })
+    } catch {
+      // Best effort only.
+    }
+  })()
+}
+
+/**
+ * Fetch an image and determine whether it is predominantly dark.
+ * Uses `no-store` so raw image bytes never enter the KV fetch-cache;
+ * the boolean result is cached separately (see readCachedLogoDarkness).
+ */
+async function analyzeLogoImage(analysisUrl: string): Promise<boolean> {
   let bitmap: ImageBitmap | null = null
   try {
-    const response = await fetch(parsedUrl.toString(), {
-      cache: "force-cache",
+    const response = await fetch(analysisUrl, {
+      cache: "no-store",
       signal: AbortSignal.timeout(LOGO_FETCH_TIMEOUT_MS),
     })
 
