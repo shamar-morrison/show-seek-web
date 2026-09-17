@@ -377,6 +377,8 @@ describe("TVShowWatchButton", () => {
     const button = screen.getByTestId("tv-show-watch-button")
     expect(button).toHaveTextContent("Mark as Unwatched")
     expect(button).not.toHaveTextContent("Episodes Watched")
+    // Zero markable but tracked > 0 must still render a full fill.
+    expect(screen.getByTestId("tv-show-watch-fill").style.width).toBe("100%")
     expect(
       screen.getByRole("button", { name: "Watch history actions" }),
     ).toBeInTheDocument()
@@ -396,6 +398,45 @@ describe("TVShowWatchButton", () => {
       { seasonNumber: 1, episodeNumber: 1 },
       { seasonNumber: 2, episodeNumber: 1 },
     ])
+  })
+
+  it("renders a progress fill matching the watched ratio for a partial state", () => {
+    setEpisodes({
+      1: [ep(1, "2024-01-01"), ep(2, "2024-01-01")],
+      2: [ep(1, "2024-02-01", 2), ep(2, "2024-02-01", 2)],
+    })
+    mocks.tracking = { episodes: { "1_1": {}, "2_1": {} } }
+    renderButton()
+
+    expect(screen.getByTestId("tv-show-watch-button")).toHaveTextContent(
+      "2/4 Episodes Watched",
+    )
+    expect(screen.getByTestId("tv-show-watch-fill").style.width).toBe("50%")
+  })
+
+  it("renders a full progress fill when fully watched", () => {
+    setEpisodes({
+      1: [ep(1, "2024-01-01"), ep(2, "2024-01-01")],
+      2: [ep(1, "2024-02-01", 2)],
+    })
+    mocks.tracking = {
+      episodes: { "1_1": {}, "1_2": {}, "2_1": {} },
+    }
+    renderButton()
+
+    expect(screen.getByTestId("tv-show-watch-button")).toHaveTextContent(
+      "Mark as Unwatched",
+    )
+    expect(screen.getByTestId("tv-show-watch-fill").style.width).toBe("100%")
+  })
+
+  it("renders no progress fill when nothing is watched", () => {
+    setEpisodes({ 1: [ep(1, "2024-01-01")] })
+    renderButton()
+
+    expect(
+      screen.queryByTestId("tv-show-watch-fill"),
+    ).not.toBeInTheDocument()
   })
 
   it("renders nothing when there is nothing markable and nothing tracked", () => {

@@ -412,6 +412,15 @@ export function TVShowWatchButton({
       ? `${watchedCount}/${totalMarkableCount} Episodes Watched`
       : "Mark as Watched"
 
+  // Visual fill mirrors mobile's ProgressBar overlay: translucent accent while
+  // in progress, translucent success once complete. Fully-watched is forced to
+  // ratio 1 so the zero-markable-but-tracked edge case still fills completely.
+  const fillRatio = isShowFullyWatched
+    ? 1
+    : totalMarkableCount > 0
+      ? Math.min(watchedCount / totalMarkableCount, 1)
+      : 0
+
   return (
     <>
       <div className="flex items-stretch">
@@ -424,25 +433,41 @@ export function TVShowWatchButton({
           data-testid="tv-show-watch-button"
           className={cn(
             getMarkAsWatchedToneClassName(isShowFullyWatched),
-            "px-6 font-semibold backdrop-blur-sm transition-all",
+            "relative overflow-hidden px-6 font-semibold backdrop-blur-sm transition-all",
             hasWatched && "rounded-r-none",
           )}
         >
+          {fillRatio > 0 && (
+            <span
+              data-testid="tv-show-watch-fill"
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute inset-y-0 left-0 transition-[width] duration-300 ease-out",
+                isShowFullyWatched ? "bg-green-500/30" : "bg-primary/30",
+              )}
+              style={{ width: `${fillRatio * 100}%` }}
+            />
+          )}
           {isPending ? (
             <HugeiconsIcon
               icon={Loading03Icon}
-              className="size-5 animate-spin"
+              className="relative z-10 size-5 animate-spin"
             />
           ) : (
             <HugeiconsIcon
               icon={isShowFullyWatched ? Tick02Icon : ViewIcon}
               className={cn(
-                "size-5",
+                "relative z-10 size-5",
                 isShowFullyWatched && "text-green-500",
               )}
             />
           )}
-          <span className={cn(isShowFullyWatched && "text-green-500")}>
+          <span
+            className={cn(
+              "relative z-10",
+              isShowFullyWatched && "text-green-500",
+            )}
+          >
             {label}
           </span>
         </Button>
