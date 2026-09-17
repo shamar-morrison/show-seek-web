@@ -26,7 +26,8 @@ export default async function TrendingTVPage({ searchParams }: PageProps) {
         data={itemListSchema({
           name: "Trending TV Shows",
           description: "Discover trending TV shows on ShowSeek",
-          url: "https://show-seek.app/trending-tv",
+          baseUrl: "/trending-tv",
+          page: data.page,
           items: data.results,
         })}
       />

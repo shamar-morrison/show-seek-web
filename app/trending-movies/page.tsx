@@ -26,7 +26,8 @@ export default async function TrendingMoviesPage({ searchParams }: PageProps) {
         data={itemListSchema({
           name: "Trending Movies",
           description: "Discover trending movies on ShowSeek",
-          url: "https://show-seek.app/trending-movies",
+          baseUrl: "/trending-movies",
+          page: data.page,
           items: data.results,
         })}
       />

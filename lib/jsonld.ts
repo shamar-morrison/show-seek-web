@@ -17,6 +17,22 @@ import { buildImageUrl } from "@/lib/tmdb"
 const SITE_URL = "https://show-seek.app"
 const CONTEXT = "https://schema.org"
 
+/**
+ * Serialize JSON-LD for injection via dangerouslySetInnerHTML.
+ *
+ * Escapes `<`, `>`, and `&` as unicode escapes so a payload containing a
+ * literal `</script>` (e.g. in a TMDB title/overview) cannot prematurely
+ * close the script tag and enable content/script injection. The escapes are
+ * valid JSON string escapes, so parsers decode them back to the original
+ * characters — the structured data is semantically unchanged.
+ */
+export function serializeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+}
+
 const TOP_BILLED_CAST_COUNT = 5
 
 function personSchema(name: string) {
@@ -194,23 +210,30 @@ interface ItemListItem {
  * ItemList schema for browse pages (/trending-tv, /popular-movies, ...).
  * Lists the titles shown on the page with links to their detail pages.
  * Non-title entries (e.g. person results) are skipped.
+ * The canonical URL reflects the rendered page: base URL for page 1,
+ * `?page=N` for page 2+, matching the results actually listed.
  */
 export function itemListSchema(input: {
   name: string
   description: string
-  url: string
+  baseUrl: string
+  page: number
   items: ItemListItem[]
 }) {
   const titles = input.items.filter(
     (item): item is ItemListItem & { media_type: "movie" | "tv" } =>
       item.media_type === "movie" || item.media_type === "tv",
   )
+  const url =
+    input.page > 1
+      ? `${SITE_URL}${input.baseUrl}?page=${input.page}`
+      : `${SITE_URL}${input.baseUrl}`
   return {
     "@context": CONTEXT,
     "@type": "ItemList",
     name: input.name,
     description: input.description,
-    url: input.url,
+    url,
     numberOfItems: titles.length,
     itemListElement: titles.map((item, index) => ({
       "@type": "ListItem",

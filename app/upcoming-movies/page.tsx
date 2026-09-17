@@ -26,7 +26,8 @@ export default async function UpcomingMoviesPage({ searchParams }: PageProps) {
         data={itemListSchema({
           name: "Upcoming Movies",
           description: "Discover upcoming movies on ShowSeek",
-          url: "https://show-seek.app/upcoming-movies",
+          baseUrl: "/upcoming-movies",
+          page: data.page,
           items: data.results,
         })}
       />

@@ -26,7 +26,8 @@ export default async function TopRatedMoviesPage({ searchParams }: PageProps) {
         data={itemListSchema({
           name: "Top Rated Movies",
           description: "Discover top rated movies on ShowSeek",
-          url: "https://show-seek.app/top-rated-movies",
+          baseUrl: "/top-rated-movies",
+          page: data.page,
           items: data.results,
         })}
       />

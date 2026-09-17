@@ -26,7 +26,8 @@ export default async function TopRatedTVPage({ searchParams }: PageProps) {
         data={itemListSchema({
           name: "Top Rated TV Shows",
           description: "Discover top rated TV shows on ShowSeek",
-          url: "https://show-seek.app/top-rated-tv",
+          baseUrl: "/top-rated-tv",
+          page: data.page,
           items: data.results,
         })}
       />

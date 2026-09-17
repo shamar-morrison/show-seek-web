@@ -15,9 +15,12 @@ vi.mock("@/lib/tmdb", async (importOriginal) => {
 import {
   itemListSchema,
   movieDetailSchema,
+  serializeJsonLd,
   tvSeriesDetailSchema,
   websiteSchema,
 } from "../lib/jsonld"
+import { JsonLd } from "../components/json-ld"
+import { renderToStaticMarkup } from "react-dom/server"
 
 const baseMovie = {
   id: 27205,
@@ -204,7 +207,8 @@ describe("itemListSchema", () => {
     const schema = itemListSchema({
       name: "Trending TV Shows",
       description: "Discover trending TV shows on ShowSeek",
-      url: "https://show-seek.app/trending-tv",
+      baseUrl: "/trending-tv",
+      page: 1,
       items: [
         { id: 1, media_type: "tv", name: "Show One" },
         { id: 2, media_type: "movie", title: "Movie Two" },
@@ -212,6 +216,7 @@ describe("itemListSchema", () => {
       ],
     })
     expect(schema["@type"]).toBe("ItemList")
+    expect(schema.url).toBe("https://show-seek.app/trending-tv")
     expect(schema.numberOfItems).toBe(2)
     expect(schema.itemListElement).toEqual([
       {
@@ -227,5 +232,50 @@ describe("itemListSchema", () => {
         url: "https://show-seek.app/movie/2",
       },
     ])
+  })
+
+  it("points page 2+ at the paginated URL", () => {
+    const schema = itemListSchema({
+      name: "Popular Movies",
+      description: "Discover popular movies on ShowSeek",
+      baseUrl: "/popular-movies",
+      page: 3,
+      items: [{ id: 10, media_type: "movie", title: "Movie Ten" }],
+    })
+    expect(schema.url).toBe("https://show-seek.app/popular-movies?page=3")
+  })
+})
+
+describe("serializeJsonLd", () => {
+  it("escapes tag breakouts while round-tripping as valid JSON-LD", () => {
+    const payload = {
+      "@context": "https://schema.org",
+      "@type": "Movie",
+      name: 'Evil</script><script>alert("xss")</script> & Friends',
+      description: "5 > 3 & 2 < 4",
+    }
+    const serialized = serializeJsonLd(payload)
+    // No literal tag open/close may survive (prevents script breakout).
+    expect(serialized).not.toContain("</script>")
+    expect(serialized).not.toContain("<script>")
+    expect(serialized).toContain("\\u003c/script\\u003e")
+    // Escapes decode transparently: the structured data is unchanged.
+    expect(JSON.parse(serialized)).toEqual(payload)
+  })
+})
+
+describe("JsonLd component", () => {
+  it("renders a single script tag with escaped, parseable payload", () => {
+    const payload = {
+      "@type": "Movie",
+      name: "Bad</script> Title",
+    }
+    const html = renderToStaticMarkup(<JsonLd data={payload} />)
+    // Exactly one closing tag: the script element's own.
+    expect(html.indexOf("</script>")).toBe(html.lastIndexOf("</script>"))
+    const inner = html
+      .replace(/^<script type="application\/ld\+json">/, "")
+      .replace(/<\/script>$/, "")
+    expect(JSON.parse(inner)).toEqual(payload)
   })
 })
