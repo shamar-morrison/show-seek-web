@@ -1,9 +1,11 @@
 "use client"
 
+import { AuthModal } from "@/components/auth-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
+import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { cn } from "@/lib/utils"
 import { Collapsible } from "@base-ui/react/collapsible"
 import { NavigationMenu } from "@base-ui/react/navigation-menu"
@@ -147,6 +149,23 @@ const whereToWatchLink: SimpleNavItem = {
   href: "/where-to-watch",
 }
 
+/** Sign-in prompt shown when a guest taps a profile-gated nav link */
+const GATED_LINK_MESSAGES: Record<string, string> = {
+  "/for-you": "Sign in to get personalized picks for you",
+  "/calendar": "Sign in to view your release calendar",
+  "/where-to-watch": "Sign in to use Where to Watch",
+  "/lists/watch-progress": "Sign in to pick up where you left off",
+  "/lists/collection-progress": "Sign in to track your collections",
+  "/lists/watch-lists": "Sign in to view your watch lists",
+  "/lists/custom-lists": "Sign in to view your custom lists",
+  "/lists/notes": "Sign in to view your notes",
+  "/ratings": "Sign in to view your ratings",
+  "/lists/favorite-episodes": "Sign in to view your favorite episodes",
+  "/lists/favorite-people": "Sign in to view your favorite people",
+}
+
+const FALLBACK_GATED_LINK_MESSAGE = "Sign in to continue"
+
 /** Arrow SVG for the navigation menu popup */
 function ArrowSvg(props: React.ComponentProps<"svg">) {
   return (
@@ -178,7 +197,13 @@ function NavLink(props: NavigationMenu.Link.Props) {
 }
 
 /** Dropdown menu item component */
-function DropdownMenuItem({ item }: { item: NavItemWithSections }) {
+function DropdownMenuItem({
+  item,
+  onGatedLinkClick,
+}: {
+  item: NavItemWithSections
+  onGatedLinkClick: (e: React.MouseEvent, href: string) => void
+}) {
   return (
     <NavigationMenu.Item>
       <NavigationMenu.Trigger className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white data-popup-open:text-white">
@@ -199,6 +224,9 @@ function DropdownMenuItem({ item }: { item: NavItemWithSections }) {
                   <li key={link.href}>
                     <NavLink
                       href={link.href}
+                      onClick={(e: React.MouseEvent) =>
+                        onGatedLinkClick(e, link.href)
+                      }
                       className="block select-none space-y-1 rounded-md px-3 py-2.5 no-underline transition-[background-color,color] duration-150 hover:bg-white/8 data-active:[&_.nav-link-title]:text-primary"
                       closeOnClick
                     >
@@ -226,9 +254,11 @@ function DropdownMenuItem({ item }: { item: NavItemWithSections }) {
 function MobileAccordionItem({
   item,
   onLinkClick,
+  onGatedLinkClick,
 }: {
   item: NavItemWithSections
   onLinkClick: () => void
+  onGatedLinkClick: (e: React.MouseEvent, href: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -256,7 +286,10 @@ function MobileAccordionItem({
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={onLinkClick}
+                    onClick={(e) => {
+                      onGatedLinkClick(e, link.href)
+                      onLinkClick()
+                    }}
                     className="block rounded-md px-3 py-2 text-sm font-medium text-gray-400 no-underline transition-[background-color,color] duration-150 hover:bg-white/5 hover:text-white"
                   >
                     {link.label}
@@ -279,12 +312,36 @@ function MobileAccordionItem({
  */
 export function Navbar() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const {
+    requireAuth,
+    modalVisible,
+    modalMessage,
+    closeModal,
+    onAuthSuccess,
+  } = useAuthGuard()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileSearchQuery, setMobileSearchQuery] = useState("")
 
   const isAuthenticated = !!user && !user.isAnonymous
+
+  /**
+   * Intercepts clicks on profile-gated nav links for guests: opens the
+   * sign-in modal instead of navigating, then resumes navigation to the
+   * intended page after a successful sign-in. Signed-in users (and the
+   * Discover link, which is public) navigate normally. Clicks are ignored
+   * while auth state is still resolving to avoid a spurious modal for
+   * signed-in users whose session is restoring.
+   */
+  const handleGatedNavClick = (e: React.MouseEvent, href: string) => {
+    if (isAuthenticated) return
+    e.preventDefault()
+    if (authLoading) return
+    requireAuth(() => {
+      router.push(href)
+    }, GATED_LINK_MESSAGES[href] ?? FALLBACK_GATED_LINK_MESSAGE)
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -356,46 +413,48 @@ export function Navbar() {
                   </NavLink>
                 </NavigationMenu.Item>
 
-                {/* For You - Authenticated Only */}
-                {isAuthenticated && (
-                  <NavigationMenu.Item>
-                    <NavLink
-                      href={forYouLink.href}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
-                    >
-                      {forYouLink.label}
-                    </NavLink>
-                  </NavigationMenu.Item>
-                )}
+                {/* For You - opens sign-in modal for guests */}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={forYouLink.href}
+                    onClick={(e: React.MouseEvent) =>
+                      handleGatedNavClick(e, forYouLink.href)
+                    }
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {forYouLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
 
-                {isAuthenticated && (
-                  <NavigationMenu.Item>
-                    <NavLink
-                      href={calendarLink.href}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
-                    >
-                      {calendarLink.label}
-                    </NavLink>
-                  </NavigationMenu.Item>
-                )}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={calendarLink.href}
+                    onClick={(e: React.MouseEvent) =>
+                      handleGatedNavClick(e, calendarLink.href)
+                    }
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {calendarLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
 
-                {isAuthenticated && (
-                  <NavigationMenu.Item>
-                    <NavLink
-                      href={whereToWatchLink.href}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
-                    >
-                      {whereToWatchLink.label}
-                    </NavLink>
-                  </NavigationMenu.Item>
-                )}
+                <NavigationMenu.Item>
+                  <NavLink
+                    href={whereToWatchLink.href}
+                    onClick={(e: React.MouseEvent) =>
+                      handleGatedNavClick(e, whereToWatchLink.href)
+                    }
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-300 bg-transparent border-none rounded-md cursor-pointer transition-[background-color,color] duration-150 whitespace-nowrap no-underline hover:bg-white/5 hover:text-white"
+                  >
+                    {whereToWatchLink.label}
+                  </NavLink>
+                </NavigationMenu.Item>
 
-                {isAuthenticated && (
-                  <>
-                    {/* Library - Dropdown */}
-                    <DropdownMenuItem item={libraryMenu} />
-                  </>
-                )}
+                {/* Library - Dropdown (sublinks open sign-in modal for guests) */}
+                <DropdownMenuItem
+                  item={libraryMenu}
+                  onGatedLinkClick={handleGatedNavClick}
+                />
               </NavigationMenu.List>
 
               <NavigationMenu.Portal>
@@ -473,49 +532,57 @@ export function Navbar() {
               {discoverLink.label}
             </Link>
 
-            {/* For You - Mobile (Authenticated Only) */}
-            {isAuthenticated && (
-              <Link
-                href={forYouLink.href}
-                onClick={closeMobileMenu}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {forYouLink.label}
-              </Link>
-            )}
+            {/* For You - Mobile (opens sign-in modal for guests) */}
+            <Link
+              href={forYouLink.href}
+              onClick={(e) => {
+                handleGatedNavClick(e, forYouLink.href)
+                closeMobileMenu()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {forYouLink.label}
+            </Link>
 
-            {isAuthenticated && (
-              <Link
-                href={calendarLink.href}
-                onClick={closeMobileMenu}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {calendarLink.label}
-              </Link>
-            )}
+            <Link
+              href={calendarLink.href}
+              onClick={(e) => {
+                handleGatedNavClick(e, calendarLink.href)
+                closeMobileMenu()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {calendarLink.label}
+            </Link>
 
-            {isAuthenticated && (
-              <Link
-                href={whereToWatchLink.href}
-                onClick={closeMobileMenu}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {whereToWatchLink.label}
-              </Link>
-            )}
+            <Link
+              href={whereToWatchLink.href}
+              onClick={(e) => {
+                handleGatedNavClick(e, whereToWatchLink.href)
+                closeMobileMenu()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {whereToWatchLink.label}
+            </Link>
 
-            {isAuthenticated && (
-              <>
-                {/* Library - Accordion */}
-                <MobileAccordionItem
-                  item={libraryMenu}
-                  onLinkClick={closeMobileMenu}
-                />
-              </>
-            )}
+            {/* Library - Accordion (sublinks open sign-in modal for guests) */}
+            <MobileAccordionItem
+              item={libraryMenu}
+              onLinkClick={closeMobileMenu}
+              onGatedLinkClick={handleGatedNavClick}
+            />
           </div>
         </div>
       </div>
+
+      {/* Sign-in modal for guests who tap profile-gated nav links */}
+      <AuthModal
+        isOpen={modalVisible}
+        message={modalMessage}
+        onClose={closeModal}
+        onAuthSuccess={onAuthSuccess}
+      />
     </nav>
   )
 }

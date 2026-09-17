@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen } from "./utils"
 
 let mockUser: { isAnonymous?: boolean } | null = { isAnonymous: false }
+let mockAuthLoading = false
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
 
 vi.mock("@/components/auth-modal", () => ({
-  AuthModal: () => <div>auth-modal</div>,
+  AuthModal: ({ isOpen, message }: { isOpen?: boolean; message?: string }) =>
+    isOpen ? <div>auth-modal {message}</div> : null,
 }))
 
 vi.mock("@/components/search-dropdown", () => ({
@@ -42,7 +45,7 @@ vi.mock("@/components/user-menu", () => ({
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => ({
     user: mockUser,
-    loading: false,
+    loading: mockAuthLoading,
   }),
 }))
 
@@ -126,13 +129,15 @@ vi.mock("@base-ui/react/navigation-menu", () => ({
 
 vi.mock("nextjs-toploader/app", () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: pushMock,
   }),
 }))
 
 describe("Navbar calendar link", () => {
   beforeEach(() => {
     mockUser = { isAnonymous: false }
+    mockAuthLoading = false
+    pushMock.mockClear()
   })
 
   it("shows the calendar link for signed-in users", async () => {
@@ -157,15 +162,58 @@ describe("Navbar calendar link", () => {
     expect(screen.getAllByText("Favorite Episodes").length).toBeGreaterThan(0)
   })
 
-  it("hides the calendar link for signed-out users", async () => {
+  it("shows all nav links for signed-out users", async () => {
     mockUser = null
     const { Navbar } = await import("@/components/navbar")
 
     render(<Navbar />)
 
-    expect(screen.queryByText("Calendar")).not.toBeInTheDocument()
-    expect(screen.queryByText("Where to Watch")).not.toBeInTheDocument()
-    expect(screen.queryByText("Library")).not.toBeInTheDocument()
-    expect(screen.queryByText("My Ratings")).not.toBeInTheDocument()
+    expect(screen.getAllByText("Discover").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("For You").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Calendar").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Where to Watch").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Library").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("My Ratings").length).toBeGreaterThan(0)
+  })
+
+  it("opens the sign-in modal when a guest clicks a gated link", async () => {
+    mockUser = null
+    const { Navbar } = await import("@/components/navbar")
+    const { fireEvent } = await import("@testing-library/react")
+
+    render(<Navbar />)
+
+    fireEvent.click(screen.getAllByText("Calendar")[0])
+
+    expect(
+      screen.getByText("auth-modal Sign in to view your release calendar"),
+    ).toBeInTheDocument()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it("navigates directly when a signed-in user clicks a gated link", async () => {
+    const { Navbar } = await import("@/components/navbar")
+    const { fireEvent } = await import("@testing-library/react")
+
+    render(<Navbar />)
+
+    fireEvent.click(screen.getAllByText("Calendar")[0])
+
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(screen.queryByText(/auth-modal/)).not.toBeInTheDocument()
+  })
+
+  it("does not open the modal while auth state is still resolving", async () => {
+    mockUser = null
+    mockAuthLoading = true
+    const { Navbar } = await import("@/components/navbar")
+    const { fireEvent } = await import("@testing-library/react")
+
+    render(<Navbar />)
+
+    fireEvent.click(screen.getAllByText("Calendar")[0])
+
+    expect(screen.queryByText(/auth-modal/)).not.toBeInTheDocument()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })
