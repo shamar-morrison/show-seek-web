@@ -50,7 +50,7 @@ export function PreferenceToggle({
             <span className="text-sm font-medium text-white">{label}</span>
             {premiumRequired && <PremiumBadge isPremium={isPremium} />}
           </div>
-          <p className="text-sm text-white/60">{description}</p>
+          <p className="max-w-prose text-sm text-white/60">{description}</p>
         </div>
         <Switch
           checked={checked}

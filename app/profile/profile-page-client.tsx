@@ -35,7 +35,7 @@ import {
   deleteAccount,
 } from "@/lib/firebase/account-deletion"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
-import { formatWatchHours } from "@/lib/format-watch-time"
+import { formatWatchHours, getWatchTimeParts } from "@/lib/format-watch-time"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -103,6 +103,7 @@ export function ProfilePageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { totalMinutes, isLoading: isWatchTimeLoading } = useProfileWatchTime()
+  const watchTimeParts = getWatchTimeParts(totalMinutes)
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
@@ -163,22 +164,24 @@ export function ProfilePageClient() {
   if (loading || prefsLoading || !user) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-5">
             <div className="size-24 rounded-full bg-white/10" />
             <div className="space-y-2">
               <div className="h-8 w-48 rounded bg-white/10" />
               <div className="h-4 w-64 rounded bg-white/10" />
-              <div className="h-7 w-32 rounded bg-white/10" />
+              <div className="h-8 w-32 rounded-full bg-white/10" />
             </div>
           </div>
-          <div className="space-y-2 sm:pt-1">
-            <div className="h-4 w-36 rounded bg-white/10" />
-            <div className="h-8 w-44 rounded bg-white/10" />
-            <div className="h-3 w-24 rounded bg-white/10" />
+          <div className="w-full sm:w-auto">
+            <div className="space-y-2 rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/8">
+              <div className="h-4 w-36 rounded bg-white/10" />
+              <div className="h-9 w-44 rounded bg-white/10" />
+              <div className="h-3 w-24 rounded bg-white/10" />
+            </div>
           </div>
         </div>
-        <div className="h-64 max-w-4xl rounded-lg bg-white/10" />
+        <div className="h-64 rounded-lg bg-white/10" />
       </div>
     )
   }
@@ -679,7 +682,7 @@ export function ProfilePageClient() {
     <>
       {/* Profile Header */}
       <section className="mb-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-5">
             <Avatar
               src={user?.photoURL}
@@ -695,7 +698,9 @@ export function ProfilePageClient() {
               <p className="mt-1 text-sm text-white/60">{user?.email}</p>
               <div className="mt-2">
                 {isPremiumMember ? (
-                  <Badge variant="premium">Premium Member</Badge>
+                  <Badge variant="premium" className="h-8 rounded-full px-2">
+                    Premium Member
+                  </Badge>
                 ) : isPremiumCheckPending ? (
                   <span className="text-xs text-muted-foreground">
                     {PREMIUM_LOADING_MESSAGE}
@@ -711,16 +716,34 @@ export function ProfilePageClient() {
               </div>
             </div>
           </div>
-          <div className="sm:pt-1 sm:text-right">
-            <p className="text-sm text-white/60">Total Hours Watched</p>
-            {isWatchTimeLoading ? (
-              <Skeleton className="mt-1 h-9 w-44 sm:ml-auto" />
-            ) : (
-              <p className="mt-1 text-3xl font-semibold text-white">
-                {formatWatchHours(totalMinutes)}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-white/40">Last 6 months</p>
+          <div className="w-full sm:w-auto">
+            <div className="rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/8 sm:text-right">
+              <p className="text-sm text-white/60">Total Hours Watched</p>
+              {isWatchTimeLoading ? (
+                <Skeleton className="mt-2 h-9 w-44 sm:ml-auto" />
+              ) : (
+                <p className="mt-1">
+                  <span className="sr-only">
+                    {formatWatchHours(totalMinutes)}
+                  </span>
+                  <span aria-hidden="true">
+                    <span className="text-3xl font-semibold text-white">
+                      {watchTimeParts.hours}
+                    </span>
+                    <span className="ml-1 text-lg text-white/60">
+                      {watchTimeParts.hourUnit}
+                    </span>
+                    <span className="ml-3 text-3xl font-semibold text-white">
+                      {watchTimeParts.minutes}
+                    </span>
+                    <span className="ml-1 text-lg text-white/60">
+                      {watchTimeParts.minuteUnit}
+                    </span>
+                  </span>
+                </p>
+              )}
+              <p className="mt-1 text-xs text-white/40">Last 6 months</p>
+            </div>
           </div>
         </div>
       </section>
@@ -765,7 +788,7 @@ export function ProfilePageClient() {
           id={`profile-panel-${activeTab}`}
           role="tabpanel"
           aria-labelledby={`profile-tab-${activeTab}`}
-          className="animate-in fade-in-0 slide-in-from-bottom-2 max-w-4xl duration-200"
+          className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
         >
           {renderActivePanel()}
         </div>
