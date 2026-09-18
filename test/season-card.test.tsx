@@ -356,8 +356,8 @@ describe("SeasonCard", () => {
 
     await user.click(screen.getByRole("button", { name: "Notes" }))
 
-    const modal = screen.getByTestId("season-notes-modal")
-    expect(modal).toBeInTheDocument()
+    // NotesModal is next/dynamic, so wait for its chunk to resolve.
+    const modal = await screen.findByTestId("season-notes-modal")
     expect(modal).toHaveAttribute("data-media-type", "season")
     expect(JSON.parse(modal.getAttribute("data-media") ?? "{}")).toEqual(
       expect.objectContaining({
@@ -377,6 +377,7 @@ describe("SeasonCard", () => {
     expect(mocks.getNote).toHaveBeenCalledWith("season", 99, 1)
     await user.click(screen.getByRole("button", { name: "View Note" }))
 
-    expect(screen.getByTestId("season-notes-modal")).toBeInTheDocument()
+    // NotesModal is next/dynamic, so wait for its chunk to resolve.
+    expect(await screen.findByTestId("season-notes-modal")).toBeInTheDocument()
   })
 })

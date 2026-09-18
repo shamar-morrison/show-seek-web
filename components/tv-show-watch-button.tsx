@@ -232,7 +232,9 @@ export function TVShowWatchButton({
           `Cancelled — progress saved (${doneCountRef.current} of ${totalCount} episodes).`,
         )
       } else {
-        toast.success(`Marked ${totalCount} episodes as watched.`)
+        toast.success(
+          `Marked ${doneCountRef.current} episodes as watched.`,
+        )
 
         if (preferences.autoAddToWatching) {
           try {
@@ -319,7 +321,7 @@ export function TVShowWatchButton({
           `Cancelled — progress saved (${doneCountRef.current} of ${totalCount} episodes).`,
         )
       } else {
-        toast.success(`Unmarked ${totalCount} episodes.`)
+        toast.success(`Unmarked ${doneCountRef.current} episodes.`)
       }
     } catch (error) {
       if (cancelTokenRef.current.isCancelled) {

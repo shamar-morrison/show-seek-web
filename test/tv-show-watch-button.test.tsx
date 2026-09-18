@@ -2,6 +2,7 @@ import { TVShowWatchButton } from "@/components/tv-show-watch-button"
 import { render, screen, waitFor } from "@/test/utils"
 import type { ReactNode } from "react"
 import userEvent from "@testing-library/user-event"
+import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -443,6 +444,49 @@ describe("TVShowWatchButton", () => {
     expect(
       screen.queryByTestId("tv-show-watch-fill"),
     ).not.toBeInTheDocument()
+  })
+
+  it("reports the actually completed count when an unmark run returns early", async () => {
+    const user = userEvent.setup()
+    mocks.tracking = {
+      episodes: { "1_1": {}, "1_2": {}, "1_3": {}, "1_4": {}, "1_5": {} },
+    }
+    setEpisodes({
+      1: [
+        ep(1, "2024-01-01"),
+        ep(2, "2024-01-01"),
+        ep(3, "2024-01-01"),
+        ep(4, "2024-01-01"),
+        ep(5, "2024-01-01"),
+      ],
+    })
+    // A mid-run early return (e.g. the tracking doc disappeared) resolves
+    // without throwing or cancelling after only 2 of 5 chunks completed.
+    mocks.markEntireShowUnwatched.mockImplementation(
+      async (variables: {
+        bulkOptions?: {
+          onProgress?: (done: number, total: number) => void
+        }
+      }) => {
+        variables.bulkOptions?.onProgress?.(2, 5)
+        return { unmarkedCount: 2, wasCancelled: false }
+      },
+    )
+    renderButton()
+
+    await user.click(screen.getByTestId("tv-show-watch-button"))
+    await waitFor(() => {
+      expect(screen.getByText("Unmark All Episodes?")).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole("button", { name: "Unmark All" }))
+
+    await waitFor(() => {
+      expect(mocks.markEntireShowUnwatched).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Unmarked 2 episodes.")
+    })
+    expect(toast.success).not.toHaveBeenCalledWith("Unmarked 5 episodes.")
   })
 
   it("renders a retry state instead of a false empty state when a season fetch fails", async () => {
