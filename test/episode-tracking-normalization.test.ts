@@ -165,6 +165,48 @@ describe("normalizeEpisodeTrackingDoc", () => {
     expect(normalized.episodes["1_1"]).not.toHaveProperty("extra")
   })
 
+  it("preserves stamped runtimeMinutes and drops invalid values", () => {
+    const normalized = normalizeEpisodeTrackingDoc({
+      episodes: {
+        "1_1": {
+          runtimeMinutes: 42,
+          watchedAt: 1710000000000,
+        },
+        "1_2": {
+          runtimeMinutes: 0,
+          watchedAt: 1710000000000,
+        },
+        "1_3": {
+          runtimeMinutes: -5,
+          watchedAt: 1710000000000,
+        },
+        "1_4": {
+          runtimeMinutes: Number.NaN,
+          watchedAt: 1710000000000,
+        },
+        "1_5": {
+          runtimeMinutes: Number.POSITIVE_INFINITY,
+          watchedAt: 1710000000000,
+        },
+        "1_6": {
+          runtimeMinutes: "42",
+          watchedAt: 1710000000000,
+        },
+        "1_7": {
+          watchedAt: 1710000000000,
+        },
+      },
+    })
+
+    expect(normalized.episodes["1_1"].runtimeMinutes).toBe(42)
+    expect(normalized.episodes["1_2"]).not.toHaveProperty("runtimeMinutes")
+    expect(normalized.episodes["1_3"]).not.toHaveProperty("runtimeMinutes")
+    expect(normalized.episodes["1_4"]).not.toHaveProperty("runtimeMinutes")
+    expect(normalized.episodes["1_5"]).not.toHaveProperty("runtimeMinutes")
+    expect(normalized.episodes["1_6"]).not.toHaveProperty("runtimeMinutes")
+    expect(normalized.episodes["1_7"]).not.toHaveProperty("runtimeMinutes")
+  })
+
   it("round-trips hiddenFromProgress correctly for true, false, and undefined cases", () => {
     // True case
     const docWithHiddenTrue = normalizeEpisodeTrackingDoc({

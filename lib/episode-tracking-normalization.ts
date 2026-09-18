@@ -55,6 +55,16 @@ function normalizeEpisode(
       ? rawEpisode.episodeNumber
       : Number(episodeString)
 
+  // Read-path only: preserve mobile-stamped runtimes (finite numbers only).
+  // Web never writes this field; missing/invalid values stay absent so
+  // callers apply the same fallbacks as mobile.
+  const runtimeMinutes =
+    typeof rawEpisode.runtimeMinutes === "number" &&
+    Number.isFinite(rawEpisode.runtimeMinutes) &&
+    rawEpisode.runtimeMinutes > 0
+      ? rawEpisode.runtimeMinutes
+      : undefined
+
   return {
     episodeId:
       typeof rawEpisode.episodeId === "number" &&
@@ -75,6 +85,7 @@ function normalizeEpisode(
       typeof rawEpisode.episodeAirDate === "string"
         ? rawEpisode.episodeAirDate
         : null,
+    ...(runtimeMinutes !== undefined ? { runtimeMinutes } : {}),
   }
 }
 

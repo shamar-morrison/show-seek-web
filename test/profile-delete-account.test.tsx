@@ -8,6 +8,7 @@ const deleteAccountMock = vi.fn()
 const clearLocalAccountDataMock = vi.fn()
 const toastErrorMock = vi.fn()
 const useTraktMock = vi.fn()
+const useProfileWatchTimeMock = vi.fn()
 let mockSearchParams = new URLSearchParams()
 let mockPremiumStatus = "free"
 
@@ -111,6 +112,10 @@ vi.mock("@/context/trakt-context", () => ({
   useTrakt: useTraktMock,
 }))
 
+vi.mock("@/hooks/use-profile-watch-time", () => ({
+  useProfileWatchTime: useProfileWatchTimeMock,
+}))
+
 vi.mock("@/hooks/use-preferences", async () => {
   const { DEFAULT_PREFERENCES } = await import("@/lib/user-preferences")
 
@@ -178,6 +183,10 @@ describe("ProfilePageClient delete account", () => {
     deleteAccountMock.mockResolvedValue({ success: true })
     signOutMock.mockResolvedValue(undefined)
     window.localStorage.clear()
+    useProfileWatchTimeMock.mockReturnValue({
+      totalMinutes: 0,
+      isLoading: false,
+    })
     useTraktMock.mockReturnValue({
       isConnected: false,
       isLoading: false,

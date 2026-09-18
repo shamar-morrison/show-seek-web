@@ -8,6 +8,7 @@ const updateAccentColorMock = vi.fn()
 const pushMock = vi.fn()
 const signOutMock = vi.fn()
 const useTraktMock = vi.fn()
+const useProfileWatchTimeMock = vi.fn()
 const toastErrorMock = vi.fn()
 let mockSearchParams = new URLSearchParams()
 
@@ -116,6 +117,10 @@ vi.mock("@/context/trakt-context", () => ({
   useTrakt: useTraktMock,
 }))
 
+vi.mock("@/hooks/use-profile-watch-time", () => ({
+  useProfileWatchTime: useProfileWatchTimeMock,
+}))
+
 vi.mock("@/hooks/use-preferences", async () => {
   const { DEFAULT_PREFERENCES } = await import("@/lib/user-preferences")
 
@@ -164,6 +169,10 @@ describe("ProfilePageClient", () => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     updateRegionMock.mockResolvedValue(undefined)
+    useProfileWatchTimeMock.mockReturnValue({
+      totalMinutes: 125,
+      isLoading: false,
+    })
     useTraktMock.mockReturnValue({
       isConnected: false,
       isEnriching: false,
@@ -450,5 +459,20 @@ describe("ProfilePageClient", () => {
 
     await user.click(screen.getByText("Sign Out"))
     expect(signOutMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("renders total hours watched in the header", async () => {
+    useProfileWatchTimeMock.mockReturnValue({
+      totalMinutes: 125,
+      isLoading: false,
+    })
+    const { ProfilePageClient } =
+      await import("../app/profile/profile-page-client")
+
+    render(<ProfilePageClient />)
+
+    expect(screen.getByText("Total Hours Watched")).toBeInTheDocument()
+    expect(screen.getByText("2hrs 5mins")).toBeInTheDocument()
+    expect(screen.getByText("Last 6 months")).toBeInTheDocument()
   })
 })
