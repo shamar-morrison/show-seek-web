@@ -1,6 +1,5 @@
 "use client"
 
-import { MarkEntireShowWatchedButton } from "@/components/mark-entire-show-watched-button"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { Section } from "@/components/ui/section"
 import { SeasonCard } from "@/components/season-card"
@@ -51,8 +50,6 @@ export function SeasonsRow({
   limit,
   tvShowName,
   posterPath,
-  voteAverage,
-  firstAirDate,
   totalEpisodes,
   avgRuntime,
 }: SeasonsRowProps) {
@@ -87,24 +84,7 @@ export function SeasonsRow({
       : undefined
 
   return (
-    <Section
-      title={title}
-      headerExtra={
-        tvShowName ? (
-          <div className="mr-auto ml-3 pb-0.5">
-            <MarkEntireShowWatchedButton
-              tvShowId={tvShowId}
-              tvShowName={tvShowName}
-              posterPath={posterPath ?? null}
-              seasons={seasons}
-              showStats={showStats}
-              voteAverage={voteAverage}
-              firstAirDate={firstAirDate}
-            />
-          </div>
-        ) : undefined
-      }
-    >
+    <Section title={title}>
       <ScrollableRow className="pb-4">
         {displaySeasons.map((season) => (
           <SeasonCard
