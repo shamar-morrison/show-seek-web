@@ -19,7 +19,7 @@ import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutati
 import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
-import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
 import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import type { TMDBSeason } from "@/types/tmdb"
@@ -152,8 +152,27 @@ export function useSeasonActions({
         }
 
         const allowUnreleased = !!preferences.allowUnreleasedEpisodeWatches
+        const trackedKeys = new Set(
+          Object.keys(tracking.get(tvShowId.toString())?.episodes ?? {}),
+        )
+        const markableEpisodes = getMarkableEpisodes(
+          episodes,
+          allowUnreleased,
+        )
 
-        if (allWatched) {
+        // Derive "season complete" from the markable set (the same helper used
+        // to build episodesToMark), not the raw episode_count. The unmark
+        // source still includes every tracked episode in the season so
+        // episodes tracked under the unreleased preference stay clearable.
+        const hasTrackedInSeason = episodes.some((episode) =>
+          trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+        )
+        const hasUnwatchedMarkable = markableEpisodes.some(
+          (episode) =>
+            !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+        )
+
+        if (hasTrackedInSeason && !hasUnwatchedMarkable) {
           const watchedEpisodeNumbers = getWatchedEpisodeNumbers(
             episodes.map((episode) => episode.episode_number),
           )
@@ -164,22 +183,11 @@ export function useSeasonActions({
           return
         }
 
-        const trackedKeys = new Set(
-          Object.keys(tracking.get(tvShowId.toString())?.episodes ?? {}),
-        )
-        const episodesToMark = episodes
-          .filter((episode) => {
-            if (trackedKeys.has(`${seasonNumber}_${episode.episode_number}`)) {
-              return false
-            }
-            // Same mobile gating as season details: allowUnreleased bypasses
-            // the date check; episodes without an air date need the opt-in.
-            return (
-              allowUnreleased ||
-              (!!episode.air_date &&
-                isTmdbDateOnOrBeforeToday(episode.air_date))
-            )
-          })
+        const episodesToMark = markableEpisodes
+          .filter(
+            (episode) =>
+              !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+          )
           .map((episode) => ({
             id: episode.id,
             episode_number: episode.episode_number,
@@ -209,7 +217,6 @@ export function useSeasonActions({
     isMutating,
     tvShowId,
     seasonNumber,
-    allWatched,
     getWatchedEpisodeNumbers,
     tracking,
     preferences.allowUnreleasedEpisodeWatches,

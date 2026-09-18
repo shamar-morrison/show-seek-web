@@ -194,6 +194,12 @@ describe("MarkEntireShowWatchedButton", () => {
               name: "Return",
               air_date: "2024-02-01",
             },
+            {
+              id: 202,
+              episode_number: 2,
+              name: "Dateless",
+              air_date: null,
+            },
           ]
         }
         return [
@@ -250,7 +256,7 @@ describe("MarkEntireShowWatchedButton", () => {
     expect(mocks.addToList).not.toHaveBeenCalled()
   })
 
-  it("includes unreleased and dateless episodes when the preference is on", async () => {
+  it("includes unreleased but excludes dateless episodes when the preference is on", async () => {
     const user = userEvent.setup()
     mocks.allowUnreleasedEpisodeWatches = true
     renderButton()
@@ -271,7 +277,15 @@ describe("MarkEntireShowWatchedButton", () => {
     })
 
     const variables = mocks.markEntireShowWatched.mock.calls[0][0]
+    // S1E1 aired + S1E2 future + S2E1 aired; S2E2 has no air date and is
+    // excluded even with the preference on (mobile parity).
     expect(variables.episodesToMark).toHaveLength(3)
+    expect(
+      variables.episodesToMark.every(
+        (entry: { episode: { air_date: string | null } }) =>
+          !!entry.episode.air_date,
+      ),
+    ).toBe(true)
   })
 
   it("skips already-watched episodes and auto-adds to Watching when enabled", async () => {

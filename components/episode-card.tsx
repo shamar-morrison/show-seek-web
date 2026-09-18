@@ -16,6 +16,7 @@ import { useNotes } from "@/hooks/use-notes"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import { computeNextEpisode } from "@/lib/episode-utils"
 import { formatDateShort, formatRuntime } from "@/lib/format-helpers"
 import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
@@ -92,11 +93,16 @@ export function EpisodeCard({
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
 
-  // Check if episode has aired. Users who allow unreleased watches can
-  // mark future episodes too (matches mobile EpisodeItem).
+  // Check whether the episode has aired (drives the future overlay and the
+  // rating gate).
   const hasAired = isTmdbDateOnOrBeforeToday(episode.air_date)
+  // Markable = has an air date AND (already aired OR unreleased watches
+  // allowed). Dateless episodes are never markable, matching mobile's
+  // getMarkableEpisodes.
   const canToggleWatched =
-    isWatched || hasAired || preferences.allowUnreleasedEpisodeWatches
+    isWatched ||
+    getMarkableEpisodes([episode], preferences.allowUnreleasedEpisodeWatches)
+      .length > 0
 
   // Get user's rating for this episode
   const userRating = getEpisodeRating(

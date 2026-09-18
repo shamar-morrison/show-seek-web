@@ -25,8 +25,8 @@ import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useRatings } from "@/hooks/use-ratings"
 import { formatDateLong } from "@/lib/format-helpers"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import { getDisplayMediaTitle } from "@/lib/media-title"
-import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import type { TMDBSeasonDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   ArrowLeft02Icon,
@@ -76,12 +76,12 @@ export function SeasonDetailClient({
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
 
-  // Get markable episodes: aired only, unless the user allows unreleased watches
-  // (matches mobile: allowUnreleased bypasses the date check entirely).
-  const airedEpisodes = season.episodes.filter(
-    (ep) =>
-      preferences.allowUnreleasedEpisodeWatches ||
-      isTmdbDateOnOrBeforeToday(ep.air_date),
+  // Get markable episodes: aired only, unless the user allows unreleased
+  // watches. Dateless episodes are never markable (matches mobile's
+  // getMarkableEpisodes).
+  const markableEpisodes = getMarkableEpisodes(
+    season.episodes,
+    preferences.allowUnreleasedEpisodeWatches,
   )
   const firstEpisodeRuntime = tvShow.episode_run_time?.[0]
   const showName = tvShow.name
@@ -112,7 +112,7 @@ export function SeasonDetailClient({
   )
 
   // Count watched episodes in this season
-  const watchedCount = airedEpisodes.filter((ep) =>
+  const watchedCount = markableEpisodes.filter((ep) =>
     isEpisodeWatched(season.season_number, ep.episode_number),
   ).length
 
@@ -134,7 +134,7 @@ export function SeasonDetailClient({
 
     try {
       // Filter to only aired episodes
-      const episodesToMark = airedEpisodes.map((ep) => ({
+      const episodesToMark = markableEpisodes.map((ep) => ({
         id: ep.id,
         episode_number: ep.episode_number,
         name: ep.name,
@@ -187,7 +187,7 @@ export function SeasonDetailClient({
     }
   }, [
     user,
-    airedEpisodes,
+    markableEpisodes,
     markAllEpisodesWatched,
     tvShowId,
     season.season_number,
@@ -199,7 +199,7 @@ export function SeasonDetailClient({
 
   // Unmark all episodes in this season.
   // Derived from actually-watched episodes (not the preference-filtered
-  // airedEpisodes) so episodes marked while unreleased watches were allowed
+  // markableEpisodes) so episodes marked while unreleased watches were allowed
   // are still included after the preference is turned off.
   const watchedEpisodeNumbers = useMemo(
     () =>
@@ -247,7 +247,7 @@ export function SeasonDetailClient({
       : null
 
   const allWatched =
-    airedEpisodes.length > 0 && watchedCount === airedEpisodes.length
+    markableEpisodes.length > 0 && watchedCount === markableEpisodes.length
 
   return (
     <div className="pb-16 pt-32">
@@ -321,7 +321,7 @@ export function SeasonDetailClient({
 
             {/* Progress & Actions */}
             <div className="flex flex-wrap items-center gap-4">
-              {user && airedEpisodes.length > 0 && (
+              {user && markableEpisodes.length > 0 && (
                 <>
                   {/* Progress Badge */}
                   <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
@@ -330,7 +330,7 @@ export function SeasonDetailClient({
                       className={`size-5 ${allWatched ? "text-green-500" : "text-gray-400"}`}
                     />
                     <span className="text-sm font-medium text-white">
-                      {watchedCount} / {airedEpisodes.length} watched
+                      {watchedCount} / {markableEpisodes.length} watched
                     </span>
                   </div>
 
@@ -503,8 +503,8 @@ export function SeasonDetailClient({
               {allWatched
                 ? `This will unmark all ${watchedEpisodeNumbers.length} episodes in ${season.name} as unwatched.`
                 : preferences.allowUnreleasedEpisodeWatches
-                  ? `This will mark all ${airedEpisodes.length} episodes in ${season.name} as watched, including unreleased episodes.`
-                  : `This will mark all ${airedEpisodes.length} aired episodes in ${season.name} as watched.`}
+                  ? `This will mark all ${markableEpisodes.length} episodes in ${season.name} as watched, including unreleased episodes.`
+                  : `This will mark all ${markableEpisodes.length} aired episodes in ${season.name} as watched.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

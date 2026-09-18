@@ -11,6 +11,7 @@ import { RateButton } from "@/components/rate-button"
 import { RatingModal } from "@/components/rating-modal"
 import { ShareMenuButton } from "@/components/share-menu-button"
 import { TrailerModal } from "@/components/trailer-modal"
+import { TVShowWatchButton } from "@/components/tv-show-watch-button"
 import { UpNextEpisodeCard, shouldShowUpNextEpisode } from "@/components/up-next-episode-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -327,6 +328,21 @@ export function MediaDetailHero({
   const posterUrl = buildImageUrl(resolvedPosterPath, "w500")
   const rating = Math.round(media.vote_average * 10) / 10
   const genres = media.genres || []
+
+  // Mean of all positive episode runtimes, falling back to 45 when none exist.
+  const tvPositiveRunTimes =
+    mediaType === "tv"
+      ? ((media as TMDBTVDetails).episode_run_time ?? []).filter(
+          (value) => value > 0,
+        )
+      : []
+  const tvAvgRuntime =
+    tvPositiveRunTimes.length > 0
+      ? Math.round(
+          tvPositiveRunTimes.reduce((sum, value) => sum + value, 0) /
+            tvPositiveRunTimes.length,
+        )
+      : 45
 
   // Extract type-specific properties
   const releaseDate =
@@ -646,6 +662,23 @@ export function MediaDetailHero({
                       onClearWatchHistory={clearAllWatches}
                       onDeleteWatch={deleteWatchInstance}
                       onUpdateWatch={updateWatchInstance}
+                    />
+                  )}
+
+                  {/* Mark as Watched / Unwatched - TV shows */}
+                  {mediaType === "tv" && (
+                    <TVShowWatchButton
+                      tvShowId={media.id}
+                      tvShowName={(media as TMDBTVDetails).name}
+                      posterPath={resolvedPosterPath ?? null}
+                      seasons={(media as TMDBTVDetails).seasons ?? []}
+                      showStats={{
+                        totalEpisodes: (media as TMDBTVDetails)
+                          .number_of_episodes,
+                        avgRuntime: tvAvgRuntime,
+                      }}
+                      voteAverage={media.vote_average}
+                      firstAirDate={(media as TMDBTVDetails).first_air_date}
                     />
                   )}
 

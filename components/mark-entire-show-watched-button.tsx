@@ -18,8 +18,8 @@ import { useEpisodeTrackingShow } from "@/hooks/use-episode-tracking-show"
 import { useListMutations } from "@/hooks/use-list-mutations"
 import { usePreferences } from "@/hooks/use-preferences"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
+import { getMarkableEpisodes } from "@/lib/episode-eligibility"
 import { createRateLimitedQueryFn } from "@/lib/react-query/rate-limited-query"
-import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
 import type { SeasonEpisodeInput } from "@/types/episode-tracking-inputs"
 import type { TMDBSeason } from "@/types/tmdb"
 import {
@@ -113,18 +113,15 @@ export function MarkEntireShowWatchedButton({
 
     const result: EpisodeToMark[] = []
     for (const { seasonNumber, episodes } of seasonEpisodes) {
-      for (const episode of episodes) {
-        const key = `${seasonNumber}_${episode.episode_number}`
-        if (trackedKeys.has(key)) continue
+      const untrackedEpisodes = episodes.filter(
+        (episode) =>
+          !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+      )
 
-        // Exact mobile gating: allowUnreleased bypasses the date check;
-        // episodes without an air date are only markable when allowed.
-        const isEligible =
-          allowUnreleased ||
-          (!!episode.air_date &&
-            isTmdbDateOnOrBeforeToday(episode.air_date))
-        if (!isEligible) continue
-
+      for (const episode of getMarkableEpisodes(
+        untrackedEpisodes,
+        allowUnreleased,
+      )) {
         result.push({
           seasonNumber,
           episode: {
