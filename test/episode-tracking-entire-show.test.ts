@@ -123,6 +123,53 @@ describe("markEntireShowWatched", () => {
     })
   })
 
+  it("writes nextEpisode only on the final chunk of a completed run", async () => {
+    await episodeTrackingService.markEntireShowWatched(
+      777,
+      makeEpisodes(25),
+      { tvShowName: "Signal Run", posterPath: null },
+      { batchSize: 10, delayMs: 0 },
+      undefined,
+      null,
+    )
+
+    const calls = vi.mocked(setDoc).mock.calls
+    expect(calls).toHaveLength(3)
+    const bodies = calls.map(
+      (call) => call[1] as { metadata: Record<string, unknown> },
+    )
+    expect(bodies[0].metadata).not.toHaveProperty("nextEpisode")
+    expect(bodies[1].metadata).not.toHaveProperty("nextEpisode")
+    expect(bodies[2].metadata).toHaveProperty("nextEpisode", null)
+  })
+
+  it("does not write nextEpisode on a cancelled partial run", async () => {
+    let calls = 0
+    vi.mocked(setDoc).mockImplementation(async () => {
+      calls += 1
+    })
+
+    const result = await episodeTrackingService.markEntireShowWatched(
+      777,
+      makeEpisodes(25),
+      { tvShowName: "Signal Run", posterPath: null },
+      {
+        batchSize: 10,
+        delayMs: 0,
+        isCancelled: () => calls >= 1,
+      },
+      { totalEpisodes: 25, avgRuntime: 42 },
+      null,
+    )
+
+    expect(result.wasCancelled).toBe(true)
+    expect(vi.mocked(setDoc)).toHaveBeenCalledTimes(1)
+    const body = vi.mocked(setDoc).mock.calls[0][1] as {
+      metadata: Record<string, unknown>
+    }
+    expect(body.metadata).not.toHaveProperty("nextEpisode")
+  })
+
   it("returns zero without writing when there is nothing to mark", async () => {
     const result = await episodeTrackingService.markEntireShowWatched(
       777,

@@ -9,9 +9,11 @@ const mocks = vi.hoisted(() => ({
   allowUnreleasedEpisodeWatches: false,
   autoAddToWatching: false,
   episodesBySeason: new Map<number, Array<Record<string, unknown>>>(),
+  episodesError: false,
   markEntireShowUnwatched: vi.fn(),
   markEntireShowWatched: vi.fn(),
   removeFromList: vi.fn(),
+  retryEpisodes: vi.fn(),
   tracking: null as { episodes: Record<string, unknown> } | null,
 }))
 
@@ -130,6 +132,9 @@ vi.mock("@/hooks/use-all-season-episodes", () => ({
     episodesBySeason: mocks.episodesBySeason,
     isLoading: false,
     hasFetchedAll: true,
+    isError: mocks.episodesError,
+    error: mocks.episodesError ? new Error("season fetch failed") : null,
+    retry: mocks.retryEpisodes,
   }),
 }))
 
@@ -223,6 +228,7 @@ describe("TVShowWatchButton", () => {
     vi.clearAllMocks()
     mocks.allowUnreleasedEpisodeWatches = false
     mocks.autoAddToWatching = false
+    mocks.episodesError = false
     mocks.tracking = null
     mocks.episodesBySeason = new Map()
     mocks.markEntireShowWatched.mockResolvedValue(undefined)
@@ -437,6 +443,22 @@ describe("TVShowWatchButton", () => {
     expect(
       screen.queryByTestId("tv-show-watch-fill"),
     ).not.toBeInTheDocument()
+  })
+
+  it("renders a retry state instead of a false empty state when a season fetch fails", async () => {
+    const user = userEvent.setup()
+    mocks.episodesError = true
+    setEpisodes({ 1: [] })
+    renderButton()
+
+    expect(
+      screen.queryByTestId("tv-show-watch-button"),
+    ).not.toBeInTheDocument()
+    const retry = screen.getByTestId("tv-show-watch-button-retry")
+    expect(retry).toHaveTextContent("Retry watch status")
+
+    await user.click(retry)
+    expect(mocks.retryEpisodes).toHaveBeenCalledTimes(1)
   })
 
   it("renders nothing when there is nothing markable and nothing tracked", () => {

@@ -6,7 +6,7 @@ import { queryKeys } from "@/lib/react-query/query-keys"
 import { createRateLimitedQueryFn } from "@/lib/react-query/rate-limited-query"
 import type { TMDBSeason } from "@/types/tmdb"
 import { useQueries } from "@tanstack/react-query"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 /**
  * Eagerly (but only after first paint) fetch every regular season's episode
@@ -29,21 +29,30 @@ export function useAllSeasonEpisodes(
     [seasons],
   )
 
-  const [isReady, setIsReady] = useState(false)
+  // Readiness is keyed to the current request so that switching shows or the
+  // regular-season set re-applies the post-paint deferral instead of reusing a
+  // flag that was set for a previous request.
+  const requestKey = `${tvShowId}:${regularSeasons
+    .map((season) => season.season_number)
+    .join(",")}`
+  const [readyKey, setReadyKey] = useState<string | null>(null)
+  const isReady = readyKey === requestKey
 
   useEffect(() => {
     if (!enabled || regularSeasons.length === 0) return
+    if (readyKey === requestKey) return
 
     if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => setIsReady(true), {
-        timeout: 2000,
-      })
+      const idleId = window.requestIdleCallback(
+        () => setReadyKey(requestKey),
+        { timeout: 2000 },
+      )
       return () => window.cancelIdleCallback(idleId)
     }
 
-    const timer = setTimeout(() => setIsReady(true), 200)
+    const timer = setTimeout(() => setReadyKey(requestKey), 200)
     return () => clearTimeout(timer)
-  }, [enabled, regularSeasons.length])
+  }, [enabled, requestKey, regularSeasons.length, readyKey])
 
   const results = useQueries({
     queries: regularSeasons.map((season) => ({
@@ -71,10 +80,27 @@ export function useAllSeasonEpisodes(
     (_season, index) => results[index]?.isFetched ?? false,
   )
 
+  // A failed season must not be mistaken for a season that legitimately has no
+  // episodes, so surface an aggregate error and a retry across failed queries.
+  const firstError = results.find((result) => result?.isError)?.error ?? null
+  const error = (firstError as Error | null) ?? null
+  const isError = error !== null
+
+  const retry = useCallback(() => {
+    results.forEach((result) => {
+      if (result?.isError) {
+        void result.refetch()
+      }
+    })
+  }, [results])
+
   return {
     episodesBySeason,
     isLoading:
       enabled && regularSeasons.length > 0 && (!isReady || isLoading),
     hasFetchedAll,
+    isError,
+    error,
+    retry,
   }
 }

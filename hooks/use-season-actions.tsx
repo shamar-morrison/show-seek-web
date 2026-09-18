@@ -152,8 +152,27 @@ export function useSeasonActions({
         }
 
         const allowUnreleased = !!preferences.allowUnreleasedEpisodeWatches
+        const trackedKeys = new Set(
+          Object.keys(tracking.get(tvShowId.toString())?.episodes ?? {}),
+        )
+        const markableEpisodes = getMarkableEpisodes(
+          episodes,
+          allowUnreleased,
+        )
 
-        if (allWatched) {
+        // Derive "season complete" from the markable set (the same helper used
+        // to build episodesToMark), not the raw episode_count. The unmark
+        // source still includes every tracked episode in the season so
+        // episodes tracked under the unreleased preference stay clearable.
+        const hasTrackedInSeason = episodes.some((episode) =>
+          trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+        )
+        const hasUnwatchedMarkable = markableEpisodes.some(
+          (episode) =>
+            !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+        )
+
+        if (hasTrackedInSeason && !hasUnwatchedMarkable) {
           const watchedEpisodeNumbers = getWatchedEpisodeNumbers(
             episodes.map((episode) => episode.episode_number),
           )
@@ -164,22 +183,17 @@ export function useSeasonActions({
           return
         }
 
-        const trackedKeys = new Set(
-          Object.keys(tracking.get(tvShowId.toString())?.episodes ?? {}),
-        )
-        const untrackedEpisodes = episodes.filter(
-          (episode) =>
-            !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
-        )
-        const episodesToMark = getMarkableEpisodes(
-          untrackedEpisodes,
-          allowUnreleased,
-        ).map((episode) => ({
-          id: episode.id,
-          episode_number: episode.episode_number,
-          name: episode.name,
-          air_date: episode.air_date,
-        }))
+        const episodesToMark = markableEpisodes
+          .filter(
+            (episode) =>
+              !trackedKeys.has(`${seasonNumber}_${episode.episode_number}`),
+          )
+          .map((episode) => ({
+            id: episode.id,
+            episode_number: episode.episode_number,
+            name: episode.name,
+            air_date: episode.air_date,
+          }))
 
         if (episodesToMark.length === 0) {
           toast.info("You're all caught up — nothing left to mark.")
@@ -203,7 +217,6 @@ export function useSeasonActions({
     isMutating,
     tvShowId,
     seasonNumber,
-    allWatched,
     getWatchedEpisodeNumbers,
     tracking,
     preferences.allowUnreleasedEpisodeWatches,

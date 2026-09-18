@@ -329,6 +329,21 @@ export function MediaDetailHero({
   const rating = Math.round(media.vote_average * 10) / 10
   const genres = media.genres || []
 
+  // Mean of all positive episode runtimes, falling back to 45 when none exist.
+  const tvPositiveRunTimes =
+    mediaType === "tv"
+      ? ((media as TMDBTVDetails).episode_run_time ?? []).filter(
+          (value) => value > 0,
+        )
+      : []
+  const tvAvgRuntime =
+    tvPositiveRunTimes.length > 0
+      ? Math.round(
+          tvPositiveRunTimes.reduce((sum, value) => sum + value, 0) /
+            tvPositiveRunTimes.length,
+        )
+      : 45
+
   // Extract type-specific properties
   const releaseDate =
     mediaType === "movie"
@@ -660,8 +675,7 @@ export function MediaDetailHero({
                       showStats={{
                         totalEpisodes: (media as TMDBTVDetails)
                           .number_of_episodes,
-                        avgRuntime:
-                          (media as TMDBTVDetails).episode_run_time?.[0] ?? 45,
+                        avgRuntime: tvAvgRuntime,
                       }}
                       voteAverage={media.vote_average}
                       firstAirDate={(media as TMDBTVDetails).first_air_date}

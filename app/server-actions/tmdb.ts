@@ -119,10 +119,19 @@ export async function fetchSeasonEpisodes(
 ): Promise<SeasonEpisodeData[]> {
   try {
     const seasonData = await getSeasonDetails(tvShowId, seasonNumber)
-    return seasonData?.episodes || []
+    // `getSeasonDetails` returns null only on a genuine failure (missing
+    // credentials, network/API error); a valid season always resolves with an
+    // episodes array (possibly empty). Propagate the failure so callers can
+    // distinguish it from a season that legitimately has no episodes.
+    if (!seasonData) {
+      throw new Error(
+        `Failed to load season ${seasonNumber} for TV show ${tvShowId}`,
+      )
+    }
+    return seasonData.episodes
   } catch (error) {
     console.error("Server Action: Failed to fetch season episodes", error)
-    return []
+    throw error
   }
 }
 

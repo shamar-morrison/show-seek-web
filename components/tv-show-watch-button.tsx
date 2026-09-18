@@ -44,6 +44,7 @@ import {
   ArrowDown01Icon,
   Delete02Icon,
   Loading03Icon,
+  Refresh01Icon,
   Tick02Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons"
@@ -100,10 +101,12 @@ export function TVShowWatchButton({
   const { markEntireShowWatched, markEntireShowUnwatched, isMutating } =
     useEpisodeTrackingMutations()
   const { addToList, removeFromList } = useListMutations()
-  const { episodesBySeason, isLoading: isLoadingSeasons } = useAllSeasonEpisodes(
-    tvShowId,
-    seasons,
-  )
+  const {
+    episodesBySeason,
+    isLoading: isLoadingSeasons,
+    isError: isEpisodesError,
+    retry: retryEpisodes,
+  } = useAllSeasonEpisodes(tvShowId, seasons)
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [confirmAction, setConfirmAction] = useState<BulkFlow | null>(null)
@@ -376,19 +379,6 @@ export function TVShowWatchButton({
 
   if (regularSeasons.length === 0) return null
 
-  // Hide only when there is genuinely nothing to do: no markable episodes AND
-  // no tracked episodes. A show can have zero markable episodes while still
-  // having watched episodes tracked (e.g. marked while
-  // allowUnreleasedEpisodeWatches was on, then the preference was toggled off),
-  // so the button must stay visible in its unmark/clear state for those.
-  if (
-    !isLoadingState &&
-    totalMarkableCount === 0 &&
-    watchedShowEpisodesToUnmark.length === 0
-  ) {
-    return null
-  }
-
   if (isLoadingState) {
     return (
       <Button
@@ -403,6 +393,35 @@ export function TVShowWatchButton({
         <span>Loading…</span>
       </Button>
     )
+  }
+
+  // A failed season fetch must not read as a completed empty season.
+  if (isEpisodesError) {
+    return (
+      <Button
+        type="button"
+        size="lg"
+        variant="outline"
+        onClick={retryEpisodes}
+        data-testid="tv-show-watch-button-retry"
+        className="border-red-500/40 bg-red-500/10 px-6 font-semibold text-red-300 backdrop-blur-sm transition-all hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-200"
+      >
+        <HugeiconsIcon icon={Refresh01Icon} className="size-5" />
+        <span>Retry watch status</span>
+      </Button>
+    )
+  }
+
+  // Hide only when there is genuinely nothing to do: no markable episodes AND
+  // no tracked episodes. A show can have zero markable episodes while still
+  // having watched episodes tracked (e.g. marked while
+  // allowUnreleasedEpisodeWatches was on, then the preference was toggled off),
+  // so the button must stay visible in its unmark/clear state for those.
+  if (
+    totalMarkableCount === 0 &&
+    watchedShowEpisodesToUnmark.length === 0
+  ) {
+    return null
   }
 
   const hasWatched = watchedShowEpisodesToUnmark.length > 0

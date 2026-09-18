@@ -508,6 +508,7 @@ class EpisodeTrackingService {
       const chunk = episodesToMark.slice(i, i + batchSize)
       const now = Date.now()
       const episodesMap: Record<string, WatchedEpisode> = {}
+      const isFinalChunk = i + batchSize >= episodesToMark.length
 
       chunk.forEach(({ seasonNumber, episode }) => {
         const episodeKey = this.getEpisodeKey(
@@ -534,8 +535,10 @@ class EpisodeTrackingService {
           totalEpisodes: showStats.totalEpisodes,
           avgRuntime: showStats.avgRuntime,
         }),
-        // nextEpisode can be null (caught up) or object - only include if explicitly provided
-        ...(nextEpisode !== undefined && { nextEpisode }),
+        // nextEpisode can be null (caught up) or object. Only finalize it on
+        // the final chunk so a cancelled or failed partial run never writes a
+        // nextEpisode that disagrees with the chunks that actually committed.
+        ...(isFinalChunk && nextEpisode !== undefined && { nextEpisode }),
       }
 
       try {
