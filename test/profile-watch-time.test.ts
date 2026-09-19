@@ -222,6 +222,45 @@ describe("getMonthsAgoTimestamp", () => {
     expect(date.getMonth()).toBe(2)
     expect(date.getFullYear()).toBe(2026)
   })
+
+  it("does not overflow when the current day is missing from the target month", () => {
+    // [label, now (12:00 local), expected cutoff (00:00 local on the 1st)].
+    // Local-time constructors keep this independent of machine timezone.
+    const cases: Array<[string, Date, Date]> = [
+      ["Aug 29 non-leap", new Date(2025, 7, 29, 12), new Date(2025, 1, 1)],
+      ["Aug 30 non-leap", new Date(2025, 7, 30, 12), new Date(2025, 1, 1)],
+      ["Aug 31 non-leap", new Date(2025, 7, 31, 12), new Date(2025, 1, 1)],
+      ["Aug 30 leap", new Date(2024, 7, 30, 12), new Date(2024, 1, 1)],
+      ["Aug 31 leap", new Date(2024, 7, 31, 12), new Date(2024, 1, 1)],
+      ["Mar 31", new Date(2025, 2, 31, 12), new Date(2024, 8, 1)],
+      ["May 31", new Date(2025, 4, 31, 12), new Date(2024, 10, 1)],
+      ["Oct 31", new Date(2025, 9, 31, 12), new Date(2025, 3, 1)],
+      ["Dec 31", new Date(2025, 11, 31, 12), new Date(2025, 5, 1)],
+      ["Sep 18 control", new Date(2025, 8, 18, 12), new Date(2025, 2, 1)],
+    ]
+
+    for (const [label, now, expected] of cases) {
+      const cutoff = new Date(getMonthsAgoTimestamp(6, now.getTime()))
+      expect(
+        [label, cutoff.getFullYear(), cutoff.getMonth(), cutoff.getDate(), cutoff.getHours()],
+      ).toEqual(
+        [label, expected.getFullYear(), expected.getMonth(), expected.getDate(), 0],
+      )
+    }
+  })
+
+  it("includes a Feb 15 item when now is late August", () => {
+    const lateAugust = new Date(2025, 7, 31, 12, 0, 0, 0).getTime()
+    const midFebruary = new Date(2025, 1, 15, 12, 0, 0, 0).getTime()
+    const tracking = new Map([
+      ["100", trackingDoc({ "1_1": episode({ watchedAt: midFebruary }) })],
+    ])
+
+    // Unstamped episode falls back to 45 minutes instead of being excluded.
+    expect(computeProfileWatchTime(tracking, [], lateAugust)).toBe(
+      EPISODE_RUNTIME_FALLBACK_MINUTES,
+    )
+  })
 })
 
 describe("formatWatchHours", () => {
