@@ -37,7 +37,7 @@ import {
 import {
   isPolarDeleteBlocked,
   isPolarSubscriptionActiveError,
-} from "@/lib/polar-delete-guard"
+} from "@/lib/polar-subscription-guard"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
 import { formatWatchHours, getWatchTimeParts } from "@/lib/format-watch-time"
 import {

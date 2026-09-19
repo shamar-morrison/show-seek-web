@@ -4,7 +4,7 @@ import {
   isPolarDeleteBlocked,
   isPolarSubscriptionActiveError,
   isPremiumCheckoutBlocked,
-} from "@/lib/polar-delete-guard"
+} from "@/lib/polar-subscription-guard"
 
 describe("isPolarDeleteBlocked", () => {
   it("blocks active and billing-issue Polar subscriptions", () => {

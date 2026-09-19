@@ -21,7 +21,7 @@ import { useAuth } from "@/context/auth-context"
 import {
   beginPolarCheckout,
   isPremiumCheckoutBlocked,
-} from "@/lib/polar-delete-guard"
+} from "@/lib/polar-subscription-guard"
 import { useState } from "react"
 
 interface PremiumModalProps {
