@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
+// unstable_cache is a Next runtime API: pass through so unit tests exercise
+// the real fetch/parse logic. (Throw-on-failure is what keeps misses out of
+// the real cache in production.)
+vi.mock("next/cache", () => ({
+  unstable_cache: (fn: (...args: never[]) => unknown) => fn,
+}))
+
 const mocks = vi.hoisted(() => ({
   tmdbFetch: vi.fn(),
 }))
@@ -67,7 +74,9 @@ describe("OMDb external ratings helper", () => {
 
     const [requestedUrl, requestInit] = firstFetchCall
 
-    expect(requestInit?.next).toEqual({ revalidate: 86400 })
+    // Failures must bypass the cache so a miss is retried, not frozen.
+    expect(requestInit?.cache).toBe("no-store")
+    expect(requestInit?.next).toBeUndefined()
     expect(requestInit?.signal).toBeInstanceOf(AbortSignal)
     expect(requestedUrl).toBeInstanceOf(URL)
 
@@ -159,6 +168,71 @@ describe("OMDb external ratings helper", () => {
     const { getMediaExternalRatings } = await import("@/lib/omdb")
 
     await expect(getMediaExternalRatings("movie", 11104)).resolves.toBeNull()
+  })
+
+  it("returns null without caching when OMDb reports a rate limit", async () => {
+    vi.stubEnv("OMDB_API_KEY", "test-omdb-key")
+    mocks.tmdbFetch.mockResolvedValue({
+      json: vi.fn(async () => ({ imdb_id: "tt0101507" })),
+      ok: true,
+    })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            Response: "False",
+            Error: "Request limit reached!",
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    const { getMediaExternalRatings } = await import("@/lib/omdb")
+
+    await expect(getMediaExternalRatings("movie", 782)).resolves.toBeNull()
+  })
+
+  it("retries after a failure instead of serving a cached miss", async () => {
+    vi.stubEnv("OMDB_API_KEY", "test-omdb-key")
+    mocks.tmdbFetch.mockResolvedValue({
+      json: vi.fn(async () => ({ imdb_id: "tt0101507" })),
+      ok: true,
+    })
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          Response: "False",
+          Error: "Request limit reached!",
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { getMediaExternalRatings } = await import("@/lib/omdb")
+
+    await expect(getMediaExternalRatings("movie", 782)).resolves.toBeNull()
+
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          Response: "True",
+          Ratings: [{ Source: "Rotten Tomatoes", Value: "93%" }],
+          imdbRating: "7.8",
+          imdbVotes: "350,000",
+        }),
+        { status: 200 },
+      ),
+    )
+
+    await expect(getMediaExternalRatings("movie", 782)).resolves.toEqual({
+      imdb: { rating: "7.8", votes: "350,000" },
+      rottenTomatoes: "93%",
+      metacritic: null,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it("returns null when the OMDb request is aborted by the timeout", async () => {
