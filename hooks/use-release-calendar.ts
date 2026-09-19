@@ -224,6 +224,12 @@ function logReleaseCalendarChunkFailure(
 interface UseReleaseCalendarReturn {
   releases: ReleaseCalendarRelease[]
   isBootstrapping: boolean
+  /**
+   * True while the initial enrichment fetch is still in flight and the
+   * releases below are only placeholder/fallback data. Stays false during
+   * later background refreshes so loaded content is never swapped back out.
+   */
+  isEnriching: boolean
   isRefreshing: boolean
   error: Error | null
 }
@@ -310,6 +316,10 @@ export function useReleaseCalendar(): UseReleaseCalendarReturn {
   return {
     releases,
     isBootstrapping: authLoading || listsLoading,
+    isEnriching:
+      enrichmentEnabled &&
+      calendarQuery.isFetching &&
+      calendarQuery.isPlaceholderData,
     isRefreshing:
       !!userId &&
       trackedItems.length > 0 &&
