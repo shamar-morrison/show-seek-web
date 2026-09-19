@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   isPolarDeleteBlocked,
   isPolarSubscriptionActiveError,
+  isPremiumCheckoutBlocked,
 } from "@/lib/polar-delete-guard"
 
 describe("isPolarDeleteBlocked", () => {
@@ -67,5 +68,83 @@ describe("isPolarSubscriptionActiveError", () => {
       }),
     ).toBe(false)
     expect(isPolarSubscriptionActiveError(null)).toBe(false)
+  })
+})
+
+describe("isPremiumCheckoutBlocked", () => {
+  it("blocks Polar ACTIVE premium", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: true,
+        premiumLoading: false,
+        provider: "polar",
+        subscriptionState: "ACTIVE",
+      }),
+    ).toBe(true)
+  })
+
+  it("blocks RevenueCat premium", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: true,
+        premiumLoading: false,
+        provider: "revenuecat",
+        subscriptionState: "ACTIVE",
+      }),
+    ).toBe(true)
+  })
+
+  it("allows Polar CANCELLED grace-period resubscribe", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: true,
+        premiumLoading: false,
+        provider: "polar",
+        subscriptionState: "CANCELLED",
+      }),
+    ).toBe(false)
+  })
+
+  it("allows non-premium users", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: false,
+        premiumLoading: false,
+        provider: null,
+        subscriptionState: null,
+      }),
+    ).toBe(false)
+  })
+
+  it("blocks while premium status is loading", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: false,
+        premiumLoading: true,
+        provider: null,
+        subscriptionState: null,
+      }),
+    ).toBe(true)
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: true,
+        premiumLoading: true,
+        provider: "polar",
+        subscriptionState: "CANCELLED",
+      }),
+    ).toBe(true)
+  })
+
+  it("leaves logged-out users unchanged", () => {
+    expect(
+      isPremiumCheckoutBlocked({
+        isPremium: false,
+        premiumLoading: false,
+        provider: null,
+        subscriptionState: null,
+      }),
+    ).toBe(false)
+    expect(isPremiumCheckoutBlocked(null)).toBe(false)
+    expect(isPremiumCheckoutBlocked(undefined)).toBe(false)
   })
 })

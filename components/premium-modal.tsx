@@ -17,6 +17,8 @@ import {
   Ticket01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useAuth } from "@/context/auth-context"
+import { isPremiumCheckoutBlocked } from "@/lib/polar-delete-guard"
 import { useState } from "react"
 
 interface PremiumModalProps {
@@ -64,8 +66,24 @@ export function PremiumModal({
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly")
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const {
+    isPremium,
+    premiumLoading,
+    premiumProvider,
+    premiumSubscriptionState,
+  } = useAuth()
+  const isCheckoutBlocked = isPremiumCheckoutBlocked({
+    isPremium,
+    premiumLoading,
+    provider: premiumProvider,
+    subscriptionState: premiumSubscriptionState,
+  })
+  const isBlockedForActivePremium = isCheckoutBlocked && !premiumLoading
 
   const handleSubscribe = () => {
+    if (isCheckoutBlocked) {
+      return
+    }
     setCheckoutError(null)
     setIsRedirecting(true)
     try {
@@ -146,6 +164,7 @@ export function PremiumModal({
               type="button"
               onClick={() => setSelectedPlan("monthly")}
               aria-pressed={isMonthlySelected}
+              disabled={isCheckoutBlocked}
               className={`cursor-pointer rounded-2xl border p-4 text-left transition-colors ${
                 isMonthlySelected
                   ? "border-[#F2B33D]/70 bg-[#F2B33D]/10"
@@ -166,6 +185,7 @@ export function PremiumModal({
               type="button"
               onClick={() => setSelectedPlan("yearly")}
               aria-pressed={!isMonthlySelected}
+              disabled={isCheckoutBlocked}
               className={`relative cursor-pointer rounded-2xl border p-4 text-left transition-colors ${
                 !isMonthlySelected
                   ? "border-[#F2B33D]/70 bg-[#F2B33D]/10"
@@ -192,9 +212,15 @@ export function PremiumModal({
             </div>
           ) : null}
 
+          {isBlockedForActivePremium ? (
+            <p className="mt-3 text-center text-xs text-amber-200">
+              You already have an active Premium subscription.
+            </p>
+          ) : null}
+
           <button
             type="button"
-            disabled={isRedirecting}
+            disabled={isRedirecting || isCheckoutBlocked}
             onClick={handleSubscribe}
             className="mt-4 h-11 w-full cursor-pointer rounded-full bg-[#F2B33D] text-sm font-semibold text-black transition-colors hover:bg-[#f7c45c] disabled:cursor-not-allowed disabled:opacity-50"
           >
