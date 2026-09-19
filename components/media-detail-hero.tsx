@@ -613,7 +613,7 @@ export function MediaDetailHero({
                     size="lg"
                     variant="outline"
                     className={cn(
-                      "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10",
+                      "border-white/20 bg-white/5 px-6 font-semibold text-white backdrop-blur-sm transition-all hover:border-white/40 hover:bg-white/10 dark:border-white/20 dark:bg-white/5 dark:hover:border-white/40 dark:hover:bg-white/10",
                       addToListAppearance.buttonClassName,
                     )}
                     onClick={() =>

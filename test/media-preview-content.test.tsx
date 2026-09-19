@@ -121,8 +121,8 @@ describe("MediaPreviewContent add-to-list button", () => {
 
     expect(icon).not.toBeNull()
     expect(icon).toHaveAttribute("data-add-to-list-icon", "plus")
-    expect(addButton.className).not.toContain("border-blue-400/40")
-    expect(addButton.className).not.toContain("border-green-400/40")
+    expect(addButton.className).not.toContain("border-blue-500/50")
+    expect(addButton.className).not.toContain("border-[#46D369]/50")
   })
 
   it("shows the watchlist icon and accent styling for a single matching list", () => {
@@ -143,7 +143,7 @@ describe("MediaPreviewContent add-to-list button", () => {
 
     expect(icon).not.toBeNull()
     expect(icon).toHaveAttribute("data-add-to-list-icon", "watchlist")
-    expect(addButton.className).toContain("border-blue-400/40")
+    expect(addButton.className).toContain("border-blue-500/50")
   })
 
   it("uses the multiple-lists fallback icon and styling when several lists match", () => {
@@ -164,7 +164,7 @@ describe("MediaPreviewContent add-to-list button", () => {
 
     expect(icon).not.toBeNull()
     expect(icon).toHaveAttribute("data-add-to-list-icon", "multiple")
-    expect(addButton.className).toContain("border-green-400/40")
+    expect(addButton.className).toContain("border-[#46D369]/50")
   })
 
   it("prefers an explicit original-title override over the saved preference", () => {

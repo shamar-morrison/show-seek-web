@@ -163,7 +163,7 @@ describe("useMediaActions", () => {
     }
     expect(icon).toHaveAttribute("data-add-to-list-icon", "custom")
     expect(icon.getAttribute("class") ?? "").toContain("menu-icon")
-    expect(icon.getAttribute("class") ?? "").toContain("text-violet-400")
+    expect(icon.getAttribute("class") ?? "").toContain("text-blue-500")
   })
 
   it("keeps watched history queries disabled for card dropdown flows", () => {

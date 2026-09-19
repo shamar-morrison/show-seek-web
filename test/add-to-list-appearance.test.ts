@@ -58,11 +58,11 @@ describe("add-to-list appearance", () => {
   })
 
   it.each([
-    ["watchlist", Bookmark02Icon, "border-blue-400/40"],
-    ["currently-watching", PlayCircle02Icon, "border-amber-400/40"],
-    ["already-watched", Tick02Icon, "border-green-400/40"],
-    ["favorites", FavouriteIcon, "border-rose-400/40"],
-    ["dropped", Cancel01Icon, "border-slate-400/40"],
+    ["watchlist", Bookmark02Icon, "border-blue-500/50"],
+    ["currently-watching", PlayCircle02Icon, "border-[#F57C00]/50"],
+    ["already-watched", Tick02Icon, "border-[#46D369]/50"],
+    ["favorites", FavouriteIcon, "border-primary/50"],
+    ["dropped", Cancel01Icon, "border-gray-500/50"],
   ] as const)(
     "returns the correct single-list appearance for %s",
     (listId, icon, className) => {
@@ -80,6 +80,49 @@ describe("add-to-list appearance", () => {
     },
   )
 
+  it("includes dark-mode color overrides so the tint beats Button outline", () => {
+    const watchlist = resolveAddToListAppearance(
+      [createList("watchlist", ["123"])],
+      123,
+      "movie",
+    )
+    expect(watchlist.buttonClassName).toContain("dark:border-blue-500/50")
+    expect(watchlist.buttonClassName).toContain("dark:bg-blue-500/15")
+
+    const watched = resolveAddToListAppearance(
+      [createList("already-watched", ["123"])],
+      123,
+      "movie",
+    )
+    expect(watched.buttonClassName).toContain("dark:border-[#46D369]/50")
+    expect(watched.buttonClassName).toContain("dark:bg-[#46D369]/15")
+
+    const favorites = resolveAddToListAppearance(
+      [createList("favorites", ["123"])],
+      123,
+      "movie",
+    )
+    expect(favorites.buttonClassName).toContain("dark:border-primary/50")
+    expect(favorites.buttonClassName).toContain("dark:bg-primary/15")
+
+    const custom = resolveAddToListAppearance(
+      [createList("road-trip", ["123"])],
+      123,
+      "movie",
+    )
+    expect(custom.buttonClassName).toContain("dark:border-blue-500/50")
+
+    const multiple = resolveAddToListAppearance(
+      [createList("watchlist", ["123"]), createList("road-trip", ["123"])],
+      123,
+      "movie",
+    )
+    expect(multiple.buttonClassName).toContain("dark:border-[#46D369]/50")
+
+    const none = resolveAddToListAppearance([], 123, "movie")
+    expect(none.buttonClassName).not.toContain("dark:")
+  })
+
   it("uses the custom-list folder styling for a single custom list", () => {
     const appearance = resolveAddToListAppearance(
       [createList("road-trip", ["123"])],
@@ -90,7 +133,7 @@ describe("add-to-list appearance", () => {
     expect(appearance.listIds).toEqual(["road-trip"])
     expect(appearance.variant).toBe("single")
     expect(appearance.icon).toBe(FolderLibraryIcon)
-    expect(appearance.buttonClassName).toContain("border-violet-400/40")
+    expect(appearance.buttonClassName).toContain("border-blue-500/50")
   })
 
   it("uses the mobile multiple-lists fallback when the item is in more than one list", () => {
@@ -106,7 +149,7 @@ describe("add-to-list appearance", () => {
     expect(appearance.listIds).toEqual(["watchlist", "road-trip"])
     expect(appearance.variant).toBe("multiple")
     expect(appearance.icon).toBe(CheckListIcon)
-    expect(appearance.buttonClassName).toContain("border-green-400/40")
+    expect(appearance.buttonClassName).toContain("border-[#46D369]/50")
   })
 
   it("renders stroke-only dropdown icons for open-path check glyphs", () => {
@@ -115,7 +158,7 @@ describe("add-to-list appearance", () => {
       123,
       "movie",
     )
-    expect(watched.dropdownIconClassName).toContain("text-green-400")
+    expect(watched.dropdownIconClassName).toContain("text-[#46D369]")
     expect(watched.dropdownIconClassName).not.toMatch(/fill-\S+/)
 
     const multiple = resolveAddToListAppearance(
@@ -126,7 +169,7 @@ describe("add-to-list appearance", () => {
       123,
       "movie",
     )
-    expect(multiple.dropdownIconClassName).toContain("text-green-400")
+    expect(multiple.dropdownIconClassName).toContain("text-[#46D369]")
     expect(multiple.dropdownIconClassName).not.toMatch(/fill-\S+/)
   })
 
