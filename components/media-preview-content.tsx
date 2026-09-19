@@ -1,6 +1,9 @@
 "use client"
 
-import { MarkAsWatchedButton } from "@/components/mark-as-watched-button"
+import {
+  getMarkAsWatchedToneClassName,
+  MarkAsWatchedButton,
+} from "@/components/mark-as-watched-button"
 import { RateButton } from "@/components/rate-button"
 import { Button } from "@/components/ui/button"
 import { useLists } from "@/hooks/use-lists"
@@ -15,10 +18,14 @@ import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
   InformationCircleIcon,
+  Loading03Icon,
   Note01Icon,
   NoteDoneIcon,
+  Refresh01Icon,
   StarIcon,
+  Tick02Icon,
   Tv01FreeIcons,
+  ViewIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
@@ -41,6 +48,20 @@ interface MediaPreviewContentProps {
   watchCount?: number
   /** Whether mark as watched is loading (movies only) */
   isMarkAsWatchedLoading?: boolean
+  /** TV show watch trigger state (TV only). Dialogs are owned by the parent. */
+  tvWatchTrigger?: {
+    visible: boolean
+    label: string
+    isShowFullyWatched: boolean
+    fillRatio: number
+    isPending: boolean
+    isLoading: boolean
+    isError: boolean
+  }
+  /** Called when the TV watch trigger is clicked */
+  onTvWatchClick?: () => void
+  /** Called when the TV watch retry button is clicked */
+  onTvRetryWatchStatus?: () => void
 }
 
 interface Creator {
@@ -81,6 +102,9 @@ export function MediaPreviewContent({
   onMarkAsWatched,
   watchCount = 0,
   isMarkAsWatchedLoading = false,
+  tvWatchTrigger,
+  onTvWatchClick,
+  onTvRetryWatchStatus,
 }: MediaPreviewContentProps) {
   const { lists } = useLists()
   const { getRating } = useRatings()
@@ -270,6 +294,98 @@ export function MediaPreviewContent({
               onMarkAsWatched()
             }}
           />
+        )}
+
+        {/* Mark as Watched - TV shows (trigger only; dialogs owned by parent) */}
+        {mediaType === "tv" && tvWatchTrigger?.visible && (
+          <>
+            {tvWatchTrigger.isLoading ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled
+                data-testid="tv-show-watch-button-loading"
+                className="border-white/20 bg-white/5 text-xs font-semibold text-white backdrop-blur-sm"
+              >
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-3.5 animate-spin"
+                />
+                <span>Loading…</span>
+              </Button>
+            ) : tvWatchTrigger.isError ? (
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="tv-show-watch-button-retry"
+                className="border-red-500/40 bg-red-500/10 text-xs font-semibold text-red-300 backdrop-blur-sm transition-all hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-200"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onTvRetryWatchStatus?.()
+                }}
+              >
+                <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
+                <span>Retry watch status</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="tv-show-watch-button"
+                disabled={tvWatchTrigger.isPending}
+                className={cn(
+                  getMarkAsWatchedToneClassName(
+                    tvWatchTrigger.isShowFullyWatched,
+                  ),
+                  "relative overflow-hidden text-xs font-semibold backdrop-blur-sm transition-all",
+                )}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onTvWatchClick?.()
+                }}
+              >
+                {tvWatchTrigger.fillRatio > 0 && (
+                  <span
+                    data-testid="tv-show-watch-fill"
+                    aria-hidden="true"
+                    className={cn(
+                      "pointer-events-none absolute inset-y-0 left-0 transition-[width] duration-300 ease-out",
+                      tvWatchTrigger.isShowFullyWatched
+                        ? "bg-green-500/30"
+                        : "bg-primary/30",
+                    )}
+                    style={{ width: `${tvWatchTrigger.fillRatio * 100}%` }}
+                  />
+                )}
+                {tvWatchTrigger.isPending ? (
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="relative z-10 size-3.5 animate-spin"
+                  />
+                ) : (
+                  <HugeiconsIcon
+                    icon={
+                      tvWatchTrigger.isShowFullyWatched ? Tick02Icon : ViewIcon
+                    }
+                    className={cn(
+                      "relative z-10 size-3.5",
+                      tvWatchTrigger.isShowFullyWatched && "text-green-500",
+                    )}
+                  />
+                )}
+                <span
+                  className={cn(
+                    "relative z-10",
+                    tvWatchTrigger.isShowFullyWatched && "text-green-500",
+                  )}
+                >
+                  {tvWatchTrigger.label}
+                </span>
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>

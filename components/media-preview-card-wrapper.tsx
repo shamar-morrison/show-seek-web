@@ -14,10 +14,11 @@ import { RatingModal } from "@/components/rating-modal"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { useMediaDetails } from "@/hooks/use-media-details"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useTVShowWatchAction } from "@/hooks/use-tv-show-watch-action"
 import { useWatchedMovies } from "@/hooks/use-watched-movies"
 import type { TMDBMedia, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import { PreviewCard } from "@base-ui/react/preview-card"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 interface MediaPreviewCardWrapperProps {
   /** The media item */
@@ -96,6 +97,71 @@ export function MediaPreviewCardWrapper({
     media.id,
     { enabled: isOpen },
   )
+
+  // Keeps TV episode/tracking fetches alive while TV dialogs are open after
+  // the preview has closed. Set when a dialog opens, cleared when all dialogs
+  // (including auth) close again.
+  const [tvKeepAlive, setTvKeepAlive] = useState(false)
+
+  // TV watch props derived from lazily-fetched details. Only built when the
+  // preview is open with TV details, so the per-season episode fan-out inside
+  // the TV watch action never runs for unhovered cards.
+  const tvWatchProps = useMemo(() => {
+    if (mediaType !== "tv" || !detailedMedia) return undefined
+    const tvMedia = detailedMedia as TMDBTVDetails
+    const positiveRuntimes = (tvMedia.episode_run_time ?? []).filter(
+      (value) => value > 0,
+    )
+    const avgRuntime =
+      positiveRuntimes.length > 0
+        ? Math.round(
+            positiveRuntimes.reduce((sum, value) => sum + value, 0) /
+              positiveRuntimes.length,
+          )
+        : 45
+    return {
+      tvShowId: tvMedia.id,
+      tvShowName: tvMedia.name,
+      posterPath: tvMedia.poster_path,
+      seasons: tvMedia.seasons ?? [],
+      showStats: {
+        totalEpisodes: tvMedia.number_of_episodes,
+        avgRuntime,
+      },
+      voteAverage: tvMedia.vote_average,
+      firstAirDate: tvMedia.first_air_date,
+    }
+  }, [mediaType, detailedMedia])
+
+  const tvWatchEnabled =
+    mediaType === "tv" && !!detailedMedia && (isOpen || tvKeepAlive)
+  const tvWatchAction = useTVShowWatchAction({
+    tvShowId: tvWatchProps?.tvShowId ?? 0,
+    tvShowName: tvWatchProps?.tvShowName ?? "",
+    posterPath: tvWatchProps?.posterPath ?? null,
+    seasons: tvWatchProps?.seasons ?? [],
+    showStats: tvWatchProps?.showStats,
+    voteAverage: tvWatchProps?.voteAverage,
+    firstAirDate: tvWatchProps?.firstAirDate,
+    enabled: tvWatchEnabled,
+  })
+
+  useEffect(() => {
+    if (!tvWatchAction.dialogsOpen) {
+      setTvKeepAlive(false)
+    }
+  }, [tvWatchAction.dialogsOpen])
+
+  const handleTvWatchClick = useCallback(() => {
+    tvWatchAction.requestPrimaryAction(() => {
+      setTvKeepAlive(true)
+      setIsOpen(false)
+    })
+  }, [tvWatchAction])
+
+  const handleTvRetryWatchStatus = useCallback(() => {
+    tvWatchAction.retryEpisodes()
+  }, [tvWatchAction])
 
   const mediaCard = (
     <MediaCard
@@ -260,6 +326,25 @@ export function MediaPreviewCardWrapper({
                     }
                     watchCount={watchCount}
                     isMarkAsWatchedLoading={isQuickMarkLoading}
+                    tvWatchTrigger={
+                      tvWatchProps
+                        ? {
+                            visible:
+                              tvWatchAction.shouldRender ||
+                              tvWatchAction.isLoadingState ||
+                              tvWatchAction.isEpisodesError,
+                            label: tvWatchAction.label,
+                            isShowFullyWatched:
+                              tvWatchAction.isShowFullyWatched,
+                            fillRatio: tvWatchAction.fillRatio,
+                            isPending: tvWatchAction.isPending,
+                            isLoading: tvWatchAction.isLoadingState,
+                            isError: tvWatchAction.isEpisodesError,
+                          }
+                        : undefined
+                    }
+                    onTvWatchClick={handleTvWatchClick}
+                    onTvRetryWatchStatus={handleTvRetryWatchStatus}
                   />
                 )}
               </PreviewCard.Popup>
@@ -310,6 +395,10 @@ export function MediaPreviewCardWrapper({
               onMarkAsWatched={handleModalMarkAsWatched}
             />
           )}
+
+          {/* TV watch dialogs - mounted outside PreviewCard so they survive
+              the preview closing when the trigger is clicked */}
+          {mediaType === "tv" && tvWatchProps && tvWatchAction.dialogs}
         </>
       )}
 

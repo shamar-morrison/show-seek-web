@@ -1,7 +1,8 @@
 import { render, screen } from "@/test/utils"
 import { MediaPreviewContent } from "@/components/media-preview-content"
 import type { UserList } from "@/types/list"
-import type { TMDBMovieDetails } from "@/types/tmdb"
+import type { TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -186,5 +187,144 @@ describe("MediaPreviewContent add-to-list button", () => {
         name: "Sen to Chihiro no Kamikakushi",
       }),
     ).toBeInTheDocument()
+  })
+})
+
+function createTVShow(): TMDBTVDetails {
+  return {
+    id: 456,
+    name: "Signal Run",
+    original_name: "Signal Run",
+    original_language: "en",
+    overview: "Test overview",
+    poster_path: null,
+    backdrop_path: null,
+    first_air_date: "2024-01-01",
+    vote_average: 8,
+    vote_count: 10,
+    genres: [],
+    status: "Returning Series",
+    number_of_episodes: 4,
+    number_of_seasons: 1,
+    seasons: [],
+    episode_run_time: [],
+    created_by: [],
+  } as unknown as TMDBTVDetails
+}
+
+function createTVTrigger(
+  overrides: Partial<{
+    visible: boolean
+    label: string
+    isShowFullyWatched: boolean
+    fillRatio: number
+    isPending: boolean
+    isLoading: boolean
+    isError: boolean
+  }> = {},
+) {
+  return {
+    visible: true,
+    label: "Mark as Watched",
+    isShowFullyWatched: false,
+    fillRatio: 0,
+    isPending: false,
+    isLoading: false,
+    isError: false,
+    ...overrides,
+  }
+}
+
+describe("MediaPreviewContent TV watch trigger", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.lists = []
+    mocks.getRating.mockReturnValue(null)
+    mocks.getNote.mockReturnValue(null)
+  })
+
+  it("renders a trigger-only TV button without owning any dialogs", () => {
+    render(
+      <MediaPreviewContent
+        media={createTVShow()}
+        mediaType="tv"
+        onAddToList={vi.fn()}
+        onRate={vi.fn()}
+        onNotes={vi.fn()}
+        tvWatchTrigger={createTVTrigger()}
+        onTvWatchClick={vi.fn()}
+      />,
+    )
+
+    // Trigger renders inline; no confirm dialog is owned by the content, so
+    // closing the hover preview cannot unmount the dialog flow.
+    expect(
+      screen.getByTestId("tv-show-watch-button"),
+    ).toHaveTextContent("Mark as Watched")
+    expect(
+      screen.queryByText("Mark All Episodes Watched?"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("delegates the TV click to the parent instead of opening a dialog itself", async () => {
+    const user = userEvent.setup()
+    const onTvWatchClick = vi.fn()
+    render(
+      <MediaPreviewContent
+        media={createTVShow()}
+        mediaType="tv"
+        onAddToList={vi.fn()}
+        onRate={vi.fn()}
+        onNotes={vi.fn()}
+        tvWatchTrigger={createTVTrigger({ label: "1/4 Episodes Watched" })}
+        onTvWatchClick={onTvWatchClick}
+      />,
+    )
+
+    await user.click(screen.getByTestId("tv-show-watch-button"))
+
+    expect(onTvWatchClick).toHaveBeenCalledTimes(1)
+    // Still no dialog owned here - the parent mounts it outside the popup.
+    expect(
+      screen.queryByText("Mark All Episodes Watched?"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders retry state and delegates retry to the parent", async () => {
+    const user = userEvent.setup()
+    const onTvRetryWatchStatus = vi.fn()
+    render(
+      <MediaPreviewContent
+        media={createTVShow()}
+        mediaType="tv"
+        onAddToList={vi.fn()}
+        onRate={vi.fn()}
+        onNotes={vi.fn()}
+        tvWatchTrigger={createTVTrigger({ isError: true })}
+        onTvRetryWatchStatus={onTvRetryWatchStatus}
+      />,
+    )
+
+    await user.click(screen.getByTestId("tv-show-watch-button-retry"))
+
+    expect(onTvRetryWatchStatus).toHaveBeenCalledTimes(1)
+  })
+
+  it("renders no TV button when the trigger is not visible", () => {
+    render(
+      <MediaPreviewContent
+        media={createTVShow()}
+        mediaType="tv"
+        onAddToList={vi.fn()}
+        onRate={vi.fn()}
+        onNotes={vi.fn()}
+        tvWatchTrigger={createTVTrigger({ visible: false })}
+        onTvWatchClick={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.queryByTestId("tv-show-watch-button"),
+    ).not.toBeInTheDocument()
   })
 })
