@@ -8,7 +8,7 @@ interface AvatarProps {
   alt?: string
   fallback?: string
   className?: string
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl"
   isPremium?: boolean
 }
 
@@ -28,12 +28,14 @@ const sizeClasses = {
   sm: "size-7 text-xs",
   md: "size-9 text-sm",
   lg: "size-12 text-base",
+  xl: "size-24 text-2xl",
 }
 
 const crownSizeClasses = {
   sm: "size-3",
   md: "size-3.5",
   lg: "size-4",
+  xl: "size-6",
 }
 
 export function Avatar({

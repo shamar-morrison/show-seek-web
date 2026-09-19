@@ -19,6 +19,12 @@ export interface ListMediaItem {
   // TV show fields
   name?: string
   first_air_date?: string
+  /**
+   * Measured runtime in minutes, stamped at write time from TMDB
+   * (movie runtime, or episode_run_time[0] for TV).
+   * Read-only on web (mobile owns stamping).
+   */
+  runtimeMinutes?: number
 }
 
 /** Media item payload accepted by list write operations */

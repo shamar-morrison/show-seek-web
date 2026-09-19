@@ -24,15 +24,18 @@ import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
 import { useTrakt } from "@/context/trakt-context"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useProfileWatchTime } from "@/hooks/use-profile-watch-time"
 import { getAccentColorName } from "@/lib/accent-colors"
 import {
   clearLocalAccountData,
   deleteAccount,
 } from "@/lib/firebase/account-deletion"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
+import { formatWatchHours, getWatchTimeParts } from "@/lib/format-watch-time"
 import {
   PREMIUM_LOADING_MESSAGE,
   isPremiumStatusPending,
@@ -99,6 +102,8 @@ export function ProfilePageClient() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { totalMinutes, isLoading: isWatchTimeLoading } = useProfileWatchTime()
+  const watchTimeParts = getWatchTimeParts(totalMinutes)
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [showHomeCustomizer, setShowHomeCustomizer] = useState(false)
@@ -159,11 +164,21 @@ export function ProfilePageClient() {
   if (loading || prefsLoading || !user) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="size-16 rounded-full bg-white/10" />
-          <div className="space-y-2">
-            <div className="h-5 w-32 rounded bg-white/10" />
-            <div className="h-4 w-48 rounded bg-white/10" />
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-5">
+            <div className="size-24 rounded-full bg-white/10" />
+            <div className="space-y-2">
+              <div className="h-8 w-48 rounded bg-white/10" />
+              <div className="h-4 w-64 rounded bg-white/10" />
+              <div className="h-8 w-32 rounded-full bg-white/10" />
+            </div>
+          </div>
+          <div className="w-full sm:w-auto">
+            <div className="space-y-2 rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/8">
+              <div className="h-4 w-36 rounded bg-white/10" />
+              <div className="h-9 w-44 rounded bg-white/10" />
+              <div className="h-3 w-24 rounded bg-white/10" />
+            </div>
           </div>
         </div>
         <div className="h-64 rounded-lg bg-white/10" />
@@ -667,34 +682,69 @@ export function ProfilePageClient() {
     <>
       {/* Profile Header */}
       <section className="mb-8">
-        <div className="flex items-center gap-4">
-          <Avatar
-            src={user?.photoURL}
-            alt={user?.displayName || "User"}
-            fallback={user?.displayName || user?.email || "User"}
-            size="lg"
-            isPremium={isPremiumMember}
-          />
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-white">
-              {user?.displayName || "User"}
-            </h1>
-            <p className="text-sm text-white/60">{user?.email}</p>
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-5">
+            <Avatar
+              src={user?.photoURL}
+              alt={user?.displayName || "User"}
+              fallback={user?.displayName || user?.email || "User"}
+              size="xl"
+              isPremium={isPremiumMember}
+            />
+            <div className="flex-1">
+              <h1 className="text-3xl font-semibold text-white">
+                {user?.displayName || "User"}
+              </h1>
+              <p className="mt-1 text-sm text-white/60">{user?.email}</p>
+              <div className="mt-2">
+                {isPremiumMember ? (
+                  <Badge variant="premium" className="h-8 rounded-full px-2">
+                    Premium Member
+                  </Badge>
+                ) : isPremiumCheckPending ? (
+                  <span className="text-xs text-muted-foreground">
+                    {PREMIUM_LOADING_MESSAGE}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setShowPremiumModal(true)}
+                    className="rounded-full bg-[#F2B33D] px-4 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-[#f7c45c]"
+                  >
+                    Upgrade to Premium
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          {isPremiumMember ? (
-            <Badge variant="premium">Premium Member</Badge>
-          ) : isPremiumCheckPending ? (
-            <span className="text-xs text-muted-foreground">
-              {PREMIUM_LOADING_MESSAGE}
-            </span>
-          ) : (
-            <button
-              onClick={() => setShowPremiumModal(true)}
-              className="rounded-full bg-[#F2B33D] px-4 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-[#f7c45c]"
-            >
-              Upgrade to Premium
-            </button>
-          )}
+          <div className="w-full sm:w-auto">
+            <div className="rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/8 sm:text-right">
+              <p className="text-sm text-white/60">Total Hours Watched</p>
+              {isWatchTimeLoading ? (
+                <Skeleton className="mt-2 h-9 w-44 sm:ml-auto" />
+              ) : (
+                <p className="mt-1">
+                  <span className="sr-only">
+                    {formatWatchHours(totalMinutes)}
+                  </span>
+                  <span aria-hidden="true">
+                    <span className="text-3xl font-semibold text-white">
+                      {watchTimeParts.hours}
+                    </span>
+                    <span className="ml-1 text-lg text-white/60">
+                      {watchTimeParts.hourUnit}
+                    </span>
+                    <span className="ml-3 text-3xl font-semibold text-white">
+                      {watchTimeParts.minutes}
+                    </span>
+                    <span className="ml-1 text-lg text-white/60">
+                      {watchTimeParts.minuteUnit}
+                    </span>
+                  </span>
+                </p>
+              )}
+              <p className="mt-1 text-xs text-white/40">Last 6 months</p>
+            </div>
+          </div>
         </div>
       </section>
 

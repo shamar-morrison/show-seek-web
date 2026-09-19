@@ -223,6 +223,7 @@ describe("useReleaseCalendar", () => {
     })
 
     expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.isEnriching).toBe(true)
     expect(result.current.isRefreshing).toBe(true)
     expect(result.current.error).toBeNull()
     expect(result.current.releases).toEqual([
@@ -262,6 +263,7 @@ describe("useReleaseCalendar", () => {
     ])
 
     await waitFor(() => {
+      expect(result.current.isEnriching).toBe(false)
       expect(result.current.isRefreshing).toBe(false)
     })
 
@@ -311,12 +313,14 @@ describe("useReleaseCalendar", () => {
     })
 
     expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.isEnriching).toBe(true)
     expect(result.current.isRefreshing).toBe(true)
     expect(result.current.releases).toEqual([])
 
     releasesDeferred.resolve([])
 
     await waitFor(() => {
+      expect(result.current.isEnriching).toBe(false)
       expect(result.current.isRefreshing).toBe(false)
       expect(result.current.releases).toEqual([])
     })

@@ -278,7 +278,7 @@ function CompactReleaseCard({ card }: { card: FlatReleaseCard }) {
   )
 }
 
-function CalendarSkeleton() {
+export function CalendarSkeleton() {
   return (
     <div data-testid="release-calendar-skeleton" className="space-y-6">
       <div className="flex flex-wrap gap-3">
@@ -851,7 +851,7 @@ function ReleaseCalendarSectionHeader({
 
 export function ReleaseCalendarPageClient() {
   const { isPremium, premiumLoading, premiumStatus } = useAuth()
-  const { releases, isBootstrapping, isRefreshing, error } =
+  const { releases, isBootstrapping, isEnriching, isRefreshing, error } =
     useReleaseCalendar()
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
@@ -861,7 +861,9 @@ export function ReleaseCalendarPageClient() {
   })
   const canViewFullCalendar = !isPremiumPending && isPremium
 
-  if (isBootstrapping) {
+  // Keep the skeleton up until the enrichment query has fully resolved so
+  // partially-enriched fallback data never flashes on screen.
+  if (isBootstrapping || isEnriching) {
     return <ReleaseCalendarView releases={[]} isLoading isPremium={false} />
   }
 

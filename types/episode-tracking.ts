@@ -23,6 +23,12 @@ export interface WatchedEpisode {
   episodeName: string
   /** Original air date of the episode (YYYY-MM-DD) */
   episodeAirDate: string | null
+  /**
+   * Measured episode runtime in minutes, stamped at write time from TMDB.
+   * Read-only on web (mobile owns stamping). Absent for records written
+   * before runtime stamping existed.
+   */
+  runtimeMinutes?: number
 }
 
 /**

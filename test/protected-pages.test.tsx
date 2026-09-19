@@ -5,16 +5,21 @@ import { render, screen } from "./utils"
 const routeGuardMock = vi.fn(
   ({
     children,
+    loadingFallback,
     message,
     title,
   }: {
     children?: ReactNode
+    loadingFallback?: ReactNode
     message?: string
     title?: string
   }) => (
     <section data-testid="route-guard">
       {title ? <h2>{title}</h2> : null}
       {message ? <p>{message}</p> : null}
+      {loadingFallback ? (
+        <div data-testid="route-guard-loading-fallback">{loadingFallback}</div>
+      ) : null}
       <div>{children}</div>
     </section>
   ),
@@ -23,6 +28,7 @@ const routeGuardMock = vi.fn(
 vi.mock("@/components/route-guard", () => ({
   RouteGuard: (props: {
     children?: ReactNode
+    loadingFallback?: ReactNode
     message?: string
     title?: string
   }) => routeGuardMock(props),
@@ -33,6 +39,7 @@ vi.mock("../app/profile/profile-page-client", () => ({
 }))
 
 vi.mock("@/components/release-calendar-page-client", () => ({
+  CalendarSkeleton: () => <div data-testid="calendar-skeleton" />,
   ReleaseCalendarPageClient: () => <div>release-calendar-page-client</div>,
 }))
 
@@ -80,6 +87,7 @@ describe("protected pages", () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText("release-calendar-page-client")).toBeInTheDocument()
+    expect(screen.getByTestId("calendar-skeleton")).toBeInTheDocument()
   })
 
   it("wraps /lists routes in RouteGuard", async () => {

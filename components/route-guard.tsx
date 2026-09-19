@@ -17,6 +17,11 @@ interface RouteGuardProps {
   children: React.ReactNode
   title?: string
   message?: string
+  /**
+   * Optional placeholder rendered while auth state is resolving.
+   * Defaults to a centered spinner.
+   */
+  loadingFallback?: React.ReactNode
 }
 
 /**
@@ -28,15 +33,18 @@ export function RouteGuard({
   children,
   title = "Protected Content",
   message = "Please sign in to access this page.",
+  loadingFallback,
 }: RouteGuardProps) {
   const { user, loading } = useAuth()
 
-  // Show nothing while loading auth state
+  // Show a placeholder while loading auth state
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
+      loadingFallback ?? (
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )
     )
   }
 
