@@ -57,6 +57,7 @@ describe("AuthProvider Polar Provider State", () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
 
     expect(result.current.premiumProvider).toBeNull()
+    expect(result.current.premiumSubscriptionState).toBeNull()
 
     // Simulate Polar user document snapshot
     act(() => {
@@ -67,6 +68,7 @@ describe("AuthProvider Polar Provider State", () => {
           premium: {
             isPremium: true,
             provider: "polar",
+            subscriptionState: "ACTIVE",
           },
         }),
       })
@@ -74,5 +76,6 @@ describe("AuthProvider Polar Provider State", () => {
 
     expect(result.current.isPremium).toBe(true)
     expect(result.current.premiumProvider).toBe("polar")
+    expect(result.current.premiumSubscriptionState).toBe("ACTIVE")
   })
 })

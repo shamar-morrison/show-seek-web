@@ -11,6 +11,8 @@ const useTraktMock = vi.fn()
 const useProfileWatchTimeMock = vi.fn()
 let mockSearchParams = new URLSearchParams()
 let mockPremiumStatus = "free"
+let mockPremiumProvider: "polar" | "revenuecat" | null = null
+let mockPremiumSubscriptionState: string | null = null
 
 vi.mock("@/components/premium-modal", () => ({
   PremiumModal: () => null,
@@ -104,6 +106,8 @@ vi.mock("@/context/auth-context", () => ({
     loading: false,
     premiumLoading: false,
     premiumStatus: mockPremiumStatus,
+    premiumProvider: mockPremiumProvider,
+    premiumSubscriptionState: mockPremiumSubscriptionState,
     signOut: signOutMock,
   }),
 }))
@@ -179,6 +183,8 @@ describe("ProfilePageClient delete account", () => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     mockPremiumStatus = "free"
+    mockPremiumProvider = null
+    mockPremiumSubscriptionState = null
     vi.mocked(isPremiumStatusPending).mockReturnValue(false)
     deleteAccountMock.mockResolvedValue({ success: true })
     signOutMock.mockResolvedValue(undefined)
@@ -291,8 +297,10 @@ describe("ProfilePageClient delete account", () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
-  it("blocks premium members until they cancel", async () => {
+  it("blocks active Polar subscribers until they cancel", async () => {
     mockPremiumStatus = "premium"
+    mockPremiumProvider = "polar"
+    mockPremiumSubscriptionState = "ACTIVE"
     const user = await renderSettingsTab()
 
     await user.click(screen.getByRole("button", { name: "Delete Account" }))
@@ -301,12 +309,84 @@ describe("ProfilePageClient delete account", () => {
       screen.getByText(/Cancel your Premium subscription first/),
     ).toBeInTheDocument()
     expect(
+      screen.getByText(/Manage Subscription in the account menu/),
+    ).toBeInTheDocument()
+    expect(
       screen.queryByLabelText("Type your account email to confirm"),
     ).not.toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Delete my account" }),
     ).toBeDisabled()
     expect(deleteAccountMock).not.toHaveBeenCalled()
+  })
+
+  it("allows cancelled Polar subscribers in the grace period to delete", async () => {
+    mockPremiumStatus = "premium"
+    mockPremiumProvider = "polar"
+    mockPremiumSubscriptionState = "CANCELLED"
+    const user = await renderSettingsTab()
+
+    await user.click(screen.getByRole("button", { name: "Delete Account" }))
+    expect(
+      screen.queryByText(/Cancel your Premium subscription first/),
+    ).not.toBeInTheDocument()
+
+    await user.type(
+      screen.getByLabelText("Type your account email to confirm"),
+      "test@example.com",
+    )
+    await user.click(screen.getByRole("button", { name: "Delete my account" }))
+
+    await waitFor(() => {
+      expect(deleteAccountMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it("allows RevenueCat premium subscribers to delete", async () => {
+    mockPremiumStatus = "premium"
+    mockPremiumProvider = "revenuecat"
+    mockPremiumSubscriptionState = "ACTIVE"
+    const user = await renderSettingsTab()
+
+    await user.click(screen.getByRole("button", { name: "Delete Account" }))
+    expect(
+      screen.queryByText(/Cancel your Premium subscription first/),
+    ).not.toBeInTheDocument()
+
+    await user.type(
+      screen.getByLabelText("Type your account email to confirm"),
+      "test@example.com",
+    )
+    await user.click(screen.getByRole("button", { name: "Delete my account" }))
+
+    await waitFor(() => {
+      expect(deleteAccountMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it("maps the server POLAR_SUBSCRIPTION_ACTIVE reason to the Polar toast", async () => {
+    deleteAccountMock.mockRejectedValue({
+      code: "functions/failed-precondition",
+      details: { reason: "POLAR_SUBSCRIPTION_ACTIVE" },
+    })
+    const user = await renderSettingsTab()
+
+    await user.click(screen.getByRole("button", { name: "Delete Account" }))
+    await user.type(
+      screen.getByLabelText("Type your account email to confirm"),
+      "test@example.com",
+    )
+    await user.click(screen.getByRole("button", { name: "Delete my account" }))
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Cancel your Premium subscription first using Manage Subscription in the account menu, then return here to delete your account.",
+      )
+    })
+    expect(toastErrorMock).not.toHaveBeenCalledWith(
+      "Failed to delete your account. Please try again.",
+    )
+    expect(signOutMock).not.toHaveBeenCalled()
   })
 
   it("disables deletion while premium status is unresolved", async () => {

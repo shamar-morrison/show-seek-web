@@ -27,6 +27,7 @@ export interface UserDocument {
     orderId?: string
     productId?: string
     provider?: "polar" | "revenuecat"
+    subscriptionState?: string | null
     purchaseDate?: ReturnType<typeof serverTimestamp>
   }
   preferences?: StoredUserPreferences

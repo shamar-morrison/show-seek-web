@@ -34,6 +34,10 @@ import {
   clearLocalAccountData,
   deleteAccount,
 } from "@/lib/firebase/account-deletion"
+import {
+  isPolarDeleteBlocked,
+  isPolarSubscriptionActiveError,
+} from "@/lib/polar-delete-guard"
 import { SUPPORTED_REGIONS, type SupportedRegionCode } from "@/lib/regions"
 import { formatWatchHours, getWatchTimeParts } from "@/lib/format-watch-time"
 import {
@@ -83,7 +87,15 @@ function getProfileTab(value: string | null): ProfileTab {
 }
 
 export function ProfilePageClient() {
-  const { user, loading, premiumLoading, premiumStatus, signOut } = useAuth()
+  const {
+    user,
+    loading,
+    premiumLoading,
+    premiumStatus,
+    premiumProvider,
+    premiumSubscriptionState,
+    signOut,
+  } = useAuth()
   const {
     isConnected: isTraktConnected,
     isLoading: isTraktLoading,
@@ -155,9 +167,18 @@ export function ProfilePageClient() {
   const deleteEmailMatches =
     accountEmail.length > 0 &&
     deleteEmail.trim().toLowerCase() === accountEmail.toLowerCase()
+  // Only Polar subscribers are blocked: RevenueCat (Play Store) subscriptions
+  // are cancelled in-app, but a Polar subscription can become unmanageable
+  // once the account is gone. Cancelled Polar subscriptions stay blocked only
+  // until the grace period ends, and are allowed here.
+  const isPolarDeleteBlockedForUser = isPolarDeleteBlocked({
+    isPremium: isPremiumMember,
+    provider: premiumProvider,
+    subscriptionState: premiumSubscriptionState,
+  })
   const canConfirmDelete =
     deleteEmailMatches &&
-    !isPremiumMember &&
+    !isPolarDeleteBlockedForUser &&
     !isPremiumCheckPending &&
     !isDeletingAccount
 
@@ -223,7 +244,13 @@ export function ProfilePageClient() {
       await deleteAccount()
     } catch (error) {
       captureException(error)
-      toast.error("Failed to delete your account. Please try again.")
+      if (isPolarSubscriptionActiveError(error)) {
+        toast.error(
+          "Cancel your Premium subscription first using Manage Subscription in the account menu, then return here to delete your account.",
+        )
+      } else {
+        toast.error("Failed to delete your account. Please try again.")
+      }
       setIsDeletingAccount(false)
       return
     }
@@ -856,10 +883,10 @@ export function ProfilePageClient() {
               This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {isPremiumMember ? (
+          {isPolarDeleteBlockedForUser ? (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-              Cancel your Premium subscription first, then return here to
-              delete your account.
+              Cancel your Premium subscription first using Manage Subscription
+              in the account menu, then return here to delete your account.
             </div>
           ) : (
             <div className="grid gap-2">
