@@ -1,6 +1,9 @@
 import { Metadata } from "next"
 
-import { ReleaseCalendarPageClient } from "@/components/release-calendar-page-client"
+import {
+  CalendarSkeleton,
+  ReleaseCalendarPageClient,
+} from "@/components/release-calendar-page-client"
 import { RouteGuard } from "@/components/route-guard"
 
 export const metadata: Metadata = {
@@ -16,6 +19,7 @@ export default function CalendarPage() {
         <RouteGuard
           title="Sign in to view your release calendar"
           message="Track upcoming movies and episodes from your watchlists and favorites."
+          loadingFallback={<CalendarSkeleton />}
         >
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white">Release Calendar</h1>

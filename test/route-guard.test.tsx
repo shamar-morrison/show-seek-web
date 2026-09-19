@@ -67,4 +67,43 @@ describe("RouteGuard", () => {
     expect(screen.getByText("Protected profile content")).toBeInTheDocument()
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument()
   })
+
+  it("shows the default spinner while auth state is loading", async () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: true,
+    })
+
+    const { RouteGuard } = await import("../components/route-guard")
+    const { container } = render(
+      <RouteGuard>
+        <div>Protected profile content</div>
+      </RouteGuard>,
+    )
+
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Protected profile content"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows the loading fallback instead of the spinner while auth state is loading", async () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: true,
+    })
+
+    const { RouteGuard } = await import("../components/route-guard")
+    const { container } = render(
+      <RouteGuard loadingFallback={<div data-testid="custom-skeleton" />}>
+        <div>Protected profile content</div>
+      </RouteGuard>,
+    )
+
+    expect(screen.getByTestId("custom-skeleton")).toBeInTheDocument()
+    expect(container.querySelector(".animate-spin")).not.toBeInTheDocument()
+    expect(
+      screen.queryByText("Protected profile content"),
+    ).not.toBeInTheDocument()
+  })
 })

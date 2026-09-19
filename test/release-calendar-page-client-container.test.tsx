@@ -49,6 +49,7 @@ describe("ReleaseCalendarPageClient", () => {
     useReleaseCalendarMock.mockReturnValue({
       error: null,
       isBootstrapping: false,
+      isEnriching: false,
       isRefreshing: false,
       releases: [
         createRelease(1, "2099-04-10"),
@@ -97,6 +98,7 @@ describe("ReleaseCalendarPageClient", () => {
     useReleaseCalendarMock.mockReturnValue({
       error: null,
       isBootstrapping: true,
+      isEnriching: false,
       isRefreshing: false,
       releases: [],
     })
@@ -106,6 +108,28 @@ describe("ReleaseCalendarPageClient", () => {
     expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
     expect(screen.getAllByTestId("release-calendar-skeleton-card")).toHaveLength(12)
     expect(screen.queryByText("Loading release calendar...")).not.toBeInTheDocument()
+  })
+
+  it("keeps the skeleton visible while the initial enrichment is still in flight", () => {
+    useAuthMock.mockReturnValue({
+      isPremium: false,
+      premiumLoading: false,
+      premiumStatus: "free",
+    })
+
+    useReleaseCalendarMock.mockReturnValue({
+      error: null,
+      isBootstrapping: false,
+      isEnriching: true,
+      isRefreshing: true,
+      releases: [createRelease(1, "2099-04-10")],
+    })
+
+    render(<ReleaseCalendarPageClient />)
+
+    expect(screen.getByTestId("release-calendar-skeleton")).toBeInTheDocument()
+    expect(screen.queryByText("Updating TV episodes...")).not.toBeInTheDocument()
+    expect(screen.queryByText("Release 1")).not.toBeInTheDocument()
   })
 
   it("shows the inline updating state instead of the full-page loader for tv-only refreshes", () => {
@@ -118,6 +142,7 @@ describe("ReleaseCalendarPageClient", () => {
     useReleaseCalendarMock.mockReturnValue({
       error: null,
       isBootstrapping: false,
+      isEnriching: false,
       isRefreshing: true,
       releases: [],
     })
