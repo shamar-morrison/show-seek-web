@@ -6,6 +6,7 @@ ShowSeek is a Next.js app deployed to Cloudflare Workers with OpenNext.
 
 ```bash
 pnpm install
+cp .env.example .env
 pnpm dev
 ```
 
@@ -70,8 +71,12 @@ Keep the Worker runtime configuration populated as well. The current runtime sec
 - `OMDB_API_KEY` (optional, enables IMDb/Rotten Tomatoes/Metacritic ratings on detail pages)
 - `TURNSTILE_SECRET_KEY`
 - `TRAKT_CLIENT_ID`
-- `TMDB_BEARER_TOKEN` or `TMDB_API_KEY`
+- `TMDB_BEARER_TOKEN` or `TMDB_API_KEY` (bearer preferred when both are set)
+- `POLAR_ACCESS_TOKEN`
+- `POLAR_PRODUCT_ID_MONTHLY`
+- `POLAR_PRODUCT_ID_YEARLY`
 
+Keys missing or empty in `.env` are skipped, never blanked in production.
 Run this after changing any of those secrets in `.env`:
 
 ```bash
