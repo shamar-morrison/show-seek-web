@@ -57,6 +57,7 @@ interface AuthContextType {
   loading: boolean
   isPremium: boolean
   premiumProvider: "polar" | "revenuecat" | null
+  premiumSubscriptionState: string | null
   premiumLastCheckedAt: string | null
   premiumLoading: boolean
   premiumStatus: PremiumStatus
@@ -253,6 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [premiumStatus, setPremiumStatus] = useState<PremiumStatus>("free")
   const [premiumProvider, setPremiumProvider] = useState<
     "polar" | "revenuecat" | null
+  >(null)
+  const [premiumSubscriptionState, setPremiumSubscriptionState] = useState<
+    string | null
   >(null)
   const [premiumLoading, setPremiumLoading] = useState(false)
   const [premiumLastCheckedAt, setPremiumLastCheckedAt] = useState<
@@ -591,6 +595,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       premiumStatusRef.current = "free"
       setPremiumStatus("free")
       setPremiumProvider(null)
+      setPremiumSubscriptionState(null)
       setPremiumLoading(false)
       setPremiumLastCheckedAt(null)
       return
@@ -619,6 +624,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const nextIsPremium = userData?.premium?.isPremium === true
         const nextProvider = userData?.premium?.provider ?? null
         setPremiumProvider(nextProvider)
+        setPremiumSubscriptionState(
+          userData?.premium?.subscriptionState ?? null,
+        )
         const hasAttempted = hasAttemptedReconcile(user.uid)
         const statusResolution = resolvePremiumStatusFromSnapshot({
           currentStatus: statusBefore,
@@ -710,6 +718,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       clearServerSessionSyncState()
       setPremiumProvider(null)
+      setPremiumSubscriptionState(null)
       router.push("/")
     } catch (error) {
       console.error("Error signing out:", error)
@@ -727,6 +736,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isPremium,
         premiumProvider,
+        premiumSubscriptionState,
         premiumStatus,
         premiumLoading,
         premiumLastCheckedAt,
