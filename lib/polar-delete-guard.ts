@@ -71,3 +71,25 @@ export function isPremiumCheckoutBlocked(
   }
   return true
 }
+
+export type PolarCheckoutPlan = "monthly" | "yearly"
+
+/**
+ * Guarded Polar checkout navigation. Only calls navigate when not blocked,
+ * so tests can assert the blocked path never navigates without depending on
+ * disabled-button click semantics.
+ */
+export function beginPolarCheckout({
+  plan,
+  blocked,
+  navigate,
+}: {
+  plan: PolarCheckoutPlan
+  blocked: boolean
+  navigate: (url: string) => void
+}): void {
+  if (blocked) {
+    return
+  }
+  navigate(`/api/billing/polar/checkout?plan=${plan}`)
+}

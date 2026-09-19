@@ -18,7 +18,10 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useAuth } from "@/context/auth-context"
-import { isPremiumCheckoutBlocked } from "@/lib/polar-delete-guard"
+import {
+  beginPolarCheckout,
+  isPremiumCheckoutBlocked,
+} from "@/lib/polar-delete-guard"
 import { useState } from "react"
 
 interface PremiumModalProps {
@@ -87,7 +90,13 @@ export function PremiumModal({
     setCheckoutError(null)
     setIsRedirecting(true)
     try {
-      window.location.href = `/api/billing/polar/checkout?plan=${selectedPlan}`
+      beginPolarCheckout({
+        plan: selectedPlan,
+        blocked: isCheckoutBlocked,
+        navigate: (url) => {
+          window.location.href = url
+        },
+      })
     } catch {
       setIsRedirecting(false)
       setCheckoutError("Could not start checkout. Please try again.")

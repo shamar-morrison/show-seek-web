@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
+  beginPolarCheckout,
   isPolarDeleteBlocked,
   isPolarSubscriptionActiveError,
   isPremiumCheckoutBlocked,
@@ -146,5 +147,100 @@ describe("isPremiumCheckoutBlocked", () => {
     ).toBe(false)
     expect(isPremiumCheckoutBlocked(null)).toBe(false)
     expect(isPremiumCheckoutBlocked(undefined)).toBe(false)
+  })
+})
+
+describe("beginPolarCheckout", () => {
+  function beginForPremiumState(
+    plan: "monthly" | "yearly",
+    status: Parameters<typeof isPremiumCheckoutBlocked>[0],
+    navigate: (url: string) => void,
+  ) {
+    beginPolarCheckout({
+      plan,
+      blocked: isPremiumCheckoutBlocked(status),
+      navigate,
+    })
+  }
+
+  it("never navigates when blocked because premium is loading", () => {
+    const navigate = vi.fn()
+    beginForPremiumState(
+      "yearly",
+      {
+        isPremium: false,
+        premiumLoading: true,
+        provider: null,
+        subscriptionState: null,
+      },
+      navigate,
+    )
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it("never navigates when blocked for Polar ACTIVE premium", () => {
+    const navigate = vi.fn()
+    beginForPremiumState(
+      "yearly",
+      {
+        isPremium: true,
+        premiumLoading: false,
+        provider: "polar",
+        subscriptionState: "ACTIVE",
+      },
+      navigate,
+    )
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it("never navigates when blocked for RevenueCat premium", () => {
+    const navigate = vi.fn()
+    beginForPremiumState(
+      "monthly",
+      {
+        isPremium: true,
+        premiumLoading: false,
+        provider: "revenuecat",
+        subscriptionState: "ACTIVE",
+      },
+      navigate,
+    )
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it("navigates for Polar CANCELLED grace-period resubscribe", () => {
+    const navigate = vi.fn()
+    beginForPremiumState(
+      "yearly",
+      {
+        isPremium: true,
+        premiumLoading: false,
+        provider: "polar",
+        subscriptionState: "CANCELLED",
+      },
+      navigate,
+    )
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate).toHaveBeenCalledWith(
+      "/api/billing/polar/checkout?plan=yearly",
+    )
+  })
+
+  it("navigates for non-premium users with the selected plan", () => {
+    const navigate = vi.fn()
+    beginForPremiumState(
+      "monthly",
+      {
+        isPremium: false,
+        premiumLoading: false,
+        provider: null,
+        subscriptionState: null,
+      },
+      navigate,
+    )
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate).toHaveBeenCalledWith(
+      "/api/billing/polar/checkout?plan=monthly",
+    )
   })
 })

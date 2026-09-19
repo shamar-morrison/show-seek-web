@@ -1,5 +1,5 @@
 import { PremiumModal } from "@/components/premium-modal"
-import { render, screen, fireEvent } from "@/test/utils"
+import { render, screen } from "@/test/utils"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -146,7 +146,7 @@ describe("PremiumModal", () => {
     }
   })
 
-  it("never navigates to checkout when Polar premium is active, even via direct handler call", async () => {
+  it("shows the active-premium notice and disables checkout for Polar ACTIVE premium", async () => {
     mockAuthState = {
       user: { uid: "user-1" },
       isPremium: true,
@@ -154,27 +154,20 @@ describe("PremiumModal", () => {
       premiumProvider: "polar",
       premiumSubscriptionState: "ACTIVE",
     }
-    const assignedHrefs = mockLocationAssign()
 
-    try {
-      render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
+    render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
 
-      expect(
-        screen.getByText("You already have an active Premium subscription."),
-      ).toBeInTheDocument()
-
-      // fireEvent bypasses the disabled attribute, proving the guard lives
-      // inside handleSubscribe itself rather than only on the buttons.
-      fireEvent.click(
-        screen.getByRole("button", { name: "Upgrade to Premium" }),
-      )
-      expect(assignedHrefs).toEqual([])
-    } finally {
-      restoreLocation()
-    }
+    expect(
+      screen.getByText("You already have an active Premium subscription."),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Upgrade to Premium" }),
+    ).toBeDisabled()
+    expect(screen.getByText("Monthly").closest("button")).toBeDisabled()
+    expect(screen.getByText("Annual").closest("button")).toBeDisabled()
   })
 
-  it("blocks RevenueCat premium subscribers without navigating", async () => {
+  it("shows the active-premium notice and disables checkout for RevenueCat premium", async () => {
     mockAuthState = {
       user: { uid: "user-1" },
       isPremium: true,
@@ -182,21 +175,15 @@ describe("PremiumModal", () => {
       premiumProvider: "revenuecat",
       premiumSubscriptionState: "ACTIVE",
     }
-    const assignedHrefs = mockLocationAssign()
 
-    try {
-      render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
+    render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
 
-      expect(
-        screen.getByText("You already have an active Premium subscription."),
-      ).toBeInTheDocument()
-      fireEvent.click(
-        screen.getByRole("button", { name: "Upgrade to Premium" }),
-      )
-      expect(assignedHrefs).toEqual([])
-    } finally {
-      restoreLocation()
-    }
+    expect(
+      screen.getByText("You already have an active Premium subscription."),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Upgrade to Premium" }),
+    ).toBeDisabled()
   })
 
   it("allows Polar CANCELLED grace-period resubscribe", async () => {
@@ -235,23 +222,14 @@ describe("PremiumModal", () => {
       premiumProvider: null,
       premiumSubscriptionState: null,
     }
-    const assignedHrefs = mockLocationAssign()
 
-    try {
-      render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
+    render(<PremiumModal open={true} onOpenChange={vi.fn()} />)
 
-      expect(
-        screen.queryByText("You already have an active Premium subscription."),
-      ).not.toBeInTheDocument()
-      expect(
-        screen.getByRole("button", { name: "Upgrade to Premium" }),
-      ).toBeDisabled()
-      fireEvent.click(
-        screen.getByRole("button", { name: "Upgrade to Premium" }),
-      )
-      expect(assignedHrefs).toEqual([])
-    } finally {
-      restoreLocation()
-    }
+    expect(
+      screen.queryByText("You already have an active Premium subscription."),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Upgrade to Premium" }),
+    ).toBeDisabled()
   })
 })
