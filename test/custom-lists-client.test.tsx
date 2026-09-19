@@ -418,6 +418,13 @@ describe("CustomListsClient", () => {
     await user.click(checkboxes[1]!)
     await user.click(screen.getByRole("button", { name: "Delete selected lists" }))
 
+    expect(
+      screen.getByRole("heading", { name: "Delete 2 lists?" }),
+    ).toBeInTheDocument()
+    expect(mocks.deleteListsBatch).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Delete" }))
+
     await waitFor(() => {
       expect(mocks.deleteListsBatch).toHaveBeenCalledWith({
         listIds: ["road-trip", "date-night"],
@@ -426,6 +433,31 @@ describe("CustomListsClient", () => {
     })
 
     expect(mocks.toastSuccess).toHaveBeenCalledWith("2 lists deleted.")
+  })
+
+  it("does not delete anything when the bulk delete confirmation is dismissed", async () => {
+    const user = userEvent.setup()
+    mocks.lists = [createCustomList(), createSecondCustomList()]
+
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select Lists" }))
+
+    const checkboxes = screen.getAllByRole("checkbox")
+    await user.click(checkboxes[0]!)
+    await user.click(screen.getByRole("button", { name: "Delete selected lists" }))
+
+    expect(
+      screen.getByRole("heading", { name: "Delete 1 list?" }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Back" }))
+
+    expect(mocks.deleteListsBatch).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole("heading", { name: "Select custom lists to delete" }),
+    ).toBeInTheDocument()
   })
 
   it("keeps failed bulk deletions selected when only part of the batch succeeds", async () => {
@@ -444,6 +476,7 @@ describe("CustomListsClient", () => {
     await user.click(checkboxes[0]!)
     await user.click(checkboxes[1]!)
     await user.click(screen.getByRole("button", { name: "Delete selected lists" }))
+    await user.click(screen.getByRole("button", { name: "Delete" }))
 
     await waitFor(() => {
       expect(mocks.toastError).toHaveBeenCalledWith(

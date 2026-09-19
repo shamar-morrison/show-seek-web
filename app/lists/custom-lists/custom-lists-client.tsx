@@ -89,6 +89,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false)
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -113,6 +114,14 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
 
   // Filter to only custom lists
   const customLists = useMemo(() => lists.filter((l) => l.isCustom), [lists])
+  // Names of the lists selected for bulk deletion (for the confirm dialog)
+  const selectedBulkDeleteNames = useMemo(
+    () =>
+      customLists
+        .filter((list) => selectedBulkDeleteIds.has(list.id))
+        .map((list) => list.name),
+    [customLists, selectedBulkDeleteIds],
+  )
   const defaultListId = customLists[0]?.id ?? ""
   const [urlState, setUrlState] = useUrlStateSync<{ selectedListId: string }>({
     keys: ["listId"],
@@ -378,6 +387,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
 
       if (failedIds.length === 0) {
         setIsBulkDeleteDialogOpen(false)
+        setIsBulkDeleteConfirmOpen(false)
         setSelectedBulkDeleteIds(new Set())
         toast.success(
           `${deletedIds.length} list${deletedIds.length === 1 ? "" : "s"} deleted.`,
@@ -386,6 +396,7 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
       }
 
       setSelectedBulkDeleteIds(new Set(failedIds))
+      setIsBulkDeleteConfirmOpen(false)
       toast.error(
         `Failed to delete ${failedIds.length} of ${
           deletedIds.length + failedIds.length
@@ -594,6 +605,9 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
         onOpenChange={(open) => {
           if (!isBulkDeleting) {
             setIsBulkDeleteDialogOpen(open)
+            if (!open) {
+              setIsBulkDeleteConfirmOpen(false)
+            }
           }
         }}
       >
@@ -651,24 +665,63 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
             </Button>
             <Button
               variant="destructive"
-              onClick={() => void handleBulkDelete()}
+              onClick={() => setIsBulkDeleteConfirmOpen(true)}
               disabled={isBulkDeleting || selectedBulkDeleteIds.size === 0}
             >
-              {isBulkDeleting ? (
-                <>
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="mr-2 size-4 animate-spin"
-                  />
-                  Deleting...
-                </>
-              ) : (
-                "Delete selected lists"
-              )}
+              Delete selected lists
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog
+        open={isBulkDeleteConfirmOpen}
+        onOpenChange={(open) => {
+          if (!isBulkDeleting) {
+            setIsBulkDeleteConfirmOpen(open)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedBulkDeleteIds.size}{" "}
+              {selectedBulkDeleteIds.size === 1 ? "list" : "lists"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              {selectedBulkDeleteNames.length > 0
+                ? selectedBulkDeleteNames.map((name) => `“${name}”`).join(", ")
+                : "the selected lists"}{" "}
+              and all items in{" "}
+              {selectedBulkDeleteIds.size === 1 ? "it" : "them"}. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>
+              Back
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void handleBulkDelete()
+              }}
+              disabled={isBulkDeleting || selectedBulkDeleteIds.size === 0}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isBulkDeleting && (
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="mr-2 size-4 animate-spin"
+                />
+              )}
+              {isBulkDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
