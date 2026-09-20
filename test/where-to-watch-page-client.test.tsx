@@ -307,6 +307,26 @@ describe("WhereToWatchPageClient", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("shows a full-area updating state instead of stale empty states while enriching", async () => {
+    const user = userEvent.setup()
+    enrichmentState.isLoadingEnrichment = true
+    enrichmentState.providerMap = new Map<string, unknown>()
+
+    render(<WhereToWatchPageClient />)
+
+    await selectList(user)
+    await selectService(user)
+
+    expect(
+      screen.getByTestId("where-to-watch-enrichment-indicator"),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Updating availability...")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Choose a streaming service"),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText("No matches found")).not.toBeInTheDocument()
+  })
+
   it("counts and filters only flatrate provider matches", async () => {
     const user = userEvent.setup()
 

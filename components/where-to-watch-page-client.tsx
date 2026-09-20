@@ -526,19 +526,6 @@ export function WhereToWatchPageClient() {
           </div>
         ) : null}
 
-        {selectedList && isLoadingEnrichment ? (
-          <div
-            data-testid="where-to-watch-enrichment-indicator"
-            className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-white/45"
-          >
-            <HugeiconsIcon
-              icon={Loading03Icon}
-              className="size-4 animate-spin"
-            />
-            <span>Updating availability...</span>
-          </div>
-        ) : null}
-
         <div className="relative min-h-[360px]">
           {!selectedList ? (
             <EmptyWhereToWatchState
@@ -560,6 +547,21 @@ export function WhereToWatchPageClient() {
               }
               icon={CrownIcon}
             />
+          ) : isLoadingEnrichment ? (
+            <div
+              data-testid="where-to-watch-enrichment-indicator"
+              role="status"
+              aria-live="polite"
+              className="flex min-h-[360px] flex-col items-center justify-center gap-4"
+            >
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-10 animate-spin text-primary"
+              />
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-white/60">
+                Updating availability...
+              </p>
+            </div>
           ) : hasProviderFetchError ? (
             <EmptyWhereToWatchState
               title="Unable to load streaming services"
