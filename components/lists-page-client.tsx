@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/filter-sort"
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Pagination } from "@/components/ui/pagination"
+import { ScrollableRow } from "@/components/ui/scrollable-row"
 import { SearchInput } from "@/components/ui/search-input"
 import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { usePreferences } from "@/hooks/use-preferences"
@@ -959,7 +960,7 @@ export function ListsPageClient({
         )}
 
         {/* List Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <ScrollableRow gap={8} scrollPercentage={50} showArrows="always">
           {lists.map((list) => (
             <FilterTabButton
               key={list.id}
@@ -971,7 +972,7 @@ export function ListsPageClient({
               disabled={isSelectionMode}
             />
           ))}
-        </div>
+        </ScrollableRow>
       </div>
 
       {/* Results */}

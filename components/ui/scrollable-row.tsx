@@ -15,18 +15,22 @@ interface ScrollableRowProps {
   scrollPercentage?: number
   /** Gap between items (default: 16px / gap-4) */
   gap?: number
+  /** When arrows are visible: on hover, or always when scrollable (default: "hover") */
+  showArrows?: "hover" | "always"
 }
 
 /**
  * ScrollableRow Component
  * A reusable wrapper that adds navigation arrows to horizontally scrollable content.
- * Arrows appear on hover when there's more content to scroll in that direction.
+ * Arrows appear on hover when there's more content to scroll in that direction,
+ * or always when scrollable if showArrows is "always".
  */
 export function ScrollableRow({
   children,
   className,
   scrollPercentage = 75,
   gap = 16,
+  showArrows = "hover",
 }: ScrollableRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -97,10 +101,10 @@ export function ScrollableRow({
       onMouseLeave={() => setIsHovering(false)}
     >
       {/* Left Arrow */}
-      {canScrollLeft && isHovering && (
+      {canScrollLeft && (showArrows === "always" || isHovering) && (
         <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 flex items-center">
           {/* Gradient fade */}
-          <div className="absolute inset-y-0 left-0 w-16 bg-linear-to-r from-background to-transparent" />
+          <div className="absolute inset-y-0 left-0 w-24 bg-linear-to-r from-black to-transparent" />
           {/* Arrow button */}
           <button
             type="button"
@@ -123,10 +127,10 @@ export function ScrollableRow({
       </div>
 
       {/* Right Arrow */}
-      {canScrollRight && isHovering && (
+      {canScrollRight && (showArrows === "always" || isHovering) && (
         <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 flex items-center">
           {/* Gradient fade */}
-          <div className="absolute inset-y-0 right-0 w-16 bg-linear-to-l from-background to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-24 bg-linear-to-l from-black to-transparent" />
           {/* Arrow button */}
           <button
             type="button"
