@@ -19,6 +19,7 @@ import { useAuth } from "@/context/auth-context"
 import { useLists } from "@/hooks/use-lists"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { usePreferences } from "@/hooks/use-preferences"
+import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { useWatchProviderEnrichment } from "@/hooks/use-watch-provider-enrichment"
 import { listItemToMedia } from "@/lib/list-media"
 import { getDisplayMediaTitle } from "@/lib/media-title"
@@ -49,6 +50,11 @@ interface ListSelectOption extends SearchableSelectOption {
 interface ServiceSelectOption extends SearchableSelectOption {
   matchCount: number
   provider: WatchProvider
+}
+
+interface WhereToWatchUrlState {
+  listId: string
+  serviceId: string
 }
 
 function getItemCount(list: UserList): number {
@@ -211,10 +217,27 @@ export function WhereToWatchPageClient() {
     refetch,
   } = useLists()
   const { preferences, region } = usePreferences()
-  const [selectedListId, setSelectedListId] = useState("")
-  const [selectedService, setSelectedService] = useState<WatchProvider | null>(
-    null,
-  )
+  const [urlState, setUrlState] = useUrlStateSync<WhereToWatchUrlState>({
+    keys: ["listId", "service"],
+    parse: (params) => ({
+      listId: params.get("listId")?.trim() ?? "",
+      serviceId: params.get("service")?.trim() ?? "",
+    }),
+    serialize: (state) => {
+      const params = new URLSearchParams()
+
+      if (state.listId.trim()) {
+        params.set("listId", state.listId.trim())
+      }
+
+      if (state.serviceId.trim()) {
+        params.set("service", state.serviceId.trim())
+      }
+
+      return params
+    },
+  })
+  const selectedListId = urlState.listId
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
   const isPremiumPending = isPremiumStatusPending({
@@ -267,6 +290,14 @@ export function WhereToWatchPageClient() {
   const mergedProviders = useMemo(
     () => mergeProviders(movieProvidersQuery.data, tvProvidersQuery.data),
     [movieProvidersQuery.data, tvProvidersQuery.data],
+  )
+
+  const selectedService = useMemo(
+    () =>
+      mergedProviders.find(
+        (provider) => String(provider.provider_id) === urlState.serviceId,
+      ) ?? null,
+    [mergedProviders, urlState.serviceId],
   )
 
   const providerCounts = useMemo(() => {
@@ -367,14 +398,17 @@ export function WhereToWatchPageClient() {
     movieProvidersQuery.isLoading || tvProvidersQuery.isLoading
 
   function handleListSelect(listId: string) {
-    setSelectedListId(listId)
+    setUrlState((current) => ({ ...current, listId }))
   }
 
   function handleServiceSelect(providerId: string) {
     const provider = visibleProviders.find(
       (candidate) => String(candidate.provider_id) === providerId,
     )
-    setSelectedService(provider ?? null)
+    setUrlState((current) => ({
+      ...current,
+      serviceId: provider ? providerId : "",
+    }))
   }
 
   const serviceSelectStatus = (() => {

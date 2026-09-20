@@ -70,6 +70,10 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: { queryKey: unknown[] }) => useQueryMock(options),
 }))
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}))
+
 vi.mock("@/context/auth-context", () => ({
   useAuth: () => authState,
 }))
@@ -219,9 +223,14 @@ async function selectService(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("option", { name: /Netflix/ }))
 }
 
+function setLocation(search = "", pathname = "/where-to-watch") {
+  window.history.pushState({}, "", `${pathname}${search}`)
+}
+
 describe("WhereToWatchPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setLocation()
     authState.isPremium = true
     authState.premiumLoading = false
     authState.premiumStatus = "premium"
@@ -325,6 +334,32 @@ describe("WhereToWatchPageClient", () => {
       screen.queryByText("Choose a streaming service"),
     ).not.toBeInTheDocument()
     expect(screen.queryByText("No matches found")).not.toBeInTheDocument()
+  })
+
+  it("writes list and service selections to the URL", async () => {
+    const user = userEvent.setup()
+
+    render(<WhereToWatchPageClient />)
+
+    await selectList(user)
+    await selectService(user)
+
+    expect(window.location.search).toContain("listId=watchlist")
+    expect(window.location.search).toContain("service=8")
+  })
+
+  it("restores list and service selections from the URL", async () => {
+    setLocation("?listId=watchlist&service=8")
+
+    render(<WhereToWatchPageClient />)
+
+    expect(
+      screen.getByTestId("where-to-watch-list-selector"),
+    ).toHaveTextContent("Should Watch (2 items)")
+    expect(
+      screen.getByTestId("where-to-watch-service-selector"),
+    ).toHaveTextContent("Netflix")
+    expect(screen.getByText("Movie A")).toBeInTheDocument()
   })
 
   it("counts and filters only flatrate provider matches", async () => {
