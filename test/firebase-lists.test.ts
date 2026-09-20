@@ -113,6 +113,7 @@ async function runAddToListWithCurrentDoc(
     data?: () => Record<string, unknown>
   },
   mediaItem: Parameters<typeof addToList>[2],
+  listId = "watchlist",
 ) {
   const transaction = {
     get: vi.fn().mockResolvedValue(currentDoc),
@@ -123,7 +124,7 @@ async function runAddToListWithCurrentDoc(
     return (await callback(transaction as never)) as never
   })
 
-  const wasAdded = await addToList("user-1", "watchlist", mediaItem)
+  const wasAdded = await addToList("user-1", listId, mediaItem)
 
   return { wasAdded, transaction }
 }
@@ -577,6 +578,86 @@ describe("addToList", () => {
             poster_path: null,
             media_type: "movie",
             addedAt: 222,
+          },
+        },
+        updatedAt: "server-timestamp",
+      },
+      { merge: true },
+    )
+  })
+
+  it("does not overwrite a custom list's stored display name when adding an item", async () => {
+    const { wasAdded, transaction } = await runAddToListWithCurrentDoc(
+      {
+        exists: () => true,
+        data: () => ({
+          name: "Foreign Language Films",
+          items: {},
+        }),
+      },
+      {
+        id: 123,
+        title: "Mad Max",
+        poster_path: null,
+        media_type: "movie",
+        addedAt: 111,
+      },
+      "foreign-language-films",
+    )
+
+    expect(wasAdded).toBe(true)
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/foreign-language-films" },
+      {
+        items: {
+          "123": {
+            id: 123,
+            title: "Mad Max",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 111,
+          },
+        },
+        updatedAt: "server-timestamp",
+      },
+      { merge: true },
+    )
+    const [[, payload]] = transaction.set.mock.calls as [
+      [unknown, Record<string, unknown>, unknown],
+    ]
+    expect(payload).not.toHaveProperty("name")
+  })
+
+  it("backfills the slug name for a nameless custom list document", async () => {
+    const { wasAdded, transaction } = await runAddToListWithCurrentDoc(
+      {
+        exists: () => true,
+        data: () => ({
+          items: {},
+        }),
+      },
+      {
+        id: 123,
+        title: "Mad Max",
+        poster_path: null,
+        media_type: "movie",
+        addedAt: 111,
+      },
+      "foreign-language-films",
+    )
+
+    expect(wasAdded).toBe(true)
+    expect(transaction.set).toHaveBeenCalledWith(
+      { path: "users/user-1/lists/foreign-language-films" },
+      {
+        name: "foreign-language-films",
+        items: {
+          "123": {
+            id: 123,
+            title: "Mad Max",
+            poster_path: null,
+            media_type: "movie",
+            addedAt: 111,
           },
         },
         updatedAt: "server-timestamp",

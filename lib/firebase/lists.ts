@@ -272,7 +272,9 @@ export async function addToList(
     addedAt,
   })
 
-  // Get the list name - for default lists, use the name from DEFAULT_LISTS
+  // Get the list name - for default lists, use the name from DEFAULT_LISTS.
+  // For custom lists we only know the slug ID here, so it must never
+  // overwrite an existing display name (spaces would become dashes).
   const defaultList = DEFAULT_LISTS.find((l) => l.id === listId)
   const listName = defaultList?.name || listId
 
@@ -298,20 +300,28 @@ export async function addToList(
       }
     }
 
-    // Build the payload - only include createdAt for new documents
+    // Build the payload - only include name/createdAt for new documents.
+    // For existing documents, `name` is only written for default lists
+    // (canonical name) or nameless docs (backfill). A stored custom display
+    // name is always preserved.
     const payload: Record<string, unknown> = {
-      name: listName,
       items: {
         [itemKey]: sanitizedItem,
       },
       updatedAt: serverTimestamp(),
     }
 
-    // Only set createdAt on new documents to preserve original timestamp
     if (isNewDocument) {
+      payload.name = listName
       payload.createdAt = serverTimestamp()
       transaction.set(listRef, payload)
     } else {
+      const storedName = docSnap.data()?.name
+      const hasUsableName =
+        typeof storedName === "string" && storedName.trim().length > 0
+      if (defaultList || !hasUsableName) {
+        payload.name = listName
+      }
       transaction.set(listRef, payload, { merge: true })
     }
 
