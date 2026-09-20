@@ -53,6 +53,7 @@ import type { Genre, TMDBActionableMedia } from "@/types/tmdb"
 import {
   Bookmark02Icon,
   Cancel01Icon,
+  CursorAddSelection02Icon,
   FavouriteIcon,
   Film01Icon,
   FilterVerticalIcon,
@@ -944,9 +945,14 @@ export function ListsPageClient({
                 type="button"
                 variant="outline"
                 size="lg"
+                aria-label="Select"
+                title="Select items"
                 onClick={enterSelectionMode}
               >
-                Select
+                <HugeiconsIcon
+                  icon={CursorAddSelection02Icon}
+                  className="size-4"
+                />
               </Button>
             ) : null}
           </div>
