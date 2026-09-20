@@ -299,6 +299,8 @@ export function SearchResultsClient({
     <div className="space-y-8 pb-12">
       {/* Search Header */}
       <div className="space-y-6">
+        <h1 className="text-3xl font-bold text-white">Search</h1>
+
         {/* Search Input */}
         <form onSubmit={handleSubmit} className="relative max-w-2xl">
           <HugeiconsIcon
