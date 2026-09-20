@@ -2,7 +2,12 @@
 
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -17,6 +22,8 @@ interface ScrollableRowProps {
   gap?: number
   /** When arrows are visible: on hover, or always when scrollable (default: "hover") */
   showArrows?: "hover" | "always"
+  /** Optional callback receiving the inner scroll container (e.g. for scrollIntoView) */
+  scrollContainerRef?: (node: HTMLDivElement | null) => void
 }
 
 /**
@@ -31,6 +38,7 @@ export function ScrollableRow({
   scrollPercentage = 75,
   gap = 16,
   showArrows = "hover",
+  scrollContainerRef,
 }: ScrollableRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -38,8 +46,7 @@ export function ScrollableRow({
   const [isHovering, setIsHovering] = useState(false)
 
   // Check scroll position and update arrow visibility
-  const updateScrollState = useCallback(() => {
-    const container = scrollRef.current
+  const updateScrollState = useCallback(() => {    const container = scrollRef.current
     if (!container) return
 
     const { scrollLeft, scrollWidth, clientWidth } = container
@@ -73,6 +80,13 @@ export function ScrollableRow({
       resizeObserver?.disconnect()
     }
   }, [updateScrollState])
+
+  // Forward the inner scroll container to consumers (e.g. scrollIntoView).
+  // Child effects run before parent effects, so it is set before any
+  // consumer effect reads it.
+  useEffect(() => {
+    scrollContainerRef?.(scrollRef.current)
+  })
 
   // Scroll by percentage of visible width
   const scroll = useCallback(

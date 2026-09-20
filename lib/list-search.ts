@@ -12,6 +12,28 @@ export function normalizeSearchQuery(query: string): string {
 }
 
 /**
+ * Strip combining diacritical marks so user-typed names match
+ * accent-insensitively ("cafe" matches "café", "Zoe" matches "Zoë").
+ */
+export function foldDiacritics(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+/**
+ * Match a user-typed list name against a query: trim, lowercase, fold
+ * diacritics on both sides, then substring-match.
+ */
+export function matchesListName(name: string, query: string): boolean {
+  const normalizedQuery = foldDiacritics(query.trim().toLowerCase())
+
+  if (!normalizedQuery) {
+    return true
+  }
+
+  return foldDiacritics(name.toLowerCase()).includes(normalizedQuery)
+}
+
+/**
  * Identity key for cross-list dedupe. Uses the item's media_type + TMDB id
  * fields and never the raw map key, because legacy numeric keys collide
  * across movies and TV shows sharing an id.

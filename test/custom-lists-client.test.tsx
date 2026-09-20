@@ -54,6 +54,7 @@ vi.mock("@/components/lists-page-client", () => ({
     onListSelect,
     selectedListId,
     showDefaultSelectAction = true,
+    showAllTab = false,
   }: {
     filterRowAction?:
       | ReactNode
@@ -67,6 +68,7 @@ vi.mock("@/components/lists-page-client", () => ({
     onListSelect?: (listId: string) => void
     selectedListId?: string
     showDefaultSelectAction?: boolean
+    showAllTab?: boolean
   }) => {
     const [selectionModeActive, setSelectionModeActive] = useState(false)
     const activeList =
@@ -85,6 +87,8 @@ vi.mock("@/components/lists-page-client", () => ({
     return (
       <div>
         <div data-testid="active-list-id">{activeList?.id ?? ""}</div>
+        <div data-testid="selected-list-id">{selectedListId ?? ""}</div>
+        {showAllTab ? <div data-testid="show-all-tab" /> : null}
         {lists.map((list) => (
           <button
             key={list.id}
@@ -321,6 +325,18 @@ describe("CustomListsClient", () => {
     })
   })
 
+  it("shows a Create a list tooltip on the toolbar create button", async () => {
+    const user = userEvent.setup()
+
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    const button = screen.getByRole("button", { name: "Create a list" })
+    expect(button).toHaveAttribute("aria-label", "Create a list")
+
+    await user.hover(button)
+    expect(await screen.findByText("Create a list")).toBeInTheDocument()
+  })
+
   it("hides standalone select buttons and places selection actions inside the overflow menu", async () => {
     const user = userEvent.setup()
     mocks.lists = [createCustomList(), createSecondCustomList()]
@@ -504,5 +520,29 @@ describe("CustomListsClient", () => {
     await user.click(await screen.findByRole("button", { name: "Insert 🏆" }))
 
     expect(nameInput).toHaveValue("Desert🏆")
+  })
+
+  it("enables the virtual All tab on the lists page client", () => {
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    expect(screen.getByTestId("show-all-tab")).toBeInTheDocument()
+  })
+
+  it("selects the virtual All tab from ?listId=all and keeps the param", () => {
+    setLocation("?listId=all")
+
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    expect(screen.getByTestId("selected-list-id")).toHaveTextContent("all")
+    expect(window.location.search).toBe("?listId=all")
+  })
+
+  it("omits listId from the URL on the default landing tab", () => {
+    render(<CustomListsClient movieGenres={[]} tvGenres={[]} />)
+
+    expect(screen.getByTestId("selected-list-id")).toHaveTextContent(
+      "road-trip",
+    )
+    expect(window.location.search).toBe("")
   })
 })

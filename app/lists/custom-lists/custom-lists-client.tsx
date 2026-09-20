@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   EmojiPickerPopover,
   insertEmojiAtCaret,
@@ -38,6 +39,7 @@ import { useLists } from "@/hooks/use-lists"
 import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { showActionableSuccessToast } from "@/lib/actionable-toast"
 import { restoreList } from "@/lib/firebase/lists"
+import { ALL_LISTS_TAB_ID } from "@/lib/list-search"
 import type { UserList } from "@/types/list"
 import type { Genre } from "@/types/tmdb"
 import {
@@ -139,6 +141,12 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
     },
   })
   const effectiveSelectedListId = useMemo(() => {
+    // The virtual All tab is valid here; the default-tab URL behavior
+    // below is unchanged.
+    if (urlState.selectedListId === ALL_LISTS_TAB_ID) {
+      return ALL_LISTS_TAB_ID
+    }
+
     if (
       urlState.selectedListId &&
       customLists.some((list) => list.id === urlState.selectedListId)
@@ -427,6 +435,10 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
         showDynamicHeader={true}
         showShuffleAction={true}
         showDefaultSelectAction={false}
+        showAllTab={true}
+        showListPicker={true}
+        hideZeroMatchTabs={true}
+        detailedListBadges={true}
         filterRowAction={({ canSelectItems, enterSelectionMode }) => {
           const menuItemsWithSelection = menuItems.map((item) => {
             if (item.type !== "submenu" || item.key !== "select") {
@@ -450,17 +462,29 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
 
           return (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => setIsCreateDialogOpen(true)}
-                aria-label="Create new list"
-                className={"p-4.5"}
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => setIsCreateDialogOpen(true)}
+                      aria-label="Create a list"
+                      className={"p-4.5"}
+                    >
+                      <HugeiconsIcon icon={Add01Icon} className="size-4" />
+                    </Button>
+                  }
+                />
+                <TooltipContent>Create a list</TooltipContent>
+              </Tooltip>
               {activeList ? (
-                <ActionMenu items={menuItemsWithSelection} align="start" />
+                <ActionMenu
+                  items={menuItemsWithSelection}
+                  align="start"
+                  triggerTooltip="List options"
+                  triggerAriaLabel="List options"
+                />
               ) : null}
             </div>
           )

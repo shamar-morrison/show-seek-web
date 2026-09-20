@@ -3,7 +3,9 @@ import {
   ALL_LISTS_TAB_ID,
   countListQueryMatches,
   flattenListsForSearch,
+  foldDiacritics,
   getListSearchKey,
+  matchesListName,
   matchesListQuery,
   normalizeSearchQuery,
 } from "@/lib/list-search"
@@ -116,6 +118,24 @@ describe("list-search", () => {
     expect(countListQueryMatches(items, "endgame", resolveTitle)).toBe(1)
     expect(countListQueryMatches(items, "nothing", resolveTitle)).toBe(0)
     expect(countListQueryMatches(undefined, "endgame", resolveTitle)).toBe(0)
+  })
+
+  it("folds diacritics for accent-insensitive name matching", () => {
+    expect(foldDiacritics("café")).toBe("cafe")
+    expect(foldDiacritics("Zoë")).toBe("Zoe")
+    expect(foldDiacritics("résumé")).toBe("resume")
+    expect(foldDiacritics("plain")).toBe("plain")
+  })
+
+  it("matches list names with trim, case, and diacritic folding", () => {
+    expect(matchesListName("Café Movies", "cafe")).toBe(true)
+    expect(matchesListName("Café Movies", "CAFÉ")).toBe(true)
+    expect(matchesListName("Café Movies", "  café  ")).toBe(true)
+    expect(matchesListName("Zoë's Picks", "zoe")).toBe(true)
+    expect(matchesListName("Horror 👻", "horror")).toBe(true)
+    expect(matchesListName("Horror", "")).toBe(true)
+    expect(matchesListName("Horror", "   ")).toBe(true)
+    expect(matchesListName("Horror", "comedy")).toBe(false)
   })
 
   it("uses the identical predicate for filtering and counting", () => {

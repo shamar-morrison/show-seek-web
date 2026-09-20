@@ -5,6 +5,7 @@ import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -148,6 +149,13 @@ export interface ActionMenuProps {
   className?: string
   /** Additional class name for the default trigger button */
   triggerClassName?: string
+  /** Tooltip text shown on the default trigger; wrapped only when provided */
+  triggerTooltip?: React.ReactNode
+  /**
+   * Accessible label for the default trigger. Defaults to the tooltip text
+   * when it is a string, otherwise to "More options".
+   */
+  triggerAriaLabel?: string
 }
 
 // ============================================================================
@@ -301,15 +309,37 @@ export function ActionMenu({
   alignOffset = 0,
   className,
   triggerClassName,
+  triggerTooltip,
+  triggerAriaLabel,
 }: ActionMenuProps) {
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const defaultTrigger = (
+    <DropdownMenuTrigger
+      render={
+        <DefaultTrigger
+          className={triggerClassName}
+          aria-label={
+            triggerAriaLabel ??
+            (typeof triggerTooltip === "string"
+              ? triggerTooltip
+              : "More options")
+          }
+        />
+      }
+    />
+  )
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       {trigger ? (
         <DropdownMenuTrigger render={trigger} />
+      ) : triggerTooltip ? (
+        <Tooltip disabled={menuOpen}>
+          <TooltipTrigger render={defaultTrigger} />
+          <TooltipContent>{triggerTooltip}</TooltipContent>
+        </Tooltip>
       ) : (
-        <DropdownMenuTrigger
-          render={<DefaultTrigger className={triggerClassName} />}
-        />
+        defaultTrigger
       )}
       <DropdownMenuContent
         align={align}

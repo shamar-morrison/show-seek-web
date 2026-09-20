@@ -40,7 +40,9 @@ import {
 import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { Pagination } from "@/components/ui/pagination"
 import { ScrollableRow } from "@/components/ui/scrollable-row"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SearchInput } from "@/components/ui/search-input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useBulkListOperations } from "@/hooks/use-bulk-list-operations"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
@@ -50,6 +52,7 @@ import {
   ALL_LISTS_TAB_ID,
   countListQueryMatches,
   flattenListsForSearch,
+  matchesListName,
   matchesListQuery,
   normalizeSearchQuery,
 } from "@/lib/list-search"
@@ -66,6 +69,7 @@ import {
   Film01Icon,
   FilterVerticalIcon,
   FolderLibraryIcon,
+  FolderSearchIcon,
   Loading03Icon,
   PlayCircle02Icon,
   Search01Icon,
@@ -90,6 +94,8 @@ export const DEFAULT_LIST_ICONS: Record<string, typeof Bookmark02Icon> = {
 const CURRENT_YEAR = new Date().getFullYear()
 const MIN_YEAR = 1950
 const LISTS_RESULTS_PER_PAGE = 20
+/** Minimum custom lists before the list picker trigger is shown. */
+const MIN_LISTS_FOR_PICKER = 8
 const DEFAULT_FILTER_STATE: FilterState = {
   mediaType: "all",
 }
@@ -230,6 +236,23 @@ interface ListsPageClientProps {
    * The tab unions whatever lists are passed in; off by default.
    */
   showAllTab?: boolean
+  /**
+   * Whether to show a searchable list picker ahead of the tab row.
+   * Opt-in for the custom lists page; off by default.
+   */
+  showListPicker?: boolean
+  /**
+   * While a query is non-empty, hide zero-match tabs instead of dimming
+   * them (the active and All tabs always stay visible). Opt-in for the
+   * custom lists page; off by default.
+   */
+  hideZeroMatchTabs?: boolean
+  /**
+   * Render detailed per-list badges (capped chips + names tooltip) on All
+   * view cards instead of the collapsed indicator set. Opt-in for the
+   * custom lists page; off by default.
+   */
+  detailedListBadges?: boolean
 }
 
 /**
@@ -253,6 +276,9 @@ export function ListsPageClient({
   showShuffleAction = false,
   showDefaultSelectAction = true,
   showAllTab = false,
+  showListPicker = false,
+  hideZeroMatchTabs = false,
+  detailedListBadges = false,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
   const { removeItemsFromListBatch } = useBulkListOperations()
@@ -616,6 +642,22 @@ export function ListsPageClient({
     [],
   )
 
+  // List picker options and per-list counts (custom lists page only).
+  const listPickerOptions = useMemo(
+    () => [
+      ...(showAllTab ? [{ value: ALL_LISTS_TAB_ID, label: "All lists" }] : []),
+      ...lists.map((list) => ({ value: list.id, label: list.name })),
+    ],
+    [lists, showAllTab],
+  )
+  const listPickerCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const list of lists) {
+      counts.set(list.id, getItemCount(list))
+    }
+    return counts
+  }, [getItemCount, lists])
+
   // Get icon for a list
   const getListIcon = useCallback(
     (list: UserList) => DEFAULT_LIST_ICONS[list.id] || defaultIcon,
@@ -756,6 +798,14 @@ export function ListsPageClient({
       handleListSelect(returnTo)
     }
   }, [activeListId, handleListSelect, isAllTab, searchQuery, showAllTab])
+
+  // Keep the active tab visible in the strip without ever scrolling the page.
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    tabScrollRef.current
+      ?.querySelector('[aria-pressed="true"]')
+      ?.scrollIntoView?.({ inline: "nearest", block: "nearest" })
+  }, [activeListId])
 
   const enterSelectionMode = useCallback(() => {
     setUrlState((currentState) => ({
@@ -981,15 +1031,22 @@ export function ListsPageClient({
               className="min-w-[240px] flex-1"
             />
             {showShuffleAction ? (
-              <Button
-                variant="outline"
-                size="lg"
-                aria-label="Shuffle Pick"
-                onClick={() => setShuffleDialogOpen(true)}
-                disabled={!canShuffle}
-              >
-                <HugeiconsIcon icon={ShuffleIcon} className="size-4" />
-              </Button>
+              <Tooltip disabled={shuffleDialogOpen}>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      aria-label="Shuffle"
+                      onClick={() => setShuffleDialogOpen(true)}
+                      disabled={!canShuffle}
+                    >
+                      <HugeiconsIcon icon={ShuffleIcon} className="size-4" />
+                    </Button>
+                  }
+                />
+                <TooltipContent>Shuffle</TooltipContent>
+              </Tooltip>
             ) : null}
             <FilterSort
               triggerIcon={FilterVerticalIcon}
@@ -1033,30 +1090,87 @@ export function ListsPageClient({
                   })),
               }}
               onClearAll={handleClearAll}
+              triggerTooltip="Filter and sort"
             />
+
+            {showListPicker && lists.length >= MIN_LISTS_FOR_PICKER ? (
+              <SearchableSelect
+                value={isAllTab ? ALL_LISTS_TAB_ID : activeListId || null}
+                onChange={(value) => {
+                  if (!value) return
+                  previousTabRef.current = null
+                  handleListSelect(value)
+                }}
+                options={listPickerOptions}
+                placeholder="Find a list..."
+                searchPlaceholder="Find a list..."
+                emptyMessage="No lists found"
+                filterOption={(option, query) =>
+                  matchesListName(option.label, query)
+                }
+                trigger={
+                  <Button variant="outline" size="lg" aria-label="Find a list">
+                    <HugeiconsIcon icon={FolderSearchIcon} className="size-4" />
+                  </Button>
+                }
+                triggerTestId="lists-list-picker"
+                triggerAriaLabel="Find a list"
+                triggerTooltip="Find a list"
+                popoverClassName="w-72 max-w-[calc(100vw-2rem)]"
+                popoverAlign="end"
+                popoverCollisionPadding={16}
+                renderOption={(option) => {
+                  const count =
+                    option.value === ALL_LISTS_TAB_ID
+                      ? flattenedLists.length
+                      : (listPickerCounts.get(option.value) ?? 0)
+                  return (
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate">{option.label}</span>
+                      <span className="ml-auto shrink-0 text-xs text-white/45">
+                        {count} {count === 1 ? "item" : "items"}
+                      </span>
+                    </span>
+                  )
+                }}
+              />
+            ) : null}
 
             {resolvedFilterRowAction}
 
             {showDefaultSelectAction && canSelectItems && !isAllTab ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                aria-label="Select"
-                title="Select items"
-                onClick={enterSelectionMode}
-              >
-                <HugeiconsIcon
-                  icon={CursorAddSelection02Icon}
-                  className="size-4"
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      aria-label="Select items"
+                      onClick={enterSelectionMode}
+                    >
+                      <HugeiconsIcon
+                        icon={CursorAddSelection02Icon}
+                        className="size-4"
+                      />
+                    </Button>
+                  }
                 />
-              </Button>
+                <TooltipContent>Select items</TooltipContent>
+              </Tooltip>
             ) : null}
           </div>
         )}
 
         {/* List Tabs */}
-        <ScrollableRow gap={8} scrollPercentage={50} showArrows="always">
+        <ScrollableRow
+          gap={8}
+          scrollPercentage={50}
+          showArrows="always"
+          scrollContainerRef={(node) => {
+            tabScrollRef.current = node
+          }}
+        >
           {showAllTab ? (
             <FilterTabButton
               key={ALL_LISTS_TAB_ID}
@@ -1078,6 +1192,14 @@ export function ListsPageClient({
           ) : null}
           {lists.map((list) => {
             const matchCount = tabMatchCounts?.get(list.id)
+            if (
+              hideZeroMatchTabs &&
+              normalizedQuery !== "" &&
+              matchCount === 0 &&
+              activeListId !== list.id
+            ) {
+              return null
+            }
             return (
               <FilterTabButton
                 key={list.id}
@@ -1113,6 +1235,7 @@ export function ListsPageClient({
               isSelected={isItemSelected(item)}
               onSelectToggle={() => toggleSelection(item)}
               showListIndicators={isAllTab ? true : undefined}
+              detailedListBadges={detailedListBadges && isAllTab}
             />
           ))}
         </div>

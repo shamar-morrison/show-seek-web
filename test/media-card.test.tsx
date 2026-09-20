@@ -1,6 +1,7 @@
 import { MediaCard } from "@/components/media-card"
 import { render, screen } from "@/test/utils"
 import type { TMDBMedia } from "@/types/tmdb"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -159,5 +160,43 @@ describe("MediaCard", () => {
 
     // Only the navigating region shows the pointer cursor.
     expect(link).toHaveClass("cursor-pointer")
+  })
+
+  it("collapses multiple customs into one bucket without the names map", () => {
+    const { container } = render(
+      <MediaCard media={createMedia()} listIds={["road-trip", "horror"]} />,
+    )
+
+    expect(getRenderedListIndicatorIds(container)).toEqual(["custom"])
+  })
+
+  it("caps detailed badges at 2 with a +N chip and names tooltip", async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <MediaCard
+        media={createMedia()}
+        listIds={["watchlist", "road-trip", "horror", "short"]}
+        listIdToName={{
+          watchlist: "Should Watch",
+          "road-trip": "Road Trip",
+          horror: "Horror",
+          short: "Short & Bingeable",
+        }}
+      />,
+    )
+
+    expect(getRenderedListIndicatorIds(container)).toEqual([
+      "watchlist",
+      "road-trip",
+      "+N",
+    ])
+    expect(screen.getByText("+2")).toBeInTheDocument()
+
+    await user.hover(screen.getByText("+2"))
+    expect(
+      await screen.findByText(
+        "Should Watch, Road Trip, Horror, Short & Bingeable",
+      ),
+    ).toBeInTheDocument()
   })
 })

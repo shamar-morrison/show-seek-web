@@ -8,6 +8,11 @@ import {
 } from "@/components/media-card-dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { buildImageUrl } from "@/lib/tmdb"
@@ -31,6 +36,9 @@ import Link from "next/link"
 
 const DEFAULT_LIST_INDICATOR_ORDER = DEFAULT_LISTS.map(({ id }) => id)
 
+/** Max chips shown before collapsing the rest into a "+N" chip. */
+const MAX_VISIBLE_LIST_INDICATORS = 2
+
 interface MediaCardProps {
   media: TMDBMedia
   onWatchTrailer?: (media: TMDBMedia) => void
@@ -43,6 +51,12 @@ interface MediaCardProps {
   dropdownItems?: DropdownMenuItem[]
   /** Optional list IDs to display indicators for */
   listIds?: string[]
+  /**
+   * Optional id-to-name map for list badges. When provided, badges render
+   * expanded (one chip per list, capped at 2 with a "+N" overflow chip and
+   * a names tooltip) instead of collapsing customs into one bucket.
+   */
+  listIdToName?: Record<string, string>
   /** Optional watched badge for collection progress */
   isWatched?: boolean
   /** Whether to prefer original-language titles when available */
@@ -59,6 +73,21 @@ function getVisibleListIndicators(listIds: string[] = []) {
   const hasCustomList = listIds.some((listId) => !isDefaultList(listId))
 
   return hasCustomList ? [...defaultListIds, "custom"] : defaultListIds
+}
+
+/**
+ * Expanded indicator ids: defaults in canonical order plus every custom
+ * list id in first-seen order (no collapsing into a bucket).
+ */
+function getExpandedListIndicators(listIds: string[] = []) {
+  const defaultListIds = DEFAULT_LIST_INDICATOR_ORDER.filter((listId) =>
+    listIds.includes(listId),
+  )
+  const customIds = listIds.filter(
+    (listId) => !isDefaultList(listId) && !defaultListIds.includes(listId),
+  )
+
+  return [...defaultListIds, ...customIds]
 }
 
 function getListIndicatorStyle(listId: string) {
@@ -92,6 +121,7 @@ export function MediaCard({
   userRating,
   dropdownItems,
   listIds,
+  listIdToName,
   isWatched = false,
   preferOriginalTitles = false,
   selectionMode = false,
@@ -111,6 +141,11 @@ export function MediaCard({
   const hasRating = (media.vote_average || 0) > 0
   const detailUrl = getMediaUrl(media.media_type, media.id)
   const visibleListIndicators = getVisibleListIndicators(listIds)
+  const expandedListIndicators = listIdToName
+    ? getExpandedListIndicators(listIds ?? [])
+    : []
+  const overflowIndicatorCount =
+    expandedListIndicators.length - MAX_VISIBLE_LIST_INDICATORS
   // Only the poster and title navigate to the detail page. Interactive
   // controls (trailer button, dropdown) render outside the link so their
   // clicks never bubble into an anchor — this keeps the top loader from
@@ -153,7 +188,7 @@ export function MediaCard({
             </div>
           )}
 
-          {visibleListIndicators.length > 0 && (
+          {visibleListIndicators.length > 0 && !listIdToName ? (
             <div className="flex flex-wrap gap-1">
               {visibleListIndicators.map((listId) => {
                 const indicator = getListIndicatorStyle(listId)
@@ -173,7 +208,52 @@ export function MediaCard({
                 )
               })}
             </div>
-          )}
+          ) : null}
+
+          {listIdToName && expandedListIndicators.length > 0 ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={<span className="flex flex-wrap gap-1" />}
+              >
+                {expandedListIndicators
+                  .slice(0, MAX_VISIBLE_LIST_INDICATORS)
+                  .map((listId) => {
+                    const indicator =
+                      getListIndicatorStyle(listId) ??
+                      getListIndicatorStyle("custom")
+                    if (!indicator) return null
+                    return (
+                      <span
+                        key={listId}
+                        data-list-indicator={listId}
+                        className="flex items-center justify-center rounded-md bg-black/80 p-1.5 backdrop-blur-sm"
+                      >
+                        <HugeiconsIcon
+                          icon={indicator.icon}
+                          className={`size-3.5 ${indicator.color}`}
+                        />
+                      </span>
+                    )
+                  })}
+                {overflowIndicatorCount > 0 ? (
+                  <span
+                    key="+N"
+                    data-list-indicator="+N"
+                    className="flex items-center justify-center rounded-md bg-black/80 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm"
+                  >
+                    +{overflowIndicatorCount}
+                  </span>
+                ) : null}
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {expandedListIndicators
+                    .map((listId) => listIdToName[listId] ?? listId)
+                    .join(", ")}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
 
         {selectionMode ? (

@@ -25,6 +25,11 @@ interface MediaCardWithActionsProps {
    * showListIndicators preference (used by the cross-list All view).
    */
   showListIndicators?: boolean
+  /**
+   * Render detailed per-list badges (capped chips + names tooltip) instead
+   * of the collapsed indicator set. Custom-lists All view only.
+   */
+  detailedListBadges?: boolean
 }
 
 /**
@@ -45,6 +50,7 @@ export function MediaCardWithActions({
   isSelected = false,
   onSelectToggle,
   showListIndicators,
+  detailedListBadges = false,
 }: MediaCardWithActionsProps) {
   // Determine media type
   const mediaType = media.media_type
@@ -55,12 +61,14 @@ export function MediaCardWithActions({
     preferOriginalTitles ?? preferences.showOriginalTitles
 
   // Use consolidated media actions hook
-  const { dropdownItems, userRating, listIds, modals } = useMediaActions({
-    media,
-    mediaType,
-    collectionId: collectionContext?.collectionId ?? null,
-    showListIndicators,
-  })
+  const { dropdownItems, userRating, listIds, listIdToName, modals } =
+    useMediaActions({
+      media,
+      mediaType,
+      collectionId: collectionContext?.collectionId ?? null,
+      showListIndicators,
+      detailedListBadges,
+    })
 
   const cardContent = (
     <MediaCard
@@ -83,6 +91,7 @@ export function MediaCardWithActions({
       dropdownItems={selectionMode ? undefined : dropdownItems}
       userRating={userRating?.rating}
       listIds={listIds}
+      listIdToName={detailedListBadges ? listIdToName : undefined}
       isWatched={isWatched}
       preferOriginalTitles={resolvedPreferOriginalTitles}
       selectionMode={selectionMode}
@@ -115,6 +124,7 @@ export function MediaCardWithActions({
           dropdownItems={dropdownItems}
           userRating={userRating?.rating}
           listIds={listIds}
+          listIdToName={detailedListBadges ? listIdToName : undefined}
           collectionContext={collectionContext}
           isWatched={isWatched}
           preferOriginalTitles={resolvedPreferOriginalTitles}

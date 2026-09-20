@@ -39,6 +39,8 @@ interface MediaPreviewCardWrapperProps {
   userRating?: number | null
   /** List IDs for indicators */
   listIds?: string[]
+  /** id-to-name map for detailed per-list badges (see MediaCard) */
+  listIdToName?: Record<string, string>
   /** Optional collection context for collection-aware watch actions */
   collectionContext?: {
     collectionId: number | null
@@ -65,6 +67,7 @@ export function MediaPreviewCardWrapper({
   dropdownItems,
   userRating,
   listIds,
+  listIdToName,
   collectionContext,
   isWatched = false,
   preferOriginalTitles = false,
@@ -173,6 +176,7 @@ export function MediaPreviewCardWrapper({
       dropdownItems={dropdownItems}
       userRating={userRating}
       listIds={listIds}
+      listIdToName={listIdToName}
       isWatched={isWatched}
       preferOriginalTitles={preferOriginalTitles}
     />

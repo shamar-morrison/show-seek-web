@@ -130,6 +130,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
     onSelectToggle,
     selectionMode,
     showListIndicators,
+    detailedListBadges,
   }: {
     media: {
       title?: string
@@ -141,6 +142,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
     onSelectToggle?: () => void
     selectionMode?: boolean
     showListIndicators?: boolean
+    detailedListBadges?: boolean
   }) => {
     const canonicalTitle = media.title ?? media.name ?? ""
     const originalTitle = media.original_title ?? media.original_name ?? ""
@@ -156,6 +158,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
           data-show-list-indicators={
             showListIndicators === true ? "true" : "false"
           }
+          data-detailed-badges={detailedListBadges === true ? "true" : "false"}
           aria-pressed={isSelected}
           onClick={onSelectToggle}
         >
@@ -170,6 +173,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
         data-show-list-indicators={
           showListIndicators === true ? "true" : "false"
         }
+        data-detailed-badges={detailedListBadges === true ? "true" : "false"}
       >
         {displayTitle}
       </div>
@@ -758,7 +762,7 @@ describe("ListsPageClient", () => {
     )
 
     expect(
-      screen.getByRole("button", { name: "Shuffle Pick" }),
+      screen.getByRole("button", { name: "Shuffle" }),
     ).toBeInTheDocument()
   })
 
@@ -774,7 +778,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    const shuffleButton = screen.getByRole("button", { name: "Shuffle Pick" })
+    const shuffleButton = screen.getByRole("button", { name: "Shuffle" })
     expect(shuffleButton).toBeEnabled()
 
     await user.type(screen.getByPlaceholderText("Search in this list..."), "Kimi")
@@ -797,7 +801,7 @@ describe("ListsPageClient", () => {
     await user.type(screen.getByPlaceholderText("Search in this list..."), "Spirited")
     await user.clear(screen.getByPlaceholderText("Search in this list..."))
     await user.click(screen.getByRole("button", { name: "Sort title" }))
-    await user.click(screen.getByRole("button", { name: "Shuffle Pick" }))
+    await user.click(screen.getByRole("button", { name: "Shuffle" }))
 
     expect(screen.getByTestId("shuffle-dialog")).toBeInTheDocument()
     expect(screen.getByText("Kimi no Na wa.")).toBeInTheDocument()
@@ -821,7 +825,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
 
     expect(
       screen.getByText(/select items from "Should Watch" to move, copy, or remove them in bulk/i),
@@ -868,7 +872,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
 
     expect(
       screen.getByRole("button", { name: "Copy to lists" }),
@@ -892,7 +896,7 @@ describe("ListsPageClient", () => {
 
     expect(screen.queryAllByTestId("media-card")).toHaveLength(0)
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
 
     expect(
       screen.queryByPlaceholderText("Search in this list..."),
@@ -925,7 +929,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    expect(screen.queryByRole("button", { name: "Select" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Select items" })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Menu Select Items" }))
 
@@ -985,7 +989,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
     await user.click(screen.getByRole("button", { name: "Item 25" }))
     await user.click(screen.getByRole("button", { name: "Page 2" }))
     await user.click(screen.getByRole("button", { name: "Item 5" }))
@@ -1023,7 +1027,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
     await user.click(
       screen.getByRole("button", {
         name: "Sen to Chihiro no Kamikakushi",
@@ -1081,7 +1085,7 @@ describe("ListsPageClient", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Select" }))
+    await user.click(screen.getByRole("button", { name: "Select items" }))
     await user.click(
       screen.getByRole("button", {
         name: "Sen to Chihiro no Kamikakushi",
@@ -1256,10 +1260,13 @@ describe("ListsPageClient All tab", () => {
 
     render(
       <ListsPageClient
-        lists={createAllTabLists()}
+        lists={createCustomPageLists()}
         loading={false}
         error={null}
         showAllTab
+        showListPicker
+        hideZeroMatchTabs
+        detailedListBadges
       />,
     )
 
@@ -1273,16 +1280,15 @@ describe("ListsPageClient All tab", () => {
     )
 
     // A manual pick cancels the pending restore.
-    await user.click(screen.getByRole("button", { name: /Dropped/ }))
-    expect(screen.getByText("No results found")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Horror 👻1" }))
+    expect(screen.getByText("Dune")).toBeInTheDocument()
 
     await user.clear(screen.getByPlaceholderText("Search in this list..."))
 
-    expect(screen.getByRole("button", { name: /Dropped/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
-    expect(screen.getByText("Batman")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Horror 👻2" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("Your Name")).toBeInTheDocument()
   })
 
   it("shows No matches in any list for zero matches on All", async () => {
@@ -1319,7 +1325,7 @@ describe("ListsPageClient All tab", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "Select" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Select items" })).toBeInTheDocument()
     for (const card of screen.getAllByTestId("media-card")) {
       expect(card).toHaveAttribute("data-show-list-indicators", "false")
     }
@@ -1327,10 +1333,468 @@ describe("ListsPageClient All tab", () => {
     await user.click(screen.getByRole("button", { name: "All4" }))
 
     expect(
-      screen.queryByRole("button", { name: "Select" }),
+      screen.queryByRole("button", { name: "Select items" }),
     ).not.toBeInTheDocument()
     for (const card of screen.getAllByTestId("media-card")) {
       expect(card).toHaveAttribute("data-show-list-indicators", "true")
+    }
+  })
+})
+
+function createCustomPageLists(): UserList[] {
+  return [
+    {
+      id: "road-trip",
+      name: "Road Trip",
+      createdAt: 0,
+      items: {
+        "movie-1": {
+          id: 1,
+          title: "Dune",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 2,
+        },
+        "movie-2": {
+          id: 2,
+          title: "Spirited Away",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "horror",
+      name: "Horror 👻",
+      createdAt: 1,
+      items: {
+        "movie-1": {
+          id: 1,
+          title: "Dune",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 3,
+        },
+        "movie-3": {
+          id: 3,
+          title: "Your Name",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "cafe-noir",
+      name: "Café Noir",
+      createdAt: 2,
+      items: {
+        "movie-5": {
+          id: 5,
+          title: "Café Society",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "short",
+      name: "Short",
+      createdAt: 3,
+      items: {
+        "movie-4": {
+          id: 4,
+          title: "Batman",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "extra-five",
+      name: "Extra Five",
+      createdAt: 4,
+      items: {},
+    },
+    {
+      id: "extra-six",
+      name: "Extra Six",
+      createdAt: 5,
+      items: {},
+    },
+    {
+      id: "extra-seven",
+      name: "Extra Seven",
+      createdAt: 6,
+      items: {},
+    },
+    {
+      id: "extra-eight",
+      name: "Extra Eight",
+      createdAt: 7,
+      items: {},
+    },
+  ]
+}
+
+function renderCustomPage() {
+  return render(
+    <ListsPageClient
+      lists={createCustomPageLists()}
+      loading={false}
+      error={null}
+      showAllTab
+      showListPicker
+      hideZeroMatchTabs
+      detailedListBadges
+    />,
+  )
+}
+
+describe("ListsPageClient custom page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setLocation()
+  })
+
+  it("filters the picker by name with folding and switches lists on select", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+    await user.type(screen.getByPlaceholderText("Find a list..."), "hor")
+
+    expect(
+      screen.getByRole("option", { name: /Horror/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("option", { name: /Road Trip/ }),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("option", { name: /Horror/ }))
+
+    expect(
+      screen.getByRole("button", { name: "Horror 👻2" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("Your Name")).toBeInTheDocument()
+  })
+
+  it("matches diacritics in the picker", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+    await user.type(screen.getByPlaceholderText("Find a list..."), "cafe")
+
+    expect(
+      screen.getByRole("option", { name: /Café Noir/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("option", { name: /Horror/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders the picker trigger as an icon-only button", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    const trigger = screen.getByRole("button", { name: "Find a list" })
+    expect(trigger).toHaveAttribute("aria-label", "Find a list")
+    // Icon-only: no visible label text inside the trigger.
+    expect(trigger).not.toHaveTextContent(/Road Trip|Find a list\.\.\./)
+    // Same size as the toolbar buttons: Button outline lg (h-10), not size-8.
+    expect(trigger).toHaveClass("h-10")
+    expect(trigger).not.toHaveClass("size-8")
+    expect(trigger).not.toHaveClass("w-44")
+    // Same 16px icon as the neighbors.
+    const icon = trigger.querySelector("svg")
+    expect(icon).toHaveClass("size-4")
+    expect(icon).not.toHaveClass("size-5")
+
+    await user.hover(trigger)
+    expect(await screen.findByText("Find a list")).toBeInTheDocument()
+  })
+
+  it("renders the picker trigger with the same size classes as the shuffle button", () => {
+    render(
+      <ListsPageClient
+        lists={createCustomPageLists()}
+        loading={false}
+        error={null}
+        showAllTab
+        showShuffleAction
+        showListPicker
+        hideZeroMatchTabs
+        detailedListBadges
+      />,
+    )
+
+    const trigger = screen.getByRole("button", { name: "Find a list" })
+    const shuffle = screen.getByRole("button", { name: "Shuffle" })
+    // Identical Button component, variant, size and className.
+    expect(trigger.getAttribute("class")).toBe(
+      shuffle.getAttribute("class"),
+    )
+    // Identical icon size.
+    expect(trigger.querySelector("svg")?.getAttribute("class")).toBe(
+      shuffle.querySelector("svg")?.getAttribute("class"),
+    )
+  })
+
+  it("shows a Shuffle tooltip on hover and focus", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createCustomPageLists()}
+        loading={false}
+        error={null}
+        showAllTab
+        showShuffleAction
+        showListPicker
+        hideZeroMatchTabs
+        detailedListBadges
+      />,
+    )
+
+    const shuffle = screen.getByRole("button", { name: "Shuffle" })
+    expect(shuffle).toHaveAttribute("aria-label", "Shuffle")
+
+    await user.hover(shuffle)
+    expect(await screen.findByText("Shuffle")).toBeInTheDocument()
+
+    await user.unhover(shuffle)
+    shuffle.focus()
+    expect(await screen.findByText("Shuffle")).toBeInTheDocument()
+  })
+
+  it("shows a Select items tooltip on hover", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createCustomPageLists()}
+        loading={false}
+        error={null}
+        showAllTab
+        hideZeroMatchTabs
+        detailedListBadges
+      />,
+    )
+
+    const select = screen.getByRole("button", { name: "Select items" })
+    expect(select).toHaveAttribute("aria-label", "Select items")
+
+    await user.hover(select)
+    expect(await screen.findByText("Select items")).toBeInTheDocument()
+  })
+
+  it("renders the picker trigger in the toolbar row before the filter action", () => {
+    render(
+      <ListsPageClient
+        lists={createCustomPageLists()}
+        loading={false}
+        error={null}
+        showAllTab
+        showListPicker
+        hideZeroMatchTabs
+        detailedListBadges
+        filterRowAction={<button aria-label="Fake action">x</button>}
+      />,
+    )
+
+    const trigger = screen.getByRole("button", { name: "Find a list" })
+    const action = screen.getByRole("button", { name: "Fake action" })
+    const searchInput = screen.getByPlaceholderText("Search in this list...")
+    // Toolbar order: search input, then trigger, then the filter action.
+    expect(
+      searchInput.compareDocumentPosition(trigger) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      trigger.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    // Not inside the horizontally scrolling tab strip.
+    expect(trigger.closest(".overflow-x-auto")).toBeNull()
+  })
+
+  it("focuses the picker input on open", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+
+    expect(screen.getByPlaceholderText("Find a list...")).toHaveFocus()
+  })
+
+  it("closes the picker on Escape and returns focus to the trigger", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+    expect(screen.getByPlaceholderText("Find a list...")).toBeInTheDocument()
+
+    await user.keyboard("{Escape}")
+
+    await waitFor(() => {
+      expect(
+        screen.queryByPlaceholderText("Find a list..."),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole("button", { name: "Find a list" })).toHaveFocus()
+  })
+
+  it("offers an All lists option that switches to the All tab", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+    await user.click(screen.getByRole("option", { name: /All lists/ }))
+
+    expect(screen.getByRole("button", { name: "All5" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+  })
+
+  it("highlights the All lists option while on the All tab", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "All5" }))
+    await user.click(screen.getByRole("button", { name: "Find a list" }))
+
+    const option = screen.getByRole("option", { name: /All lists/ })
+    expect(option.querySelector("svg.opacity-100")).toBeInTheDocument()
+  })
+
+  it("hides the picker trigger with fewer than 8 lists", () => {
+    render(
+      <ListsPageClient
+        lists={createCustomPageLists().slice(0, 4)}
+        loading={false}
+        error={null}
+        showAllTab
+        showListPicker
+        hideZeroMatchTabs
+        detailedListBadges
+      />,
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "Find a list" }),
+    ).not.toBeInTheDocument()
+    // Tabs still work without the picker.
+    expect(
+      screen.getByRole("button", { name: "Road Trip2" }),
+    ).toBeInTheDocument()
+  })
+
+  it("shows the deduped union over custom lists on All", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.click(screen.getByRole("button", { name: "All5" }))
+
+    const cards = screen.getAllByTestId("media-card")
+    expect(cards).toHaveLength(5)
+    expect(screen.getAllByText("Dune")).toHaveLength(1)
+    for (const card of cards) {
+      expect(card).toHaveAttribute("data-detailed-badges", "true")
+    }
+  })
+
+  it("hides zero-match tabs while querying but keeps active and All visible", async () => {
+    const user = userEvent.setup()
+
+    renderCustomPage()
+
+    await user.type(
+      screen.getByPlaceholderText("Search in this list..."),
+      "dune",
+    )
+
+    // Auto-scoped to All; Short has no match and is hidden.
+    expect(screen.getByRole("button", { name: "All1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(
+      screen.queryByRole("button", { name: "Short0" }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Café Noir0" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByTestId("media-card")).toHaveLength(1)
+
+    await user.clear(screen.getByPlaceholderText("Search all lists..."))
+
+    expect(
+      screen.getByRole("button", { name: "Road Trip2" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.getByRole("button", { name: /Short/ }),
+    ).toBeInTheDocument()
+  })
+
+  it("scrolls the active tab into view on selection", async () => {
+    const scrollIntoView = vi.fn()
+    window.Element.prototype.scrollIntoView = scrollIntoView
+
+    try {
+      const { rerender } = render(
+        <ListsPageClient
+          lists={createCustomPageLists()}
+          loading={false}
+          error={null}
+          showAllTab
+          showListPicker
+          hideZeroMatchTabs
+          detailedListBadges
+          selectedListId="road-trip"
+          onListSelect={() => undefined}
+        />,
+      )
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        inline: "nearest",
+        block: "nearest",
+      })
+
+      scrollIntoView.mockClear()
+      rerender(
+        <ListsPageClient
+          lists={createCustomPageLists()}
+          loading={false}
+          error={null}
+          showAllTab
+          showListPicker
+          hideZeroMatchTabs
+          detailedListBadges
+          selectedListId="horror"
+          onListSelect={() => undefined}
+        />,
+      )
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        inline: "nearest",
+        block: "nearest",
+      })
+    } finally {
+      delete (
+        window.Element.prototype as unknown as Record<string, unknown>
+      ).scrollIntoView
     }
   })
 })

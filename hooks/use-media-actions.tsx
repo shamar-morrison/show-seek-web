@@ -63,6 +63,11 @@ interface UseMediaActionsOptions {
    * showListIndicators preference (used by the cross-list All view).
    */
   showListIndicators?: boolean
+  /**
+   * Render detailed per-list badges (capped chips + names tooltip) instead
+   * of the collapsed indicator set. Requires list names for the tooltip.
+   */
+  detailedListBadges?: boolean
 }
 
 interface UseMediaActionsResult {
@@ -82,6 +87,11 @@ interface UseMediaActionsResult {
   addToListAppearance: AddToListAppearance
   /** List IDs the media is in (if preference enabled), for display indicators */
   listIds: string[] | undefined
+  /**
+   * id-to-name map for detailed badges, derived from loaded lists.
+   * Only present when detailedListBadges is enabled (no extra queries).
+   */
+  listIdToName: Record<string, string> | undefined
   /** Pre-built dropdown menu items */
   dropdownItems: DropdownMenuItem[]
   /** Memoized JSX element tree of all modals - must be included in the render tree */
@@ -109,6 +119,7 @@ export function useMediaActions({
   mediaType,
   collectionId,
   showListIndicators,
+  detailedListBadges = false,
 }: UseMediaActionsOptions): UseMediaActionsResult {
   // Modal open states
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
@@ -167,6 +178,14 @@ export function useMediaActions({
     preferences.showListIndicators,
     showListIndicators,
   ])
+
+  // id-to-name map for detailed badges; derived from already-loaded lists.
+  const listIdToName = useMemo(() => {
+    if (!detailedListBadges) {
+      return undefined
+    }
+    return Object.fromEntries(lists.map((list) => [list.id, list.name]))
+  }, [detailedListBadges, lists])
 
   // Handlers with auth guard
   const openListModal = useCallback(() => {
@@ -438,6 +457,7 @@ export function useMediaActions({
     userNote,
     addToListAppearance,
     listIds,
+    listIdToName,
     dropdownItems,
     modals,
   }

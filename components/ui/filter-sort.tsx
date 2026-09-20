@@ -28,6 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu"
 import { Slider } from "./slider"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
+import * as React from "react"
 
 // ============================================================================
 // Type Definitions
@@ -156,6 +158,8 @@ export interface FilterSortProps {
   triggerIcon?: IconSvgElement
   /** Test id for the trigger */
   triggerTestId?: string
+  /** Tooltip text shown on the trigger; wrapped only when provided */
+  triggerTooltip?: React.ReactNode
   /** Whether to show the ascending/descending sort direction submenu */
   showSortDirection?: boolean
 }
@@ -529,8 +533,10 @@ export function FilterSort({
   triggerLabel,
   triggerIcon,
   triggerTestId,
+  triggerTooltip,
   showSortDirection = true,
 }: FilterSortProps) {
+  const [menuOpen, setMenuOpen] = React.useState(false)
   const activeFilterCount = countActiveFilters(
     filterState,
     filters,
@@ -540,30 +546,45 @@ export function FilterSort({
   )
   const hasActiveFilters = activeFilterCount > 0
   const shouldShowClearAll = showClearAll ?? hasActiveFilters
+  // Icon-only triggers get their accessible name from the tooltip text.
+  const triggerAriaLabel =
+    triggerLabel ??
+    (typeof triggerTooltip === "string" ? triggerTooltip : undefined)
+
+  const dropdownTrigger = (
+    <DropdownMenuTrigger
+      aria-label={triggerAriaLabel}
+      data-testid={triggerTestId}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md px-2.5 py-2.5",
+        "text-sm font-medium",
+        "bg-white/5 hover:bg-white/10",
+        "border border-white/10",
+        "transition-colors",
+        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+        triggerClassName,
+      )}
+    >
+      <HugeiconsIcon icon={triggerIcon ?? FilterVerticalIcon} className="size-4" />
+      {triggerLabel ? <span>{triggerLabel}</span> : null}
+      {hasActiveFilters && (
+        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
+          {activeFilterCount}
+        </span>
+      )}
+    </DropdownMenuTrigger>
+  )
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={triggerLabel}
-        data-testid={triggerTestId}
-        className={cn(
-          "inline-flex items-center gap-2 rounded-md px-2.5 py-2.5",
-          "text-sm font-medium",
-          "bg-white/5 hover:bg-white/10",
-          "border border-white/10",
-          "transition-colors",
-          "focus:outline-none focus:ring-2 focus:ring-primary/20",
-          triggerClassName,
-        )}
-      >
-        <HugeiconsIcon icon={triggerIcon ?? FilterVerticalIcon} className="size-4" />
-        {triggerLabel ? <span>{triggerLabel}</span> : null}
-        {hasActiveFilters && (
-          <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
-            {activeFilterCount}
-          </span>
-        )}
-      </DropdownMenuTrigger>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      {triggerTooltip ? (
+        <Tooltip disabled={menuOpen}>
+          <TooltipTrigger render={dropdownTrigger} />
+          <TooltipContent>{triggerTooltip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        dropdownTrigger
+      )}
 
       <DropdownMenuContent
         align="start"

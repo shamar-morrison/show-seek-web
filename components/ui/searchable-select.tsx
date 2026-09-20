@@ -8,11 +8,27 @@ import { cn } from "@/lib/utils"
 
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "./command"
 import { Popover, PopoverContent, PopoverTrigger } from "./popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
 export interface SearchableSelectOption {
   label: string
   searchValue?: string
   value: string
+}
+
+function defaultOptionFilter<Option extends SearchableSelectOption>(
+  option: Option,
+  searchValue: string,
+): boolean {
+  const normalizedQuery = searchValue.trim().toLowerCase()
+
+  if (!normalizedQuery) {
+    return true
+  }
+
+  return (option.searchValue ?? option.label)
+    .toLowerCase()
+    .includes(normalizedQuery)
 }
 
 interface SearchableSelectProps<
@@ -22,6 +38,12 @@ interface SearchableSelectProps<
   disabled?: boolean
   /** Message shown when no options match the search query */
   emptyMessage?: string
+  /**
+   * Custom option matcher receiving the raw search input. When provided it
+   * replaces the default trim + lowercase includes check (e.g. for
+   * diacritic folding).
+   */
+  filterOption?: (option: Option, query: string) => boolean
   /** Callback when an option is selected */
   onChange: (value: string | null) => void
   /** Available options */
@@ -30,6 +52,10 @@ interface SearchableSelectProps<
   placeholder?: string
   /** Additional class for the popover content */
   popoverClassName?: string
+  /** Horizontal alignment of the popover to the trigger (default "start") */
+  popoverAlign?: "start" | "center" | "end"
+  /** Space maintained from the viewport edge for collision handling */
+  popoverCollisionPadding?: number
   /** Render custom option content */
   renderOption?: (option: Option, isSelected: boolean) => React.ReactNode
   /** Render custom trigger content */
@@ -38,12 +64,27 @@ interface SearchableSelectProps<
     placeholder: string,
     open: boolean,
   ) => React.ReactNode
+  /**
+   * Custom trigger element (additive, optional). When provided it replaces
+   * the default trigger button and is composed with the popover and tooltip
+   * via `render`, so `triggerTestId`, `triggerAriaLabel` and `disabled` are
+   * still merged onto it. The caller owns the element's variant, size and
+   * className; `triggerClassName`, `renderTriggerContent` and
+   * `hideTriggerChevron` are ignored in that case.
+   */
+  trigger?: React.ReactElement
   /** Placeholder text for the search input */
   searchPlaceholder?: string
+  /** Accessible label applied to the trigger button */
+  triggerAriaLabel?: string
   /** Additional class for the trigger */
   triggerClassName?: string
   /** Test id applied to the trigger */
   triggerTestId?: string
+  /** Tooltip text shown on the trigger; wrapped only when provided */
+  triggerTooltip?: React.ReactNode
+  /** Hide the trailing chevron icon (for icon-only triggers) */
+  hideTriggerChevron?: boolean
   /** Currently selected value */
   value?: string | null
 }
@@ -53,15 +94,22 @@ export function SearchableSelect<
 >({
   disabled = false,
   emptyMessage = "No results found.",
+  filterOption,
   onChange,
   options,
   placeholder = "Select...",
   popoverClassName,
+  popoverAlign = "start",
+  popoverCollisionPadding,
   renderOption,
   renderTriggerContent,
+  trigger: triggerElement,
   searchPlaceholder = "Search...",
+  triggerAriaLabel,
   triggerClassName,
   triggerTestId,
+  triggerTooltip,
+  hideTriggerChevron = false,
   value,
 }: SearchableSelectProps<Option>) {
   const [open, setOpen] = React.useState(false)
@@ -73,16 +121,9 @@ export function SearchableSelect<
   )
 
   const filteredOptions = React.useMemo(() => {
-    const normalizedQuery = searchValue.trim().toLowerCase()
-
-    if (!normalizedQuery) {
-      return options
-    }
-
-    return options.filter((option) =>
-      (option.searchValue ?? option.label).toLowerCase().includes(normalizedQuery),
-    )
-  }, [options, searchValue])
+    const matches = filterOption ?? defaultOptionFilter
+    return options.filter((option) => matches(option, searchValue))
+  }, [filterOption, options, searchValue])
 
   React.useEffect(() => {
     if (!open) {
@@ -101,33 +142,41 @@ export function SearchableSelect<
     [onChange, value],
   )
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        data-testid={triggerTestId}
-        disabled={disabled}
-        className={cn(
-          "flex w-44 items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition-colors",
-          "hover:border-white/20 hover:bg-white/10 hover:text-white",
-          "focus:border-primary focus:outline-none",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          triggerClassName,
+  const trigger = triggerElement ? (
+    <PopoverTrigger
+      data-testid={triggerTestId}
+      aria-label={triggerAriaLabel}
+      disabled={disabled}
+      render={triggerElement}
+    />
+  ) : (
+    <PopoverTrigger
+      data-testid={triggerTestId}
+      aria-label={triggerAriaLabel}
+      disabled={disabled}
+      className={cn(
+        "flex w-44 items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition-colors",
+        "hover:border-white/20 hover:bg-white/10 hover:text-white",
+        "focus:border-primary focus:outline-none",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        triggerClassName,
+      )}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        {renderTriggerContent ? (
+          renderTriggerContent(selectedOption, placeholder, open)
+        ) : (
+          <span
+            className={cn(
+              "truncate",
+              !selectedOption && "text-muted-foreground",
+            )}
+          >
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
         )}
-      >
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          {renderTriggerContent ? (
-            renderTriggerContent(selectedOption, placeholder, open)
-          ) : (
-            <span
-              className={cn(
-                "truncate",
-                !selectedOption && "text-muted-foreground",
-              )}
-            >
-              {selectedOption ? selectedOption.label : placeholder}
-            </span>
-          )}
-        </span>
+      </span>
+      {!hideTriggerChevron && (
         <HugeiconsIcon
           icon={ArrowDown01Icon}
           className={cn(
@@ -135,9 +184,23 @@ export function SearchableSelect<
             open && "rotate-180",
           )}
         />
-      </PopoverTrigger>
+      )}
+    </PopoverTrigger>
+  )
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      {triggerTooltip ? (
+        <Tooltip>
+          <TooltipTrigger render={trigger} />
+          <TooltipContent>{triggerTooltip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        trigger
+      )}
       <PopoverContent
-        align="start"
+        align={popoverAlign}
+        collisionPadding={popoverCollisionPadding}
         className={cn("w-[--trigger-width] p-0", popoverClassName)}
       >
         <Command shouldFilter={false}>
