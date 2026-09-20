@@ -1,5 +1,3 @@
-"use server"
-
 import { getEpisodeDetails, getSeasonDetails, getTVDetails } from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
