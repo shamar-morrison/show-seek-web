@@ -24,6 +24,7 @@ import type { TMDBSeason, TMDBSeasonEpisode } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
   FavouriteIcon,
+  Image03Icon,
   Loading03Icon,
   Note01Icon,
   NoteDoneIcon,
@@ -284,7 +285,7 @@ export function EpisodeCard({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-gray-600">
-                No Image
+                <HugeiconsIcon icon={Image03Icon} className="size-8" />
               </div>
             )}
 

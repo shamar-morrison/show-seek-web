@@ -32,6 +32,7 @@ import type { WatchProvider } from "@/types/tmdb"
 import {
   CrownIcon,
   FolderLibraryIcon,
+  Image03Icon,
   Loading03Icon,
   Search01Icon,
   Tv01Icon,
@@ -174,7 +175,7 @@ function WhereToWatchResultCard({
           <ImageWithFallback
             src={posterUrl}
             alt={title}
-            fallbackText=""
+            fallbackIcon={Image03Icon}
             imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
 

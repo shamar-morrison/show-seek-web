@@ -90,7 +90,7 @@ describe("UpNextEpisodeCard", () => {
     )
 
     expect(container.querySelector("img")).not.toBeInTheDocument()
-    expect(screen.getByText("No Image")).toBeInTheDocument()
+    expect(container.querySelector("svg")).toBeInTheDocument()
     expect(screen.getByText(/TBA/)).toBeInTheDocument()
   })
 })

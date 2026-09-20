@@ -18,7 +18,7 @@ import { getNoteHref } from "@/lib/note-utils"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatRelativeTime } from "@/lib/utils"
 import type { Note } from "@/types/note"
-import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons"
+import { Delete02Icon, Edit02Icon, Image03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { Timestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -104,7 +104,7 @@ export const NoteCard = memo(function NoteCard({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-gray-500">
-                  No Image
+                  <HugeiconsIcon icon={Image03Icon} className="size-5" />
                 </div>
               )}
             </div>
@@ -123,7 +123,7 @@ export const NoteCard = memo(function NoteCard({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-gray-500">
-                  No Image
+                  <HugeiconsIcon icon={Image03Icon} className="size-5" />
                 </div>
               )}
             </div>

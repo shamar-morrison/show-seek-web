@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 interface ImageWithFallbackProps {
   /** Image URL (already processed via buildImageUrl) */
@@ -7,6 +8,8 @@ interface ImageWithFallbackProps {
   alt: string
   /** Text shown when no image is available */
   fallbackText?: string
+  /** Icon shown instead of fallbackText when no image is available */
+  fallbackIcon?: Parameters<typeof HugeiconsIcon>[0]["icon"]
   /** Container classes - parent controls aspect ratio */
   className?: string
   /** Additional classes for the Image element */
@@ -25,6 +28,7 @@ export function ImageWithFallback({
   src,
   alt,
   fallbackText = "No Image",
+  fallbackIcon,
   className,
   imageClassName,
   priority = false,
@@ -53,7 +57,11 @@ export function ImageWithFallback({
         className,
       )}
     >
-      {fallbackText}
+      {fallbackIcon ? (
+        <HugeiconsIcon icon={fallbackIcon} className="size-8" />
+      ) : (
+        fallbackText
+      )}
     </div>
   )
 }

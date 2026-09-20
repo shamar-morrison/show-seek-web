@@ -4,6 +4,8 @@ import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import { formatRelativeTime } from "@/lib/utils"
 import type { FavoriteEpisode } from "@/types/favorite-episode"
+import { Image03Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 
 interface FavoriteEpisodeCardProps {
@@ -33,7 +35,7 @@ export function FavoriteEpisodeCard({ episode }: FavoriteEpisodeCardProps) {
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-gray-500">
-            No Image
+            <HugeiconsIcon icon={Image03Icon} className="size-8" />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />

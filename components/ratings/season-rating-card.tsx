@@ -3,7 +3,7 @@
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { Rating } from "@/types/rating"
-import { StarIcon } from "@hugeicons/core-free-icons"
+import { Image03Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 
@@ -59,7 +59,7 @@ export function SeasonRatingCard({ rating }: SeasonRatingCardProps) {
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-              No Image
+              <HugeiconsIcon icon={Image03Icon} className="size-8" />
             </div>
           )}
 

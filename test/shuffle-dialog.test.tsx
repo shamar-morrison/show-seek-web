@@ -212,7 +212,9 @@ describe("ShuffleDialog", () => {
 
     await advance(400)
 
-    expect(screen.getByText("No image")).toBeInTheDocument()
+    expect(
+      screen.getByTestId("shuffle-poster-frame").querySelector("svg"),
+    ).toBeInTheDocument()
     expect(mocks.buildImageUrl).not.toHaveBeenCalled()
   })
 

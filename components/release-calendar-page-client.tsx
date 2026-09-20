@@ -49,6 +49,7 @@ import {
   CrownIcon,
   Film01Icon,
   FilterVerticalIcon,
+  Image03Icon,
   Loading03Icon,
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
@@ -230,11 +231,12 @@ function CompactReleaseCard({ card }: { card: FlatReleaseCard }) {
       className="group flex flex-col gap-2"
     >
       <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-white/[0.04]">
-        {posterUrl ? (
-          <ImageWithFallback
-            src={posterUrl}
-            alt={card.title}
-            className="flex h-full w-full items-center justify-center"
+          {posterUrl ? (
+            <ImageWithFallback
+              src={posterUrl}
+              alt={card.title}
+              fallbackIcon={Image03Icon}
+              className="flex h-full w-full items-center justify-center"
             imageClassName="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 20vw, 15vw"
           />

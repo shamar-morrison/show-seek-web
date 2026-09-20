@@ -33,6 +33,7 @@ import {
   ArrowRight02Icon,
   Calendar03Icon,
   CheckmarkCircle02Icon,
+  Image03Icon,
   Loading03Icon,
   Note01Icon,
   NoteDoneIcon,
@@ -274,7 +275,7 @@ export function SeasonDetailClient({
               />
             ) : (
               <div className="flex aspect-2/3 w-48 items-center justify-center rounded-xl bg-gray-800 text-gray-500 shadow-2xl md:w-64">
-                No Poster
+                <HugeiconsIcon icon={Image03Icon} className="size-10" />
               </div>
             )}
           </div>

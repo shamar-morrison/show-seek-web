@@ -20,6 +20,7 @@ import { useEpisodeTrackingMutations } from "@/hooks/use-episode-tracking-mutati
 import { buildImageUrl } from "@/lib/tmdb"
 import {
   Delete02Icon,
+  Image03Icon,
   ViewIcon,
   ViewOffSlashIcon,
 } from "@hugeicons/core-free-icons"
@@ -199,7 +200,7 @@ export function WatchProgressCard({
             />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-gray-500">
-              No Image
+              <HugeiconsIcon icon={Image03Icon} className="size-5" />
             </div>
           )}
         </div>

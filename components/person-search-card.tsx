@@ -10,7 +10,7 @@ import {
 import { toggleFavoritePersonWithToast } from "@/lib/favorite-person-toast"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
-import { FavouriteIcon, Loading03Icon } from "@hugeicons/core-free-icons"
+import { FavouriteIcon, Loading03Icon, LocationUser01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -83,7 +83,7 @@ export function PersonSearchCard({
             <ImageWithFallback
               src={profileUrl}
               alt={person.name}
-              fallbackText="No Photo"
+              fallbackIcon={LocationUser01Icon}
               sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 14vw"
               priority={priority}
             />

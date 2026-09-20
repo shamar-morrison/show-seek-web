@@ -20,6 +20,7 @@ import {
   CheckmarkCircle02Icon,
   FavouriteIcon,
   FolderLibraryIcon,
+  Image03Icon,
   Loading03Icon,
   PlayIcon,
   StarIcon,
@@ -122,6 +123,7 @@ export function MediaCard({
         <ImageWithFallback
           src={posterUrl}
           alt={title}
+          fallbackIcon={Image03Icon}
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
           priority={priority}
         />

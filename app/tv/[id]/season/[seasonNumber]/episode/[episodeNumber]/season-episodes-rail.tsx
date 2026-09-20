@@ -5,7 +5,7 @@ import { Section } from "@/components/ui/section"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
 import type { TMDBSeasonEpisode } from "@/types/tmdb"
-import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon, Image03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useMemo } from "react"
@@ -115,7 +115,7 @@ function EpisodeRailCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gray-800 text-sm font-medium text-gray-500">
-            No Image
+            <HugeiconsIcon icon={Image03Icon} className="size-8" />
           </div>
         )}
 

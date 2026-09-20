@@ -34,6 +34,7 @@ import type { Genre, TMDBMovieDetails, TMDBTVDetails } from "@/types/tmdb"
 import {
   CalendarIcon,
   Clock,
+  Image03Icon,
   InformationCircleIcon,
   LanguageSkillIcon,
   Loading03Icon,
@@ -464,7 +465,7 @@ export function MediaDetailHero({
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-                      No Poster
+                      <HugeiconsIcon icon={Image03Icon} className="size-10" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/18 group-focus-visible:bg-black/18" />

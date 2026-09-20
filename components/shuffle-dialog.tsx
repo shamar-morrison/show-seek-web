@@ -7,7 +7,7 @@ import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { buildImageUrl } from "@/lib/tmdb"
 import { getMediaUrl } from "@/lib/utils"
 import type { ListMediaItem } from "@/types/list"
-import { ShuffleIcon, StarIcon } from "@hugeicons/core-free-icons"
+import { Image03Icon, ShuffleIcon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter } from "nextjs-toploader/app"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -205,7 +205,7 @@ export function ShuffleDialog({ isOpen, onClose, items }: ShuffleDialogProps) {
                 <ImageWithFallback
                   src={posterUrl}
                   alt={displayedTitle}
-                  fallbackText="No image"
+                  fallbackIcon={Image03Icon}
                   className="bg-neutral-900 text-neutral-500"
                   imageClassName="group-hover:scale-100"
                 />

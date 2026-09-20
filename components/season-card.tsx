@@ -4,6 +4,8 @@ import { MediaCardDropdownMenu } from "@/components/media-card-dropdown-menu"
 import { useSeasonActions } from "@/hooks/use-season-actions"
 import type { TVShowEpisodeTracking } from "@/types/episode-tracking"
 import type { TMDBSeason } from "@/types/tmdb"
+import { Image03Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 
 interface SeasonCardProps {
@@ -81,7 +83,7 @@ export function SeasonCard({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-                No Image
+                <HugeiconsIcon icon={Image03Icon} className="size-8" />
               </div>
             )}
           </div>

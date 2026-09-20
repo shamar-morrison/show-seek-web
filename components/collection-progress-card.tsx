@@ -3,6 +3,7 @@
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { buildImageUrl } from "@/lib/tmdb"
 import type { CollectionProgressItem } from "@/types/collection-tracking"
+import { Image03Icon } from "@hugeicons/core-free-icons"
 import Link from "next/link"
 
 interface CollectionProgressCardProps {
@@ -26,6 +27,7 @@ export function CollectionProgressCard({
         <ImageWithFallback
           src={backdropUrl}
           alt={collection.name}
+          fallbackIcon={Image03Icon}
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
           imageClassName="object-[center_20%] transition-transform duration-300 group-hover:scale-[1.03]"
         />

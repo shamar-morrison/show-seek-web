@@ -40,6 +40,7 @@ import {
   Calendar03Icon,
   CheckmarkCircle02Icon,
   FavouriteIcon,
+  Image03Icon,
   Loading03Icon,
   Note01Icon,
   NoteDoneIcon,
@@ -323,7 +324,7 @@ export function EpisodeDetailClient({
                   </Link>
                 ) : (
                   <div className="flex aspect-2/3 w-48 items-center justify-center rounded-xl bg-gray-800 text-gray-500 sm:w-56 lg:w-64">
-                    No Poster
+                    <HugeiconsIcon icon={Image03Icon} className="size-10" />
                   </div>
                 )}
               </div>

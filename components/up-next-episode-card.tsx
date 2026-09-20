@@ -1,6 +1,6 @@
 import { formatTmdbDate } from "@/lib/tmdb-date"
 import type { TMDBTVDetails } from "@/types/tmdb"
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, Image03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 
@@ -60,7 +60,7 @@ export function UpNextEpisodeCard({
         />
       ) : (
         <div className="flex h-[57px] w-[101px] shrink-0 items-center justify-center rounded-lg bg-gray-800 text-[10px] font-medium text-gray-500">
-          No Image
+          <HugeiconsIcon icon={Image03Icon} className="size-5" />
         </div>
       )}
       <span className="flex min-w-0 flex-col justify-center gap-0.5 text-left">

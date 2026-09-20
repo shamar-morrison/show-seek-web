@@ -12,6 +12,7 @@ import type { TMDBLogo } from "@/types/tmdb"
 import {
   CheckmarkCircle02Icon,
   Image01Icon,
+  Image03Icon,
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -338,7 +339,7 @@ export function PosterPickerModal({
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-sm text-white/45">
-                        No poster
+                        <HugeiconsIcon icon={Image03Icon} className="size-8" />
                       </div>
                     )}
                     {isSelected ? (

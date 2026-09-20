@@ -2,6 +2,7 @@
 
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { buildImageUrl } from "@/lib/tmdb"
+import { LocationUser01Icon } from "@hugeicons/core-free-icons"
 import Link from "next/link"
 
 interface PersonCardProps {
@@ -53,7 +54,7 @@ export function PersonCard({
             <ImageWithFallback
               src={profileUrl}
               alt={name}
-              fallbackText="No Photo"
+              fallbackIcon={LocationUser01Icon}
               sizes={
                 fullWidth
                   ? "(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 14vw"

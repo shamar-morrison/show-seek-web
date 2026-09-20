@@ -5,6 +5,8 @@ import { PersonContent } from "@/components/person-content"
 import { PersonSocialLinks } from "@/components/person-social-links"
 import { buildImageUrl, getPersonDetails } from "@/lib/tmdb"
 import { calculateTmdbAge, formatTmdbDate } from "@/lib/tmdb-date"
+import { LocationUser01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -73,9 +75,9 @@ export default async function PersonPage({ params }: PersonPageProps) {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 25vw, 20vw"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-gray-500">
-                    No Image
-                  </div>
+                <div className="flex h-full w-full items-center justify-center text-gray-500">
+                  <HugeiconsIcon icon={LocationUser01Icon} className="size-12" />
+                </div>
                 )}
               </div>
 
