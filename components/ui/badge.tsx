@@ -26,7 +26,7 @@ export function Badge({
     return (
       <span
         className={cn(
-          "flex items-center gap-1 rounded-md bg-yellow-500/20 px-2.5 py-1 text-sm font-medium text-yellow-500 backdrop-blur-sm",
+          "inline-flex items-center gap-1 rounded-md bg-yellow-500/20 px-2.5 py-1 text-sm font-medium text-yellow-500 backdrop-blur-sm",
           className,
         )}
       >
@@ -40,7 +40,7 @@ export function Badge({
     return (
       <span
         className={cn(
-          "flex items-center gap-1 rounded-md bg-amber-500/20 px-2.5 py-1 text-sm font-medium text-amber-400 backdrop-blur-sm",
+          "inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2.5 py-1 text-sm font-medium text-amber-400 backdrop-blur-sm",
           className,
         )}
       >
@@ -53,7 +53,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium text-gray-300 backdrop-blur-sm",
+        "inline-flex items-center rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium text-gray-300 backdrop-blur-sm",
         className,
       )}
     >
