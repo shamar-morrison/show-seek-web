@@ -53,6 +53,10 @@ export interface FilterCategory {
   selectionMode?: "single" | "multiple"
   /** Available options */
   options: FilterOption[]
+  /** Maximum selectable options for multiple-selection categories */
+  maxSelected?: number
+  /** Called when a selection attempt would exceed maxSelected */
+  onMaxSelectedAttempt?: () => void
 }
 
 /** A sort field option */
@@ -249,6 +253,8 @@ function MultiFilterSubmenu({
   category,
   values,
   onValuesChange,
+  maxSelected,
+  onMaxSelectedAttempt,
   operator = "or",
   onOperatorChange,
   showOperatorTabs = false,
@@ -256,13 +262,22 @@ function MultiFilterSubmenu({
   category: FilterCategory
   values: string[]
   onValuesChange: (values: string[]) => void
+  maxSelected?: number
+  onMaxSelectedAttempt?: () => void
   operator?: MultiFilterOperator
   onOperatorChange?: (operator: MultiFilterOperator) => void
   showOperatorTabs?: boolean
 }) {
   const selectedValues = new Set(values)
+  const isCapped =
+    maxSelected !== undefined && values.length >= maxSelected
 
   function toggleValue(value: string, checked: boolean) {
+    if (checked && isCapped && !selectedValues.has(value)) {
+      onMaxSelectedAttempt?.()
+      return
+    }
+
     const nextValues = checked
       ? Array.from(new Set([...values, value]))
       : values.filter((selectedValue) => selectedValue !== value)
@@ -307,17 +322,25 @@ function MultiFilterSubmenu({
             <DropdownMenuSeparator />
           </>
         )}
-        {category.options.map((option) => (
-          <DropdownMenuCheckboxItem
-            key={option.value}
-            checked={selectedValues.has(option.value)}
-            onCheckedChange={(checked) =>
-              toggleValue(option.value, checked === true)
-            }
-          >
-            {option.label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        {category.options.map((option) => {
+          // Use aria-disabled (not disabled) so over-cap attempts still
+          // reach toggleValue and can surface feedback like an error toast.
+          const isOptionCapped = isCapped && !selectedValues.has(option.value)
+
+          return (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={selectedValues.has(option.value)}
+              aria-disabled={isOptionCapped || undefined}
+              className={isOptionCapped ? "opacity-50" : undefined}
+              onCheckedChange={(checked) =>
+                toggleValue(option.value, checked === true)
+              }
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          )
+        })}
         {values.length > 0 && (
           <>
             <DropdownMenuSeparator />
@@ -561,6 +584,8 @@ export function FilterSort({
                   onValuesChange={(values) =>
                     onMultiFilterChange?.(category.key, values)
                   }
+                  maxSelected={category.maxSelected}
+                  onMaxSelectedAttempt={category.onMaxSelectedAttempt}
                   operator={multiFilterOperators?.[category.key] ?? "or"}
                   onOperatorChange={(operator) =>
                     onMultiFilterOperatorChange?.(category.key, operator)

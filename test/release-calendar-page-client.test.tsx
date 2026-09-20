@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
 
 import { fireEvent, render, screen, within } from "./utils"
 
 import { ReleaseCalendarView } from "@/components/release-calendar-page-client"
 import type { ReleaseCalendarRelease } from "@/types/release-calendar"
+import type { UserList } from "@/types/list"
 
 vi.mock("@/components/ui/filter-sort", () => ({
   FilterSort: ({
@@ -32,6 +33,12 @@ vi.mock("@/components/ui/filter-sort", () => ({
       </button>
       <button
         type="button"
+        onClick={() => onMultiFilterChange?.("source", ["road-trip"])}
+      >
+        Filter Road Trip
+      </button>
+      <button
+        type="button"
         onClick={() => onSortChange({ field: "type", direction: "asc" })}
       >
         Sort By Type
@@ -53,6 +60,32 @@ vi.mock("@/hooks/use-poster-overrides", () => ({
     ) => fallbackPosterPath ?? null,
   }),
 }))
+
+const listsState: {
+  lists: UserList[]
+  loading: boolean
+  error: Error | null
+} = {
+  lists: [],
+  loading: false,
+  error: null,
+}
+
+vi.mock("@/hooks/use-lists", () => ({
+  useLists: () => ({
+    lists: listsState.lists,
+    loading: listsState.loading,
+    error: listsState.error,
+  }),
+}))
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}))
+
+function setLocation(search = "", pathname = "/calendar") {
+  window.history.pushState({}, "", `${pathname}${search}`)
+}
 
 function createRelease(
   overrides: Partial<ReleaseCalendarRelease>,
@@ -87,6 +120,13 @@ function formatLocalDateKey(date: Date): string {
 }
 
 describe("ReleaseCalendarView", () => {
+  beforeEach(() => {
+    setLocation()
+    listsState.lists = []
+    listsState.loading = false
+    listsState.error = null
+  })
+
   it(
     "renders a poster card grid with flattened per-episode cards and shared media tabs",
     async () => {
@@ -638,5 +678,130 @@ describe("ReleaseCalendarView", () => {
     expect(
       screen.getByRole("button", { name: "Go to Watch Lists" }),
     ).toHaveAttribute("href", "/lists/watch-lists")
+  })
+
+  it("filters releases by a custom list source", async () => {
+    const user = userEvent.setup()
+    listsState.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {},
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            uniqueKey: "movie-1",
+            sourceLists: ["watchlist"],
+          }),
+          createRelease({
+            id: 7,
+            title: "Road Trip Movie",
+            uniqueKey: "movie-7",
+            sourceLists: ["road-trip"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Filter Road Trip" }))
+
+    expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
+    expect(screen.getByText("Road Trip Movie")).toBeInTheDocument()
+  })
+
+  it("writes custom source selections to the URL", async () => {
+    const user = userEvent.setup()
+    listsState.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {},
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 7,
+            title: "Road Trip Movie",
+            uniqueKey: "movie-7",
+            sourceLists: ["road-trip"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Filter Road Trip" }))
+
+    expect(window.location.search).toContain("source=road-trip")
+  })
+
+  it("restores custom source selections from the URL", () => {
+    setLocation("?source=road-trip")
+    listsState.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {},
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            uniqueKey: "movie-1",
+            sourceLists: ["watchlist"],
+          }),
+          createRelease({
+            id: 7,
+            title: "Road Trip Movie",
+            uniqueKey: "movie-7",
+            sourceLists: ["road-trip"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
+    expect(screen.getByText("Road Trip Movie")).toBeInTheDocument()
+  })
+
+  it("falls back to default sources for unknown source ids in the URL", () => {
+    setLocation("?source=nonsense")
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            uniqueKey: "movie-1",
+            sourceLists: ["watchlist"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(screen.getByText("Watchlist Movie")).toBeInTheDocument()
   })
 })

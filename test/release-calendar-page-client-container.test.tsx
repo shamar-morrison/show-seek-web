@@ -14,6 +14,14 @@ vi.mock("@/hooks/use-release-calendar", () => ({
   useReleaseCalendar: () => useReleaseCalendarMock(),
 }))
 
+vi.mock("@/hooks/use-lists", () => ({
+  useLists: () => ({
+    lists: [],
+    loading: false,
+    error: null,
+  }),
+}))
+
 vi.mock("@/hooks/use-poster-overrides", () => ({
   usePosterOverrides: () => ({
     overrides: {},

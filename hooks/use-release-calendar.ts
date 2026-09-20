@@ -15,6 +15,7 @@ import {
 } from "@/lib/react-query/query-keys"
 import { getTodayDateKey } from "@/lib/tmdb-date"
 import { mapWithConcurrencyLimit } from "@/lib/utils/concurrency"
+import { DEFAULT_LIST_IDS } from "@/types/list"
 import type {
   ReleaseCalendarRelease,
   ReleaseCalendarTrackedItem,
@@ -33,8 +34,11 @@ const RELEASE_CALENDAR_FETCH_CONCURRENCY = 2
 
 function createTrackedItems(lists: ReturnType<typeof useLists>["lists"]) {
   const trackedItems: ReleaseCalendarTrackedItem[] = []
+  const customListIds = lists
+    .filter((list) => !DEFAULT_LIST_IDS.has(list.id))
+    .map((list) => list.id)
 
-  for (const listId of TRACKED_LIST_IDS) {
+  for (const listId of [...TRACKED_LIST_IDS, ...customListIds]) {
     const list = lists.find((candidate) => candidate.id === listId)
     if (!list) {
       continue

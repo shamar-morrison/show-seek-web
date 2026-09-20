@@ -1,9 +1,6 @@
 import type { SupportedRegionCode } from "@/lib/regions"
 
-export type TrackedCalendarListId =
-  | "watchlist"
-  | "favorites"
-  | "currently-watching"
+export type TrackedCalendarListId = string
 
 export interface ReleaseCalendarTrackedItem {
   id: number

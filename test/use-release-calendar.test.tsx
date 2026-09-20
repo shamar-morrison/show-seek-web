@@ -273,6 +273,64 @@ describe("useReleaseCalendar", () => {
     ])
   })
 
+  it("tracks items from custom lists with their custom source list id", async () => {
+    useListsMock.mockReturnValue({
+      error: null,
+      lists: [
+        {
+          id: "watchlist",
+          items: {
+            1: {
+              addedAt: 1,
+              id: 1,
+              media_type: "movie",
+              poster_path: "/movie.jpg",
+              release_date: "2026-05-20",
+              title: "Movie",
+            },
+          },
+        },
+        {
+          id: "road-trip",
+          name: "Road Trip",
+          items: {
+            7: {
+              addedAt: 2,
+              id: 7,
+              media_type: "movie",
+              poster_path: "/road.jpg",
+              release_date: "2026-05-22",
+              title: "Road Movie",
+            },
+          },
+        },
+      ],
+      loading: false,
+    })
+
+    fetchReleaseCalendarReleasesMock.mockResolvedValue([])
+
+    renderHook(() => useReleaseCalendar(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => {
+      expect(fetchReleaseCalendarReleasesMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(fetchReleaseCalendarReleasesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            id: 7,
+            mediaType: "movie",
+            sourceList: "road-trip",
+          }),
+        ]),
+      }),
+    )
+  })
+
   it("does not stay in bootstrap mode for tv-only accounts while preferences or enrichment are pending", async () => {
     const releasesDeferred = createDeferred<ReleaseCalendarRelease[]>()
 

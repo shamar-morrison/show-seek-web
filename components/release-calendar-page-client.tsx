@@ -20,6 +20,7 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
+import { useLists } from "@/hooks/use-lists"
 import { usePosterOverrides } from "@/hooks/use-poster-overrides"
 import { useReleaseCalendar } from "@/hooks/use-release-calendar"
 import { useUrlStateSync } from "@/hooks/use-url-state-sync"
@@ -34,6 +35,7 @@ import {
 import { isPremiumStatusPending } from "@/lib/premium-gating"
 import { buildImageUrl } from "@/lib/tmdb"
 import { cn } from "@/lib/utils"
+import { DEFAULT_LIST_IDS } from "@/types/list"
 import type {
   CalendarMediaFilter,
   CalendarSortMode,
@@ -56,8 +58,12 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 const PREVIEW_LIMIT = 3
+
+/** Maximum number of list sources selectable on the release calendar */
+const MAX_CALENDAR_SOURCE_SELECTIONS = 6
 
 type ReleaseCalendarSectionHeaderRow = Extract<
   ReleaseCalendarRow,
@@ -86,24 +92,36 @@ const MEDIA_TABS: Array<{
 
 const SOURCE_FILTER_KEY = "source"
 
-const SOURCE_LABELS: Record<CalendarSourceFilter, string> = {
+const SOURCE_LABELS: Record<string, string> = {
   watchlist: "Watchlist",
   favorites: "Favorites",
   "currently-watching": "Watching",
 }
 
-const SOURCE_FILTER_CATEGORIES: FilterCategory[] = [
-  {
-    key: SOURCE_FILTER_KEY,
-    label: "Sources",
-    icon: FilterVerticalIcon,
-    selectionMode: "multiple",
-    options: CALENDAR_SOURCE_FILTERS.map((source) => ({
-      value: source,
-      label: SOURCE_LABELS[source],
-    })),
-  },
-]
+function buildSourceFilterCategories(
+  customSources: Array<{ value: string; label: string }>,
+): FilterCategory[] {
+  return [
+    {
+      key: SOURCE_FILTER_KEY,
+      label: "Sources",
+      icon: FilterVerticalIcon,
+      selectionMode: "multiple",
+      maxSelected: MAX_CALENDAR_SOURCE_SELECTIONS,
+      onMaxSelectedAttempt: () =>
+        toast.error(
+          `You can select up to ${MAX_CALENDAR_SOURCE_SELECTIONS} sources`,
+        ),
+      options: [
+        ...CALENDAR_SOURCE_FILTERS.map((source) => ({
+          value: source,
+          label: SOURCE_LABELS[source] ?? source,
+        })),
+        ...customSources,
+      ],
+    },
+  ]
+}
 
 const SORT_FIELDS: SortField[] = [
   { value: "soonest", label: "Soonest" },
@@ -327,9 +345,22 @@ interface ReleaseCalendarViewProps {
   releases: ReleaseCalendarRelease[]
 }
 
-function normalizeSelectedSources(values: string[]): CalendarSourceFilter[] {
-  return CALENDAR_SOURCE_FILTERS.filter((source) =>
-    values.includes(source),
+function normalizeSelectedSources(
+  values: string[],
+  allowedIds: readonly string[] = CALENDAR_SOURCE_FILTERS,
+): CalendarSourceFilter[] {
+  const normalized = allowedIds.filter((id) => values.includes(id))
+
+  return normalized.slice(0, MAX_CALENDAR_SOURCE_SELECTIONS)
+}
+
+function isDefaultSourceSelection(selectedSources: readonly string[]): boolean {
+  if (selectedSources.length !== CALENDAR_SOURCE_FILTERS.length) {
+    return false
+  }
+
+  return CALENDAR_SOURCE_FILTERS.every((source) =>
+    selectedSources.includes(source),
   )
 }
 
@@ -372,6 +403,7 @@ export function ReleaseCalendarView({
   onUpgradeClick,
   releases,
 }: ReleaseCalendarViewProps) {
+  const { lists, loading: listsLoading } = useLists()
   const [urlState, setUrlState] = useUrlStateSync<ReleaseCalendarUrlState>({
     keys: ["media", "source", "sort", "temporal"],
     parse: (params) => {
@@ -381,8 +413,15 @@ export function ReleaseCalendarView({
         ? ((sort ?? "soonest") as CalendarSortMode)
         : "soonest"
       const rawSources = params.getAll("source")
-      const normalizedSources = normalizeSelectedSources(rawSources)
       const hasExplicitEmptySources = rawSources.some((source) => source === "")
+      // Keep raw values (including custom list IDs) so selections survive
+      // reloads before lists finish loading; unknown IDs are reconciled
+      // against loaded lists below.
+      const normalizedSources = Array.from(
+        new Set(
+          rawSources.map((source) => source.trim()).filter((source) => source),
+        ),
+      ).slice(0, MAX_CALENDAR_SOURCE_SELECTIONS)
       const selectedSources =
         rawSources.length === 0
           ? [...CALENDAR_SOURCE_FILTERS]
@@ -409,7 +448,7 @@ export function ReleaseCalendarView({
 
       if (state.selectedSources.length === 0) {
         params.append("source", "")
-      } else if (state.selectedSources.length !== CALENDAR_SOURCE_FILTERS.length) {
+      } else if (!isDefaultSourceSelection(state.selectedSources)) {
         state.selectedSources.forEach((source) => params.append("source", source))
       }
 
@@ -428,6 +467,56 @@ export function ReleaseCalendarView({
   const selectedSources = urlState.selectedSources
   const sortMode = urlState.sortMode
   const temporalFilter = urlState.temporalFilter
+
+  const customSourceOptions = useMemo(
+    () =>
+      lists
+        .filter((list) => !DEFAULT_LIST_IDS.has(list.id))
+        .map((list) => ({ value: list.id, label: list.name })),
+    [lists],
+  )
+  const knownSourceIds = useMemo(
+    () => [
+      ...CALENDAR_SOURCE_FILTERS,
+      ...customSourceOptions.map((option) => option.value),
+    ],
+    [customSourceOptions],
+  )
+  const sourceFilterCategories = useMemo(
+    () => buildSourceFilterCategories(customSourceOptions),
+    [customSourceOptions],
+  )
+
+  // Reconcile URL selections against loaded lists: drop unknown IDs and
+  // fall back to the defaults when nothing recognizable remains. Empty
+  // selections (explicit clear) are preserved.
+  useEffect(() => {
+    if (listsLoading) {
+      return
+    }
+
+    setUrlState((currentState) => {
+      if (currentState.selectedSources.length === 0) {
+        return currentState
+      }
+
+      const validated = normalizeSelectedSources(
+        currentState.selectedSources,
+        knownSourceIds,
+      )
+      const nextSources =
+        validated.length > 0 ? validated : [...CALENDAR_SOURCE_FILTERS]
+      const unchanged =
+        nextSources.length === currentState.selectedSources.length &&
+        nextSources.every(
+          (source, index) => source === currentState.selectedSources[index],
+        )
+
+      return unchanged
+        ? currentState
+        : { ...currentState, selectedSources: nextSources }
+    })
+  }, [knownSourceIds, listsLoading, setUrlState])
 
   const labels = useMemo<ReleaseCalendarLabels>(
     () => ({
@@ -576,6 +665,7 @@ export function ReleaseCalendarView({
     return (
       <div className="space-y-6">
         <CalendarToolbar
+          allowedSourceIds={knownSourceIds}
           mediaFilter={mediaFilter}
           onClearAll={resetCalendarControls}
           onSelectMediaFilter={(nextMediaFilter) =>
@@ -587,7 +677,10 @@ export function ReleaseCalendarView({
           onSelectSources={(nextSelectedSources) =>
             setUrlState((currentState) => ({
               ...currentState,
-              selectedSources: nextSelectedSources,
+              selectedSources: normalizeSelectedSources(
+                nextSelectedSources,
+                knownSourceIds,
+              ),
             }))
           }
           onSelectSortMode={(nextSortMode) =>
@@ -599,6 +692,7 @@ export function ReleaseCalendarView({
           presentations={presentations}
           selectedSources={selectedSources}
           sortMode={sortMode}
+          sourceFilterCategories={sourceFilterCategories}
         />
 
         <Empty className="min-h-[320px] border border-white/10 bg-black/20">
@@ -624,6 +718,7 @@ export function ReleaseCalendarView({
   return (
     <div className="space-y-6">
       <CalendarToolbar
+        allowedSourceIds={knownSourceIds}
         mediaFilter={mediaFilter}
         onClearAll={resetCalendarControls}
         onSelectMediaFilter={(nextMediaFilter) =>
@@ -635,7 +730,10 @@ export function ReleaseCalendarView({
         onSelectSources={(nextSelectedSources) =>
           setUrlState((currentState) => ({
             ...currentState,
-            selectedSources: nextSelectedSources,
+            selectedSources: normalizeSelectedSources(
+              nextSelectedSources,
+              knownSourceIds,
+            ),
           }))
         }
         onSelectSortMode={(nextSortMode) =>
@@ -647,6 +745,7 @@ export function ReleaseCalendarView({
         presentations={presentations}
         selectedSources={selectedSources}
         sortMode={sortMode}
+        sourceFilterCategories={sourceFilterCategories}
       />
 
       {(isRefreshing || isPreviewing) && (
@@ -740,6 +839,7 @@ export function ReleaseCalendarView({
 }
 
 function CalendarToolbar({
+  allowedSourceIds,
   mediaFilter,
   onClearAll,
   onSelectMediaFilter,
@@ -748,7 +848,9 @@ function CalendarToolbar({
   presentations,
   selectedSources,
   sortMode,
+  sourceFilterCategories,
 }: {
+  allowedSourceIds: readonly string[]
   mediaFilter: CalendarMediaFilter
   onClearAll: () => void
   onSelectMediaFilter: (filter: CalendarMediaFilter) => void
@@ -757,6 +859,7 @@ function CalendarToolbar({
   presentations: Record<CalendarMediaFilter, ReleaseCalendarPresentation>
   selectedSources: CalendarSourceFilter[]
   sortMode: CalendarSortMode
+  sourceFilterCategories: FilterCategory[]
 }) {
   const multiFilterState: MultiFilterState = {
     [SOURCE_FILTER_KEY]: selectedSources,
@@ -766,8 +869,7 @@ function CalendarToolbar({
     direction: "asc",
   }
   const hasActiveControls =
-    sortMode !== "soonest" ||
-    selectedSources.length !== CALENDAR_SOURCE_FILTERS.length
+    sortMode !== "soonest" || !isDefaultSourceSelection(selectedSources)
 
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -788,13 +890,13 @@ function CalendarToolbar({
       </div>
 
       <FilterSort
-        filters={SOURCE_FILTER_CATEGORIES}
+        filters={sourceFilterCategories}
         filterState={{}}
         multiFilterState={multiFilterState}
         onFilterChange={() => undefined}
         onMultiFilterChange={(key, values) => {
           if (key === SOURCE_FILTER_KEY) {
-            onSelectSources(normalizeSelectedSources(values))
+            onSelectSources(normalizeSelectedSources(values, allowedSourceIds))
           }
         }}
         sortFields={SORT_FIELDS}

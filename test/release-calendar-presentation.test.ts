@@ -117,6 +117,35 @@ describe("release calendar presentation", () => {
     ).toEqual([3])
   })
 
+  it("keeps custom list sources when filtering releases", () => {
+    const releases = [
+      createRelease({
+        id: 1,
+        mediaType: "movie",
+        sourceLists: ["road-trip"],
+      }),
+      createRelease({
+        id: 2,
+        mediaType: "movie",
+        sourceLists: ["watchlist", "road-trip"],
+      }),
+    ]
+
+    expect(
+      filterReleaseCalendarReleases(releases, {
+        mediaFilter: "all",
+        selectedSources: ["road-trip"],
+      }).map((release) => release.id),
+    ).toEqual([1, 2])
+
+    expect(
+      filterReleaseCalendarReleases(releases, {
+        mediaFilter: "all",
+        selectedSources: ["watchlist"],
+      }).map((release) => release.id),
+    ).toEqual([2])
+  })
+
   it("builds temporal tabs and row anchors for soonest mode", () => {
     const presentation = buildPresentation([
       createRelease({ id: 1, releaseDate: "2026-01-10" }),

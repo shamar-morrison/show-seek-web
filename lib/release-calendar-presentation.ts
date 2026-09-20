@@ -65,15 +65,9 @@ export function toReleaseCalendarViewItem(
 export function getReleaseCalendarSources(
   release: Pick<ReleaseCalendarRelease, "sourceLists">,
 ): CalendarSourceFilter[] {
-  const sources = new Set<CalendarSourceFilter>()
-
-  for (const source of release.sourceLists) {
-    if (CALENDAR_SOURCE_FILTERS.includes(source)) {
-      sources.add(source)
-    }
-  }
-
-  return [...sources]
+  // Releases only ever carry tracked list IDs (defaults + custom lists),
+  // so every source listed here is a valid filter value.
+  return [...new Set(release.sourceLists)]
 }
 
 export function filterReleaseCalendarReleases(
