@@ -20,6 +20,11 @@ interface MediaCardWithActionsProps {
   selectionMode?: boolean
   isSelected?: boolean
   onSelectToggle?: () => void
+  /**
+   * Override for list indicator badges. When provided, it wins over the
+   * showListIndicators preference (used by the cross-list All view).
+   */
+  showListIndicators?: boolean
 }
 
 /**
@@ -39,6 +44,7 @@ export function MediaCardWithActions({
   selectionMode = false,
   isSelected = false,
   onSelectToggle,
+  showListIndicators,
 }: MediaCardWithActionsProps) {
   // Determine media type
   const mediaType = media.media_type
@@ -53,6 +59,7 @@ export function MediaCardWithActions({
     media,
     mediaType,
     collectionId: collectionContext?.collectionId ?? null,
+    showListIndicators,
   })
 
   const cardContent = (

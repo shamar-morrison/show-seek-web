@@ -58,6 +58,11 @@ interface UseMediaActionsOptions {
   mediaType: "movie" | "tv"
   /** Optional collection context for collection-aware watch actions */
   collectionId?: number | null
+  /**
+   * Override for list indicator badges. When provided, it wins over the
+   * showListIndicators preference (used by the cross-list All view).
+   */
+  showListIndicators?: boolean
 }
 
 interface UseMediaActionsResult {
@@ -103,6 +108,7 @@ export function useMediaActions({
   media,
   mediaType,
   collectionId,
+  showListIndicators,
 }: UseMediaActionsOptions): UseMediaActionsResult {
   // Modal open states
   const [isAddToListOpen, setIsAddToListOpen] = useState(false)
@@ -150,11 +156,17 @@ export function useMediaActions({
   )
   const isInAnyList = addToListAppearance.isInAnyList
 
-  // Get lists the media is in (if preference enabled)
+  // Get lists the media is in (if preference enabled, or forced by caller)
   const listIds = useMemo(() => {
-    if (!preferences.showListIndicators) return undefined
+    if (!(showListIndicators ?? preferences.showListIndicators)) {
+      return undefined
+    }
     return addToListAppearance.listIds
-  }, [addToListAppearance.listIds, preferences.showListIndicators])
+  }, [
+    addToListAppearance.listIds,
+    preferences.showListIndicators,
+    showListIndicators,
+  ])
 
   // Handlers with auth guard
   const openListModal = useCallback(() => {

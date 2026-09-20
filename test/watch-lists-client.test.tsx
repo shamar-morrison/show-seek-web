@@ -31,11 +31,13 @@ vi.mock("@/components/lists-page-client", () => ({
     onListSelect,
     selectedListId,
     showDefaultSelectAction = true,
+    showAllTab = false,
   }: {
     lists: UserList[]
     onListSelect?: (listId: string) => void
     selectedListId?: string
     showDefaultSelectAction?: boolean
+    showAllTab?: boolean
     children?: ReactNode
   }) => {
     const activeList =
@@ -45,6 +47,8 @@ vi.mock("@/components/lists-page-client", () => ({
     return (
       <div>
         <div data-testid="active-list-id">{activeList?.id ?? ""}</div>
+        <div data-testid="selected-list-id">{selectedListId ?? ""}</div>
+        {showAllTab ? <div data-testid="show-all-tab" /> : null}
         {lists.map((list) => (
           <button
             key={list.id}
@@ -129,5 +133,24 @@ describe("WatchListsClient", () => {
     await waitFor(() => {
       expect(window.location.search).toBe("")
     })
+  })
+
+  it("selects the virtual All tab from ?listId=all and keeps the param", async () => {
+    setLocation("?listId=all")
+
+    render(<WatchListsClient movieGenres={[]} tvGenres={[]} />)
+
+    expect(screen.getByTestId("selected-list-id")).toHaveTextContent("all")
+    expect(screen.getByTestId("show-all-tab")).toBeInTheDocument()
+    expect(window.location.search).toBe("?listId=all")
+  })
+
+  it("omits listId from the URL on the default landing tab", () => {
+    render(<WatchListsClient movieGenres={[]} tvGenres={[]} />)
+
+    expect(screen.getByTestId("selected-list-id")).toHaveTextContent(
+      "watchlist",
+    )
+    expect(window.location.search).toBe("")
   })
 })

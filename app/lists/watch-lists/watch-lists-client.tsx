@@ -3,6 +3,7 @@
 import { ListsPageClient } from "@/components/lists-page-client"
 import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { useLists } from "@/hooks/use-lists"
+import { ALL_LISTS_TAB_ID } from "@/lib/list-search"
 import type { Genre } from "@/types/tmdb"
 import { useEffect, useMemo } from "react"
 
@@ -41,6 +42,12 @@ export function WatchListsClient({
   })
 
   const effectiveSelectedListId = useMemo(() => {
+    // The virtual All tab is valid here; parse/serialize already pass it
+    // through, and the default-tab URL behavior below is unchanged.
+    if (urlState.selectedListId === ALL_LISTS_TAB_ID) {
+      return ALL_LISTS_TAB_ID
+    }
+
     if (
       urlState.selectedListId &&
       defaultLists.some((list) => list.id === urlState.selectedListId)
@@ -83,6 +90,7 @@ export function WatchListsClient({
       selectedListId={effectiveSelectedListId}
       onListSelect={(selectedListId) => setUrlState({ selectedListId })}
       showShuffleAction={true}
+      showAllTab={true}
     />
   )
 }

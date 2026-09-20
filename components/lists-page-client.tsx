@@ -46,6 +46,13 @@ import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { useUrlStateSync } from "@/hooks/use-url-state-sync"
 import { listItemToMedia } from "@/lib/list-media"
+import {
+  ALL_LISTS_TAB_ID,
+  countListQueryMatches,
+  flattenListsForSearch,
+  matchesListQuery,
+  normalizeSearchQuery,
+} from "@/lib/list-search"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { compareTmdbDateStrings, getTmdbDateYear } from "@/lib/tmdb-date"
 import { safeParseInt, type GenreOperator } from "@/lib/utils"
@@ -67,7 +74,7 @@ import {
   Tv01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 /** Map list IDs to icons for default lists */
@@ -218,6 +225,11 @@ interface ListsPageClientProps {
   showShuffleAction?: boolean
   /** Whether to show the built-in standalone Select button */
   showDefaultSelectAction?: boolean
+  /**
+   * Whether to show the virtual cross-list "All" tab (watch lists page).
+   * The tab unions whatever lists are passed in; off by default.
+   */
+  showAllTab?: boolean
 }
 
 /**
@@ -240,6 +252,7 @@ export function ListsPageClient({
   emptyStateAction,
   showShuffleAction = false,
   showDefaultSelectAction = true,
+  showAllTab = false,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
   const { removeItemsFromListBatch } = useBulkListOperations()
@@ -265,6 +278,13 @@ export function ListsPageClient({
     }
 
     if (
+      internalSelectedListId === ALL_LISTS_TAB_ID &&
+      showAllTab
+    ) {
+      return internalSelectedListId
+    }
+
+    if (
       internalSelectedListId &&
       lists.some((list) => list.id === internalSelectedListId)
     ) {
@@ -272,7 +292,7 @@ export function ListsPageClient({
     }
 
     return lists[0]?.id ?? ""
-  }, [controlledSelectedListId, internalSelectedListId, lists])
+  }, [controlledSelectedListId, internalSelectedListId, lists, showAllTab])
   const [urlState, setUrlState] = useUrlStateSync<ListsPageUrlState>({
     keys: [
       "q",
@@ -402,11 +422,14 @@ export function ListsPageClient({
 
   // Derive effective active list ID - use selected if valid, otherwise default to first list
   const activeListId = useMemo(() => {
+    if (selectedListId === ALL_LISTS_TAB_ID && showAllTab) {
+      return selectedListId
+    }
     if (selectedListId && lists.some((l) => l.id === selectedListId)) {
       return selectedListId
     }
     return lists.length > 0 ? lists[0].id : ""
-  }, [selectedListId, lists])
+  }, [selectedListId, lists, showAllTab])
 
   // Get the active list
   const activeList = useMemo(
@@ -414,13 +437,31 @@ export function ListsPageClient({
     [lists, activeListId],
   )
 
-  // Get items from the active list
+  const isAllTab = showAllTab && activeListId === ALL_LISTS_TAB_ID
+
+  // Flattened, deduped union for the virtual All tab (first list in tab
+  // order wins for card data). Badges keep flowing through the existing
+  // list-membership pipeline per card.
+  const flattenedLists = useMemo(
+    () => (showAllTab ? flattenListsForSearch(lists) : []),
+    [lists, showAllTab],
+  )
+
+  const normalizedQuery = useMemo(
+    () => normalizeSearchQuery(searchQuery),
+    [searchQuery],
+  )
+
+  // Get items from the active list (or the flattened union on the All tab)
   const listItems = useMemo(() => {
+    if (isAllTab) {
+      return flattenedLists.map((entry) => entry.item)
+    }
     if (!activeList) return []
     return Object.values(activeList.items || {}).sort(
       (a, b) => (b.addedAt || 0) - (a.addedAt || 0),
     )
-  }, [activeList])
+  }, [activeList, flattenedLists, isAllTab])
 
   const getSelectionKey = useCallback(
     (item: Pick<ListMediaItem, "id" | "media_type">) =>
@@ -444,13 +485,11 @@ export function ListsPageClient({
   const filteredItems = useMemo(() => {
     let items = listItems
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      items = items.filter((item) => {
-        const title = getItemDisplayTitle(item).toLowerCase()
-        return title.includes(query)
-      })
+    // Search filter (shared predicate, also used for per-tab counts)
+    if (normalizedQuery) {
+      items = items.filter((item) =>
+        matchesListQuery(item, normalizedQuery, getItemDisplayTitle),
+      )
     }
 
     // Media type filter
@@ -495,7 +534,7 @@ export function ListsPageClient({
     getItemDisplayTitle,
     listItems,
     minRating,
-    searchQuery,
+    normalizedQuery,
     yearRange,
   ])
 
@@ -542,6 +581,34 @@ export function ListsPageClient({
     const startIndex = (currentPage - 1) * LISTS_RESULTS_PER_PAGE
     return sortedItems.slice(startIndex, startIndex + LISTS_RESULTS_PER_PAGE)
   }, [currentPage, sortedItems])
+
+  // Per-tab title-match counts for the current query (in-memory, no reads).
+  // Null when the query is empty, in which case tabs show their raw totals.
+  const tabMatchCounts = useMemo(() => {
+    if (!normalizedQuery) {
+      return null
+    }
+
+    const counts = new Map<string, number>()
+    for (const list of lists) {
+      counts.set(
+        list.id,
+        countListQueryMatches(list.items, normalizedQuery, getItemDisplayTitle),
+      )
+    }
+
+    if (showAllTab) {
+      let allMatches = 0
+      for (const entry of flattenedLists) {
+        if (matchesListQuery(entry.item, normalizedQuery, getItemDisplayTitle)) {
+          allMatches++
+        }
+      }
+      counts.set(ALL_LISTS_TAB_ID, allMatches)
+    }
+
+    return counts
+  }, [flattenedLists, getItemDisplayTitle, lists, normalizedQuery, showAllTab])
 
   // Get item count for each list
   const getItemCount = useCallback(
@@ -660,6 +727,35 @@ export function ListsPageClient({
       ),
     )
   }, [getSelectionKey, isSelectionMode, listItems])
+
+  // Self-contained cross-list search auto-scope (easy to remove): when the
+  // query goes from empty to non-empty on a real tab, switch to All and
+  // remember the tab; when cleared, restore it.
+  const previousTabRef = useRef<string | null>(null)
+  const previousQueryRef = useRef(searchQuery)
+  useEffect(() => {
+    const wasEmpty = previousQueryRef.current.trim() === ""
+    const isEmpty = searchQuery.trim() === ""
+    previousQueryRef.current = searchQuery
+
+    if (!showAllTab) {
+      return
+    }
+
+    if (wasEmpty && !isEmpty && !isAllTab) {
+      previousTabRef.current = activeListId
+      handleListSelect(ALL_LISTS_TAB_ID)
+    } else if (
+      !wasEmpty &&
+      isEmpty &&
+      isAllTab &&
+      previousTabRef.current
+    ) {
+      const returnTo = previousTabRef.current
+      previousTabRef.current = null
+      handleListSelect(returnTo)
+    }
+  }, [activeListId, handleListSelect, isAllTab, searchQuery, showAllTab])
 
   const enterSelectionMode = useCallback(() => {
     setUrlState((currentState) => ({
@@ -881,7 +977,7 @@ export function ListsPageClient({
                   searchQuery: value,
                 }))
               }
-              placeholder="Search in this list..."
+              placeholder={isAllTab ? "Search all lists..." : "Search in this list..."}
               className="min-w-[240px] flex-1"
             />
             {showShuffleAction ? (
@@ -941,7 +1037,7 @@ export function ListsPageClient({
 
             {resolvedFilterRowAction}
 
-            {showDefaultSelectAction && canSelectItems ? (
+            {showDefaultSelectAction && canSelectItems && !isAllTab ? (
               <Button
                 type="button"
                 variant="outline"
@@ -961,17 +1057,46 @@ export function ListsPageClient({
 
         {/* List Tabs */}
         <ScrollableRow gap={8} scrollPercentage={50} showArrows="always">
-          {lists.map((list) => (
+          {showAllTab ? (
             <FilterTabButton
-              key={list.id}
-              label={list.name}
-              count={getItemCount(list)}
-              isActive={activeListId === list.id}
-              icon={getListIcon(list)}
-              onClick={() => handleListSelect(list.id)}
+              key={ALL_LISTS_TAB_ID}
+              label="All"
+              count={
+                tabMatchCounts?.get(ALL_LISTS_TAB_ID) ?? flattenedLists.length
+              }
+              isActive={isAllTab}
+              icon={defaultIcon}
+              onClick={() => handleListSelect(ALL_LISTS_TAB_ID)}
               disabled={isSelectionMode}
+              className={
+                normalizedQuery &&
+                (tabMatchCounts?.get(ALL_LISTS_TAB_ID) ?? 0) === 0
+                  ? "opacity-50"
+                  : undefined
+              }
             />
-          ))}
+          ) : null}
+          {lists.map((list) => {
+            const matchCount = tabMatchCounts?.get(list.id)
+            return (
+              <FilterTabButton
+                key={list.id}
+                label={list.name}
+                count={matchCount ?? getItemCount(list)}
+                isActive={activeListId === list.id}
+                icon={getListIcon(list)}
+                onClick={() => {
+                  // A manual tab pick cancels any pending auto-scope restore.
+                  previousTabRef.current = null
+                  handleListSelect(list.id)
+                }}
+                disabled={isSelectionMode}
+                className={
+                  normalizedQuery && matchCount === 0 ? "opacity-50" : undefined
+                }
+              />
+            )
+          })}
         </ScrollableRow>
       </div>
 
@@ -987,9 +1112,49 @@ export function ListsPageClient({
               selectionMode={isSelectionMode}
               isSelected={isItemSelected(item)}
               onSelectToggle={() => toggleSelection(item)}
+              showListIndicators={isAllTab ? true : undefined}
             />
           ))}
         </div>
+      ) : isAllTab ? (
+        normalizedQuery &&
+        (tabMatchCounts?.get(ALL_LISTS_TAB_ID) ?? 0) === 0 ? (
+          <Empty className="py-20">
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={Search01Icon} className="size-6" />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>No matches in any list</EmptyTitle>
+              <EmptyDescription>
+                Try a different search or browse your lists.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : flattenedLists.length === 0 ? (
+          <Empty className="py-20">
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={defaultIcon} className="size-6" />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>No items yet</EmptyTitle>
+              <EmptyDescription>
+                Add movies or TV shows to your lists to see them here.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <Empty className="py-20">
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={Search01Icon} className="size-6" />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>No results found</EmptyTitle>
+              <EmptyDescription>
+                No items in your lists match your filters.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )
       ) : listItems.length > 0 &&
         (searchQuery.trim() ||
           filterState.mediaType !== "all" ||

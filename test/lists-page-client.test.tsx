@@ -129,6 +129,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
     isSelected,
     onSelectToggle,
     selectionMode,
+    showListIndicators,
   }: {
     media: {
       title?: string
@@ -139,6 +140,7 @@ vi.mock("@/components/media-card-with-actions", () => ({
     isSelected?: boolean
     onSelectToggle?: () => void
     selectionMode?: boolean
+    showListIndicators?: boolean
   }) => {
     const canonicalTitle = media.title ?? media.name ?? ""
     const originalTitle = media.original_title ?? media.original_name ?? ""
@@ -151,6 +153,9 @@ vi.mock("@/components/media-card-with-actions", () => ({
         <button
           type="button"
           data-testid="media-card"
+          data-show-list-indicators={
+            showListIndicators === true ? "true" : "false"
+          }
           aria-pressed={isSelected}
           onClick={onSelectToggle}
         >
@@ -159,7 +164,16 @@ vi.mock("@/components/media-card-with-actions", () => ({
       )
     }
 
-    return <div data-testid="media-card">{displayTitle}</div>
+    return (
+      <div
+        data-testid="media-card"
+        data-show-list-indicators={
+          showListIndicators === true ? "true" : "false"
+        }
+      >
+        {displayTitle}
+      </div>
+    )
   },
 }))
 
@@ -1089,5 +1103,234 @@ describe("ListsPageClient", () => {
     })
 
     expect(screen.getByText("1 item selected")).toBeInTheDocument()
+  })
+})
+
+function createAllTabLists(): UserList[] {
+  return [
+    {
+      id: "watchlist",
+      name: "Should Watch",
+      createdAt: 0,
+      items: {
+        "movie-1": {
+          id: 1,
+          title: "Dune",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 2,
+        },
+        "movie-2": {
+          id: 2,
+          title: "Spirited Away",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "favorites",
+      name: "Favorites",
+      createdAt: 1,
+      items: {
+        "movie-1": {
+          id: 1,
+          title: "Dune",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 3,
+        },
+        "movie-3": {
+          id: 3,
+          title: "Your Name",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+    {
+      id: "dropped",
+      name: "Dropped",
+      createdAt: 2,
+      items: {
+        "movie-4": {
+          id: 4,
+          title: "Batman",
+          poster_path: null,
+          media_type: "movie",
+          addedAt: 1,
+        },
+      },
+    },
+  ]
+}
+
+describe("ListsPageClient All tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setLocation()
+  })
+
+  it("renders the All tab first with the deduped total without changing the default tab", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createAllTabLists()}
+        loading={false}
+        error={null}
+        showAllTab
+      />,
+    )
+
+    // Default landing tab is unchanged (first list, not All).
+    expect(
+      screen.getByRole("button", { name: "Should Watch2" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "All4" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+
+    await user.click(screen.getByRole("button", { name: "All4" }))
+
+    const cards = screen.getAllByTestId("media-card")
+    expect(cards).toHaveLength(4)
+    expect(screen.getAllByText("Dune")).toHaveLength(1)
+    expect(screen.getByText("Spirited Away")).toBeInTheDocument()
+    expect(screen.getByText("Your Name")).toBeInTheDocument()
+    expect(screen.getByText("Batman")).toBeInTheDocument()
+  })
+
+  it("auto-switches to All on typing with per-tab counts, then restores the tab on clear", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createAllTabLists()}
+        loading={false}
+        error={null}
+        showAllTab
+      />,
+    )
+
+    await user.type(
+      screen.getByPlaceholderText("Search in this list..."),
+      "dune",
+    )
+
+    expect(
+      screen.getByPlaceholderText("Search all lists..."),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "All1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(
+      screen.getByRole("button", { name: "Should Watch1" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Favorites1" }),
+    ).toBeInTheDocument()
+    // Zero-match tabs stay clickable but are dimmed without layout shift.
+    const droppedTab = screen.getByRole("button", { name: "Dropped0" })
+    expect(droppedTab).toHaveClass("opacity-50")
+    expect(screen.getAllByTestId("media-card")).toHaveLength(1)
+    expect(screen.getByText("Dune")).toBeInTheDocument()
+
+    await user.clear(screen.getByPlaceholderText("Search all lists..."))
+
+    expect(
+      screen.getByRole("button", { name: "Should Watch2" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.getByPlaceholderText("Search in this list..."),
+    ).toBeInTheDocument()
+    expect(screen.getAllByTestId("media-card")).toHaveLength(2)
+  })
+
+  it("keeps a manually picked tab instead of restoring on clear", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createAllTabLists()}
+        loading={false}
+        error={null}
+        showAllTab
+      />,
+    )
+
+    await user.type(
+      screen.getByPlaceholderText("Search in this list..."),
+      "dune",
+    )
+    expect(screen.getByRole("button", { name: "All1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+
+    // A manual pick cancels the pending restore.
+    await user.click(screen.getByRole("button", { name: /Dropped/ }))
+    expect(screen.getByText("No results found")).toBeInTheDocument()
+
+    await user.clear(screen.getByPlaceholderText("Search in this list..."))
+
+    expect(screen.getByRole("button", { name: /Dropped/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByText("Batman")).toBeInTheDocument()
+  })
+
+  it("shows No matches in any list for zero matches on All", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createAllTabLists()}
+        loading={false}
+        error={null}
+        showAllTab
+      />,
+    )
+
+    await user.type(
+      screen.getByPlaceholderText("Search in this list..."),
+      "zzz-no-such-title",
+    )
+
+    expect(screen.getByText("No matches in any list")).toBeInTheDocument()
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("media-card")).not.toBeInTheDocument()
+  })
+
+  it("hides Select on All and forces list badges on All cards", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createAllTabLists()}
+        loading={false}
+        error={null}
+        showAllTab
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "Select" })).toBeInTheDocument()
+    for (const card of screen.getAllByTestId("media-card")) {
+      expect(card).toHaveAttribute("data-show-list-indicators", "false")
+    }
+
+    await user.click(screen.getByRole("button", { name: "All4" }))
+
+    expect(
+      screen.queryByRole("button", { name: "Select" }),
+    ).not.toBeInTheDocument()
+    for (const card of screen.getAllByTestId("media-card")) {
+      expect(card).toHaveAttribute("data-show-list-indicators", "true")
+    }
   })
 })
