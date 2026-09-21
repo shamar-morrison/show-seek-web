@@ -1265,7 +1265,6 @@ describe("ListsPageClient All tab", () => {
         error={null}
         showAllTab
         showListPicker
-        hideZeroMatchTabs
         detailedListBadges
       />,
     )
@@ -1448,7 +1447,6 @@ function renderCustomPage() {
       error={null}
       showAllTab
       showListPicker
-      hideZeroMatchTabs
       detailedListBadges
     />,
   )
@@ -1530,7 +1528,6 @@ describe("ListsPageClient custom page", () => {
         showAllTab
         showShuffleAction
         showListPicker
-        hideZeroMatchTabs
         detailedListBadges
       />,
     )
@@ -1558,7 +1555,6 @@ describe("ListsPageClient custom page", () => {
         showAllTab
         showShuffleAction
         showListPicker
-        hideZeroMatchTabs
         detailedListBadges
       />,
     )
@@ -1583,7 +1579,6 @@ describe("ListsPageClient custom page", () => {
         loading={false}
         error={null}
         showAllTab
-        hideZeroMatchTabs
         detailedListBadges
       />,
     )
@@ -1603,7 +1598,6 @@ describe("ListsPageClient custom page", () => {
         error={null}
         showAllTab
         showListPicker
-        hideZeroMatchTabs
         detailedListBadges
         filterRowAction={<button aria-label="Fake action">x</button>}
       />,
@@ -1686,7 +1680,6 @@ describe("ListsPageClient custom page", () => {
         error={null}
         showAllTab
         showListPicker
-        hideZeroMatchTabs
         detailedListBadges
       />,
     )
@@ -1715,7 +1708,7 @@ describe("ListsPageClient custom page", () => {
     }
   })
 
-  it("hides zero-match tabs while querying but keeps active and All visible", async () => {
+  it("keeps zero-match tabs visible but faded out while querying", async () => {
     const user = userEvent.setup()
 
     renderCustomPage()
@@ -1725,27 +1718,34 @@ describe("ListsPageClient custom page", () => {
       "dune",
     )
 
-    // Auto-scoped to All; Short has no match and is hidden.
+    // Auto-scoped to All; Short and Café Noir have no match but stay visible with opacity-50 and count 0.
     expect(screen.getByRole("button", { name: "All1" })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
-    expect(
-      screen.queryByRole("button", { name: "Short0" }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole("button", { name: "Café Noir0" }),
-    ).not.toBeInTheDocument()
+    const shortTab = screen.getByRole("button", { name: "Short0" })
+    expect(shortTab).toBeInTheDocument()
+    expect(shortTab).toHaveClass("opacity-50")
+
+    const cafeTab = screen.getByRole("button", { name: "Café Noir0" })
+    expect(cafeTab).toBeInTheDocument()
+    expect(cafeTab).toHaveClass("opacity-50")
+
     expect(screen.getAllByTestId("media-card")).toHaveLength(1)
 
-    await user.clear(screen.getByPlaceholderText("Search all lists..."))
+    // Clicking a faded tab switches to it and shows the empty-state
+    await user.click(shortTab)
+    expect(shortTab).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.getByText(/No items in "Short" match your filters/),
+    ).toBeInTheDocument()
+
+    await user.clear(screen.getByPlaceholderText("Search in this list..."))
 
     expect(
-      screen.getByRole("button", { name: "Road Trip2" }),
-    ).toHaveAttribute("aria-pressed", "true")
-    expect(
-      screen.getByRole("button", { name: /Short/ }),
-    ).toBeInTheDocument()
+      screen.getByRole("button", { name: "Short1" }),
+    ).not.toHaveClass("opacity-50")
+    expect(screen.getByText("Batman")).toBeInTheDocument()
   })
 
   it("scrolls the active tab into view on selection", async () => {
@@ -1760,7 +1760,6 @@ describe("ListsPageClient custom page", () => {
           error={null}
           showAllTab
           showListPicker
-          hideZeroMatchTabs
           detailedListBadges
           selectedListId="road-trip"
           onListSelect={() => undefined}
@@ -1780,7 +1779,6 @@ describe("ListsPageClient custom page", () => {
           error={null}
           showAllTab
           showListPicker
-          hideZeroMatchTabs
           detailedListBadges
           selectedListId="horror"
           onListSelect={() => undefined}

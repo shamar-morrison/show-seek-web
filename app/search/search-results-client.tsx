@@ -28,6 +28,7 @@ import type {
   TMDBSearchResult,
 } from "@/types/tmdb"
 import {
+  Cancel01Icon,
   Film01Icon,
   Loading03Icon,
   Search01Icon,
@@ -107,6 +108,7 @@ export function SearchResultsClient({
   })
   const lastRequestedQueryRef = useRef(normalizeSearchQuery(initialQuery))
   const skippedQueryEffectRef = useRef<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const query = urlState.query
   const activeTab = urlState.tab
 
@@ -201,6 +203,19 @@ export function SearchResultsClient({
       query: value,
     }))
     debouncedSearch(value)
+  }
+
+  // Handle clear
+  const handleClear = () => {
+    debouncedSearch.cancel()
+    skippedQueryEffectRef.current = ""
+    lastRequestedQueryRef.current = ""
+    setUrlState((currentState) => ({
+      ...currentState,
+      query: "",
+    }))
+    void performSearch("")
+    inputRef.current?.focus()
   }
 
   // Handle form submit
@@ -311,13 +326,24 @@ export function SearchResultsClient({
             )}
           />
           <Input
+            ref={inputRef}
             id="search-page-input"
             type="text"
             placeholder="Search movies, TV shows, and people..."
             value={query}
             onChange={handleInputChange}
-            className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
+            className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-12 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
           />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClear}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
+            </button>
+          )}
         </form>
 
         {/* Tabs */}

@@ -20,7 +20,7 @@ import { default as Link, default as NextLink } from "next/link"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { useRouter } from "nextjs-toploader/app"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 const DesktopSearchDropdown = dynamic(
   () =>
@@ -323,6 +323,12 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileSearchQuery, setMobileSearchQuery] = useState("")
+  const mobileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleMobileClear = () => {
+    setMobileSearchQuery("")
+    mobileInputRef.current?.focus()
+  }
 
   const isAuthenticated = !!user && !user.isAnonymous
 
@@ -513,14 +519,25 @@ export function Navbar() {
                 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
               />
               <Input
+                ref={mobileInputRef}
                 id="mobile-search-input"
                 type="text"
                 placeholder="Search shows, movies, people..."
                 value={mobileSearchQuery}
                 onChange={(e) => setMobileSearchQuery(e.target.value)}
                 onKeyDown={handleMobileSearch}
-                className="h-10 w-full rounded-lg border-white/10 bg-white/5 pl-10 pr-3 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
+                className="h-10 w-full rounded-lg border-white/10 bg-white/5 pl-10 pr-10 text-sm text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
               />
+              {mobileSearchQuery.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMobileClear}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+                </button>
+              )}
             </div>
 
             {/* Discover - Simple Link */}

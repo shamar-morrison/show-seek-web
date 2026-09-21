@@ -1,8 +1,10 @@
 "use client"
 
+import { useRef } from "react"
+
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Search01Icon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 interface SearchInputProps {
@@ -10,6 +12,8 @@ interface SearchInputProps {
   value: string
   /** Callback when the search query changes */
   onChange: (value: string) => void
+  /** Optional callback when the search query is cleared */
+  onClear?: () => void
   /** Placeholder text */
   placeholder?: string
   /** Optional unique ID for the input */
@@ -27,11 +31,20 @@ interface SearchInputProps {
 export function SearchInput({
   value,
   onChange,
+  onClear,
   placeholder = "Search...",
   id,
   className,
   "aria-label": ariaLabel,
 }: SearchInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleClear = () => {
+    onChange("")
+    onClear?.()
+    inputRef.current?.focus()
+  }
+
   return (
     <div className={cn("relative max-w-2xl", className)}>
       <HugeiconsIcon
@@ -39,14 +52,26 @@ export function SearchInput({
         className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400"
       />
       <Input
+        ref={inputRef}
         id={id}
         type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
-        className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-4 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
+        className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 pr-12 text-lg text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20"
       />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={handleClear}
+          aria-label="Clear search"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
+        </button>
+      )}
     </div>
   )
 }
+

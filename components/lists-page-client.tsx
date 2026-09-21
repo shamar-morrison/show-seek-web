@@ -242,12 +242,6 @@ interface ListsPageClientProps {
    */
   showListPicker?: boolean
   /**
-   * While a query is non-empty, hide zero-match tabs instead of dimming
-   * them (the active and All tabs always stay visible). Opt-in for the
-   * custom lists page; off by default.
-   */
-  hideZeroMatchTabs?: boolean
-  /**
    * Render detailed per-list badges (capped chips + names tooltip) on All
    * view cards instead of the collapsed indicator set. Opt-in for the
    * custom lists page; off by default.
@@ -277,7 +271,6 @@ export function ListsPageClient({
   showDefaultSelectAction = true,
   showAllTab = false,
   showListPicker = false,
-  hideZeroMatchTabs = false,
   detailedListBadges = false,
 }: ListsPageClientProps) {
   const { preferences } = usePreferences()
@@ -1192,14 +1185,6 @@ export function ListsPageClient({
           ) : null}
           {lists.map((list) => {
             const matchCount = tabMatchCounts?.get(list.id)
-            if (
-              hideZeroMatchTabs &&
-              normalizedQuery !== "" &&
-              matchCount === 0 &&
-              activeListId !== list.id
-            ) {
-              return null
-            }
             return (
               <FilterTabButton
                 key={list.id}

@@ -179,6 +179,30 @@ describe("SearchDropdown", () => {
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument()
   })
 
+  it("shows clear button when query is present and clicking it resets the input and refocuses", () => {
+    render(<SearchDropdown />)
+
+    const input = screen.getByPlaceholderText("Search...")
+
+    expect(
+      screen.queryByRole("button", { name: "Clear search" }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: "alien" } })
+
+    const clearButton = screen.getByRole("button", { name: "Clear search" })
+    expect(clearButton).toBeInTheDocument()
+
+    fireEvent.click(clearButton)
+
+    expect(input).toHaveValue("")
+    expect(
+      screen.queryByRole("button", { name: "Clear search" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("⌘K")).toBeInTheDocument()
+    expect(document.activeElement).toBe(input)
+  })
+
   it("hides talk shows from dropdown results when the preference is on", async () => {
     mocks.user = { uid: "user-1", isAnonymous: false }
     mocks.preferences.hideTalkShowsAndAwards = true

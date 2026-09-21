@@ -8,7 +8,7 @@ import { useContentFilter } from "@/hooks/use-content-filter"
 import { debounceWithCancel } from "@/lib/debounce"
 import { cn } from "@/lib/utils"
 import type { TMDBSearchResult } from "@/types/tmdb"
-import { Loading03Icon, Search01Icon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Loading03Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useRouter } from "nextjs-toploader/app"
 import {
@@ -242,6 +242,16 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  // Handle clear
+  const handleClear = () => {
+    debouncedSearch.cancel()
+    setQuery("")
+    setResults([])
+    setIsOpen(false)
+    setSelectedIndex(-1)
+    inputRef.current?.focus()
+  }
+
   // Handle focus
   const handleFocus = () => {
     if (query.trim() && visibleResults.length > 0) {
@@ -285,6 +295,16 @@ export function SearchDropdown({ className }: SearchDropdownProps) {
               {shortcutHint}
             </kbd>
           </div>
+        )}
+        {query.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+          </button>
         )}
       </div>
 

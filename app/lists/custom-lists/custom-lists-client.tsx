@@ -437,7 +437,6 @@ const LIST_DESCRIPTION_MAX_LENGTH = 120
         showDefaultSelectAction={false}
         showAllTab={true}
         showListPicker={true}
-        hideZeroMatchTabs={true}
         detailedListBadges={true}
         filterRowAction={({ canSelectItems, enterSelectionMode }) => {
           const menuItemsWithSelection = menuItems.map((item) => {

@@ -216,4 +216,32 @@ describe("Navbar calendar link", () => {
     expect(screen.queryByText(/auth-modal/)).not.toBeInTheDocument()
     expect(pushMock).not.toHaveBeenCalled()
   })
+
+  it("clears mobile search input and refocuses when clear button is clicked", async () => {
+    const { Navbar } = await import("@/components/navbar")
+    const { fireEvent } = await import("@testing-library/react")
+
+    render(<Navbar />)
+
+    const mobileInput = screen.getByPlaceholderText(
+      "Search shows, movies, people...",
+    )
+    expect(
+      screen.queryByRole("button", { name: "Clear search" }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.change(mobileInput, { target: { value: "Severance" } })
+
+    const clearButton = screen.getByRole("button", { name: "Clear search" })
+    expect(clearButton).toBeInTheDocument()
+
+    fireEvent.click(clearButton)
+
+    expect(mobileInput).toHaveValue("")
+    expect(
+      screen.queryByRole("button", { name: "Clear search" }),
+    ).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(mobileInput)
+  })
 })
+
