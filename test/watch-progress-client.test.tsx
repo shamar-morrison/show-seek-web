@@ -36,6 +36,27 @@ vi.mock("@/components/ui/filter-sort", () => ({
   ),
 }))
 
+vi.mock("@/components/watch-progress-options-menu", () => ({
+  WatchProgressOptionsMenu: ({
+    hideCompleted,
+    onHideCompletedChange,
+  }: {
+    hideCompleted?: boolean
+    onHideCompletedChange?: (checked: boolean) => void
+  }) => (
+    <div>
+      <button
+        type="button"
+        data-testid="watch-progress-hide-completed-toggle"
+        data-checked={hideCompleted ?? false}
+        onClick={() => onHideCompletedChange?.(!(hideCompleted ?? false))}
+      >
+        Toggle hide completed
+      </button>
+    </div>
+  ),
+}))
+
 vi.mock("@/components/watch-progress-card", () => ({
   WatchProgressCard: ({ progress }: { progress: WatchProgressItem }) => (
     <a href={`/tv/${progress.tvShowId}`}>{progress.tvShowName}</a>
@@ -102,6 +123,7 @@ const buildShow = (
 describe("WatchProgressClient", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
     mocks.watchProgress = []
     mocks.isEnriching = false
     mocks.trackingLoading = false
@@ -376,5 +398,76 @@ describe("WatchProgressClient", () => {
 
     expect(screen.getByText("Hidden Alpha")).toBeInTheDocument()
     expect(screen.queryByText("Hidden Beta")).not.toBeInTheDocument()
+  })
+
+  it("hides completed shows from Caught Up when the persisted preference is on", () => {
+    window.localStorage.setItem("watchProgressHideCompleted", "true")
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 1,
+        tvShowName: "Complete Show",
+        lastUpdated: 999,
+        percentage: 100,
+        nextEpisode: { kind: "complete" },
+      }),
+      buildShow({
+        tvShowId: 2,
+        tvShowName: "Caught Up Show",
+        lastUpdated: 800,
+        percentage: 100,
+        nextEpisode: {
+          kind: "upcoming",
+          season: 2,
+          episode: 1,
+          title: "Season 2 Premiere",
+        },
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    fireEvent.click(screen.getByTestId("watch-progress-caught-up-tab"))
+
+    expect(screen.getByText("Caught Up Show")).toBeInTheDocument()
+    expect(screen.queryByText("Complete Show")).not.toBeInTheDocument()
+  })
+
+  it("persists the hide-completed toggle to localStorage and filters the list", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 1,
+        tvShowName: "Complete Show",
+        lastUpdated: 999,
+        percentage: 100,
+        nextEpisode: { kind: "complete" },
+      }),
+      buildShow({
+        tvShowId: 2,
+        tvShowName: "Caught Up Show",
+        lastUpdated: 800,
+        percentage: 100,
+        nextEpisode: {
+          kind: "upcoming",
+          season: 2,
+          episode: 1,
+          title: "Season 2 Premiere",
+        },
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    fireEvent.click(screen.getByTestId("watch-progress-caught-up-tab"))
+    expect(screen.getByText("Complete Show")).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByTestId("watch-progress-hide-completed-toggle"),
+    )
+
+    expect(window.localStorage.getItem("watchProgressHideCompleted")).toBe(
+      "true",
+    )
+    expect(screen.getByText("Caught Up Show")).toBeInTheDocument()
+    expect(screen.queryByText("Complete Show")).not.toBeInTheDocument()
   })
 })

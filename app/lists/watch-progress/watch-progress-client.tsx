@@ -12,6 +12,7 @@ import { FilterTabButton } from "@/components/ui/filter-tab-button"
 import { SearchInput } from "@/components/ui/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WatchProgressCard } from "@/components/watch-progress-card"
+import { WatchProgressOptionsMenu } from "@/components/watch-progress-options-menu"
 import { useAuth } from "@/context/auth-context"
 import { useEpisodeTracking } from "@/hooks/use-episode-tracking"
 import { useWatchProgressEnrichment } from "@/hooks/use-watch-progress-enrichment"
@@ -23,7 +24,7 @@ import {
   ViewOffSlashIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 const SORT_FIELDS = [
   { value: "lastWatched", label: "Last Watched" },
@@ -35,6 +36,8 @@ const DEFAULT_SORT_STATE: SortState = {
   field: "lastWatched",
   direction: "desc",
 }
+
+const HIDE_COMPLETED_STORAGE_KEY = "watchProgressHideCompleted"
 
 /**
  * Skeleton placeholder matching the WatchProgressCard layout.
@@ -83,6 +86,26 @@ export function WatchProgressClient() {
   const [activeTab, setActiveTab] = useState<WatchProgressTab>("watching")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT_STATE)
+  const [hideCompleted, setHideCompleted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    try {
+      return window.localStorage.getItem(HIDE_COMPLETED_STORAGE_KEY) === "true"
+    } catch {
+      return false
+    }
+  })
+
+  const handleHideCompletedChange = useCallback((value: boolean) => {
+    setHideCompleted(value)
+    try {
+      window.localStorage.setItem(
+        HIDE_COMPLETED_STORAGE_KEY,
+        JSON.stringify(value),
+      )
+    } catch (error) {
+      console.error("Failed to save hide completed preference:", error)
+    }
+  }, [])
 
   // Split into watching vs caught up vs hidden shows matching mobile
   const watchingShows = useMemo(
@@ -95,13 +118,13 @@ export function WatchProgressClient() {
 
   const caughtUpShows = useMemo(
     () =>
-      enrichedProgress.filter(
-        (p) =>
-          !p.isHidden &&
-          (p.nextEpisode?.kind === "upcoming" ||
-            p.nextEpisode?.kind === "complete"),
-      ),
-    [enrichedProgress],
+      enrichedProgress.filter((p) => {
+        if (p.isHidden) return false
+        if (p.nextEpisode?.kind === "upcoming") return true
+        if (p.nextEpisode?.kind === "complete") return !hideCompleted
+        return false
+      }),
+    [enrichedProgress, hideCompleted],
   )
 
   const hiddenShows = useMemo(
@@ -227,6 +250,10 @@ export function WatchProgressClient() {
           sortFields={SORT_FIELDS.map((field) => ({ ...field }))}
           sortState={sortState}
           onSortChange={setSortState}
+        />
+        <WatchProgressOptionsMenu
+          hideCompleted={hideCompleted}
+          onHideCompletedChange={handleHideCompletedChange}
         />
       </div>
 
