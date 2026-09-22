@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/empty"
 import { type ComboboxOption } from "@/components/ui/filter-combobox"
 import { FilterSelect, type FilterOption } from "@/components/ui/filter-select"
-import { MultiSelectFilterCombobox } from "@/components/ui/multi-select-filter-combobox"
+import {
+  MultiSelectFilterCombobox,
+  type MultiSelectFilterOption,
+} from "@/components/ui/multi-select-filter-combobox"
 import { Pagination } from "@/components/ui/pagination"
 import { VirtualizedFilterCombobox } from "@/components/ui/virtualized-filter-combobox"
 import { useAuth } from "@/context/auth-context"
@@ -24,6 +27,7 @@ import { useContentFilter } from "@/hooks/use-content-filter"
 import { usePreferences } from "@/hooks/use-preferences"
 import { useTrailer } from "@/hooks/use-trailer"
 import { getMoodById, getRandomMood } from "@/lib/moods"
+import { buildImageUrl } from "@/lib/tmdb"
 import { getDisplayMediaTitle } from "@/lib/media-title"
 import { cn, type GenreOperator } from "@/lib/utils"
 import { isActionableMedia } from "@/lib/tmdb-media"
@@ -299,7 +303,7 @@ export function DiscoverClient({
     [languages],
   )
 
-  const providerOptions: ComboboxOption[] = useMemo(() => {
+  const providerOptions: MultiSelectFilterOption[] = useMemo(() => {
     const seen = new Set<string>()
     return providers
       .filter((provider) => {
@@ -310,6 +314,7 @@ export function DiscoverClient({
       .map((provider) => ({
         label: provider.provider_name,
         value: provider.provider_id.toString(),
+        logoUrl: buildImageUrl(provider.logo_path, "w92"),
       }))
   }, [providers])
 

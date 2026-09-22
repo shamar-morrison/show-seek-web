@@ -17,6 +17,8 @@ export type MultiSelectOperator = "and" | "or"
 export interface MultiSelectFilterOption {
   label: string
   value: string
+  /** Optional pre-resolved logo URL (e.g. TMDB provider logo). */
+  logoUrl?: string | null
 }
 
 interface MultiSelectFilterComboboxProps {
@@ -254,6 +256,14 @@ export function MultiSelectFilterCombobox({
                           <HugeiconsIcon icon={Tick02Icon} className="size-3" />
                         )}
                       </span>
+                      {option.logoUrl ? (
+                        <img
+                          src={option.logoUrl}
+                          alt=""
+                          loading="lazy"
+                          className="size-6 shrink-0 rounded-[4px] bg-white object-contain"
+                        />
+                      ) : null}
                       <span className="truncate">{option.label}</span>
                     </button>
                   )

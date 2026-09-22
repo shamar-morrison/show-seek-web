@@ -2,6 +2,7 @@
 
 import { fetchWatchProviderCatalog } from "@/app/actions"
 import { PremiumModal } from "@/components/premium-modal"
+import { ProviderLogo } from "@/components/provider-logo"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -102,24 +103,6 @@ function SelectorShell({
       {children}
     </div>
   )
-}
-
-function ProviderLogo({
-  className,
-  provider,
-  testId,
-}: {
-  className?: string
-  provider: WatchProvider
-  testId?: string
-}) {
-  const logoUrl = buildImageUrl(provider.logo_path, "w92")
-
-  if (!logoUrl) {
-    return null
-  }
-
-  return <img src={logoUrl} alt="" data-testid={testId} className={className} />
 }
 
 function EmptyWhereToWatchState({
@@ -515,6 +498,7 @@ export function WhereToWatchPageClient() {
                   {selectedOption ? (
                     <ProviderLogo
                       provider={selectedOption.provider}
+                      decorative
                       testId="where-to-watch-selected-service-logo"
                       className="pointer-events-none size-6 shrink-0 rounded-md bg-white object-contain"
                     />
@@ -533,6 +517,7 @@ export function WhereToWatchPageClient() {
                 <>
                   <ProviderLogo
                     provider={option.provider}
+                    decorative
                     testId={`where-to-watch-service-logo-${option.provider.provider_id}`}
                     className="size-7 rounded-md bg-white object-contain"
                   />

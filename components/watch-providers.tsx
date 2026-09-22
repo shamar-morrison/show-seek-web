@@ -1,4 +1,4 @@
-import { buildImageUrl } from "@/lib/tmdb"
+import { ProviderLogo } from "@/components/provider-logo"
 import type {
   WatchProvider,
   WatchProviders as WatchProvidersType,
@@ -10,20 +10,16 @@ interface WatchProvidersProps {
 }
 
 /**
- * ProviderLogo Component
- * Individual provider logo with hover effect and link to JustWatch
+ * Detail-page provider logo with hover effect and link to JustWatch.
+ * The shared ProviderLogo owns image resolution; this wrapper adds the link.
  */
-function ProviderLogo({
+function LinkedProviderLogo({
   provider,
   link,
 }: {
-  provider: WatchProvider
+  provider: { logo_path: string | null; provider_name: string }
   link: string
 }) {
-  const logoUrl = buildImageUrl(provider.logo_path, "w92")
-
-  if (!logoUrl) return null
-
   return (
     <a
       href={link}
@@ -32,9 +28,8 @@ function ProviderLogo({
       title={provider.provider_name}
       className="group relative shrink-0"
     >
-      <img
-        src={logoUrl}
-        alt={provider.provider_name}
+      <ProviderLogo
+        provider={provider}
         width={45}
         height={45}
         className="rounded-lg transition-transform duration-200 group-hover:scale-110"
@@ -68,7 +63,7 @@ function ProviderSection({
       <span className="text-sm font-medium text-gray-400">{title}</span>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
         {sortedProviders.map((provider) => (
-          <ProviderLogo
+          <LinkedProviderLogo
             key={provider.provider_id}
             provider={provider}
             link={link}
