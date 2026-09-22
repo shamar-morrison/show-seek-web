@@ -5,7 +5,7 @@ const SITE_URL = "https://show-seek.app"
 /**
  * Robots rules for ShowSeek (served at /robots.txt).
  *
- * AhrefsBot and AwarioBot were observed (Sep 18-22, 2026) systematically
+ * AhrefsBot and the Awario crawler family were observed (Sep 18-22, 2026) systematically
  * enumerating the effectively infinite /movie/[id], /tv/[id], and
  * /person/[id] detail routes at ~2 req/sec around the clock. Every
  * first-touch detail URL fans out to several TMDB API calls and KV
@@ -14,6 +14,10 @@ const SITE_URL = "https://show-seek.app"
  * traffic value, so they are disallowed entirely while all other
  * user agents (including Googlebot, which only needs the sitemap
  * browse routes) remain allowed.
+ *
+ * Awario documents three user-agent forms (https://awario.com/bots.html),
+ * so all three are listed explicitly: AwarioBot, AwarioSmartBot,
+ * AwarioRssBot.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -24,6 +28,14 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: "AwarioBot",
+        disallow: "/",
+      },
+      {
+        userAgent: "AwarioSmartBot",
+        disallow: "/",
+      },
+      {
+        userAgent: "AwarioRssBot",
         disallow: "/",
       },
       {

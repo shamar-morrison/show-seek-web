@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import robots from "@/app/robots"
 
 describe("robots metadata route", () => {
-  it("blocks AhrefsBot and AwarioBot from the whole site", async () => {
+  it("blocks AhrefsBot and all three Awario crawler forms from the whole site", async () => {
     const config = robots()
     const rules = Array.isArray(config.rules)
       ? config.rules
@@ -19,6 +19,8 @@ describe("robots metadata route", () => {
 
     expect(blockingBots).toContain("AhrefsBot")
     expect(blockingBots).toContain("AwarioBot")
+    expect(blockingBots).toContain("AwarioSmartBot")
+    expect(blockingBots).toContain("AwarioRssBot")
   })
 
   it("allows all other user agents across the site", async () => {
