@@ -751,6 +751,34 @@ describe("ListsPageClient", () => {
     expect(screen.getByText("Weekend picks for the drive")).toBeInTheDocument()
   })
 
+  it("renders an All Lists header while the All tab is selected", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={createLists()}
+        loading={false}
+        error={null}
+        showDynamicHeader={true}
+        showAllTab={true}
+      />,
+    )
+
+    // Default landing tab keeps the per-list header
+    expect(
+      screen.getByRole("heading", { name: "Should Watch" }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /^All/ }))
+
+    expect(
+      screen.getByRole("heading", { name: "All Lists" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("Movies and TV shows from all your lists combined"),
+    ).toBeInTheDocument()
+  })
+
   it("shows a shuffle button when the action is enabled", () => {
     render(
       <ListsPageClient

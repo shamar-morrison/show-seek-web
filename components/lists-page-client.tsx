@@ -992,13 +992,20 @@ export function ListsPageClient({
   return (
     <div className="space-y-8 pb-12">
       {/* Dynamic Header */}
-      {showDynamicHeader && activeList && (
-        <PageHeader
-          title={activeList.name}
-          description={activeList.description?.trim() || undefined}
-          className="mb-4"
-        />
-      )}
+      {showDynamicHeader &&
+        (isAllTab ? (
+          <PageHeader
+            title="All Lists"
+            description="Movies and TV shows from all your lists combined"
+            className="mb-4"
+          />
+        ) : activeList ? (
+          <PageHeader
+            title={activeList.name}
+            description={activeList.description?.trim() || undefined}
+            className="mb-4"
+          />
+        ) : null)}
 
       {/* Search, Filter, and Tabs */}
       <div className="space-y-6">
