@@ -32,6 +32,18 @@ function createBaseProgressItem(overrides: Partial<WatchProgressItem> = {}): Wat
   }
 }
 
+function buildWatchedRangeKeys(
+  season: number,
+  startEp: number,
+  endEp: number,
+): string[] {
+  const keys: string[] = []
+  for (let ep = startEp; ep <= endEp; ep++) {
+    keys.push(`${season}_${ep}`)
+  }
+  return keys
+}
+
 describe("useWatchProgressEnrichment", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -559,6 +571,436 @@ describe("useWatchProgressEnrichment", () => {
         (p) => p.tvShowId === 106,
       )
       expect(show106?.percentage).toBe(100)
+    })
+  })
+
+  it("handles fully-watched show with continuous episode numbering (HxH bug)", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 46298,
+      name: "Hunter x Hunter",
+      status: "Ended",
+      number_of_episodes: 148,
+      totalEpisodes: 148,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 62, air_date: "2011-10-02" },
+        { season_number: 2, episode_count: 74, air_date: "2012-12-15" },
+        { season_number: 3, episode_count: 12, air_date: "2014-07-07" },
+      ],
+      last_episode_to_air: {
+        season_number: 3,
+        episode_number: 148,
+        air_date: "2014-09-24",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: "/hxh.jpg",
+      backdrop_path: null,
+      first_air_date: "2011-10-02",
+      last_air_date: "2014-09-24",
+      number_of_seasons: 3,
+      vote_average: 9,
+      vote_count: 1000,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([
+      {
+        id: 148,
+        episode_number: 148,
+        name: "Finale",
+        air_date: "2014-09-24",
+        runtime: 30,
+      },
+    ] as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 62),
+      ...buildWatchedRangeKeys(2, 63, 136),
+      ...buildWatchedRangeKeys(3, 137, 148),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 46298, avgRuntime: 30 })]
+    const watchedMap = new Map([[46298, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].percentage).toBe(100)
+    })
+
+    expect(result.current.enrichedProgress[0]).toEqual(
+      expect.objectContaining({
+        tvShowId: 46298,
+        percentage: 100,
+        timeRemaining: 0,
+        showEnded: true,
+        nextEpisode: { kind: "complete" },
+      }),
+    )
+  })
+
+  it("handles partially-watched mid-continuous-season show", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 46298,
+      name: "Hunter x Hunter",
+      status: "Ended",
+      number_of_episodes: 148,
+      totalEpisodes: 148,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 62, air_date: "2011-10-02" },
+        { season_number: 2, episode_count: 74, air_date: "2012-12-15" },
+        { season_number: 3, episode_count: 12, air_date: "2014-07-07" },
+      ],
+      last_episode_to_air: {
+        season_number: 3,
+        episode_number: 148,
+        air_date: "2014-09-24",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: "/hxh.jpg",
+      backdrop_path: null,
+      first_air_date: "2011-10-02",
+      last_air_date: "2014-09-24",
+      number_of_seasons: 3,
+      vote_average: 9,
+      vote_count: 1000,
+    } as never)
+
+    const s2Episodes = []
+    for (let ep = 63; ep <= 136; ep++) {
+      s2Episodes.push({
+        id: ep,
+        episode_number: ep,
+        name: ep === 73 ? "Insane x Inquest" : `Episode ${ep}`,
+        air_date: "2013-03-10",
+        runtime: 30,
+      })
+    }
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue(s2Episodes as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 62),
+      ...buildWatchedRangeKeys(2, 63, 72),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 46298, avgRuntime: 30 })]
+    const watchedMap = new Map([[46298, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    await waitFor(() => {
+      expect((result.current.enrichedProgress[0].nextEpisode as any)?.title).toBe("Insane x Inquest")
+    })
+
+    expect(result.current.enrichedProgress[0]).toEqual(
+      expect.objectContaining({
+        tvShowId: 46298,
+        // 72 watched out of 148 total = 49%
+        percentage: 49,
+        // 76 unwatched aired episodes * 30 min = 2280 min
+        timeRemaining: 2280,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 2,
+          episode: 73,
+          title: "Insane x Inquest",
+        },
+      }),
+    )
+  })
+
+  it("handles zero-watched freshly-started continuous season with season-details fetch", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 46298,
+      name: "Hunter x Hunter",
+      status: "Returning Series",
+      number_of_episodes: 136,
+      totalEpisodes: 136,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 62, air_date: "2011-10-02" },
+        { season_number: 2, episode_count: 74, air_date: "2026-03-01" },
+      ],
+      last_episode_to_air: {
+        season_number: 2,
+        episode_number: 65,
+        air_date: "2026-03-05",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: "/hxh.jpg",
+      backdrop_path: null,
+      first_air_date: "2011-10-02",
+      last_air_date: "2026-03-05",
+      number_of_seasons: 2,
+      vote_average: 9,
+      vote_count: 1000,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([
+      { id: 63, episode_number: 63, name: "S2 Premiere", air_date: "2026-03-01", runtime: 30 },
+      { id: 64, episode_number: 64, name: "S2 Episode 2", air_date: "2026-03-03", runtime: 30 },
+      { id: 65, episode_number: 65, name: "S2 Episode 3", air_date: "2026-03-05", runtime: 30 },
+      { id: 66, episode_number: 66, name: "S2 Episode 4", air_date: "2026-03-15", runtime: 30 },
+    ] as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 62),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 46298, avgRuntime: 30 })]
+    const watchedMap = new Map([[46298, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    await waitFor(() => {
+      expect((result.current.enrichedProgress[0].nextEpisode as any)?.title).toBe("S2 Premiere")
+    })
+
+    expect(result.current.enrichedProgress[0]).toEqual(
+      expect.objectContaining({
+        tvShowId: 46298,
+        // 62 watched out of 136 total = 46%
+        percentage: 46,
+        // 3 unwatched aired episodes * 30 min = 90 min
+        timeRemaining: 90,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 2,
+          episode: 63,
+          title: "S2 Premiere",
+        },
+      }),
+    )
+  })
+
+  it("handles continuously-numbered show with still-airing final season capping correctly", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 46298,
+      name: "Hunter x Hunter",
+      status: "Returning Series",
+      number_of_episodes: 148,
+      totalEpisodes: 148,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 62, air_date: "2011-10-02" },
+        { season_number: 2, episode_count: 74, air_date: "2012-12-15" },
+        { season_number: 3, episode_count: 12, air_date: "2026-03-01" },
+      ],
+      last_episode_to_air: {
+        season_number: 3,
+        episode_number: 140,
+        air_date: "2026-03-08",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: "/hxh.jpg",
+      backdrop_path: null,
+      first_air_date: "2011-10-02",
+      last_air_date: "2026-03-08",
+      number_of_seasons: 3,
+      vote_average: 9,
+      vote_count: 1000,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([
+      { id: 137, episode_number: 137, name: "S3E1", air_date: "2026-03-01", runtime: 30 },
+      { id: 138, episode_number: 138, name: "S3E2", air_date: "2026-03-03", runtime: 30 },
+      { id: 139, episode_number: 139, name: "S3E3", air_date: "2026-03-05", runtime: 30 },
+      { id: 140, episode_number: 140, name: "S3E4", air_date: "2026-03-08", runtime: 30 },
+      { id: 141, episode_number: 141, name: "S3E5", air_date: "2026-03-15", runtime: 30 },
+    ] as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 62),
+      ...buildWatchedRangeKeys(2, 63, 136),
+      ...buildWatchedRangeKeys(3, 137, 138),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 46298, avgRuntime: 30 })]
+    const watchedMap = new Map([[46298, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    await waitFor(() => {
+      expect((result.current.enrichedProgress[0].nextEpisode as any)?.title).toBe("S3E3")
+    })
+
+    expect(result.current.enrichedProgress[0]).toEqual(
+      expect.objectContaining({
+        tvShowId: 46298,
+        // 138 watched out of 148 total = 93%
+        percentage: 93,
+        // 2 unwatched aired episodes (139, 140) * 30 min = 60 min
+        timeRemaining: 60,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 3,
+          episode: 139,
+          title: "S3E3",
+        },
+      }),
+    )
+  })
+
+  it("handles standard 1-based show as regression check", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 800,
+      name: "Standard Show",
+      status: "Returning Series",
+      number_of_episodes: 20,
+      totalEpisodes: 20,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 10, air_date: "2025-01-01" },
+        { season_number: 2, episode_count: 10, air_date: "2026-03-01" },
+      ],
+      last_episode_to_air: {
+        season_number: 2,
+        episode_number: 5,
+        air_date: "2026-03-08",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: "/standard.jpg",
+      backdrop_path: null,
+      first_air_date: "2025-01-01",
+      last_air_date: "2026-03-08",
+      number_of_seasons: 2,
+      vote_average: 8,
+      vote_count: 100,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([
+      { id: 1, episode_number: 1, name: "S2E1", air_date: "2026-03-01", runtime: 30 },
+      { id: 2, episode_number: 2, name: "S2E2", air_date: "2026-03-02", runtime: 30 },
+      { id: 3, episode_number: 3, name: "S2E3", air_date: "2026-03-03", runtime: 30 },
+      { id: 4, episode_number: 4, name: "S2E4", air_date: "2026-03-05", runtime: 30 },
+      { id: 5, episode_number: 5, name: "S2E5", air_date: "2026-03-08", runtime: 30 },
+      { id: 6, episode_number: 6, name: "S2E6", air_date: "2026-03-15", runtime: 30 },
+    ] as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 10),
+      ...buildWatchedRangeKeys(2, 1, 2),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 800, avgRuntime: 30 })]
+    const watchedMap = new Map([[800, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    await waitFor(() => {
+      expect((result.current.enrichedProgress[0].nextEpisode as any)?.title).toBe("S2E3")
+    })
+
+    expect(result.current.enrichedProgress[0]).toEqual(
+      expect.objectContaining({
+        tvShowId: 800,
+        // 12 watched out of 20 total = 60%
+        percentage: 60,
+        // 3 unwatched aired episodes (3, 4, 5) * 30 min = 90 min
+        timeRemaining: 90,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 2,
+          episode: 3,
+          title: "S2E3",
+        },
+      }),
+    )
+  })
+
+  it("handles fallback heuristic for freshly-started continuous season when season-details query is pending", async () => {
+    let resolveSeasonDetails!: (value: any) => void
+    const pendingSeasonDetailsPromise = new Promise((resolve) => {
+      resolveSeasonDetails = resolve
+    })
+
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 714,
+      name: "Continuous Fresh Season Show",
+      status: "Returning Series",
+      number_of_episodes: 136,
+      totalEpisodes: 136,
+      avgRuntime: 30,
+      seasons: [
+        { season_number: 1, episode_count: 62, air_date: "2020-01-01" },
+        { season_number: 2, episode_count: 74, air_date: "2026-03-01" },
+      ],
+      last_episode_to_air: {
+        season_number: 2,
+        episode_number: 65,
+        air_date: "2026-03-05",
+      },
+      next_episode_to_air: null,
+      genres: [],
+      overview: "",
+      poster_path: null,
+      backdrop_path: null,
+      first_air_date: "2020-01-01",
+      last_air_date: "2026-03-05",
+      number_of_seasons: 2,
+      vote_average: 8,
+      vote_count: 50,
+    } as never)
+
+    vi.mocked(fetchSeasonEpisodes).mockImplementation(() => pendingSeasonDetailsPromise as never)
+
+    const watched = new Set([
+      ...buildWatchedRangeKeys(1, 1, 62),
+    ])
+
+    const initial = [createBaseProgressItem({ tvShowId: 714, avgRuntime: 30 })]
+    const watchedMap = new Map([[714, watched]])
+
+    const { result } = renderHook(() =>
+      useWatchProgressEnrichment(initial, watchedMap),
+    )
+
+    // 1 & 2: While season details query is still pending, verify fallback heuristic
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].nextEpisode).toEqual({
+        kind: "unwatched",
+        season: 2,
+        episode: 63,
+        title: "Episode 63",
+      })
+    })
+
+    // 3: Once season-details query resolves, verify result stays consistent (S2E63 with real title, no flicker)
+    await act(async () => {
+      resolveSeasonDetails([
+        { id: 63, episode_number: 63, name: "S2 Ep 63 Real Title", air_date: "2026-03-01", runtime: 30 },
+        { id: 64, episode_number: 64, name: "S2 Ep 64 Real Title", air_date: "2026-03-03", runtime: 30 },
+        { id: 65, episode_number: 65, name: "S2 Ep 65 Real Title", air_date: "2026-03-05", runtime: 30 },
+      ])
+    })
+
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].nextEpisode).toEqual({
+        kind: "unwatched",
+        season: 2,
+        episode: 63,
+        title: "S2 Ep 63 Real Title",
+      })
     })
   })
 })
