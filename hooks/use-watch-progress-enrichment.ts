@@ -715,6 +715,7 @@ function computeEnrichmentData(
   }
 
   return {
+    isUnavailable: false,
     totalEpisodes: totalKnownEpisodes,
     avgRuntime,
     watchedCount,

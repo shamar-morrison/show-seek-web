@@ -279,7 +279,7 @@ describe("WatchProgressCard", () => {
     // Hide/Restore button is hidden
     expect(
       screen.queryByRole("button", {
-        name: /restore severence|hide severance/i,
+        name: /restore severance|hide severance/i,
       }),
     ).not.toBeInTheDocument()
 

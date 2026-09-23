@@ -1509,6 +1509,100 @@ describe("useWatchProgressEnrichment", () => {
     )
   })
 
+  it("clears isUnavailable when a later enrichment pass succeeds after a 404", async () => {
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      status: "not_found",
+    })
+    vi.mocked(fetchSeasonEpisodes).mockResolvedValue([])
+
+    const initialShow = createBaseProgressItem({
+      tvShowId: 306684,
+      tvShowName: "Recovered Show",
+      watchedCount: 12,
+      totalEpisodes: 0,
+      nextEpisode: {
+        kind: "unwatched",
+        season: 1,
+        episode: 13,
+        title: "Episode 13",
+      },
+    })
+
+    const initial = [initialShow]
+    const { result, rerender } = renderHook(
+      ({ watched }: { watched: Map<number, Set<string>> }) =>
+        useWatchProgressEnrichment(initial, watched),
+      {
+        initialProps: {
+          watched: new Map<number, Set<string>>([
+            [306684, new Set(buildWatchedRangeKeys(1, 1, 12))],
+          ]),
+        },
+      },
+    )
+
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].isUnavailable).toBe(true)
+    })
+
+    // TMDB recovers; user also watches one more episode (new watched-keys hash
+    // forces a fresh enrichment pass instead of reusing the cached 404)
+    vi.mocked(fetchTVShowDetails).mockResolvedValue({
+      id: 306684,
+      status: "Returning Series",
+      number_of_episodes: 24,
+      totalEpisodes: 24,
+      avgRuntime: 24,
+      seasons: [
+        {
+          id: 1,
+          season_number: 1,
+          episode_count: 24,
+          air_date: "2020-01-01",
+          name: "Season 1",
+          overview: "",
+          poster_path: null,
+          vote_average: 8,
+        },
+      ],
+      next_episode_to_air: null,
+      last_episode_to_air: {
+        id: 124,
+        season_number: 1,
+        episode_number: 24,
+        name: "Episode 24",
+        air_date: "2020-06-01",
+      },
+      genres: [],
+      overview: "",
+      poster_path: null,
+      backdrop_path: null,
+      name: "Recovered Show",
+      first_air_date: "2020-01-01",
+      last_air_date: null,
+      number_of_seasons: 1,
+      vote_average: 8,
+      vote_count: 100,
+    } as never)
+
+    rerender({
+      watched: new Map<number, Set<string>>([
+        [306684, new Set(buildWatchedRangeKeys(1, 1, 13))],
+      ]),
+    })
+
+    await waitFor(() => {
+      expect(result.current.enrichedProgress[0].isUnavailable).toBe(false)
+    })
+
+    expect(result.current.enrichedProgress[0].nextEpisode).toEqual({
+      kind: "unwatched",
+      season: 1,
+      episode: 14,
+      title: "Episode 14",
+    })
+  })
+
   it("does NOT mark a show as isUnavailable when TMDB details fail with a transient error (500)", async () => {
     vi.mocked(fetchTVShowDetails).mockResolvedValue({
       status: "error",

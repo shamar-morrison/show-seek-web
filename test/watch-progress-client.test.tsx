@@ -541,4 +541,47 @@ describe("WatchProgressClient", () => {
     fireEvent.click(screen.getByTestId("watch-progress-hidden-tab"))
     expect(screen.queryByText("Pre-Enrichment Show")).not.toBeInTheDocument()
   })
+
+  it("renders cached cards instead of skeletons while enrichment is still in flight", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 1,
+        tvShowName: "Cached Show",
+        percentage: 45,
+      }),
+    ]
+    mocks.isEnriching = true
+
+    render(<WatchProgressClient />)
+
+    // Renderable card wins over the skeleton flash
+    expect(
+      screen.getByRole("link", { name: "Cached Show" }),
+    ).toBeInTheDocument()
+  })
+
+  it("shows skeletons while enriching only when there is nothing renderable yet", () => {
+    // Search filters out the only show, so sortedProgress is empty
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 1,
+        tvShowName: "Cached Show",
+        percentage: 45,
+      }),
+    ]
+    mocks.isEnriching = true
+
+    render(<WatchProgressClient />)
+
+    fireEvent.change(screen.getByPlaceholderText("Search TV shows..."), {
+      target: { value: "no-such-show" },
+    })
+
+    // Nothing renderable: no cards, and the search empty state waits until
+    // enrichment settles (skeleton branch owns this state while enriching)
+    expect(
+      screen.queryByRole("link", { name: "Cached Show" }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument()
+  })
 })

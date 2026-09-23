@@ -259,13 +259,7 @@ export function WatchProgressClient() {
       </div>
 
       {/* Results */}
-      {isEnriching ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
-            <WatchProgressCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : sortedProgress.length > 0 ? (
+      {sortedProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedProgress.map((progress) => (
             <WatchProgressCard
@@ -273,6 +267,12 @@ export function WatchProgressClient() {
               progress={progress}
               isHiddenView={activeTab === "hidden"}
             />
+          ))}
+        </div>
+      ) : isEnriching ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
+            <WatchProgressCardSkeleton key={i} />
           ))}
         </div>
       ) : currentTabShows.length === 0 ? (
