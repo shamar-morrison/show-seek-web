@@ -1,6 +1,7 @@
 "use client"
 
 import { fetchSeasonEpisodes, fetchTVShowDetails } from "@/app/actions"
+import type { TVShowDetailsData } from "@/app/server-actions/tmdb"
 import { type WatchProgressItem } from "@/hooks/use-episode-tracking"
 import { parseEpisodeKey } from "@/lib/episode-utils"
 import { isTmdbDateOnOrBeforeToday } from "@/lib/tmdb-date"
@@ -62,36 +63,28 @@ function getEpisodePosition(
   episodeNumber: number,
   isContinuous = false,
 ): number {
-  if (isContinuous) {
-    let priorCounts = 0
-    for (const [season, count] of seasonCounts) {
-      if (season < seasonNumber) {
-        priorCounts += count
-      }
-    }
-    const currentSeasonCount =
-      seasonCounts.find(([season]) => season === seasonNumber)?.[1] ?? 0
-    const relativeEpisode = Math.max(0, episodeNumber - priorCounts)
-    const clampedRelativeEpisode =
-      currentSeasonCount > 0
-        ? Math.min(relativeEpisode, currentSeasonCount)
-        : relativeEpisode
-    return priorCounts + clampedRelativeEpisode
-  }
-
   let position = 0
   seasonCounts.forEach(([season, count]) => {
     if (season < seasonNumber) {
       position += count
     }
   })
+
   const seasonCount = seasonCounts.find(
     ([season]) => season === seasonNumber,
   )?.[1]
+
+  if (isContinuous) {
+    const minContinuous = position + 1
+    const maxContinuous = position + (seasonCount ?? 0)
+    return Math.min(Math.max(episodeNumber, minContinuous), maxContinuous)
+  }
+
   const clampedEpisodeNumber =
     seasonCount !== undefined
       ? Math.min(Math.max(episodeNumber, 0), seasonCount)
       : Math.max(episodeNumber, 0)
+
   return position + clampedEpisodeNumber
 }
 
@@ -215,47 +208,104 @@ interface SeasonEpisodeItem {
   air_date: string | null
 }
 
-function isContinuousNumbering(
+function resolveTargetSeasonNumber(
+  seasonCounts: Array<[number, number]>,
+  watchedKeys: Set<string>,
+  fallbackSeasonNumber = 1,
+): number {
+  for (const [seasonNum, count] of seasonCounts) {
+    let watchedInSeason = 0
+    for (const key of watchedKeys) {
+      const parsed = parseEpisodeKey(key)
+      if (parsed && parsed.season === seasonNum) {
+        watchedInSeason += 1
+      }
+    }
+    if (watchedInSeason < count) {
+      return seasonNum
+    }
+  }
+  return fallbackSeasonNumber
+}
+
+export function isContinuousNumbering(
   seasonCounts: Array<[number, number]>,
   lastAiredEpisode: { seasonNumber: number; episodeNumber: number } | null,
   watchedKeys: Set<string>,
   seasonsData?: Map<number, SeasonEpisodeItem[]>,
+  targetSeasonNumber?: number,
 ): boolean {
-  // Check 1: TMDB season episode numbers
-  if (seasonsData) {
+  // Signal 1: Check fetched season data from TMDB
+  if (seasonsData && seasonsData.size > 0) {
+    if (targetSeasonNumber && seasonsData.has(targetSeasonNumber)) {
+      const targetEpisodes = seasonsData.get(targetSeasonNumber)
+      if (targetEpisodes && targetEpisodes.length > 0) {
+        if (targetEpisodes[0].episode_number > 1) {
+          return true
+        }
+        // Season 1 always begins at episode 1, so it cannot disprove continuous numbering.
+        // Only later seasons (2+) beginning at episode 1 provide definitive proof of standard numbering.
+        if (targetSeasonNumber > 1) {
+          return false
+        }
+      }
+    }
+
     for (const [seasonNum, episodes] of seasonsData.entries()) {
       if (seasonNum > 1 && episodes && episodes.length > 0) {
-        let minEp = episodes[0].episode_number
-        for (let i = 1; i < episodes.length; i += 1) {
-          if (episodes[i].episode_number < minEp) {
-            minEp = episodes[i].episode_number
-          }
+        if (episodes[0].episode_number > 1) {
+          return true
         }
-        if (minEp > episodes.length) return true
       }
     }
   }
 
-  // Check 2: Watched keys in watchedKeys
+  // Signal 2: Check watched episodes in watchedKeys
+  // Only an episode number exceeding its own season count proves continuous numbering
   for (const key of watchedKeys) {
     const parsed = parseEpisodeKey(key)
     if (!parsed || parsed.season <= 1) continue
     const seasonEntry = seasonCounts.find(([s]) => s === parsed.season)
-    if (seasonEntry && parsed.episode > seasonEntry[1]) {
+    if (seasonEntry && seasonEntry[1] > 0 && parsed.episode > seasonEntry[1]) {
       return true
     }
   }
 
-  // Check 3: Fallback heuristic using last_episode_to_air
+  // Signal 3: Fallback checks using lastAiredEpisode
   if (lastAiredEpisode && lastAiredEpisode.seasonNumber > 1) {
-    let priorCountsSum = 0
-    for (const [seasonNum, count] of seasonCounts) {
-      if (seasonNum < lastAiredEpisode.seasonNumber) {
-        priorCountsSum += count
-      }
-    }
-    if (lastAiredEpisode.episodeNumber > priorCountsSum) {
+    const currentSeasonCount =
+      seasonCounts.find(([seasonNum]) => seasonNum === lastAiredEpisode.seasonNumber)?.[1] ?? 0
+
+    // Definitive continuous proof: episode number exceeds the current season's total episode count (e.g. S3 count 12, ep 148).
+    // This comparison is self-contained proof independent of which season the user is currently targeting or pending fetch state.
+    if (currentSeasonCount > 0 && lastAiredEpisode.episodeNumber > currentSeasonCount) {
       return true
+    }
+
+    // Heuristic for unfetched multi-season continuous shows (e.g. HxH S2 count 74, ep 65 where S1 count is 62):
+    // Only trusted when real season data for lastAiredEpisode isn't yet available,
+    // and the target season is either that season or Season 1 (where S1 data cannot disprove continuation).
+    if (
+      (!targetSeasonNumber ||
+        targetSeasonNumber === 1 ||
+        targetSeasonNumber === lastAiredEpisode.seasonNumber) &&
+      (!seasonsData || !seasonsData.has(lastAiredEpisode.seasonNumber))
+    ) {
+      let priorCountsSum = 0
+      for (const [seasonNum, count] of seasonCounts) {
+        if (seasonNum < lastAiredEpisode.seasonNumber) {
+          priorCountsSum += count
+        } else {
+          break
+        }
+      }
+
+      // Episode number must exceed priorCountsSum AND priorCountsSum must be substantial (>= 30).
+      // In standard shows with small early seasons (e.g. S1 count 5, S2 count 20, S2E6 airs),
+      // local episode numbers like 6 routinely exceed priorCountsSum (5), so priorCountsSum < 30 is not trusted.
+      if (priorCountsSum >= 30 && lastAiredEpisode.episodeNumber > priorCountsSum) {
+        return true
+      }
     }
   }
 
@@ -273,21 +323,20 @@ function getNextEpisodeAfter(
   )
   if (currentSeasonIndex >= 0) {
     let priorCounts = 0
-    if (isContinuous) {
-      for (let i = 0; i < currentSeasonIndex; i += 1) {
-        priorCounts += seasonCounts[i][1]
-      }
+    for (let i = 0; i < currentSeasonIndex; i += 1) {
+      priorCounts += seasonCounts[i][1]
     }
     const [, episodeCount] = seasonCounts[currentSeasonIndex]
-    const maxEpisodeInSeason = isContinuous
+    const seasonEndEpisode = isContinuous
       ? priorCounts + episodeCount
       : episodeCount
-    if (currentEpisode < maxEpisodeInSeason) {
+    if (currentEpisode < seasonEndEpisode) {
       return {
         season: currentSeason,
         episode: currentEpisode + 1,
       }
     }
+    let nextPriorCounts = priorCounts + episodeCount
     for (
       let index = currentSeasonIndex + 1;
       index < seasonCounts.length;
@@ -295,35 +344,24 @@ function getNextEpisodeAfter(
     ) {
       const [season, count] = seasonCounts[index]
       if (count > 0) {
-        let nextPriorCounts = 0
-        if (isContinuous) {
-          for (let i = 0; i < index; i += 1) {
-            nextPriorCounts += seasonCounts[i][1]
-          }
-        }
         return {
           season,
           episode: isContinuous ? nextPriorCounts + 1 : 1,
         }
       }
+      nextPriorCounts += count
     }
     return null
   }
-  const fallbackSeasonIndex = seasonCounts.findIndex(
-    ([season, count]) => season > currentSeason && count > 0,
-  )
-  if (fallbackSeasonIndex >= 0) {
-    const fallbackSeason = seasonCounts[fallbackSeasonIndex]
-    let fallbackPriorCounts = 0
-    if (isContinuous) {
-      for (let i = 0; i < fallbackSeasonIndex; i += 1) {
-        fallbackPriorCounts += seasonCounts[i][1]
+  let fallbackPriorCounts = 0
+  for (const [season, count] of seasonCounts) {
+    if (season > currentSeason && count > 0) {
+      return {
+        season,
+        episode: isContinuous ? fallbackPriorCounts + 1 : 1,
       }
     }
-    return {
-      season: fallbackSeason[0],
-      episode: isContinuous ? fallbackPriorCounts + 1 : 1,
-    }
+    fallbackPriorCounts += count
   }
   return null
 }
@@ -525,11 +563,19 @@ function computeEnrichmentData(
     seasonsData,
   )
 
+  const furthestWatched = getFurthestWatched(watchedKeys)
+  const targetSeasonNumber = resolveTargetSeasonNumber(
+    seasonCounts,
+    watchedKeys,
+    furthestWatched.season,
+  )
+
   const isContinuous = isContinuousNumbering(
     seasonCounts,
     lastAiredEpisode,
     watchedKeys,
     seasonsData,
+    targetSeasonNumber,
   )
 
   const totalAiredEpisodes = lastAiredEpisode
@@ -562,7 +608,6 @@ function computeEnrichmentData(
     (details.episode_run_time && details.episode_run_time[0]) ||
     45
 
-  const furthestWatched = getFurthestWatched(watchedKeys)
   const furthestWatchedPosition = getEpisodePosition(
     seasonCounts,
     furthestWatched.season,
@@ -787,29 +832,55 @@ export function useWatchProgressEnrichment(
               }
 
               // Fetch TV show details
-              const details = await fetchTVShowDetails(item.tvShowId)
-              if (!details) return
+              const result = await fetchTVShowDetails(item.tvShowId)
+              if (!result) return
+
+              if ("status" in result && result.status === "not_found") {
+                const unavailableData: Partial<WatchProgressItem> = {
+                  isUnavailable: true,
+                  percentage: 0,
+                  timeRemaining: 0,
+                  nextEpisode: null,
+                }
+                setCachedEnrichment(
+                  item.tvShowId,
+                  watchedKeysHash,
+                  unavailableData,
+                )
+                enrichedUpdates.set(item.tvShowId, unavailableData)
+                enrichedShowsRef.current.set(item.tvShowId, watchedKeysHash)
+                return
+              }
+
+              if ("status" in result && result.status === "error") {
+                // Transient error: retain existing/cached state, do not mark unavailable
+                return
+              }
+
+              const details =
+                "data" in result && result.data
+                  ? result.data
+                  : (result as unknown as TVShowDetailsData)
 
               const today = new Date()
               const seasonCounts = buildSeasonCounts(details.seasons)
-              const regularSeasonsTotal = seasonCounts.reduce(
-                (sum, [, count]) => sum + count,
-                0,
-              )
-              const totalKnownEpisodes =
-                regularSeasonsTotal > 0
-                  ? regularSeasonsTotal
-                  : details.totalEpisodes || 0
               const showLevelLastAiredEpisode = resolveShowLevelLastAiredEpisode(
                 details.last_episode_to_air,
                 today,
+              )
+              const furthestWatched = getFurthestWatched(watchedKeys)
+              const targetSeasonNumber = resolveTargetSeasonNumber(
+                seasonCounts,
+                watchedKeys,
+                furthestWatched.season,
               )
               const isContinuousInitial = isContinuousNumbering(
                 seasonCounts,
                 showLevelLastAiredEpisode,
                 watchedKeys,
+                undefined,
+                targetSeasonNumber,
               )
-              const furthestWatched = getFurthestWatched(watchedKeys)
               const nextEpisodeNumbers = getNextEpisodeAfter(
                 seasonCounts,
                 furthestWatched.season,

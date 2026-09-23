@@ -111,7 +111,8 @@ export function WatchProgressClient() {
   const watchingShows = useMemo(
     () =>
       enrichedProgress.filter(
-        (p) => !p.isHidden && p.nextEpisode?.kind === "unwatched",
+        (p) =>
+          !p.isHidden && !p.isUnavailable && p.nextEpisode?.kind === "unwatched",
       ),
     [enrichedProgress],
   )
@@ -119,7 +120,7 @@ export function WatchProgressClient() {
   const caughtUpShows = useMemo(
     () =>
       enrichedProgress.filter((p) => {
-        if (p.isHidden) return false
+        if (p.isHidden || p.isUnavailable) return false
         if (p.nextEpisode?.kind === "upcoming") return true
         if (p.nextEpisode?.kind === "complete") return !hideCompleted
         return false
@@ -128,7 +129,7 @@ export function WatchProgressClient() {
   )
 
   const hiddenShows = useMemo(
-    () => enrichedProgress.filter((p) => p.isHidden),
+    () => enrichedProgress.filter((p) => p.isHidden || p.isUnavailable),
     [enrichedProgress],
   )
 

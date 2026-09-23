@@ -121,6 +121,8 @@ export interface InProgressShow {
   percentage: number
   timeRemaining: number // in minutes
   showEnded?: boolean
+  /** Whether the show could not be found on TMDB (permanent 404) */
+  isUnavailable?: boolean
   lastWatchedEpisode: {
     season: number
     episode: number

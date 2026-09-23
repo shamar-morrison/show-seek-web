@@ -126,28 +126,30 @@ export function WatchProgressCard({
     <div className="group relative flex gap-4 rounded-xl bg-card p-4 transition-colors hover:bg-card/80">
       {/* Action Buttons - Shows on Hover */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
-        {/* Hide / Restore Button */}
-        <button
-          type="button"
-          onClick={handleToggleHidden}
-          disabled={isTogglingHidden || isRemoving}
-          className="flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white transition-all duration-200 hover:bg-primary hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label={
-            isHidden
-              ? `Restore ${progress.tvShowName} to watch progress`
-              : `Hide ${progress.tvShowName} from watch progress`
-          }
-          title={
-            isHidden
-              ? "Restore to Watch Progress"
-              : "Hide from Watch Progress"
-          }
-        >
-          <HugeiconsIcon
-            icon={isHidden ? ViewIcon : ViewOffSlashIcon}
-            className={`size-4 ${isTogglingHidden ? "animate-pulse" : ""}`}
-          />
-        </button>
+        {/* Hide / Restore Button (hidden for unavailable shows) */}
+        {!progress.isUnavailable && (
+          <button
+            type="button"
+            onClick={handleToggleHidden}
+            disabled={isTogglingHidden || isRemoving}
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white transition-all duration-200 hover:bg-primary hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={
+              isHidden
+                ? `Restore ${progress.tvShowName} to watch progress`
+                : `Hide ${progress.tvShowName} from watch progress`
+            }
+            title={
+              isHidden
+                ? "Restore to Watch Progress"
+                : "Hide from Watch Progress"
+            }
+          >
+            <HugeiconsIcon
+              icon={isHidden ? ViewIcon : ViewOffSlashIcon}
+              className={`size-4 ${isTogglingHidden ? "animate-pulse" : ""}`}
+            />
+          </button>
+        )}
 
         {/* Remove Button */}
         <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -189,38 +191,78 @@ export function WatchProgressCard({
       </div>
 
       {/* TV Show Poster */}
-      <Link href={targetUrl} className="shrink-0">
-        <div className="relative aspect-2/3 w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
-          {posterUrl ? (
-            <img
-              src={posterUrl}
-              alt={progress.tvShowName}
-              className="absolute inset-0 h-full w-full object-cover"
-              sizes="80px"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-xs text-gray-500">
-              <HugeiconsIcon icon={Image03Icon} className="size-5" />
-            </div>
-          )}
+      {progress.isUnavailable ? (
+        <div
+          className="shrink-0 cursor-default"
+          data-testid="watch-progress-poster-unavailable"
+        >
+          <div className="relative aspect-2/3 w-16 overflow-hidden rounded-lg bg-gray-800 opacity-60 sm:w-20">
+            {posterUrl ? (
+              <img
+                src={posterUrl}
+                alt={progress.tvShowName}
+                className="absolute inset-0 h-full w-full object-cover"
+                sizes="80px"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-gray-500">
+                <HugeiconsIcon icon={Image03Icon} className="size-5" />
+              </div>
+            )}
+          </div>
         </div>
-      </Link>
+      ) : (
+        <Link href={targetUrl} className="shrink-0">
+          <div className="relative aspect-2/3 w-16 overflow-hidden rounded-lg bg-gray-800 sm:w-20">
+            {posterUrl ? (
+              <img
+                src={posterUrl}
+                alt={progress.tvShowName}
+                className="absolute inset-0 h-full w-full object-cover"
+                sizes="80px"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-gray-500">
+                <HugeiconsIcon icon={Image03Icon} className="size-5" />
+              </div>
+            )}
+          </div>
+        </Link>
+      )}
 
       {/* Content */}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {/* Title Row */}
         <div className="flex items-start justify-between gap-2">
-          <Link
-            href={targetUrl}
-            className="truncate font-semibold text-white hover:text-primary transition-colors"
-          >
-            {progress.tvShowName}
-          </Link>
+          {progress.isUnavailable ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="truncate font-semibold text-white">
+                {progress.tvShowName}
+              </span>
+              <span
+                className="shrink-0 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[11px] font-medium text-amber-300"
+                data-testid="watch-progress-unavailable-badge"
+              >
+                Unavailable
+              </span>
+            </div>
+          ) : (
+            <Link
+              href={targetUrl}
+              className="truncate font-semibold text-white hover:text-primary transition-colors"
+            >
+              {progress.tvShowName}
+            </Link>
+          )}
         </div>
 
         {/* Next Episode */}
         <div className="flex items-center gap-1 text-sm">
-          {progress.nextEpisode?.kind === "complete" ? (
+          {progress.isUnavailable ? (
+            <span className="truncate text-amber-400/80 text-xs">
+              Show details unavailable on TMDB
+            </span>
+          ) : progress.nextEpisode?.kind === "complete" ? (
             <span className="truncate text-gray-300">Series complete</span>
           ) : (
             <>
@@ -241,20 +283,28 @@ export function WatchProgressCard({
 
         {/* Time Remaining + Progress Bar */}
         <div className="mt-auto flex flex-col gap-1">
-          {remainingTimeText && (
-            <span className="text-xs text-gray-400">{remainingTimeText}</span>
-          )}
-          <div className="flex items-center gap-3">
-            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-primary/10">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(progressWidth, 100)}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-xs text-gray-400">
-              {`${progress.percentage}%`}
+          {progress.isUnavailable ? (
+            <span className="text-xs text-gray-500">
+              {progress.watchedCount} watched episodes recorded
             </span>
-          </div>
+          ) : (
+            <>
+              {remainingTimeText && (
+                <span className="text-xs text-gray-400">{remainingTimeText}</span>
+              )}
+              <div className="flex items-center gap-3">
+                <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-primary/10">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.min(progressWidth, 100)}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-xs text-gray-400">
+                  {`${progress.percentage}%`}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -89,16 +89,16 @@ const buildShow = (
   overrides: Partial<WatchProgressItem> & {
     tvShowId: number
     tvShowName: string
-    lastUpdated: number
-    percentage: number
+    lastUpdated?: number
+    percentage?: number
   },
 ): WatchProgressItem => ({
   tvShowId: overrides.tvShowId,
   tvShowName: overrides.tvShowName,
   posterPath: null,
   backdropPath: null,
-  lastUpdated: overrides.lastUpdated,
-  percentage: overrides.percentage,
+  lastUpdated: overrides.lastUpdated ?? Date.now(),
+  percentage: overrides.percentage ?? 0,
   timeRemaining: overrides.timeRemaining ?? 120,
   lastWatchedEpisode: overrides.lastWatchedEpisode ?? {
     season: 1,
@@ -118,6 +118,7 @@ const buildShow = (
   totalEpisodes: overrides.totalEpisodes ?? 10,
   avgRuntime: overrides.avgRuntime ?? 45,
   isHidden: overrides.isHidden ?? false,
+  isUnavailable: overrides.isUnavailable,
 })
 
 describe("WatchProgressClient", () => {
@@ -469,5 +470,75 @@ describe("WatchProgressClient", () => {
     )
     expect(screen.getByText("Caught Up Show")).toBeInTheDocument()
     expect(screen.queryByText("Complete Show")).not.toBeInTheDocument()
+  })
+
+  it("routes unavailable shows to the Hidden tab instead of Watching or Caught Up", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 101,
+        tvShowName: "Healthy Watching Show",
+        nextEpisode: {
+          kind: "unwatched",
+          season: 1,
+          episode: 2,
+          title: "Episode 2",
+        },
+      }),
+      buildShow({
+        tvShowId: 306684,
+        tvShowName: "Dead TMDB Show",
+        isUnavailable: true,
+        isHidden: false,
+        nextEpisode: null,
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    // Watching tab should only have the healthy show
+    expect(screen.getByText("Healthy Watching Show")).toBeInTheDocument()
+    expect(screen.queryByText("Dead TMDB Show")).not.toBeInTheDocument()
+
+    // Caught Up tab should not have the unavailable show
+    fireEvent.click(screen.getByTestId("watch-progress-caught-up-tab"))
+    expect(screen.queryByText("Dead TMDB Show")).not.toBeInTheDocument()
+
+    // Hidden tab MUST have the unavailable show
+    fireEvent.click(screen.getByTestId("watch-progress-hidden-tab"))
+    expect(screen.getByText("Dead TMDB Show")).toBeInTheDocument()
+  })
+
+  it("keeps a pre-enrichment show in the Watching tab so it does not disappear while awaiting TMDB data", () => {
+    // Simulating computeProgressFromCache output before TMDB enrichment:
+    // metadata.totalEpisodes was undefined -> totalEpisodes = 0, percentage = 0,
+    // and provisional initialNextEpisode is unwatched
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 202,
+        tvShowName: "Pre-Enrichment Show",
+        totalEpisodes: 0,
+        percentage: 0,
+        watchedCount: 1,
+        nextEpisode: {
+          kind: "unwatched",
+          season: 1,
+          episode: 2,
+          title: "Episode 2",
+        },
+      }),
+    ]
+
+    render(<WatchProgressClient />)
+
+    // Pre-enrichment show must appear in Watching tab
+    expect(screen.getByText("Pre-Enrichment Show")).toBeInTheDocument()
+
+    // Must NOT appear in Caught Up tab
+    fireEvent.click(screen.getByTestId("watch-progress-caught-up-tab"))
+    expect(screen.queryByText("Pre-Enrichment Show")).not.toBeInTheDocument()
+
+    // Must NOT appear in Hidden tab
+    fireEvent.click(screen.getByTestId("watch-progress-hidden-tab"))
+    expect(screen.queryByText("Pre-Enrichment Show")).not.toBeInTheDocument()
   })
 })

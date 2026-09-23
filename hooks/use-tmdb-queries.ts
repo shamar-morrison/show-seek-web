@@ -40,7 +40,8 @@ export function useTVShowDetails(tvShowId: number, enabled = true) {
     ...tmdbRefetchOptions,
     queryKey: tmdbQueryKeys.tvShowDetails(tvShowId),
     queryFn: async (): Promise<TVShowDetailsData | null> => {
-      return await fetchTVShowDetails(tvShowId)
+      const res = await fetchTVShowDetails(tvShowId)
+      return res && "status" in res && res.status === "success" ? res.data : null
     },
     enabled,
   })
