@@ -998,12 +998,14 @@ export function ListsPageClient({
             title="All Lists"
             description="Movies and TV shows from all your lists combined"
             className="mb-4"
+            reserveDescriptionSpace
           />
         ) : activeList ? (
           <PageHeader
             title={activeList.name}
             description={activeList.description?.trim() || undefined}
             className="mb-4"
+            reserveDescriptionSpace
           />
         ) : null)}
 

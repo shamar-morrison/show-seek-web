@@ -751,6 +751,76 @@ describe("ListsPageClient", () => {
     expect(screen.getByText("Weekend picks for the drive")).toBeInTheDocument()
   })
 
+  it("keeps the dynamic header height stable across list descriptions", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ListsPageClient
+        lists={[
+          {
+            id: "described",
+            name: "Described",
+            description: "A description for the list",
+            createdAt: 0,
+            items: {},
+          },
+          {
+            id: "undescribed",
+            name: "Undescribed",
+            createdAt: 0,
+            items: {},
+          },
+          {
+            id: "whitespace",
+            name: "Whitespace",
+            description: "   ",
+            createdAt: 0,
+            items: {},
+          },
+        ]}
+        loading={false}
+        error={null}
+        showDynamicHeader
+        showAllTab
+      />,
+    )
+
+    const describedHeading = screen.getByRole("heading", { name: "Described" })
+    const describedSlot = describedHeading.parentElement?.querySelector("p")
+    expect(describedSlot).toHaveTextContent("A description for the list")
+    expect(describedSlot).toHaveClass("line-clamp-2", "min-h-[2.875rem]")
+    expect(describedSlot).not.toHaveAttribute("aria-hidden")
+
+    await user.click(screen.getByRole("button", { name: "Undescribed0" }))
+
+    const undescribedHeading = screen.getByRole("heading", {
+      name: "Undescribed",
+    })
+    const undescribedSlot = undescribedHeading.parentElement?.querySelector("p")
+    expect(undescribedSlot).toHaveClass("line-clamp-2", "min-h-[2.875rem]")
+    expect(undescribedSlot).toHaveAttribute("aria-hidden", "true")
+    expect(undescribedSlot).toHaveTextContent("")
+
+    await user.click(screen.getByRole("button", { name: "Whitespace0" }))
+
+    const whitespaceHeading = screen.getByRole("heading", {
+      name: "Whitespace",
+    })
+    const whitespaceSlot = whitespaceHeading.parentElement?.querySelector("p")
+    expect(whitespaceSlot).toHaveClass("line-clamp-2", "min-h-[2.875rem]")
+    expect(whitespaceSlot).toHaveAttribute("aria-hidden", "true")
+    expect(whitespaceSlot).toHaveTextContent("")
+
+    await user.click(screen.getByRole("button", { name: "All0" }))
+
+    const allHeading = screen.getByRole("heading", { name: "All Lists" })
+    const allSlot = allHeading.parentElement?.querySelector("p")
+    expect(allSlot).toHaveClass("line-clamp-2", "min-h-[2.875rem]")
+    expect(allSlot).toHaveTextContent(
+      "Movies and TV shows from all your lists combined",
+    )
+  })
+
   it("renders an All Lists header while the All tab is selected", async () => {
     const user = userEvent.setup()
 
