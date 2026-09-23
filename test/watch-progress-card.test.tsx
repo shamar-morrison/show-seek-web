@@ -240,4 +240,64 @@ describe("WatchProgressCard", () => {
       tvShowId: 101,
     })
   })
+
+  it("renders unavailable badge, blocks detail navigation, hides toggle, and keeps remove working when isUnavailable is true", async () => {
+    render(
+      <WatchProgressCard
+        progress={createProgress({
+          isUnavailable: true,
+          percentage: 0,
+          timeRemaining: 0,
+          nextEpisode: null,
+        })}
+        isHiddenView={true}
+      />,
+    )
+
+    // Displays Unavailable badge
+    expect(
+      screen.getByTestId("watch-progress-unavailable-badge"),
+    ).toHaveTextContent("Unavailable")
+
+    // Show details unavailable subtext is displayed
+    expect(
+      screen.getByText("Show details unavailable on TMDB"),
+    ).toBeInTheDocument()
+
+    // Title is rendered but NOT as a link
+    expect(screen.getAllByText("Severance").length).toBeGreaterThanOrEqual(1)
+    expect(
+      screen.queryByRole("link", { name: "Severance" }),
+    ).not.toBeInTheDocument()
+
+    // Poster is NOT wrapped in a link
+    expect(
+      screen.getByTestId("watch-progress-poster-unavailable"),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "" })).not.toBeInTheDocument()
+
+    // Hide/Restore button is hidden
+    expect(
+      screen.queryByRole("button", {
+        name: /restore severance|hide severance/i,
+      }),
+    ).not.toBeInTheDocument()
+
+    // Remove button is still present and functional
+    const deleteTrigger = screen.getByRole("button", {
+      name: "Remove Severance from watch progress",
+    })
+    await act(async () => {
+      fireEvent.click(deleteTrigger)
+    })
+
+    const confirmAction = screen.getByRole("button", { name: "Remove" })
+    await act(async () => {
+      fireEvent.click(confirmAction)
+    })
+
+    expect(mocks.clearAllEpisodes).toHaveBeenCalledWith({
+      tvShowId: 101,
+    })
+  })
 })

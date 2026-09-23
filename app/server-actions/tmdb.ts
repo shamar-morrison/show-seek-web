@@ -12,6 +12,7 @@ import {
   getReviews,
   getSeasonDetails,
   getTVDetails,
+  getTVDetailsWithStatus,
 } from "@/lib/tmdb"
 import type { SupportedRegionCode } from "@/lib/regions"
 import type { WatchProvider } from "@/types/tmdb"
@@ -40,16 +41,31 @@ export interface TVShowDetailsData {
   }>
 }
 
+export type FetchTVShowDetailsResult =
+  | { status: "success"; data: TVShowDetailsData }
+  | { status: "not_found" }
+  | { status: "error"; error?: unknown }
+
 /**
  * Server action to fetch TV show details for progress calculation.
  * Used for episode tracking and watch progress features.
  */
 export async function fetchTVShowDetails(
   tvShowId: number,
-): Promise<TVShowDetailsData | null> {
+): Promise<FetchTVShowDetailsResult> {
   try {
-    const details = await getTVDetails(tvShowId)
-    if (!details) return null
+    const result = await getTVDetailsWithStatus(tvShowId)
+    if (result.status === 404) {
+      return { status: "not_found" }
+    }
+    if (result.status !== 200) {
+      return {
+        status: "error",
+        error: result.error,
+      }
+    }
+
+    const details = result.data
 
     const avgRuntime =
       details.episode_run_time && details.episode_run_time.length > 0
@@ -68,35 +84,38 @@ export async function fetchTVShowDetails(
         : details.number_of_episodes || 0
 
     return {
-      totalEpisodes,
-      avgRuntime,
-      status: details.status ?? null,
-      next_episode_to_air: details.next_episode_to_air
-        ? {
-            season_number: details.next_episode_to_air.season_number,
-            episode_number: details.next_episode_to_air.episode_number,
-            name: details.next_episode_to_air.name,
-            air_date: details.next_episode_to_air.air_date,
-          }
-        : null,
-      last_episode_to_air: details.last_episode_to_air
-        ? {
-            season_number: details.last_episode_to_air.season_number,
-            episode_number: details.last_episode_to_air.episode_number,
-            name: details.last_episode_to_air.name,
-            air_date: details.last_episode_to_air.air_date,
-          }
-        : null,
-      seasons:
-        details.seasons?.map((season) => ({
-          season_number: season.season_number,
-          episode_count: season.episode_count,
-          air_date: season.air_date || null,
-        })) || [],
+      status: "success",
+      data: {
+        totalEpisodes,
+        avgRuntime,
+        status: details.status ?? null,
+        next_episode_to_air: details.next_episode_to_air
+          ? {
+              season_number: details.next_episode_to_air.season_number,
+              episode_number: details.next_episode_to_air.episode_number,
+              name: details.next_episode_to_air.name,
+              air_date: details.next_episode_to_air.air_date,
+            }
+          : null,
+        last_episode_to_air: details.last_episode_to_air
+          ? {
+              season_number: details.last_episode_to_air.season_number,
+              episode_number: details.last_episode_to_air.episode_number,
+              name: details.last_episode_to_air.name,
+              air_date: details.last_episode_to_air.air_date,
+            }
+          : null,
+        seasons:
+          details.seasons?.map((season) => ({
+            season_number: season.season_number,
+            episode_count: season.episode_count,
+            air_date: season.air_date || null,
+          })) || [],
+      },
     }
   } catch (error) {
     console.error("Server Action: Failed to fetch TV show details", error)
-    return null
+    return { status: "error", error }
   }
 }
 

@@ -111,7 +111,8 @@ export function WatchProgressClient() {
   const watchingShows = useMemo(
     () =>
       enrichedProgress.filter(
-        (p) => !p.isHidden && p.nextEpisode?.kind === "unwatched",
+        (p) =>
+          !p.isHidden && !p.isUnavailable && p.nextEpisode?.kind === "unwatched",
       ),
     [enrichedProgress],
   )
@@ -119,7 +120,7 @@ export function WatchProgressClient() {
   const caughtUpShows = useMemo(
     () =>
       enrichedProgress.filter((p) => {
-        if (p.isHidden) return false
+        if (p.isHidden || p.isUnavailable) return false
         if (p.nextEpisode?.kind === "upcoming") return true
         if (p.nextEpisode?.kind === "complete") return !hideCompleted
         return false
@@ -128,7 +129,7 @@ export function WatchProgressClient() {
   )
 
   const hiddenShows = useMemo(
-    () => enrichedProgress.filter((p) => p.isHidden),
+    () => enrichedProgress.filter((p) => p.isHidden || p.isUnavailable),
     [enrichedProgress],
   )
 
@@ -172,6 +173,11 @@ export function WatchProgressClient() {
 
     return sorted
   }, [filteredProgress, sortState])
+
+  // Explicit search-emptiness flag so the skeleton branch can distinguish
+  // "data still loading" (blank search) from "search matched nothing".
+  // The genuinely-empty-tab case below stays independent of the search box.
+  const hasActiveSearch = searchQuery.trim().length > 0
 
   const isLoading = authLoading || trackingLoading
 
@@ -258,13 +264,7 @@ export function WatchProgressClient() {
       </div>
 
       {/* Results */}
-      {isEnriching ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
-            <WatchProgressCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : sortedProgress.length > 0 ? (
+      {sortedProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedProgress.map((progress) => (
             <WatchProgressCard
@@ -272,6 +272,12 @@ export function WatchProgressClient() {
               progress={progress}
               isHiddenView={activeTab === "hidden"}
             />
+          ))}
+        </div>
+      ) : isEnriching && !hasActiveSearch ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
+            <WatchProgressCardSkeleton key={i} />
           ))}
         </div>
       ) : currentTabShows.length === 0 ? (

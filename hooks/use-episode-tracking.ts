@@ -78,25 +78,41 @@ function computeProgressFromCache(
   const lastWatched = sortedByTime[0]
 
   const watchedCount = parsedEpisodes.length
-  const totalEpisodes = metadata.totalEpisodes ?? Math.max(watchedCount, 1)
+  const totalEpisodes = metadata.totalEpisodes ?? 0
   const avgRuntime = metadata.avgRuntime ?? DEFAULT_AVG_RUNTIME
-  const safeTotal = Math.max(totalEpisodes, 1)
-  const rawPercentage = Math.round((watchedCount / safeTotal) * 100)
-  const percentage = Math.min(100, Math.max(0, rawPercentage))
+  const percentage =
+    totalEpisodes > 0
+      ? Math.min(100, Math.max(0, Math.round((watchedCount / totalEpisodes) * 100)))
+      : 0
 
   const remainingEpisodes = Math.max(0, totalEpisodes - watchedCount)
   const timeRemaining = remainingEpisodes * avgRuntime
 
-  const initialNextEpisode: InProgressShow["nextEpisode"] = metadata.nextEpisode
-    ? {
-        kind: "unwatched",
-        season: metadata.nextEpisode.season,
-        episode: metadata.nextEpisode.episode,
-        title: metadata.nextEpisode.title,
-      }
-    : percentage >= 100
-      ? { kind: "complete" }
-      : { kind: "upcoming", season: 0, episode: 0, title: "Caught up!" }
+  let initialNextEpisode: InProgressShow["nextEpisode"] = null
+  if (metadata.nextEpisode) {
+    initialNextEpisode = {
+      kind: "unwatched",
+      season: metadata.nextEpisode.season,
+      episode: metadata.nextEpisode.episode,
+      title: metadata.nextEpisode.title,
+    }
+  } else if (metadata.nextEpisode === null) {
+    initialNextEpisode =
+      totalEpisodes > 0 && percentage >= 100
+        ? { kind: "complete" }
+        : { kind: "upcoming", season: 0, episode: 0, title: "Caught up!" }
+  } else {
+    // metadata.nextEpisode is undefined (e.g. pre-enrichment state)
+    initialNextEpisode =
+      totalEpisodes > 0 && percentage >= 100
+        ? { kind: "complete" }
+        : {
+            kind: "unwatched",
+            season: lastWatched.parsed.season,
+            episode: lastWatched.parsed.episode + 1,
+            title: `Episode ${lastWatched.parsed.episode + 1}`,
+          }
+  }
 
   return {
     tvShowId,

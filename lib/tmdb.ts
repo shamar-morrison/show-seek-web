@@ -1005,17 +1005,21 @@ export async function getMovieCalendarDetails(
   }
 }
 
+export type TMDBFetchStatusResult<T> =
+  | { status: 200; data: T }
+  | { status: 404 }
+  | { status: "error"; statusCode?: number; error: unknown }
+
 /**
- * Fetch full TV show details including credits
- * @param tvId - TMDB TV show ID
- * @returns TV show details with credits or null
+ * Fetch TV show details with credits and ratings, returning an explicit status code.
+ * Distinguishes 404 (permanent not found) from 500/network errors.
  */
-export async function getTVDetails(
+export async function getTVDetailsWithStatus(
   tvId: number,
-): Promise<TMDBTVDetails | null> {
+): Promise<TMDBFetchStatusResult<TMDBTVDetails>> {
   if (!TMDB_BEARER_TOKEN) {
     console.error("TMDB API credentials not set")
-    return null
+    return { status: "error", statusCode: 500, error: new Error("TMDB credentials not set") }
   }
 
   try {
@@ -1025,19 +1029,39 @@ export async function getTVDetails(
       { append_to_response: "credits,content_ratings" },
     ) // Cache for 24 hours
 
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`)
+    if (response.status === 404) {
+      return { status: 404 }
     }
 
-    return response.json()
+    if (!response.ok) {
+      return {
+        status: "error",
+        statusCode: response.status,
+        error: new Error(`TMDB API error: ${response.status}`),
+      }
+    }
+
+    const data = (await response.json()) as TMDBTVDetails
+    return { status: 200, data }
   } catch (error) {
-    // 404 is expected for deleted/invalid media - don't log
     if (error instanceof Error && error.message.includes("404")) {
-      return null
+      return { status: 404 }
     }
     console.error("Failed to fetch TV details:", error)
-    return null
+    return { status: "error", statusCode: 500, error }
   }
+}
+
+/**
+ * Fetch TV show details with credits and ratings
+ * @param tvId - TMDB TV show ID
+ * @returns TV show details with credits or null
+ */
+export async function getTVDetails(
+  tvId: number,
+): Promise<TMDBTVDetails | null> {
+  const result = await getTVDetailsWithStatus(tvId)
+  return result.status === 200 ? result.data : null
 }
 
 /**
