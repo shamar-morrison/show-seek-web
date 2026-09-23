@@ -560,8 +560,7 @@ describe("WatchProgressClient", () => {
     ).toBeInTheDocument()
   })
 
-  it("shows skeletons while enriching only when there is nothing renderable yet", () => {
-    // Search filters out the only show, so sortedProgress is empty
+  it("shows No results found immediately for a nonmatching search even while enriching", () => {
     mocks.watchProgress = [
       buildShow({
         tvShowId: 1,
@@ -577,11 +576,55 @@ describe("WatchProgressClient", () => {
       target: { value: "no-such-show" },
     })
 
-    // Nothing renderable: no cards, and the search empty state waits until
-    // enrichment settles (skeleton branch owns this state while enriching)
+    // Search matched nothing: empty state wins over the skeleton branch
+    expect(screen.getByText("No results found")).toBeInTheDocument()
+    expect(screen.getByText(/no-such-show/i)).toBeInTheDocument()
     expect(
       screen.queryByRole("link", { name: "Cached Show" }),
     ).not.toBeInTheDocument()
+  })
+
+  it("keeps skeletons for a genuinely empty tab with a blank search while enriching", () => {
+    // Only a hidden show: watching tab is empty, enrichedProgress is not
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 9,
+        tvShowName: "Hidden Gem",
+        isHidden: true,
+      }),
+    ]
+    mocks.isEnriching = true
+
+    render(<WatchProgressClient />)
+
+    // Still loading with no search: skeleton branch owns this state, exactly
+    // as before — neither empty-state copy renders yet
+    expect(screen.queryByText("No shows in progress")).not.toBeInTheDocument()
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: "Hidden Gem" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("keeps the empty-tab copy for a genuinely empty tab even with a search query typed", () => {
+    mocks.watchProgress = [
+      buildShow({
+        tvShowId: 9,
+        tvShowName: "Hidden Gem",
+        isHidden: true,
+      }),
+    ]
+    mocks.isEnriching = true
+
+    render(<WatchProgressClient />)
+
+    fireEvent.change(screen.getByPlaceholderText("Search TV shows..."), {
+      target: { value: "anything" },
+    })
+
+    // Nothing in this tab at all: tab-empty copy wins, independent of the
+    // search box — never rerouted into "No results found for X"
+    expect(screen.getByText("No shows in progress")).toBeInTheDocument()
     expect(screen.queryByText("No results found")).not.toBeInTheDocument()
   })
 })

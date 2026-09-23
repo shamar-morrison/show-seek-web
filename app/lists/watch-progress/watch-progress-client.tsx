@@ -174,6 +174,11 @@ export function WatchProgressClient() {
     return sorted
   }, [filteredProgress, sortState])
 
+  // Explicit search-emptiness flag so the skeleton branch can distinguish
+  // "data still loading" (blank search) from "search matched nothing".
+  // The genuinely-empty-tab case below stays independent of the search box.
+  const hasActiveSearch = searchQuery.trim().length > 0
+
   const isLoading = authLoading || trackingLoading
 
   // Loading state
@@ -269,7 +274,7 @@ export function WatchProgressClient() {
             />
           ))}
         </div>
-      ) : isEnriching ? (
+      ) : isEnriching && !hasActiveSearch ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: enrichedProgress.length || 6 }, (_, i) => (
             <WatchProgressCardSkeleton key={i} />
