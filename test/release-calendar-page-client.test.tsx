@@ -71,6 +71,8 @@ const listsState: {
   error: null,
 }
 
+const CALENDAR_SOURCES_STORAGE_KEY = "calendarSelectedSources"
+
 vi.mock("@/hooks/use-lists", () => ({
   useLists: () => ({
     lists: listsState.lists,
@@ -122,6 +124,7 @@ function formatLocalDateKey(date: Date): string {
 describe("ReleaseCalendarView", () => {
   beforeEach(() => {
     setLocation()
+    window.localStorage.clear()
     listsState.lists = []
     listsState.loading = false
     listsState.error = null
@@ -747,6 +750,189 @@ describe("ReleaseCalendarView", () => {
     await user.click(screen.getByRole("button", { name: "Filter Road Trip" }))
 
     expect(window.location.search).toContain("source=road-trip")
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(CALENDAR_SOURCES_STORAGE_KEY) ?? "null",
+      ),
+    ).toEqual(["road-trip"])
+  })
+
+  it("restores saved source selections when the URL has no source filter", async () => {
+    window.localStorage.setItem(
+      CALENDAR_SOURCES_STORAGE_KEY,
+      JSON.stringify(["favorites"]),
+    )
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            sourceLists: ["watchlist"],
+          }),
+          createRelease({
+            id: 2,
+            title: "Favorite Movie",
+            sourceLists: ["favorites"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(await screen.findByText("Favorite Movie")).toBeInTheDocument()
+    expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
+  })
+
+  it("restores saved custom source selections after custom lists load", async () => {
+    listsState.lists = [
+      {
+        id: "road-trip",
+        name: "Road Trip",
+        items: {},
+        createdAt: 1,
+        isCustom: true,
+      },
+    ]
+    window.localStorage.setItem(
+      CALENDAR_SOURCES_STORAGE_KEY,
+      JSON.stringify(["road-trip"]),
+    )
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            sourceLists: ["watchlist"],
+          }),
+          createRelease({
+            id: 7,
+            title: "Road Trip Movie",
+            sourceLists: ["road-trip"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(await screen.findByText("Road Trip Movie")).toBeInTheDocument()
+    expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
+  })
+
+  it("restores an explicitly empty saved source selection", async () => {
+    window.localStorage.setItem(CALENDAR_SOURCES_STORAGE_KEY, "[]")
+
+    render(
+      <ReleaseCalendarView
+        releases={[createRelease({ id: 1, title: "Watchlist Movie" })]}
+        isPremium
+      />,
+    )
+
+    expect(
+      await screen.findByText("No releases match these filters"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Watchlist Movie")).not.toBeInTheDocument()
+  })
+
+  it("gives explicit URL source filters priority over saved selections", () => {
+    setLocation("?source=watchlist")
+    window.localStorage.setItem(
+      CALENDAR_SOURCES_STORAGE_KEY,
+      JSON.stringify(["favorites"]),
+    )
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 1,
+            title: "Watchlist Movie",
+            sourceLists: ["watchlist"],
+          }),
+          createRelease({
+            id: 2,
+            title: "Favorite Movie",
+            sourceLists: ["favorites"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(screen.getByText("Watchlist Movie")).toBeInTheDocument()
+    expect(screen.queryByText("Favorite Movie")).not.toBeInTheDocument()
+  })
+
+  it("preserves an explicit empty URL source filter over saved selections", () => {
+    setLocation("?source=")
+    window.localStorage.setItem(
+      CALENDAR_SOURCES_STORAGE_KEY,
+      JSON.stringify(["favorites"]),
+    )
+
+    render(
+      <ReleaseCalendarView
+        releases={[
+          createRelease({
+            id: 2,
+            title: "Favorite Movie",
+            sourceLists: ["favorites"],
+          }),
+        ]}
+        isPremium
+      />,
+    )
+
+    expect(screen.getByText("No releases match these filters")).toBeInTheDocument()
+    expect(screen.queryByText("Favorite Movie")).not.toBeInTheDocument()
+  })
+
+  it("persists default source selections when calendar filters are reset", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ReleaseCalendarView
+        releases={[createRelease({ id: 1, title: "Watchlist Movie" })]}
+        isPremium
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Filter Favorites" }))
+    await user.click(screen.getByRole("button", { name: "Clear Shared Filters" }))
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(CALENDAR_SOURCES_STORAGE_KEY) ?? "null",
+      ),
+    ).toEqual(["watchlist", "favorites", "currently-watching"])
+  })
+
+  it("falls back to default sources for corrupt or deleted saved source IDs", async () => {
+    window.localStorage.setItem(CALENDAR_SOURCES_STORAGE_KEY, "not-json")
+
+    const renderCalendar = () =>
+      render(
+        <ReleaseCalendarView
+          releases={[createRelease({ id: 1, title: "Watchlist Movie" })]}
+          isPremium
+        />,
+      )
+
+    const first = renderCalendar()
+    expect(await screen.findByText("Watchlist Movie")).toBeInTheDocument()
+    first.unmount()
+
+    window.localStorage.setItem(
+      CALENDAR_SOURCES_STORAGE_KEY,
+      JSON.stringify(["deleted-custom-list"]),
+    )
+    renderCalendar()
+
+    expect(await screen.findByText("Watchlist Movie")).toBeInTheDocument()
   })
 
   it("restores custom source selections from the URL", () => {

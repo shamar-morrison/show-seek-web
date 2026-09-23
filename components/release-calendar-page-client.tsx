@@ -57,7 +57,8 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 const PREVIEW_LIMIT = 3
@@ -91,6 +92,7 @@ const MEDIA_TABS: Array<{
 ]
 
 const SOURCE_FILTER_KEY = "source"
+const CALENDAR_SOURCES_STORAGE_KEY = "calendarSelectedSources"
 
 const SOURCE_LABELS: Record<string, string> = {
   watchlist: "Watchlist",
@@ -354,6 +356,26 @@ function normalizeSelectedSources(
   return normalized.slice(0, MAX_CALENDAR_SOURCE_SELECTIONS)
 }
 
+function sanitizeStoredSources(
+  value: unknown,
+  allowedIds: readonly string[],
+): CalendarSourceFilter[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  if (value.length === 0) {
+    return []
+  }
+
+  const validValues = value.filter(
+    (source): source is string => typeof source === "string" && source.length > 0,
+  )
+  const normalized = normalizeSelectedSources(validValues, allowedIds)
+
+  return normalized.length > 0 ? normalized : [...CALENDAR_SOURCE_FILTERS]
+}
+
 function isDefaultSourceSelection(selectedSources: readonly string[]): boolean {
   if (selectedSources.length !== CALENDAR_SOURCE_FILTERS.length) {
     return false
@@ -404,6 +426,7 @@ export function ReleaseCalendarView({
   releases,
 }: ReleaseCalendarViewProps) {
   const { lists, loading: listsLoading } = useLists()
+  const searchParams = useSearchParams()
   const [urlState, setUrlState] = useUrlStateSync<ReleaseCalendarUrlState>({
     keys: ["media", "source", "sort", "temporal"],
     parse: (params) => {
@@ -467,6 +490,14 @@ export function ReleaseCalendarView({
   const selectedSources = urlState.selectedSources
   const sortMode = urlState.sortMode
   const temporalFilter = urlState.temporalFilter
+  const initialSelectedSourcesRef = useRef(selectedSources)
+  const initialSearchParamsRef = useRef(searchParams?.toString() ?? "")
+  const savedSourcesRawRef = useRef<unknown>(null)
+  const lastPersistedSourcesRef = useRef<string | null>(null)
+  const [isSourcePreferenceReadDone, setIsSourcePreferenceReadDone] =
+    useState(false)
+  const [isSourcePreferenceReady, setIsSourcePreferenceReady] = useState(false)
+  const didHydrateSourcesRef = useRef(false)
 
   const customSourceOptions = useMemo(
     () =>
@@ -482,6 +513,97 @@ export function ReleaseCalendarView({
     ],
     [customSourceOptions],
   )
+
+  useEffect(() => {
+    try {
+      savedSourcesRawRef.current = window.localStorage.getItem(
+        CALENDAR_SOURCES_STORAGE_KEY,
+      )
+    } catch (error) {
+      console.error("Failed to load calendar source preference:", error)
+      savedSourcesRawRef.current = null
+    } finally {
+      setIsSourcePreferenceReadDone(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (
+      !isSourcePreferenceReadDone ||
+      listsLoading ||
+      didHydrateSourcesRef.current
+    ) {
+      return
+    }
+
+    didHydrateSourcesRef.current = true
+    const initialParams = new URLSearchParams(initialSearchParamsRef.current)
+    const hasExplicitUrlSources = initialParams.has(SOURCE_FILTER_KEY)
+    const selectionChangedDuringHydration =
+      selectedSources !== initialSelectedSourcesRef.current
+
+    if (!hasExplicitUrlSources && !selectionChangedDuringHydration) {
+      let savedSources: unknown = null
+      const rawSavedSources = savedSourcesRawRef.current
+
+      if (typeof rawSavedSources === "string") {
+        try {
+          savedSources = JSON.parse(rawSavedSources)
+        } catch (error) {
+          console.error("Failed to parse calendar source preference:", error)
+        }
+      }
+
+      const sanitizedSources = sanitizeStoredSources(
+        savedSources,
+        knownSourceIds,
+      )
+
+      if (sanitizedSources) {
+        const savedSelection = JSON.stringify(sanitizedSources)
+        const rawSelection = JSON.stringify(savedSources)
+        lastPersistedSourcesRef.current =
+          savedSelection === rawSelection ? savedSelection : null
+
+        setUrlState((currentState) => ({
+          ...currentState,
+          selectedSources: sanitizedSources,
+        }))
+      } else {
+        lastPersistedSourcesRef.current = JSON.stringify(selectedSources)
+      }
+    }
+
+    setIsSourcePreferenceReady(true)
+  }, [
+    isSourcePreferenceReadDone,
+    knownSourceIds,
+    listsLoading,
+    selectedSources,
+    setUrlState,
+  ])
+
+  useEffect(() => {
+    if (!isSourcePreferenceReady) {
+      return
+    }
+
+    const serializedSources = JSON.stringify(selectedSources)
+    if (lastPersistedSourcesRef.current === serializedSources) {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        CALENDAR_SOURCES_STORAGE_KEY,
+        serializedSources,
+      )
+      lastPersistedSourcesRef.current = serializedSources
+    } catch (error) {
+      console.error("Failed to save calendar source preference:", error)
+    }
+  }, [isSourcePreferenceReady, selectedSources])
+
   const sourceFilterCategories = useMemo(
     () => buildSourceFilterCategories(customSourceOptions),
     [customSourceOptions],
