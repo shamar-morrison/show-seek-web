@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "The terms that govern your use of ShowSeek for tracking movies and TV shows.",
 }
 
-const CONTACT_EMAIL = "shamar.morrison2000@gmail.com"
+const CONTACT_EMAIL = "feedback@show-seek.app"
 
 /**
  * Terms of Service Page

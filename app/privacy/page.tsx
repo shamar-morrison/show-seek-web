@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "How ShowSeek collects, uses, stores, and protects your information.",
 }
 
-const CONTACT_EMAIL = "shamar.morrison2000@gmail.com"
+const CONTACT_EMAIL = "feedback@show-seek.app"
 
 /**
  * Privacy Policy Page
