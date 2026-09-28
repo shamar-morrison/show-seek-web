@@ -38,11 +38,10 @@ import {
 } from "react"
 
 export type PremiumStatus = PremiumGateStatus
-type ReconcileCallableName = "reconcilePremiumStatus" | "syncPremiumStatus"
+type ReconcileCallableName = "reconcilePremiumStatus"
 
 const RECONCILE_CALLABLE_ORDER: readonly ReconcileCallableName[] = [
   "reconcilePremiumStatus",
-  "syncPremiumStatus",
 ]
 
 export type ReconcilePremiumStatusResponse = {
@@ -83,12 +82,6 @@ const RECONCILE_DEPENDENCY_ERROR_CODES = new Set([
   "not-found",
   "unimplemented",
   "unavailable",
-])
-const RECONCILE_FALLBACK_ERROR_CODES = new Set([
-  "functions/not-found",
-  "functions/unimplemented",
-  "not-found",
-  "unimplemented",
 ])
 const reconcileEnabled =
   process.env.NEXT_PUBLIC_ENABLE_PREMIUM_RECONCILE !== "false"
@@ -180,14 +173,7 @@ const isReconcileDependencyError = (errorCode: string): boolean => {
   return RECONCILE_DEPENDENCY_ERROR_CODES.has(errorCode)
 }
 
-export const shouldFallbackToLegacyReconcileCallable = (
-  errorCode: string,
-): boolean => {
-  return RECONCILE_FALLBACK_ERROR_CODES.has(errorCode)
-}
-
 const parseReconcilePremiumStatusResponse = (
-  callableName: ReconcileCallableName,
   data: unknown,
 ): ReconcilePremiumStatusResponse => {
   if (!data || typeof data !== "object") {
@@ -198,27 +184,6 @@ const parseReconcilePremiumStatusResponse = (
 
   const candidate = data as Partial<ReconcilePremiumStatusResponse>
   const source = candidate.source
-
-  if (
-    callableName === "syncPremiumStatus" &&
-    typeof candidate.isPremium === "boolean"
-  ) {
-    return {
-      isPremium: candidate.isPremium,
-      source:
-        source === "firestore" ||
-        source === "revenuecat" ||
-        source === "both" ||
-        source === "none"
-          ? source
-          : "firestore",
-      reconciledAt:
-        candidate.reconciledAt === null ||
-        typeof candidate.reconciledAt === "string"
-          ? candidate.reconciledAt
-          : null,
-    }
-  }
 
   if (
     typeof candidate.isPremium !== "boolean" ||
@@ -474,10 +439,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return
             }
 
-            const parsedResponse = parseReconcilePremiumStatusResponse(
-              callableName,
-              response?.data,
-            )
+            const parsedResponse =
+              parseReconcilePremiumStatusResponse(response?.data)
             const nowIso = new Date().toISOString()
             const nextPremiumStatus = resolvePremiumStatusFromReconcileResult({
               isPremium: parsedResponse.isPremium,
@@ -516,9 +479,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 uidSuffix: userId.slice(-6),
               })
             } else {
+              const errorMessage =
+                error instanceof Error && error.message
+                  ? error.message
+                  : String(error)
+              const errorDetails =
+                typeof error === "object" && error !== null && "details" in error
+                  ? (error as { details?: unknown }).details
+                  : undefined
               console.error("Premium reconciliation failed:", {
                 callableName,
-                error,
+                code: errorCode,
+                details: errorDetails,
+                message: errorMessage,
               })
             }
 
@@ -534,13 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }),
             )
 
-            const canFallbackToLegacyCallable =
-              callableName === "reconcilePremiumStatus" &&
-              shouldFallbackToLegacyReconcileCallable(errorCode)
-
-            if (!canFallbackToLegacyCallable) {
-              break
-            }
+            break
           }
         }
 

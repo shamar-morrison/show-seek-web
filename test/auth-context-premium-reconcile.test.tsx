@@ -183,36 +183,4 @@ describe("AuthContext premium reconciliation flows", () => {
       preserveCurrent: true,
     })
   })
-
-  it("falls back to syncPremiumStatus when reconcile callable is not found", async () => {
-    const primaryCallable = vi.fn(async () => {
-      const error = new Error("not found")
-      ;(error as { code?: string }).code = "functions/not-found"
-      throw error
-    })
-    const fallbackCallable = vi.fn(async (): Promise<ReconcileResponse> => ({
-      data: {
-        isPremium: true,
-        source: "revenuecat",
-        reconciledAt: "2026-02-24T10:00:00.000Z",
-      },
-    }))
-
-    let status: PremiumStatus = "free"
-
-    await expect(primaryCallable()).rejects.toMatchObject({
-      code: "functions/not-found",
-    })
-    expect(
-      authContext.shouldFallbackToLegacyReconcileCallable("functions/not-found"),
-    ).toBe(true)
-
-    const fallbackResponse = await fallbackCallable()
-    status = authContext.resolvePremiumStatusFromReconcileResult({
-      isPremium: fallbackResponse.data.isPremium,
-    })
-
-    expect(status).toBe("premium")
-    expect(fallbackCallable).toHaveBeenCalledTimes(1)
-  })
 })
