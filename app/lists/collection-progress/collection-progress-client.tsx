@@ -116,6 +116,7 @@ export function CollectionProgressClient() {
           sortFields={SORT_FIELDS}
           sortState={sortState}
           onSortChange={setSortState}
+          triggerTooltip="Sort"
         />
       </div>
 

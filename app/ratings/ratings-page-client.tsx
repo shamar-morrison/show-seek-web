@@ -625,6 +625,7 @@ export function RatingsPageClient() {
               : undefined
           }
           onClearAll={hasActiveFilters ? handleClearAll : undefined}
+          triggerTooltip="Filter and sort"
         />
       </div>
 

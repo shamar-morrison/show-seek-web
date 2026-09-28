@@ -256,6 +256,7 @@ export function WatchProgressClient() {
           sortFields={SORT_FIELDS.map((field) => ({ ...field }))}
           sortState={sortState}
           onSortChange={setSortState}
+          triggerTooltip="Sort"
         />
         <WatchProgressOptionsMenu
           hideCompleted={hideCompleted}

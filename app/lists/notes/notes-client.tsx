@@ -445,6 +445,7 @@ export function NotesClient() {
               sortState: nextSortState,
             }))
           }
+          triggerTooltip="Sort"
         />
       </div>
 

@@ -15,6 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 import { Switch } from "./ui/switch"
 
 interface WatchProgressOptionsMenuProps {
@@ -33,28 +34,35 @@ export function WatchProgressOptionsMenu({
 }: WatchProgressOptionsMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const dropdownTrigger = (
+    <DropdownMenuTrigger
+      aria-label="View options"
+      data-testid="watch-progress-options-button"
+      className={cn(
+        "relative inline-flex items-center gap-2 rounded-md px-2.5 py-2.5",
+        "text-sm font-medium",
+        "bg-white/5 hover:bg-white/10",
+        "border border-white/10",
+        "transition-colors",
+        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+      )}
+    >
+      <HugeiconsIcon icon={SlidersHorizontalIcon} className="size-4" />
+      {hideCompleted && (
+        <span
+          data-testid="watch-progress-options-badge"
+          className="absolute top-1 right-1 size-2 rounded-full bg-primary"
+        />
+      )}
+    </DropdownMenuTrigger>
+  )
+
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenuTrigger
-        aria-label="View options"
-        data-testid="watch-progress-options-button"
-        className={cn(
-          "relative inline-flex items-center gap-2 rounded-md px-2.5 py-2.5",
-          "text-sm font-medium",
-          "bg-white/5 hover:bg-white/10",
-          "border border-white/10",
-          "transition-colors",
-          "focus:outline-none focus:ring-2 focus:ring-primary/20",
-        )}
-      >
-        <HugeiconsIcon icon={SlidersHorizontalIcon} className="size-4" />
-        {hideCompleted && (
-          <span
-            data-testid="watch-progress-options-badge"
-            className="absolute top-1 right-1 size-2 rounded-full bg-primary"
-          />
-        )}
-      </DropdownMenuTrigger>
+      <Tooltip disabled={menuOpen}>
+        <TooltipTrigger render={dropdownTrigger} />
+        <TooltipContent>View options</TooltipContent>
+      </Tooltip>
 
       <DropdownMenuContent align="end" className="min-w-[300px]">
         <DropdownMenuGroup>

@@ -165,6 +165,7 @@ export function FavoritePeopleClient() {
           sortState={sortState}
           onSortChange={setSortState}
           onClearAll={hasActiveFilters ? handleClearAll : undefined}
+          triggerTooltip="Filter and sort"
         />
       </div>
 

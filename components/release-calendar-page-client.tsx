@@ -1032,6 +1032,7 @@ function CalendarToolbar({
         showClearAll={hasActiveControls}
         showSortDirection={false}
         triggerLabel="Filter / Sort"
+        triggerTooltip="Filter and sort"
         triggerTestId="release-calendar-filter-sort-button"
         triggerClassName="h-11 rounded-full border-white/10 bg-white/[0.04] px-4 text-white hover:bg-white/[0.08]"
         className="border-white/10 bg-black text-white"

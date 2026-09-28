@@ -153,6 +153,7 @@ export function FavoriteEpisodesClient() {
           onSortChange={setSortState}
           onClearAll={hasActiveControls ? handleClearAll : undefined}
           showClearAll={hasActiveControls}
+          triggerTooltip="Sort"
         />
       </div>
 
