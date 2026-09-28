@@ -55,7 +55,6 @@ vi.mock("next/navigation", () => ({
 import {
   resolvePremiumStatusFromSnapshot,
   resolvePremiumStatusOnListenerError,
-  shouldFallbackToLegacyReconcileCallable,
   shouldStartPremiumReconcile,
 } from "../context/auth-context"
 
@@ -164,18 +163,5 @@ describe("premium reconciliation state helpers", () => {
         nextIsPremium: false,
       }),
     ).toBe(false)
-  })
-
-  it("falls back to legacy callable only for missing/unimplemented errors", () => {
-    expect(
-      shouldFallbackToLegacyReconcileCallable("functions/not-found"),
-    ).toBe(true)
-    expect(
-      shouldFallbackToLegacyReconcileCallable("functions/unimplemented"),
-    ).toBe(true)
-    expect(
-      shouldFallbackToLegacyReconcileCallable("functions/unavailable"),
-    ).toBe(false)
-    expect(shouldFallbackToLegacyReconcileCallable("unknown")).toBe(false)
   })
 })
