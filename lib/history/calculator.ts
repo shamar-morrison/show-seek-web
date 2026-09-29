@@ -1,0 +1,799 @@
+import type { WatchedEpisode } from "@/types/episode-tracking"
+import type { UserList } from "@/types/list"
+import type {
+  ActivityItem,
+  HistoryData,
+  MediaSplit,
+  MonthlyDetail,
+  MonthlyStats,
+  MonthWatchedItem,
+} from "@/types/history"
+import type { RatingItem } from "./rating-normalization"
+import { toMillis } from "./timestamps"
+import { EPISODE_RUNTIME_FALLBACK_MINUTES } from "@/lib/profile-watch-time"
+
+/** Episode with show metadata for history display */
+export interface EnrichedWatchedEpisode extends WatchedEpisode {
+  tvShowName: string
+  posterPath: string | null
+}
+
+/**
+ * Time periods for grouping
+ */
+const TIME_OF_DAY = {
+  MORNING: { start: 5, end: 12, labelKey: "stats.timeOfDay.morning" },
+  AFTERNOON: { start: 12, end: 17, labelKey: "stats.timeOfDay.afternoon" },
+  EVENING: { start: 17, end: 21, labelKey: "stats.timeOfDay.evening" },
+  NIGHT: { start: 21, end: 5, labelKey: "stats.timeOfDay.night" },
+} as const
+
+export interface HistorySource {
+  episodes: EnrichedWatchedEpisode[]
+  ratings: RatingItem[]
+  lists: UserList[]
+}
+
+/** Read-only port of mobile HistoryService. No runtime backfill or network work. */
+export class HistoryCalculator {
+  constructor(
+    private source: HistorySource,
+    private now = Date.now(),
+    private locale = "en-US",
+  ) {}
+
+  private sortMonthWatchedItems(items: MonthWatchedItem[]): MonthWatchedItem[] {
+    return items.sort((a, b) => {
+      if (b.timestamp !== a.timestamp) {
+        return b.timestamp - a.timestamp
+      }
+
+      return String(a.id).localeCompare(String(b.id))
+    })
+  }
+
+  /**
+   * Format month string from timestamp
+   */
+  private formatMonth(timestamp: number): string {
+    const date = new Date(timestamp)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+  }
+
+  /**
+   * Format human-readable month name
+   */
+  private formatMonthName(monthKey: string): string {
+    const [year, month] = monthKey.split("-").map(Number)
+    const date = new Date(year, month - 1)
+    return date.toLocaleDateString(this.locale, {
+      month: "long",
+      year: "numeric",
+    })
+  }
+
+  /**
+   * Get timestamp for N months ago
+   */
+  private getMonthsAgoTimestamp(months: number): number {
+    const date = new Date(this.now)
+    date.setDate(1)
+    date.setMonth(date.getMonth() - months)
+    date.setHours(0, 0, 0, 0)
+    return date.getTime()
+  }
+
+  /**
+   * Group items by month
+   */
+  private groupByMonth<T extends { timestamp: number }>(
+    items: T[],
+  ): Map<string, T[]> {
+    const grouped = new Map<string, T[]>()
+
+    items.forEach((item) => {
+      const monthKey = this.formatMonth(item.timestamp)
+      const existing = grouped.get(monthKey) || []
+      existing.push(item)
+      grouped.set(monthKey, existing)
+    })
+
+    return grouped
+  }
+
+  /**
+   * Calculate top genres from genre IDs
+   */
+  private calculateTopGenres(
+    genreIdCounts: Map<number, number>,
+    genreMap: Record<number, string>,
+    limit = 3,
+  ): string[] {
+    const sorted = [...genreIdCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+
+    return sorted
+      .map(([id]) => genreMap[id])
+      .filter((name): name is string => !!name)
+  }
+
+  /**
+   * Calculate streak from timestamps
+   */
+  private calculateStreaks(timestamps: number[]): {
+    current: number
+    longest: number
+  } {
+    if (timestamps.length === 0) {
+      return { current: 0, longest: 0 }
+    }
+
+    // Helper to format date as YYYY-MM-DD (consistent, zero-padded format)
+    const formatDateKey = (date: Date): string => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, "0")
+      const day = String(date.getDate()).padStart(2, "0")
+      return `${year}-${month}-${day}`
+    }
+
+    // Get unique dates (day precision) as a Set for O(1) lookup
+    const uniqueDateSet = new Set(
+      timestamps.map((ts) => formatDateKey(new Date(ts))),
+    )
+
+    // Sort dates for longest streak calculation
+    const sortedDates = [...uniqueDateSet].sort()
+
+    if (sortedDates.length === 0) {
+      return { current: 0, longest: 0 }
+    }
+
+    // Calculate longest streak by iterating through sorted dates
+    let longestStreak = 1
+    let tempStreak = 1
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = new Date(sortedDates[i - 1])
+      const currDate = new Date(sortedDates[i])
+
+      // Check if consecutive days
+      const diffMs = currDate.getTime() - prevDate.getTime()
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+      if (diffDays === 1) {
+        tempStreak++
+        longestStreak = Math.max(longestStreak, tempStreak)
+      } else {
+        tempStreak = 1
+      }
+    }
+
+    // Calculate current streak by working BACKWARDS from today
+    const today = new Date(this.now)
+    const todayStr = formatDateKey(today)
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayStr = formatDateKey(yesterday)
+
+    let currentStreak = 0
+
+    // Check if there's activity today or yesterday to start the streak
+    if (uniqueDateSet.has(todayStr)) {
+      currentStreak = 1
+      // Work backwards from yesterday
+      let checkDate = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+      while (uniqueDateSet.has(formatDateKey(checkDate))) {
+        currentStreak++
+        checkDate = new Date(checkDate.getTime() - 24 * 60 * 60 * 1000)
+      }
+    } else if (uniqueDateSet.has(yesterdayStr)) {
+      currentStreak = 1
+      // Work backwards from day before yesterday
+      let checkDate = new Date(yesterday.getTime() - 24 * 60 * 60 * 1000)
+      while (uniqueDateSet.has(formatDateKey(checkDate))) {
+        currentStreak++
+        checkDate = new Date(checkDate.getTime() - 24 * 60 * 60 * 1000)
+      }
+    }
+
+    return { current: currentStreak, longest: longestStreak }
+  }
+
+  /**
+   * Analyze day and time patterns
+   */
+  private analyzePatterns(timestamps: number[]): {
+    mostActiveDay: string | null
+    mostActiveTimeOfDay: string | null
+  } {
+    if (timestamps.length === 0) {
+      return { mostActiveDay: null, mostActiveTimeOfDay: null }
+    }
+
+    const dayCounts = new Map<number, number>()
+    const timeCounts = new Map<string, number>()
+
+    timestamps.forEach((ts) => {
+      const date = new Date(ts)
+      const day = date.getDay()
+      const hour = date.getHours()
+
+      // Count days
+      dayCounts.set(day, (dayCounts.get(day) || 0) + 1)
+
+      // Count time periods
+      let period: string
+      if (hour >= TIME_OF_DAY.MORNING.start && hour < TIME_OF_DAY.MORNING.end) {
+        period = "Morning"
+      } else if (
+        hour >= TIME_OF_DAY.AFTERNOON.start &&
+        hour < TIME_OF_DAY.AFTERNOON.end
+      ) {
+        period = "Afternoon"
+      } else if (
+        hour >= TIME_OF_DAY.EVENING.start &&
+        hour < TIME_OF_DAY.EVENING.end
+      ) {
+        period = "Evening"
+      } else {
+        period = "Night"
+      }
+      timeCounts.set(period, (timeCounts.get(period) || 0) + 1)
+    })
+
+    // Find most active day
+    let mostActiveDayIndex: number | null = null
+    let maxDayCount = 0
+    dayCounts.forEach((count, day) => {
+      if (count > maxDayCount) {
+        maxDayCount = count
+        mostActiveDayIndex = day
+      }
+    })
+
+    const mostActiveDay =
+      mostActiveDayIndex === null
+        ? null
+        : new Date(2021, 0, 3 + mostActiveDayIndex).toLocaleDateString(
+            this.locale,
+            {
+              weekday: "long",
+            },
+          )
+
+    // Find most active time
+    let mostActiveTimeOfDay: string | null = null
+    let maxTimeCount = 0
+    timeCounts.forEach((count, period) => {
+      if (count > maxTimeCount) {
+        maxTimeCount = count
+        mostActiveTimeOfDay = period
+      }
+    })
+
+    return { mostActiveDay, mostActiveTimeOfDay }
+  }
+
+  /**
+   * Watched split: movies are already-watched movie entries; TV shows are
+   * distinct episode-tracking shows plus already-watched TV entries;
+   * TV episodes are raw episode plays.
+   */
+  private buildWatchedSplit(
+    episodeShowIds: Set<number>,
+    alreadyWatched: { mediaType: "movie" | "tv" }[],
+    episodeCount: number,
+  ): MediaSplit {
+    const movies = alreadyWatched.filter((i) => i.mediaType === "movie").length
+    const alreadyWatchedTv = alreadyWatched.filter(
+      (i) => i.mediaType === "tv",
+    ).length
+    return {
+      movies,
+      tvShows: episodeShowIds.size + alreadyWatchedTv,
+      tvEpisodes: episodeCount,
+    }
+  }
+
+  /**
+   * Rated split: exact movie ratings count as movies; tv, season, and
+   * episode ratings all bucket into TV. Episode-level ratings are also
+   * tracked as tvEpisodes sub-detail.
+   */
+  private buildRatedSplit(ratings: { mediaType: string }[]): MediaSplit {
+    const movies = ratings.filter((r) => r.mediaType === "movie").length
+    const tvEpisodes = ratings.filter((r) => r.mediaType === "episode").length
+    return {
+      movies,
+      tvShows: ratings.length - movies,
+      tvEpisodes,
+    }
+  }
+
+  /**
+   * Added split: list items are only movie|tv, counted directly.
+   * Anything non-movie buckets to TV so season/episode strays (which the
+   * month-detail UI filters out) never crash the totals.
+   */
+  private buildAddedSplit(items: { mediaType: string }[]): MediaSplit {
+    return {
+      movies: items.filter((i) => i.mediaType === "movie").length,
+      tvShows: items.filter((i) => i.mediaType === "tv").length,
+      tvEpisodes: 0,
+    }
+  }
+
+  /**
+   * Calculate percentage change between two values
+   */
+  private calculatePercentageChange(current: number, previous: number): number {
+    if (previous === 0) {
+      return current > 0 ? 100 : 0
+    }
+    return Math.round(((current - previous) / previous) * 100)
+  }
+
+  overview(genreMap: Record<number, string>, monthsBack = 6): HistoryData {
+    const cutoffTimestamp = this.getMonthsAgoTimestamp(monthsBack)
+
+    // Fetch all data in parallel
+    const { episodes, ratings, lists } = this.source
+
+    // Filter to recent period
+    const recentEpisodes = episodes.filter(
+      (e) => e.watchedAt >= cutoffTimestamp,
+    )
+    const recentRatings = ratings.filter((r) => r.ratedAt >= cutoffTimestamp)
+
+    // Extract list items with addedAt timestamps
+    const listItems: {
+      timestamp: number
+      genreIds?: number[]
+      listName: string
+      mediaType: "movie" | "tv"
+    }[] = []
+    // Already-watched items separately for "watched" stats + watch time.
+    const alreadyWatchedItems: {
+      timestamp: number
+      listId: string
+      itemKey: string
+      mediaType: "movie" | "tv"
+      mediaId: number
+      runtimeMinutes?: number
+    }[] = []
+
+    lists.forEach((list) => {
+      if (list.items) {
+        Object.entries(list.items).forEach(([itemKey, item]) => {
+          const addedAtMillis = toMillis(item.addedAt)
+          if (addedAtMillis !== null && addedAtMillis >= cutoffTimestamp) {
+            listItems.push({
+              timestamp: addedAtMillis,
+              genreIds: item.genre_ids,
+              listName: list.name,
+              mediaType: item.media_type,
+            })
+            // Track already-watched items for watched count
+            if (list.id === "already-watched") {
+              alreadyWatchedItems.push({
+                timestamp: addedAtMillis,
+                listId: list.id,
+                itemKey,
+                mediaType: item.media_type,
+                mediaId: item.id,
+                runtimeMinutes: item.runtimeMinutes,
+              })
+            }
+          }
+        })
+      }
+    })
+
+    const episodeWatchMinutes = (e: {
+      runtimeMinutes?: number
+      tvShowId: number
+      seasonNumber: number
+      episodeNumber: number
+    }): number => {
+      if (e.runtimeMinutes != null && e.runtimeMinutes > 0)
+        return e.runtimeMinutes
+      return EPISODE_RUNTIME_FALLBACK_MINUTES
+    }
+    const alreadyWatchedWatchMinutes = (i: {
+      runtimeMinutes?: number
+      listId: string
+      itemKey: string
+      mediaType: "movie" | "tv"
+    }): number => {
+      if (i.runtimeMinutes != null && i.runtimeMinutes > 0)
+        return i.runtimeMinutes
+      return i.mediaType === "movie" ? 0 : EPISODE_RUNTIME_FALLBACK_MINUTES
+    }
+
+    // Collect all timestamps for streak and pattern analysis
+    const allTimestamps = [
+      ...recentEpisodes.map((e) => e.watchedAt),
+      ...recentRatings.map((r) => r.ratedAt),
+      ...listItems.map((i) => i.timestamp),
+    ]
+
+    // Group by month
+    const episodesByMonth = this.groupByMonth(
+      recentEpisodes.map((e) => ({ ...e, timestamp: e.watchedAt })),
+    )
+    const ratingsByMonth = this.groupByMonth(
+      recentRatings.map((r) => ({ ...r, timestamp: r.ratedAt })),
+    )
+    const listItemsByMonth = this.groupByMonth(listItems)
+    const alreadyWatchedByMonth = this.groupByMonth(alreadyWatchedItems)
+
+    // Get all months in the period
+    const allMonths = new Set<string>()
+    episodesByMonth.forEach((_, month) => allMonths.add(month))
+    ratingsByMonth.forEach((_, month) => allMonths.add(month))
+    listItemsByMonth.forEach((_, month) => allMonths.add(month))
+
+    // Sort months (most recent first)
+    const sortedMonths = [...allMonths].sort().reverse()
+
+    // Calculate monthly stats
+    const monthlyStats: MonthlyStats[] = sortedMonths.map((month, index) => {
+      const monthEpisodes = episodesByMonth.get(month) || []
+      const monthRatings = ratingsByMonth.get(month) || []
+      const monthListItems = listItemsByMonth.get(month) || []
+      const monthAlreadyWatched = alreadyWatchedByMonth.get(month) || []
+
+      // Watched count = episodes + already-watched movies/TV
+      const totalWatchedForMonth =
+        monthEpisodes.length + monthAlreadyWatched.length
+      const totalWatchMinutesForMonth =
+        monthEpisodes.reduce((acc, e) => acc + episodeWatchMinutes(e), 0) +
+        monthAlreadyWatched.reduce(
+          (acc, i) => acc + alreadyWatchedWatchMinutes(i),
+          0,
+        )
+
+      // Calculate average rating
+      let averageRating: number | null = null
+      if (monthRatings.length > 0) {
+        const sum = monthRatings.reduce((acc, r) => acc + r.rating, 0)
+        averageRating = Math.round((sum / monthRatings.length) * 10) / 10
+      }
+
+      // Calculate top genres for the month
+      const genreIdCounts = new Map<number, number>()
+      // Note: Episode tracking doesn't store genre_ids, so we only count from list items
+      monthListItems.forEach((item) => {
+        item.genreIds?.forEach((id) => {
+          genreIdCounts.set(id, (genreIdCounts.get(id) || 0) + 1)
+        })
+      })
+      const topGenres = this.calculateTopGenres(genreIdCounts, genreMap)
+
+      // Calculate comparison to previous month
+      let comparisonToPrevious: MonthlyStats["comparisonToPrevious"] = null
+      if (index < sortedMonths.length - 1) {
+        const prevMonth = sortedMonths[index + 1]
+        const prevEpisodes = episodesByMonth.get(prevMonth) || []
+        const prevRatings = ratingsByMonth.get(prevMonth) || []
+        const prevListItems = listItemsByMonth.get(prevMonth) || []
+        const prevAlreadyWatched = alreadyWatchedByMonth.get(prevMonth) || []
+        const prevTotalWatched = prevEpisodes.length + prevAlreadyWatched.length
+
+        comparisonToPrevious = {
+          watched: this.calculatePercentageChange(
+            totalWatchedForMonth,
+            prevTotalWatched,
+          ),
+          rated: this.calculatePercentageChange(
+            monthRatings.length,
+            prevRatings.length,
+          ),
+          addedToLists: this.calculatePercentageChange(
+            monthListItems.length,
+            prevListItems.length,
+          ),
+        }
+      }
+
+      const monthEpisodeShowIds = new Set<number>(
+        monthEpisodes.map((e) => e.tvShowId),
+      )
+
+      return {
+        month,
+        monthName: this.formatMonthName(month),
+        watched: totalWatchedForMonth,
+        rated: monthRatings.length,
+        addedToLists: monthListItems.length,
+        watchedSplit: this.buildWatchedSplit(
+          monthEpisodeShowIds,
+          monthAlreadyWatched,
+          monthEpisodes.length,
+        ),
+        ratedSplit: this.buildRatedSplit(monthRatings),
+        addedSplit: this.buildAddedSplit(monthListItems),
+        averageRating,
+        totalWatchMinutes: totalWatchMinutesForMonth,
+        topGenres,
+        comparisonToPrevious,
+      }
+    })
+
+    // Calculate streaks
+    const { current: currentStreak, longest: longestStreak } =
+      this.calculateStreaks(allTimestamps)
+
+    // Analyze patterns
+    const { mostActiveDay, mostActiveTimeOfDay } =
+      this.analyzePatterns(allTimestamps)
+
+    const allEpisodeShowIds = new Set<number>(
+      recentEpisodes.map((e) => e.tvShowId),
+    )
+
+    return {
+      monthlyStats,
+      currentStreak,
+      longestStreak,
+      mostActiveDay,
+      mostActiveTimeOfDay,
+      totalWatched: recentEpisodes.length + alreadyWatchedItems.length,
+      totalRated: recentRatings.length,
+      totalAddedToLists: listItems.length,
+      watchedSplit: this.buildWatchedSplit(
+        allEpisodeShowIds,
+        alreadyWatchedItems,
+        recentEpisodes.length,
+      ),
+      ratedSplit: this.buildRatedSplit(recentRatings),
+      addedSplit: this.buildAddedSplit(listItems),
+      totalWatchMinutes:
+        recentEpisodes.reduce((acc, e) => acc + episodeWatchMinutes(e), 0) +
+        alreadyWatchedItems.reduce(
+          (acc, i) => acc + alreadyWatchedWatchMinutes(i),
+          0,
+        ),
+    }
+  }
+
+  detail(month: string, genreMap: Record<number, string>): MonthlyDetail {
+    // Parse month to get date range
+    const [year, monthNum] = month.split("-").map(Number)
+    const startOfMonth = new Date(year, monthNum - 1, 1).getTime()
+    const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59, 999).getTime()
+
+    // Fetch all data
+    const { episodes, ratings, lists } = this.source
+
+    // Filter to this month
+    const monthEpisodes = episodes.filter(
+      (e) => e.watchedAt >= startOfMonth && e.watchedAt <= endOfMonth,
+    )
+    const monthRatings = ratings.filter(
+      (r) => r.ratedAt >= startOfMonth && r.ratedAt <= endOfMonth,
+    )
+
+    // Get list items for this month - deduplicate by media ID + type
+    const seenMedia = new Set<string>()
+    const monthListItems: ActivityItem[] = []
+    lists.forEach((list) => {
+      if (list.items) {
+        Object.values(list.items).forEach((item) => {
+          const addedAtMillis = toMillis(item.addedAt)
+          if (
+            addedAtMillis !== null &&
+            addedAtMillis >= startOfMonth &&
+            addedAtMillis <= endOfMonth
+          ) {
+            // Create a unique key for this media item
+            const mediaKey = `${item.media_type}-${item.id}`
+            if (!seenMedia.has(mediaKey)) {
+              seenMedia.add(mediaKey)
+              monthListItems.push({
+                id: item.id,
+                type: "added",
+                mediaType: item.media_type,
+                title: item.title || item.name || "Unknown",
+                posterPath: item.poster_path,
+                timestamp: addedAtMillis,
+                listName: list.name,
+                genreIds: item.genre_ids,
+                releaseDate: item.release_date || item.first_air_date || null,
+                voteAverage: item.vote_average,
+              })
+            }
+          }
+        })
+      }
+    })
+
+    const watchedItems: MonthWatchedItem[] = []
+    let alreadyWatchedMediaCount = 0
+    const detailAlreadyWatchedRefs: {
+      itemKey: string
+      mediaType: "movie" | "tv"
+    }[] = []
+    const monthAlreadyWatchedMinutes: { minutes: number }[] = []
+
+    const episodesByShow = new Map<
+      number,
+      {
+        id: number
+        mediaType: "tv"
+        title: string
+        posterPath: string | null
+        timestamp: number
+        episodeCount: number
+      }
+    >()
+
+    monthEpisodes.forEach((episode) => {
+      const existing = episodesByShow.get(episode.tvShowId)
+
+      if (existing) {
+        existing.episodeCount += 1
+        existing.timestamp = Math.max(existing.timestamp, episode.watchedAt)
+        return
+      }
+
+      episodesByShow.set(episode.tvShowId, {
+        id: episode.tvShowId,
+        mediaType: "tv",
+        title: episode.tvShowName,
+        posterPath: episode.posterPath,
+        timestamp: episode.watchedAt,
+        episodeCount: 1,
+      })
+    })
+
+    watchedItems.push(
+      ...[...episodesByShow.values()].map(
+        (item): MonthWatchedItem => ({
+          kind: "episode-group",
+          ...item,
+        }),
+      ),
+    )
+
+    // Also include movies and TV shows from the "already-watched" list
+    const alreadyWatchedList = lists.find((l) => l.id === "already-watched")
+    const stampedDetailMinutes = new Map<string, number>()
+    if (alreadyWatchedList?.items) {
+      Object.entries(alreadyWatchedList.items).forEach(([itemKey, item]) => {
+        const addedAtMillis = toMillis(item.addedAt)
+        if (
+          addedAtMillis !== null &&
+          addedAtMillis >= startOfMonth &&
+          addedAtMillis <= endOfMonth
+        ) {
+          alreadyWatchedMediaCount += 1
+          detailAlreadyWatchedRefs.push({ itemKey, mediaType: item.media_type })
+          if (item.runtimeMinutes != null && item.runtimeMinutes > 0) {
+            stampedDetailMinutes.set(itemKey, item.runtimeMinutes)
+          }
+          watchedItems.push({
+            kind: "media",
+            id: item.id,
+            mediaType: item.media_type,
+            title: item.title || item.name || "Unknown",
+            posterPath: item.poster_path,
+            timestamp: addedAtMillis,
+            releaseDate: item.release_date || item.first_air_date || null,
+            voteAverage: item.vote_average,
+          })
+        }
+      })
+    }
+
+    const ratedItems: ActivityItem[] = monthRatings.map((r) => {
+      // Extract the actual media ID from the rating document ID
+      // Format: "movie-123" or "tv-456" or "episode-{tvShowId}-{season}-{episode}" or "season-{tvShowId}-{season}"
+      let mediaId: number | string = r.id
+      if (r.mediaType === "movie" && typeof r.id === "string") {
+        mediaId = parseInt(r.id.replace("movie-", ""), 10)
+      } else if (r.mediaType === "tv" && typeof r.id === "string") {
+        mediaId = parseInt(r.id.replace("tv-", ""), 10)
+      } else if (r.mediaType === "episode" && r.tvShowId) {
+        // For episodes, use tvShowId for navigation
+        mediaId = r.tvShowId
+      } else if (r.mediaType === "season" && r.tvShowId) {
+        mediaId = r.id
+      }
+
+      return {
+        id: mediaId,
+        type: "rated" as const,
+        mediaType: r.mediaType,
+        title:
+          r.title ||
+          r.episodeName ||
+          (r.mediaType === "season" && typeof r.seasonNumber === "number"
+            ? `Season ${r.seasonNumber}`
+            : null) ||
+          r.tvShowName ||
+          "Unknown",
+        posterPath: r.posterPath || null,
+        timestamp: r.ratedAt,
+        rating: r.rating,
+        releaseDate: r.releaseDate || null,
+        seasonNumber: r.seasonNumber,
+        episodeNumber: r.episodeNumber,
+        tvShowName: r.tvShowName,
+        tvShowId: r.tvShowId,
+      }
+    })
+
+    this.sortMonthWatchedItems(watchedItems)
+    ratedItems.sort((a, b) => b.timestamp - a.timestamp)
+    monthListItems.sort((a, b) => b.timestamp - a.timestamp)
+
+    // Calculate stats for this month
+    let averageRating: number | null = null
+    if (monthRatings.length > 0) {
+      const sum = monthRatings.reduce((acc, r) => acc + r.rating, 0)
+      averageRating = Math.round((sum / monthRatings.length) * 10) / 10
+    }
+
+    detailAlreadyWatchedRefs.forEach(({ itemKey, mediaType }) => {
+      const stamped = stampedDetailMinutes.get(itemKey)
+      monthAlreadyWatchedMinutes.push({
+        minutes:
+          stamped ??
+          (mediaType === "movie" ? 0 : EPISODE_RUNTIME_FALLBACK_MINUTES),
+      })
+    })
+    const monthWatchMinutes =
+      monthEpisodes.reduce(
+        (acc, e) =>
+          acc +
+          (e.runtimeMinutes != null && e.runtimeMinutes > 0
+            ? e.runtimeMinutes
+            : EPISODE_RUNTIME_FALLBACK_MINUTES),
+        0,
+      ) +
+      monthAlreadyWatchedMinutes.reduce((acc, entry) => acc + entry.minutes, 0)
+
+    // Calculate top genres
+    const genreIdCounts = new Map<number, number>()
+    monthListItems.forEach((item) => {
+      item.genreIds?.forEach((id) => {
+        genreIdCounts.set(id, (genreIdCounts.get(id) || 0) + 1)
+      })
+    })
+    const topGenres = this.calculateTopGenres(genreIdCounts, genreMap)
+
+    const detailEpisodeShowIds = new Set<number>(
+      monthEpisodes.map((e) => e.tvShowId),
+    )
+    const detailWatchedSplit = this.buildWatchedSplit(
+      detailEpisodeShowIds,
+      detailAlreadyWatchedRefs,
+      monthEpisodes.length,
+    )
+
+    return {
+      month,
+      monthName: this.formatMonthName(month),
+      stats: {
+        month,
+        monthName: this.formatMonthName(month),
+        watched: monthEpisodes.length + alreadyWatchedMediaCount,
+        rated: ratedItems.length,
+        addedToLists: monthListItems.length,
+        watchedSplit: detailWatchedSplit,
+        ratedSplit: this.buildRatedSplit(monthRatings),
+        addedSplit: this.buildAddedSplit(monthListItems),
+        averageRating,
+        totalWatchMinutes: monthWatchMinutes,
+        topGenres,
+        comparisonToPrevious: null,
+      },
+      items: {
+        watched: watchedItems,
+        rated: ratedItems,
+        added: monthListItems,
+      },
+    }
+  }
+}

@@ -156,6 +156,11 @@ describe("Navbar calendar link", () => {
 
     expect(screen.getAllByText("Library").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Progress").length).toBeGreaterThan(0)
+    const statsLinks = screen.getAllByRole("link", { name: /Stats & History/ })
+    expect(statsLinks).toHaveLength(2)
+    statsLinks.forEach((link) =>
+      expect(link).toHaveAttribute("href", "/lists/stats"),
+    )
     expect(screen.getAllByText("Lists").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Ratings & Favorites").length).toBeGreaterThan(0)
     expect(screen.getAllByText("My Ratings").length).toBeGreaterThan(0)
@@ -189,6 +194,21 @@ describe("Navbar calendar link", () => {
       screen.getByText("auth-modal Sign in to view your release calendar"),
     ).toBeInTheDocument()
     expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it("gates Stats & History in both navigation layouts", async () => {
+    mockUser = null
+    const { Navbar } = await import("@/components/navbar")
+    const { fireEvent } = await import("@testing-library/react")
+    render(<Navbar />)
+    for (const link of screen.getAllByRole("link", {
+      name: /Stats & History/,
+    })) {
+      fireEvent.click(link)
+      expect(
+        screen.getByText("auth-modal Sign in to view your stats and history"),
+      ).toBeInTheDocument()
+    }
   })
 
   it("navigates directly when a signed-in user clicks a gated link", async () => {
@@ -244,4 +264,3 @@ describe("Navbar calendar link", () => {
     expect(document.activeElement).toBe(mobileInput)
   })
 })
-
