@@ -1,5 +1,8 @@
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
+import { getHistoryCache } from "@/lib/history/cache"
+
 import {
   getFirebaseAuth,
   getFirebaseClientConfigErrorMessage,
@@ -211,6 +214,8 @@ const parseReconcilePremiumStatusResponse = (
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
+  const historyCache = getHistoryCache(queryClient)
   const router = useRouter()
   const firebaseAvailable = isFirebaseClientConfigured
   const firebaseUnavailableMessage = getFirebaseClientConfigErrorMessage()
@@ -439,8 +444,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return
             }
 
-            const parsedResponse =
-              parseReconcilePremiumStatusResponse(response?.data)
+            const parsedResponse = parseReconcilePremiumStatusResponse(
+              response?.data,
+            )
             const nowIso = new Date().toISOString()
             const nextPremiumStatus = resolvePremiumStatusFromReconcileResult({
               isPremium: parsedResponse.isPremium,
@@ -484,7 +490,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   ? error.message
                   : String(error)
               const errorDetails =
-                typeof error === "object" && error !== null && "details" in error
+                typeof error === "object" &&
+                error !== null &&
+                "details" in error
                   ? (error as { details?: unknown }).details
                   : undefined
               console.error("Premium reconciliation failed:", {
@@ -539,6 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!firebaseAvailable) {
       clearServerSessionSyncState()
+      void historyCache.selectUser(null)
       setUser(null)
       setLoading(false)
       return
@@ -546,6 +555,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const auth = getAuth()
     const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+      void historyCache.selectUser(
+        currentUser && !currentUser.isAnonymous ? currentUser.uid : null,
+      )
       setUser(currentUser)
       setLoading(false)
 
@@ -555,7 +567,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return unsubscribe
-  }, [clearServerSessionSyncState, firebaseAvailable, getAuth])
+  }, [clearServerSessionSyncState, firebaseAvailable, getAuth, historyCache])
 
   useEffect(() => {
     if (!firebaseAvailable || !user) {

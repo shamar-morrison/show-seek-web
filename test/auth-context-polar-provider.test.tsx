@@ -1,3 +1,4 @@
+import { QueryProvider } from "@/components/query-provider"
 import { act, renderHook } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AuthProvider, useAuth } from "@/context/auth-context"
@@ -22,8 +23,16 @@ vi.mock("@/lib/firebase/config", () => ({
 vi.mock("@/lib/firebase/client-session", () => ({
   createServerSessionSyncManager: vi.fn(() => ({
     clear: vi.fn(),
-    ensure: vi.fn(async () => ({ ok: true, status: "ready", uid: "user-test" })),
-    markReady: vi.fn(async () => ({ ok: true, status: "ready", uid: "user-test" })),
+    ensure: vi.fn(async () => ({
+      ok: true,
+      status: "ready",
+      uid: "user-test",
+    })),
+    markReady: vi.fn(async () => ({
+      ok: true,
+      status: "ready",
+      uid: "user-test",
+    })),
   })),
   syncServerSessionWithIdToken: vi.fn(async () => {}),
 }))
@@ -50,7 +59,9 @@ vi.mock("nextjs-toploader/app", () => ({
 
 describe("AuthProvider Polar Provider State", () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <AuthProvider>{children}</AuthProvider>
+    <QueryProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryProvider>
   )
 
   it("exposes premiumProvider from user document snapshot", () => {

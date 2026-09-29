@@ -1,3 +1,4 @@
+import { QueryProvider } from "@/components/query-provider"
 import { fireEvent, render, screen, waitFor } from "./utils"
 import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
@@ -24,7 +25,9 @@ vi.mock("@/lib/firebase/config", () => ({
     throw new Error("Firestore should not be requested when unavailable")
   }),
   getFirebaseFunctions: vi.fn(() => {
-    throw new Error("Firebase functions should not be requested when unavailable")
+    throw new Error(
+      "Firebase functions should not be requested when unavailable",
+    )
   }),
   isFirebaseClientConfigured: false,
 }))
@@ -103,9 +106,11 @@ function AuthContextProbe() {
 describe("AuthProvider without Firebase client config", () => {
   it("renders children in a stable guest state and returns a controlled session error", async () => {
     render(
-      <AuthProvider>
-        <AuthContextProbe />
-      </AuthProvider>,
+      <QueryProvider>
+        <AuthProvider>
+          <AuthContextProbe />
+        </AuthProvider>
+      </QueryProvider>,
     )
 
     expect(screen.getByTestId("auth-state")).toHaveTextContent(

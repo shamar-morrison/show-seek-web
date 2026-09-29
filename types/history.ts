@@ -1,0 +1,147 @@
+/**
+ * History Types
+ *
+ * Type definitions for user activity history and statistics functionality.
+ */
+
+/**
+ * Activity item from any source (watched, rated, or added)
+ */
+export interface ActivityItem {
+  id: string | number
+  type: "watched" | "rated" | "added"
+  mediaType: "movie" | "tv" | "episode" | "season"
+  title: string
+  posterPath: string | null
+  timestamp: number
+  rating?: number
+  listName?: string
+  genreIds?: number[]
+  releaseDate?: string | null
+  voteAverage?: number
+  // Episode-specific fields
+  seasonNumber?: number
+  episodeNumber?: number
+  tvShowName?: string
+  tvShowId?: number
+}
+
+/**
+ * Display item for the monthly watched tab.
+ * Episode activity is grouped by show before reaching the UI.
+ */
+export type MonthWatchedItem =
+  | {
+      kind: "media"
+      id: string | number
+      mediaType: "movie" | "tv"
+      title: string
+      posterPath: string | null
+      timestamp: number
+      releaseDate?: string | null
+      voteAverage?: number
+    }
+  | {
+      kind: "episode-group"
+      id: string | number
+      mediaType: "tv"
+      title: string
+      posterPath: string | null
+      timestamp: number
+      episodeCount: number
+      releaseDate?: string | null
+      voteAverage?: number
+    }
+
+/**
+ * Movies vs TV breakdown for a single stat category.
+ *
+ * - `movies`: count of movie items (already-watched movies, movie ratings,
+ *   or movie list additions depending on the category).
+ * - `tvShows`: count of TV items. For watched this is distinct shows
+ *   (episode groups + already-watched TV entries); for rated/added it is
+ *   the number of rating/add actions bucketed to TV (seasons and episodes
+ *   count as TV).
+ * - `tvEpisodes`: number of individual TV episodes behind the TV count
+ *   (episode plays for watched, episode-level ratings for rated, always 0
+ *   for added). Used as sub-detail, hidden when 0.
+ */
+export interface MediaSplit {
+  movies: number
+  tvShows: number
+  tvEpisodes: number
+}
+
+/**
+ * Stats for a single month
+ */
+export interface MonthlyStats {
+  /** Month in "YYYY-MM" format */
+  month: string
+  /** Human-readable month name, e.g., "December 2025" */
+  monthName: string
+  /** Number of episodes/movies watched */
+  watched: number
+  /** Number of items rated */
+  rated: number
+  /** Number of items added to lists */
+  addedToLists: number
+  /** Average rating for the month (null if no ratings) */
+  averageRating: number | null
+  /** Movies vs TV breakdowns for each category */
+  watchedSplit: MediaSplit
+  ratedSplit: MediaSplit
+  addedSplit: MediaSplit
+  /** Total watch time in minutes for the month */
+  totalWatchMinutes: number
+  /** Top 3 genre names for the month */
+  topGenres: string[]
+  /** Percentage change compared to previous month */
+  comparisonToPrevious: {
+    watched: number
+    rated: number
+    addedToLists: number
+  } | null
+}
+
+/**
+ * Detailed data for a specific month
+ */
+export interface MonthlyDetail {
+  month: string
+  monthName: string
+  stats: MonthlyStats
+  items: {
+    watched: MonthWatchedItem[]
+    rated: ActivityItem[]
+    added: ActivityItem[]
+  }
+}
+
+/**
+ * Aggregated history data for the user
+ */
+export interface HistoryData {
+  /** Stats grouped by month (most recent first) */
+  monthlyStats: MonthlyStats[]
+  /** Current consecutive days with activity */
+  currentStreak: number
+  /** Longest streak in the period */
+  longestStreak: number
+  /** Most active day of the week (e.g., "Saturday") */
+  mostActiveDay: string | null
+  /** Most active time of day (e.g., "Evening") */
+  mostActiveTimeOfDay: string | null
+  /** Total episodes/movies watched in the period */
+  totalWatched: number
+  /** Total items rated in the period */
+  totalRated: number
+  /** Total items added to lists in the period */
+  totalAddedToLists: number
+  /** Movies vs TV breakdowns for each category in the period */
+  watchedSplit: MediaSplit
+  ratedSplit: MediaSplit
+  addedSplit: MediaSplit
+  /** Total watch time in minutes in the period */
+  totalWatchMinutes: number
+}

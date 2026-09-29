@@ -84,6 +84,11 @@ const libraryMenu: NavItemWithSections = {
           href: "/lists/collection-progress",
           description: "Track completion across franchises and sagas.",
         },
+        {
+          label: "Stats & History",
+          href: "/lists/stats",
+          description: "Explore your viewing stats and monthly activity.",
+        },
       ],
     },
     {
@@ -151,6 +156,7 @@ const whereToWatchLink: SimpleNavItem = {
 
 /** Sign-in prompt shown when a guest taps a profile-gated nav link */
 const GATED_LINK_MESSAGES: Record<string, string> = {
+  "/lists/stats": "Sign in to view your stats and history",
   "/for-you": "Sign in to get personalized picks for you",
   "/calendar": "Sign in to view your release calendar",
   "/where-to-watch": "Sign in to use Where to Watch",
@@ -313,13 +319,8 @@ function MobileAccordionItem({
 export function Navbar() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const {
-    requireAuth,
-    modalVisible,
-    modalMessage,
-    closeModal,
-    onAuthSuccess,
-  } = useAuthGuard()
+  const { requireAuth, modalVisible, modalMessage, closeModal, onAuthSuccess } =
+    useAuthGuard()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileSearchQuery, setMobileSearchQuery] = useState("")
