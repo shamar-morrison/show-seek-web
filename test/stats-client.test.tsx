@@ -104,6 +104,29 @@ describe("Stats & History screens", () => {
       "/movie/101",
     )
   })
+  it("matches mobile's Watched tab count when multiple episodes share one row", () => {
+    const c = new HistoryCalculator(
+      {
+        ...source,
+        episodes: [
+          source.episodes[0],
+          { ...source.episodes[0], episodeId: 2, episodeNumber: 2 },
+        ],
+      },
+      now,
+    )
+    mockHistory.mockReturnValue({
+      ...result(),
+      detail: c.detail("2026-03", {}),
+    })
+    render(<StatsClient genres={{}} month="2026-03" />)
+    expect(screen.getByRole("button", { name: /Watched/ })).toHaveTextContent(
+      "Watched2",
+    )
+    expect(screen.getAllByRole("link", { name: /Grouped Show/ })).toHaveLength(
+      1,
+    )
+  })
   it("selects the first populated category when only ratings are available", () => {
     const c = new HistoryCalculator({ ...source, episodes: [], lists: [] }, now)
     mockHistory.mockReturnValue({

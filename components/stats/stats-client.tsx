@@ -354,6 +354,7 @@ export function StatsMonthDetail({ data }: { data: MonthlyDetail }) {
         className="mt-8 flex gap-2 overflow-x-auto border-b border-white/10 pb-4"
       >
         {(["watched", "rated", "added"] as const).map((tab) => {
+          // Mobile counts each watch, even when episodes render as one grouped row.
           const count =
             tab === "watched"
               ? data.stats.watched

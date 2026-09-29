@@ -27,6 +27,8 @@ export function useHistory(genreMap: Record<number, string>, month?: string) {
   const queries = useQueries({
     queries: HISTORY_COLLECTIONS.map((kind) => ({
       queryKey: historyKey(uid ?? "__unauthenticated__", kind),
+      // Do not consume Query's signal: getDocs cannot cancel its reads, so keep
+      // their results reusable across navigation. The cache guards account changes.
       queryFn: () =>
         cache.fetch(
           uid!,

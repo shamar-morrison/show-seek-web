@@ -64,6 +64,43 @@ function mobileFixture(): HistorySource {
 }
 
 describe("mobile history parity", () => {
+  it("normalizes malformed list containers and names without changing valid entries", () => {
+    for (const items of [
+      undefined,
+      null,
+      42,
+      "invalid",
+      [listDoc.data.items],
+    ]) {
+      expect(
+        normalizeHistoryDocuments("lists", [doc("bad", { name: 42, items })]),
+      ).toEqual([{ id: "bad", name: "", createdAt: 0, items: {} }])
+    }
+    const items = {
+      first: {
+        id: 101,
+        media_type: "movie",
+        runtimeMinutes: 120,
+        addedAt: { toMillis: () => now },
+      },
+      invalid: null,
+      primitive: "invalid",
+      second: { id: 500, media_type: "tv", addedAt: now },
+    }
+    const [list] = normalizeHistoryDocuments("lists", [
+      doc("valid", { name: "List", items }),
+    ])
+    expect(list).toEqual({
+      id: "valid",
+      name: "List",
+      createdAt: 0,
+      items: { first: { ...items.first, addedAt: now }, second: items.second },
+    })
+    expect(Object.keys(list.items)).toEqual(["first", "second"])
+    expect(
+      normalizeHistoryDocuments("lists", [doc("missing", {})])[0].name,
+    ).toBe("")
+  })
   it("ports the mobile stamped/fallback fixture: 252 minutes and four watches", () => {
     const source = mobileFixture()
     const calculator = new HistoryCalculator(source, now)

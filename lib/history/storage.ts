@@ -25,14 +25,19 @@ export function createHistoryStorage(): HistoryStorage {
       if (typeof indexedDB === "undefined")
         return reject(new Error("IndexedDB unavailable"))
       const request = indexedDB.open("showseek-history", 1)
-      const timeout = setTimeout(
-        () => reject(new Error("History storage timed out")),
-        2000,
-      )
+      let abandoned = false
+      const timeout = setTimeout(() => {
+        abandoned = true
+        reject(new Error("History storage timed out"))
+      }, 2000)
       request.onupgradeneeded = () =>
         request.result.createObjectStore("history")
       request.onsuccess = () => {
         clearTimeout(timeout)
+        if (abandoned) {
+          request.result.close()
+          return
+        }
         resolve(request.result)
       }
       request.onerror = () => {
@@ -41,6 +46,7 @@ export function createHistoryStorage(): HistoryStorage {
       }
       request.onblocked = () => {
         clearTimeout(timeout)
+        abandoned = true
         reject(new Error("History storage blocked"))
       }
     }))

@@ -40,11 +40,15 @@ export function normalizeHistoryDocuments<K extends HistoryCollection>(
   }
   return docs.map(({ id, data }) => ({
     id,
-    name: data.name,
+    name: typeof data.name === "string" ? data.name : "",
     createdAt: toMillis(data.createdAt) ?? 0,
     items: Object.fromEntries(
       Object.entries(
-        (data.items ?? {}) as Record<string, Record<string, unknown>>,
+        (data.items !== null &&
+        typeof data.items === "object" &&
+        !Array.isArray(data.items)
+          ? data.items
+          : {}) as Record<string, Record<string, unknown>>,
       )
         .filter(([, item]) => item && typeof item === "object")
         .map(([key, item]) => [
