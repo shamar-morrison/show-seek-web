@@ -21,8 +21,8 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   try {
     const response = await tmdbFetch(`/tv/${tvId}/season/${season}`, {
-      next: { revalidate: 3600 },
-    }) // Cache for 1 hour
+      next: { revalidate: 604800 },
+    }) // Cache for 1 week
 
     if (!response.ok) {
       return NextResponse.json({ error: "Season not found" }, { status: 404 })
