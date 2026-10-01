@@ -3,6 +3,9 @@ import { getTVDetails } from "@/lib/tmdb"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+// Cache detail pages for 24h to reduce KV rewrites from crawlers.
+export const revalidate = 86400
+
 interface CreditsPageProps {
   params: Promise<{
     id: string

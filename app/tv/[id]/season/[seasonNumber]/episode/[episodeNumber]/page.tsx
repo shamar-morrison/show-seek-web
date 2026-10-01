@@ -3,6 +3,9 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { EpisodeDetailClient } from "./episode-detail-client"
 
+// Cache detail pages for 24h to reduce KV rewrites from crawlers.
+export const revalidate = 86400
+
 interface EpisodePageProps {
   params: Promise<{
     id: string

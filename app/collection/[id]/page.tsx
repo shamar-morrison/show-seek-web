@@ -4,6 +4,9 @@ import { compareTmdbDateStrings } from "@/lib/tmdb-date"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+// Cache detail pages for 24h to reduce KV rewrites from crawlers.
+export const revalidate = 86400
+
 interface CollectionPageProps {
   params: Promise<{
     id: string

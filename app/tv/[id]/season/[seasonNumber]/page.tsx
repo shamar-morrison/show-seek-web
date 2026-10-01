@@ -3,6 +3,9 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { SeasonDetailClient } from "./season-detail-client"
 
+// Cache detail pages for 24h to reduce KV rewrites from crawlers.
+export const revalidate = 86400
+
 interface SeasonPageProps {
   params: Promise<{
     id: string

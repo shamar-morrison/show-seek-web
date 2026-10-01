@@ -10,6 +10,9 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+// Cache detail pages for 24h to reduce KV rewrites from crawlers.
+export const revalidate = 86400
+
 interface PersonPageProps {
   params: Promise<{
     id: string

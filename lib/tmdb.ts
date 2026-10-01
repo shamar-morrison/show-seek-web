@@ -1759,9 +1759,11 @@ export async function discoverMedia(
   try {
     const response = await tmdbFetch(
       `/discover/${mediaType}`,
-      { next: { revalidate: 300 } },
+      // Every filter combination creates its own KV entry; use a 1-hour TTL
+      // instead of 5 minutes so each entry isn't rewritten every 5 minutes.
+      { next: { revalidate: 3600 } },
       queryParams,
-    ) // Cache for 5 minutes
+    ) // Cache for 1 hour
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)

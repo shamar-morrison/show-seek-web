@@ -5,42 +5,28 @@ const SITE_URL = "https://show-seek.app"
 /**
  * Robots rules for ShowSeek (served at /robots.txt).
  *
- * AhrefsBot and the Awario crawler family were observed (Sep 18-22, 2026) systematically
- * enumerating the effectively infinite /movie/[id], /tv/[id], and
- * /person/[id] detail routes at ~2 req/sec around the clock. Every
- * first-touch detail URL fans out to several TMDB API calls and KV
- * fetch-cache writes, which drove a ~175x KV write spike and ~1.4M
- * accumulated cache keys in four days. These crawlers add no search
- * traffic value, so they are disallowed entirely while all other
- * user agents (including Googlebot, which only needs the sitemap
- * browse routes) remain allowed.
+ * Only Google's crawlers are welcome. All other bots are also blocked at the
+ * Cloudflare WAF (rule "Block all bots except Googlebot"), so this file is
+ * the polite, advisory layer; the WAF is the enforcement layer.
  *
- * Awario documents three user-agent forms (https://awario.com/bots.html),
- * so all three are listed explicitly: AwarioBot, AwarioSmartBot,
- * AwarioRssBot.
+ * History: AhrefsBot/Awario (Sep 18-22, 2026) and ShapBot/Applebot
+ * (Sep 28-30, 2026) enumerated the effectively infinite /movie/[id],
+ * /tv/[id], /person/[id] routes, causing millions of KV cache writes.
+ *
+ * Googlebot is kept out of filter/search combinations, which are
+ * high-cardinality and produce a cache entry per query string.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
-        userAgent: "AhrefsBot",
-        disallow: "/",
-      },
-      {
-        userAgent: "AwarioBot",
-        disallow: "/",
-      },
-      {
-        userAgent: "AwarioSmartBot",
-        disallow: "/",
-      },
-      {
-        userAgent: "AwarioRssBot",
-        disallow: "/",
+        userAgent: ["Googlebot", "Google-InspectionTool"],
+        allow: "/",
+        disallow: ["/api/", "/search", "/discover?*"],
       },
       {
         userAgent: "*",
-        allow: "/",
+        disallow: "/",
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
