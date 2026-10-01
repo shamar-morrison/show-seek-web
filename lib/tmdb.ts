@@ -335,7 +335,7 @@ async function fetchMediaListPaginated(
   try {
     const response = await tmdbFetch(
       endpoint,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 86400 } },
       { page: String(page) },
     )
 
@@ -374,7 +374,7 @@ export async function getTrendingMoviesPaginated(
   try {
     const response = await tmdbFetch(
       "/trending/movie/day",
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 86400 } },
       { page: String(page) },
     )
 
@@ -416,7 +416,7 @@ export async function getTrendingTVPaginated(
   try {
     const response = await tmdbFetch(
       "/trending/tv/day",
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 86400 } },
       { page: String(page) },
     )
 
@@ -1140,8 +1140,8 @@ export async function getSeasonDetails(
 
   try {
     const response = await tmdbFetch(`/tv/${tvId}/season/${seasonNumber}`, {
-      next: { revalidate: 3600 },
-    }) // Cache for 1 hour
+      next: { revalidate: 604800 },
+    }) // Cache for 1 week
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)
@@ -1211,7 +1211,7 @@ export async function getEpisodeDetails(
   try {
     const response = await tmdbFetch(
       `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { next: { revalidate: 604800 } }, // Cache for 1 week
       { append_to_response: "images,videos" },
     )
 
@@ -1470,6 +1470,7 @@ export async function getRecommendations(
     `/${mediaType}/${mediaId}/recommendations`,
     mediaType,
     "Failed to fetch recommendations:",
+    86400,
   )
 }
 
@@ -1759,11 +1760,11 @@ export async function discoverMedia(
   try {
     const response = await tmdbFetch(
       `/discover/${mediaType}`,
-      // Every filter combination creates its own KV entry; use a 1-hour TTL
-      // instead of 5 minutes so each entry isn't rewritten every 5 minutes.
-      { next: { revalidate: 3600 } },
+      // Every filter combination would create its own KV entry; bypass the
+      // incremental cache entirely so discover never writes to KV.
+      { cache: "no-store" },
       queryParams,
-    ) // Cache for 1 hour
+    )
 
     if (!response.ok) {
       throw new Error(`TMDB API error: ${response.status}`)

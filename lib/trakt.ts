@@ -140,7 +140,7 @@ export async function getTraktMediaComments(
       const response = await fetch(url, {
         headers,
         next: {
-          revalidate: 3600, // Cache comments for 1 hour
+          revalidate: 86400, // Cache comments for 24 hours
         },
       })
 
